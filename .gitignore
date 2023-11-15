@@ -74,7 +74,7 @@ remill_disass.egg-info/*
 
 # Executables
 *.exe
-*.out
+# *.out
 *.app
 
 *.pyc
