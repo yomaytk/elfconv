@@ -3,22 +3,22 @@
 #include <cstdint>
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
-#include "memory.h"
+#include "Memory.h"
 
 State g_state = State();
 RuntimeManager *g_run_mgr;
 
 int main(int argc, char* argv[]) {
 
-  std::vector<EmulatedMemory*> emulated_memorys;
+  std::vector<MappedMemory*> emulated_memorys;
 
   /* allocate Stack */
-  emulated_memorys.push_back(EmulatedMemory::VMAStackEntryInit(argc, argv, &g_state));
+  emulated_memorys.push_back(MappedMemory::VMAStackEntryInit(argc, argv, &g_state));
   /* allocate Heap */
-  emulated_memorys.push_back(EmulatedMemory::VMAHeapEntryInit());
+  emulated_memorys.push_back(MappedMemory::VMAHeapEntryInit());
   /* allocate every sections */
   for (int i = 0; i < __g_data_sec_num; i++) {
-    emulated_memorys.push_back( new EmulatedMemory(
+    emulated_memorys.push_back( new MappedMemory(
       MemoryAreaType::DATA,
       reinterpret_cast<const char*>(__g_data_sec_name_ptr_array[i]),
       __g_data_sec_vma_array[i],

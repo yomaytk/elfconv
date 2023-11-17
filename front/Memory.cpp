@@ -3,9 +3,9 @@
 #define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx, ", g_state.gpr.x##index.qword)
 
 /* 
-  EmulatedMemory 
+  MappedMemory 
 */
-EmulatedMemory *EmulatedMemory::VMAStackEntryInit(int argc, char *argv[], State *state /* start stack pointer */) {
+MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *state /* start stack pointer */) {
   _ecv_reg64_t sp;
   addr_t vma = STACK_START_VMA; 
   uint64_t len = STACK_SIZE; 
@@ -69,18 +69,18 @@ EmulatedMemory *EmulatedMemory::VMAStackEntryInit(int argc, char *argv[], State 
   auto argc64 = (_ecv_reg64_t)argc;
   memcpy(bytes + (sp - vma), &argc64, sizeof(_ecv_reg64_t));
   state->gpr.sp.qword = sp;
-  return new EmulatedMemory(MemoryAreaType::STACK, "Stack", vma, len, bytes, bytes + len, true);
+  return new MappedMemory(MemoryAreaType::STACK, "Stack", vma, len, bytes, bytes + len, true);
 }
 
-EmulatedMemory *EmulatedMemory::VMAHeapEntryInit() {
+MappedMemory *MappedMemory::VMAHeapEntryInit() {
   auto bytes = reinterpret_cast<uint8_t*>(malloc(HEAP_SIZE));
   auto upper_bytes = bytes + HEAP_SIZE;
-  auto heap = new EmulatedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA, HEAP_SIZE, bytes, upper_bytes, true);
+  auto heap = new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA, HEAP_SIZE, bytes, upper_bytes, true);
   heap->heap_cur = HEAPS_START_VMA;
   return heap;
 }
 
-void EmulatedMemory::DebugEmulatedMemory() {
+void MappedMemory::DebugEmulatedMemory() {
   printf("memory_area_type: ");
   switch (memory_area_type)
   {
@@ -115,7 +115,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   void *pma_addr = nullptr;
   /* search in every emulated memory */
   bool vma_allocated = false;
-  for(auto &memory : emulated_memorys) {
+  for(auto &memory : mapped_memorys) {
     if (memory->vma <= vma_addr && vma_addr < memory->vma + memory->len) {
           /* 
             for Debug (we should break out this loop at the same time of finding the target emulated memory) 
@@ -132,7 +132,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   }
   if (!vma_allocated) {
     printf("[ERROR] The accessed memory is not mapped. vma_addr: 0x%016llx, pc: %016llx\nHeap vma: %016llx, Heap len: %016llx\n",
-             vma_addr, g_state.gpr.pc.qword, emulated_memorys[1]->vma, emulated_memorys[1]->len);
+             vma_addr, g_state.gpr.pc.qword, mapped_memorys[1]->vma, mapped_memorys[1]->len);
     debug_state_machine();
     abort();
   }

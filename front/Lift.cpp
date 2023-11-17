@@ -15,8 +15,10 @@
  */
 
 #include "remill/BC/Lifter.h"
-#include "Lift.h"
 #include "remill/BC/Util.h"
+
+#include "Lift.h"
+#include "MainLifter.h"
 
 DEFINE_string(bc_out, "",
               "Name of the file in which to place the generated bitcode.");
@@ -172,7 +174,7 @@ extern "C" int main(int argc, char *argv[]) {
   auto module = remill::LoadArchSemantics(arch.get());
 
   remill::IntrinsicTable intrinsics(module.get());
-  remill::TraceLifter trace_lifter(arch.get(), manager);
+  MainLifter main_lifter(arch.get(), &manager);
 
   std::unordered_map<uint64_t, const char*> addr_fn_map;
 
@@ -189,16 +191,16 @@ extern "C" int main(int argc, char *argv[]) {
         break;
       }
     }
-    trace_lifter.SetControlFlowDebugList(control_flow_debug_list);
+    main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
   /* declare debug function */
-  trace_lifter.DeclareDebugStateMachine();
-  trace_lifter.DeclareDebugPC();
+  main_lifter.DeclareDebugStateMachine();
+  main_lifter.DeclareDebugPC();
 #endif
 
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-    if (!trace_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
+    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
       printf("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
       exit(EXIT_FAILURE);
     }
@@ -212,25 +214,25 @@ extern "C" int main(int argc, char *argv[]) {
     printf("[ERROR] We couldn't find entry function.\n");
     exit(EXIT_FAILURE);
   } else {
-    trace_lifter.SetEntryPoint(manager.entry_func_lifted_name);
+    main_lifter.SetEntryPoint(manager.entry_func_lifted_name);
   }
   /* set ELF header info */
-  trace_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
+  main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
   /* set lifted function pointer table (necessary for indirect call) */
-  trace_lifter.SetLiftedFunPtrTable(addr_fn_map);
+  main_lifter.SetLiftedFunPtrTable(addr_fn_map);
   /* set Platform name (FIXME) */
-  trace_lifter.SetPlatform("unknown");
+  main_lifter.SetPlatform("unknown");
   /* set entry point */
-  trace_lifter.SetEntryPC(manager.entry_point);
+  main_lifter.SetEntryPC(manager.entry_point);
   /* set data section */
-  trace_lifter.SetDataSections(manager.elf_obj.sections);
+  main_lifter.SetDataSections(manager.elf_obj.sections);
   /* define prerefered functions */
   for (auto [addr, pre_refered] : manager.prerefered_func_addrs) {
     if (!pre_refered) {
       continue;
     }
     auto lifted_func_name = manager.disasm_funcs[addr].func_name;
-    trace_lifter.DefinePreReferedFunction(
+    main_lifter.DefinePreReferedFunction(
       manager.Sub_FuncName(addr), 
       lifted_func_name, 
       remill::LLVMFunTypeIdent::NULL_FUN_TY

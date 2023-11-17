@@ -30,6 +30,9 @@
 
 namespace remill {
 
+/* 
+  TraceManager methods
+*/
 TraceManager::~TraceManager(void) {}
 
 // Return an already lifted trace starting with the code at address
@@ -60,181 +63,9 @@ std::string TraceManager::TraceName(uint64_t addr) {
   return ss.str();
 }
 
-namespace {
-
-using DecoderWorkList = std::set<uint64_t>;  // For ordering.
-
-}  // namespace
-
-class TraceLifter::Impl {
- public:
-  Impl(const Arch *arch_, TraceManager *manager_);
-
-  // Lift one or more traces starting from `addr`. Calls `callback` with each
-  // lifted trace.
-  bool Lift(uint64_t addr, const char* fn_name = "",
-            std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
-
-  // Reads the bytes of an instruction at `addr` into `state.inst_bytes`.
-  bool ReadInstructionBytes(uint64_t addr);
-
-  // Return an already lifted trace starting with the code at address
-  // `addr`.
-  //
-  // NOTE: This is guaranteed to return either `nullptr`, or a function
-  //       within `module`.
-  llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
-
-  // Return an already lifted trace starting with the code at address
-  // `addr`.
-  //
-  // NOTE: This is guaranteed to return either `nullptr`, or a function
-  //       within `module`.
-  llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
-
-  // Set entry function pointer
-  llvm::GlobalVariable *SetEntryPoint(std::string &entry_func_name);
-
-  // Set entry PC
-  llvm::GlobalVariable *SetEntryPC(uint64_t pc);
-
-  // Define pre-refered function
-  llvm::Function *DefinePreReferedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id);
-
-  // Get pre-defined function (extern function is included)
-  llvm::Function *GetDefinedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id);
-
-  // Convert LLVMFunTypeIdent to llvm::FunctionType
-  llvm::FunctionType *FunTypeID_2_FunType (LLVMFunTypeIdent llvm_fn_ty_id);
-
-  // Set data sections
-  llvm::GlobalVariable *SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
-
-  /* Set ELF program header info */
-  llvm::GlobalVariable *SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph);
-
-  /* Set platform name */
-  llvm::GlobalVariable *SetPlatform(const char *platform_name);
-
-  /* Set lifted function pointer table */
-  llvm::GlobalVariable *SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map);
-
-  /* Set control flow debug list */
-  void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list);
-  
-  /* Declare debug_state_machine function */
-  llvm::Function *DeclareDebugStateMachine();
-
-  /* Declare debug_pc function */
-  llvm::Function *DeclareDebugPC();
-
-  llvm::BasicBlock *GetOrCreateBlock(uint64_t block_pc) {
-    auto &block = blocks[block_pc];
-    if (!block) {
-      block = llvm::BasicBlock::Create(context, "", func);
-    }
-    return block;
-  }
-
-  llvm::BasicBlock *GetOrCreateBranchTakenBlock(void) {
-    inst_work_list.insert(inst.branch_taken_pc);
-    return GetOrCreateBlock(inst.branch_taken_pc);
-  }
-
-  llvm::BasicBlock *GetOrCreateBranchNotTakenBlock(void) {
-    CHECK(inst.branch_not_taken_pc != 0);
-    inst_work_list.insert(inst.branch_not_taken_pc);
-    return GetOrCreateBlock(inst.branch_not_taken_pc);
-  }
-
-  llvm::BasicBlock *GetOrCreateNextBlock(void) {
-    inst_work_list.insert(inst.next_pc);
-    return GetOrCreateBlock(inst.next_pc);
-  }
-
-  uint64_t PopTraceAddress(void) {
-    auto trace_it = trace_work_list.begin();
-    const auto trace_addr = *trace_it;
-    trace_work_list.erase(trace_it);
-    return trace_addr;
-  }
-
-  uint64_t PopInstructionAddress(void) {
-    auto inst_it = inst_work_list.begin();
-    const auto inst_addr = *inst_it;
-    inst_work_list.erase(inst_it);
-    return inst_addr;
-  }
-
-  const Arch *const arch;
-  const remill::IntrinsicTable *intrinsics;
-  llvm::Type *word_type;
-  llvm::LLVMContext &context;
-  llvm::Module *const module;
-  const uint64_t addr_mask;
-  TraceManager &manager;
-
-  llvm::Function *func;
-  llvm::BasicBlock *block;
-  llvm::SwitchInst *switch_inst;
-  const size_t max_inst_bytes;
-  std::string inst_bytes;
-  Instruction inst;
-  Instruction delayed_inst;
-  std::unordered_map<uint64_t, bool> control_flow_debug_list;
-  DecoderWorkList trace_work_list;
-  DecoderWorkList inst_work_list;
-  std::map<uint64_t, llvm::BasicBlock *> blocks;
-  std::string g_entry_func_name;
-  std::string g_entry_pc_name;
-  std::string data_sec_name_array_name;
-  std::string data_sec_vma_array_name;
-  std::string data_sec_size_array_name;
-  std::string data_sec_bytes_array_name;
-  std::string data_sec_num_name;
-  std::string e_phent_name;
-  std::string e_phnum_name;
-  std::string e_ph_name;
-  std::string g_platform_name;
-  std::string g_addr_list_name;
-  std::string g_fun_ptr_table_name;
-  std::string debug_state_machine_name;
-  std::string debug_pc_name;
-};
-
-TraceLifter::Impl::Impl(const Arch *arch_, TraceManager *manager_)
-    : arch(arch_),
-      intrinsics(arch->GetInstrinsicTable()),
-      word_type(arch->AddressType()),
-      context(word_type->getContext()),
-      module(intrinsics->async_hyper_call->getParent()),
-      addr_mask(arch->address_size >= 64 ? ~0ULL
-                                         : (~0ULL >> arch->address_size)),
-      manager(*manager_),
-      func(nullptr),
-      block(nullptr),
-      switch_inst(nullptr),
-      // TODO(Ian): The trace lfiter is not supporting contexts
-      max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
-      g_entry_func_name("__g_entry_func"),
-      g_entry_pc_name("__g_entry_pc"),
-      data_sec_name_array_name("__g_data_sec_name_ptr_array"),
-      data_sec_vma_array_name("__g_data_sec_vma_array"),
-      data_sec_size_array_name("__g_data_sec_size_array"),
-      data_sec_bytes_array_name("__g_data_sec_bytes_ptr_array"),
-      data_sec_num_name("__g_data_sec_num"),
-      e_phent_name("__g_e_phent"),
-      e_phnum_name("__g_e_phnum"),
-      e_ph_name("__g_e_ph"),
-      g_platform_name("__g_platform_name"),
-      g_addr_list_name("__g_fn_vmas"),
-      g_fun_ptr_table_name("__g_fn_ptr_table"),
-      debug_state_machine_name("debug_state_machine"),
-      debug_pc_name("debug_pc") {
-
-  inst_bytes.reserve(max_inst_bytes);
-}
-
+/*
+  TraceLifter::Impl methods
+*/
 // Return an already lifted trace starting with the code at address
 // `addr`.
 llvm::Function *TraceLifter::Impl::GetLiftedTraceDeclaration(uint64_t addr) {
@@ -274,339 +105,47 @@ llvm::Function *TraceLifter::Impl::GetLiftedTraceDefinition(uint64_t addr) {
   return extern_func;
 }
 
-// Set entry function pointer
-llvm::GlobalVariable *TraceLifter::Impl::SetEntryPoint(std::string &entry_func_name) {
-    
-  auto entry_func = module->getFunction(entry_func_name);
-  // no defined entry function
-  if (!entry_func) {
-    printf("[ERROR] Entry function is not defined. func_name: %s\n", entry_func_name.c_str());
-    abort();
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
+  auto &block = blocks[block_pc];
+  if (!block) {
+    block = llvm::BasicBlock::Create(context, "", func);
   }
-  auto g_entry_func = new llvm::GlobalVariable(
-    *module, 
-    entry_func->getType(),
-    true, 
-    llvm::GlobalVariable::ExternalLinkage, 
-    entry_func, 
-    g_entry_func_name
-  );
-  g_entry_func->setAlignment(llvm::MaybeAlign(8));
-  
-  return g_entry_func;
+  return block;
 }
 
-// Set entry pc
-llvm::GlobalVariable *TraceLifter::Impl::SetEntryPC(uint64_t pc) {
-  
-  auto ty = llvm::Type::getInt64Ty(context);
-  auto entry_pc = new llvm::GlobalVariable(
-    *module,
-    ty,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantInt::get(ty, pc),
-    g_entry_pc_name
-  );
-  entry_pc->setAlignment(llvm::MaybeAlign(8));
-  
-  return entry_pc;
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBranchTakenBlock(void) {
+  inst_work_list.insert(inst.branch_taken_pc);
+  return GetOrCreateBlock(inst.branch_taken_pc);
 }
 
-// Define pre-referenced function
-llvm::Function *TraceLifter::Impl::DefinePreReferedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-  
-  auto callee_fun = GetDefinedFunction(fun_name, callee_fun_name, llvm_fn_ty_id);
-
-  // generate sub function
-  llvm::Function *sub_fn;
-  sub_fn = module->getFunction(fun_name);
-  if (!sub_fn) {
-    sub_fn = arch->DeclareLiftedFunction(fun_name, module);
-  }
-  // insert callee basic block
-  auto *callee_bb = llvm::BasicBlock::Create(context, "entry", sub_fn);
-  llvm::IRBuilder<> ir(callee_bb);
-  std::vector<llvm::Value*> callee_args;
-  for (size_t _arg_i = 0;_arg_i < sub_fn->arg_size();_arg_i++) {
-    callee_args.emplace_back(sub_fn->getArg(_arg_i));
-  }
-  llvm::AllocaInst *mem_ptr_reg = ir.CreateAlloca(word_type, nullptr, kMemoryVariableName);
-  mem_ptr_reg->setAlignment(llvm::Align(8));
-  // if callee_fun return void, 
-  if (callee_fun->getReturnType()->isVoidTy()) {
-    ir.CreateStore(
-      llvm::Constant::getNullValue(word_type),
-      mem_ptr_reg
-    );
-    ir.CreateCall(callee_fun, callee_args);
-  } else {
-    ir.CreateStore(
-      ir.CreateCall(callee_fun, callee_args),
-      mem_ptr_reg
-    );
-  }
-  ir.CreateRet(mem_ptr_reg);
-
-  return sub_fn;
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBranchNotTakenBlock(void) {
+  CHECK(inst.branch_not_taken_pc != 0);
+  inst_work_list.insert(inst.branch_not_taken_pc);
+  return GetOrCreateBlock(inst.branch_not_taken_pc);
 }
 
-// Generate LLVM function which call extern function
-llvm::Function *TraceLifter::Impl::GetDefinedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-
-  llvm::Function *callee_fun;
-  if (LLVMFunTypeIdent::NULL_FUN_TY == llvm_fn_ty_id) {
-    callee_fun = module->getFunction(callee_fun_name);
-    if (!callee_fun) {
-      printf("[ERROR] No defined function (%s) is pre-referenced.\n", callee_fun_name.c_str());
-      abort();
-    }
-  } else {
-    callee_fun = llvm::cast<llvm::Function>(
-      module->getOrInsertFunction(callee_fun_name, arch->LiftedFunctionType()).getCallee()
-    );
-    callee_fun->setLinkage(llvm::GlobalVariable::ExternalLinkage);
-  }
-  
-  return callee_fun;
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateNextBlock(void) {
+  inst_work_list.insert(inst.next_pc);
+  return GetOrCreateBlock(inst.next_pc);
 }
 
-// Convert LLVMFunTypeIdent to llvm::FunctionType
-llvm::FunctionType *TraceLifter::Impl::FunTypeID_2_FunType(LLVMFunTypeIdent llvm_fn_ty_id) {
-  
-  llvm::FunctionType *fun_type = nullptr;
-  switch (llvm_fn_ty_id)
-  {
-  case LLVMFunTypeIdent::VOID_VOID:
-    fun_type = llvm::FunctionType::get(
-      llvm::Type::getVoidTy(context),
-      {},
-      false
-    );
-    break;
-  default:
-    printf("[ERROR] The arg of TraceLifter::Impl::FunType_2_FunType must not be LLVMFunTypeIdent::NULL.\n");
-    abort();
-    break;
-  }
-
-  return fun_type;
+uint64_t TraceLifter::Impl::PopTraceAddress(void) {
+  auto trace_it = trace_work_list.begin();
+  const auto trace_addr = *trace_it;
+  trace_work_list.erase(trace_it);
+  return trace_addr;
 }
 
-llvm::GlobalVariable *TraceLifter::Impl::SetDataSections(std::vector<BinaryLoader::ELFSection> &sections) {
-
-  std::vector<llvm::Constant*> data_sec_name_ptr_array, data_sec_vma_array, data_sec_size_array, data_sec_bytes_ptr_array;
-  uint64_t data_sec_num = 0;
-
-  for (auto &section : sections) {
-    if (BinaryLoader::ELFSection::SEC_TYPE_CODE == section.sec_type || BinaryLoader::ELFSection::SEC_TYPE_UNKNOWN == section.sec_type) {
-      continue;
-    }
-    // add global data section "sec_name"
-    auto sec_name_val = llvm::ConstantDataArray::getString(context, section.sec_name, true);
-    auto __sec_name = new llvm::GlobalVariable(
-      *module,
-      sec_name_val->getType(),
-      true,
-      llvm::GlobalVariable::ExternalLinkage,
-      sec_name_val,
-      "__private_" + section.sec_name + "_sec_name"
-    );
-    __sec_name->setUnnamedAddr(llvm::GlobalVariable::UnnamedAddr::Global);
-    __sec_name->setAlignment(llvm::Align(1));
-    data_sec_name_ptr_array.emplace_back(llvm::ConstantExpr::getBitCast(__sec_name, llvm::Type::getInt8PtrTy(context)));
-    // gen data section "vma"
-    data_sec_vma_array.emplace_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), section.vma));
-    // gen data section "size"
-    data_sec_size_array.emplace_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), section.size));
-    // add global data section "bytes"
-    auto sec_bytes_val = llvm::ConstantDataArray::get(context, llvm::ArrayRef<uint8_t>(section.bytes, section.size));
-    auto __sec_bytes = new llvm::GlobalVariable(
-      *module,
-      sec_bytes_val->getType(),
-      false,
-      llvm::GlobalVariable::ExternalLinkage,
-      sec_bytes_val,
-      "__private_" + section.sec_name + "_bytes"
-    );
-    __sec_bytes->setUnnamedAddr(llvm::GlobalVariable::UnnamedAddr::Global);
-    __sec_bytes->setAlignment(llvm::Align(1));
-    data_sec_bytes_ptr_array.emplace_back(llvm::ConstantExpr::getBitCast(__sec_bytes, llvm::Type::getInt8PtrTy(context)));
-    data_sec_num++;
-  }
-
-  // add data section nums
-  new llvm::GlobalVariable(
-    *module,
-    llvm::Type::getInt64Ty(context),
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), data_sec_num),
-    data_sec_num_name
-  );
-
-  auto array_sec_name_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), data_sec_name_ptr_array.size());
-  auto array_sec_vma_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), data_sec_vma_array.size());
-  auto array_sec_size_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), data_sec_size_array.size());
-  auto array_sec_bytes_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), data_sec_bytes_ptr_array.size());
-  
-  // add section "name" ptr array
-  auto g_data_sec_name_array = new llvm::GlobalVariable(
-    *module,
-    array_sec_name_ptr_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_name_ptr_type, data_sec_name_ptr_array),
-    data_sec_name_array_name 
-  );
-  // add section "vma" array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_vma_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_vma_type, data_sec_vma_array),
-    data_sec_vma_array_name 
-  );
-  // add section "size" array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_size_type,
-    false,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_size_type, data_sec_size_array),
-    data_sec_size_array_name 
-  );
-  // add section "bytes" ptr array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_bytes_ptr_type,
-    false,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_bytes_ptr_type, data_sec_bytes_ptr_array),
-    data_sec_bytes_array_name 
-  );
-
-  return g_data_sec_name_array;
+uint64_t TraceLifter::Impl::PopInstructionAddress(void) {
+  auto inst_it = inst_work_list.begin();
+  const auto inst_addr = *inst_it;
+  inst_work_list.erase(inst_it);
+  return inst_addr;
 }
 
-llvm::GlobalVariable *TraceLifter::Impl::SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph) {
-  
-  /* Define e_phent */
-  new llvm::GlobalVariable(
-    *module,
-    llvm::Type::getInt64Ty(context),
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), e_phent),
-    e_phent_name
-  );
-  /* Define e_phnum */
-  new llvm::GlobalVariable(
-    *module,
-    llvm::Type::getInt64Ty(context),
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), e_phnum),
-    e_phnum_name
-  );
-  /* Define e_ph */
-  auto e_phdrs_size = e_phent * e_phnum;
-  auto e_ph_constants = llvm::ConstantDataArray::get(context, llvm::ArrayRef<uint8_t>(e_ph, e_phdrs_size));
-  auto g_e_ph = new llvm::GlobalVariable(
-    *module,
-    e_ph_constants->getType(),
-    false,
-    llvm::GlobalVariable::ExternalLinkage,
-    e_ph_constants,
-    e_ph_name
-  );
-  g_e_ph->setUnnamedAddr(llvm::GlobalVariable::UnnamedAddr::Global);
-  g_e_ph->setAlignment(llvm::Align(1));
-
-  return g_e_ph;
-}
-
-llvm::GlobalVariable *TraceLifter::Impl::SetPlatform(const char *platform_name) {
-  auto platform_name_val = llvm::ConstantDataArray::getString(context, platform_name, true);
-  return new llvm::GlobalVariable(
-    *module,
-    platform_name_val->getType(),
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    platform_name_val,
-    g_platform_name
-  );
-}
-
-/* Set lifted function pointer table */
-llvm::GlobalVariable *TraceLifter::Impl::SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
-  
-  std::vector<llvm::Constant*> addr_list, fn_ptr_list;
-
-  for (auto& [addr, fn_name] : addr_fn_map) {
-    auto lifted_fun = module->getFunction(fn_name);
-    if (!lifted_fun) {
-      printf("[ERROR] lifted fun \"%s\" cannot be found.\n", fn_name);
-      abort();
-    }
-    addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), addr));
-    fn_ptr_list.push_back(lifted_fun);
-  }
-  /* insert guard */
-  addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0));
-  /* define global fn ptr table */
-  auto addr_list_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), addr_list.size());
-  auto fn_ptr_list_type = llvm::ArrayType::get(fn_ptr_list[0]->getType(), fn_ptr_list.size());
-  new llvm::GlobalVariable(
-    *module,
-    addr_list_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(addr_list_type, addr_list),
-    g_addr_list_name
-  );
-  return new llvm::GlobalVariable(
-    *module,
-    fn_ptr_list_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(fn_ptr_list_type, fn_ptr_list),
-    g_fun_ptr_table_name
-  );
-}
-
-/* Set control flow debug list */
-void TraceLifter::Impl::SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {
-  control_flow_debug_list = __control_flow_debug_list;
-}
-
-llvm::Function *TraceLifter::Impl::DeclareDebugStateMachine() {
-  return llvm::Function::Create(
-    llvm::FunctionType::get(
-      llvm::Type::getVoidTy(context),
-      {},
-      false
-    ),
-    llvm::Function::ExternalLinkage,
-    debug_state_machine_name,
-    *module
-  );
-}
-
-llvm::Function *TraceLifter::Impl::DeclareDebugPC() {
-  return llvm::Function::Create(
-    llvm::FunctionType::get(
-      llvm::Type::getVoidTy(context),
-      {},
-      false
-    ),
-    llvm::Function::ExternalLinkage,
-    debug_pc_name,
-    *module
-  );
-}
-
+/*
+  TraceLifter methods
+*/
 TraceLifter::~TraceLifter(void) {}
 
 TraceLifter::TraceLifter(const Arch *arch_, TraceManager *manager_)
@@ -638,56 +177,6 @@ bool TraceLifter::Impl::ReadInstructionBytes(uint64_t addr) {
 bool TraceLifter::Lift(
     uint64_t addr, const char* fn_name, std::function<void(uint64_t, llvm::Function *)> callback) {
   return impl->Lift(addr, fn_name, callback);
-}
-
-// Set entry function pointer
-void TraceLifter::SetEntryPoint(std::string &entry_func_name) {
-  impl->SetEntryPoint(entry_func_name);
-}
-
-// Set entry pc
-void TraceLifter::SetEntryPC(uint64_t pc) {
-  impl->SetEntryPC(pc);
-}
-
-// Define pre-referenced function
-void TraceLifter::DefinePreReferedFunction(std::string sub_func_name, std::string lifted_func_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-  impl->DefinePreReferedFunction(sub_func_name, lifted_func_name, llvm_fn_ty_id);
-}
-
-// Set every data sections of the original ELF to LLVM bitcode
-void TraceLifter::SetDataSections(std::vector<BinaryLoader::ELFSection> &sections) {
-  impl->SetDataSections(sections);
-}
-
-/* Set ELF program header info */
-void TraceLifter::SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph) {
-  impl->SetELFPhdr(e_phent, e_phnum, e_ph);
-}
-
-/* Set Platform name */
-void TraceLifter::SetPlatform(const char* platform_name) {
-  impl->SetPlatform(platform_name);
-}
-
-/* Set lifted function pointer table */
-void TraceLifter::SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
-  impl->SetLiftedFunPtrTable(addr_fn_map);
-}
-
-/* Set Control Flow debug list */
-void TraceLifter::SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {
-  impl->SetControlFlowDebugList(__control_flow_debug_list);
-}
-
-// Declare debug_state_machine function
-void TraceLifter::DeclareDebugStateMachine() {
-  impl->DeclareDebugStateMachine();
-}
-
-/* Declare debug_pc function */
-void TraceLifter::DeclareDebugPC() {
-  impl->DeclareDebugPC();
 }
 
 // Lift one or more traces starting from `addr`.

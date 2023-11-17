@@ -2,7 +2,7 @@
 #include <cstdarg>
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
-#include "memory.h"
+#include "Memory.h"
 
 #define UNDEFINED_INTRINSICS(intrinsics) printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
                                           debug_state_machine(); \

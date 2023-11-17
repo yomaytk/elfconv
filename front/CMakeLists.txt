@@ -12,64 +12,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-find_package(GTest CONFIG REQUIRED)
-list(APPEND PROJECT_LIBRARIES GTest::gtest)
-
-enable_testing()
 enable_language(ASM)
 
 include_directories("/usr/lib/llvm-16/include")
 
-add_executable(lifting_target_aarch64
-  EXCLUDE_FROM_ALL
-  binary/loader.cpp
+add_executable(elflift
+  Binary/Loader.cpp
+  MainLifter.cpp
   Lift.cpp
 )
 
-set_target_properties(lifting_target_aarch64 PROPERTIES
+set_target_properties(elflift PROPERTIES
   POSITION_INDEPENDENT_CODE ON
   COMPILE_FLAGS "-O0 -fPIC -pie"
 )
 
-target_compile_options(lifting_target_aarch64
-  PRIVATE ${AARCH64_TEST_FLAGS}
-  -DIN_TEST_GENERATOR
-)
-
 target_link_libraries(
-  lifting_target_aarch64 
+  elflift 
   PRIVATE
   bfd
   elf
 )
 
-file(GLOB AARCH64_TEST_FILES
-  "${CMAKE_CURRENT_LIST_DIR}/*/*.S"
+target_link_libraries(elflift PUBLIC remill ${PROJECT_LIBRARIES} )
+target_include_directories(elflift PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
+target_include_directories(elflift PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_options(elflift PRIVATE -v)
+
+add_library(elfconv STATIC
+  Entry.cpp
+  MainLifter.cpp
+  Memory.cpp
+  Syscall.cpp
+  VmIntrinsics.cpp
 )
 
-set_target_properties(lifting_target_aarch64 PROPERTIES OBJECT_DEPENDS "${AARCH64_TEST_FILES}")
-
-target_link_libraries(lifting_target_aarch64 PUBLIC remill ${PROJECT_LIBRARIES} )
-target_include_directories(lifting_target_aarch64 PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
-target_include_directories(lifting_target_aarch64 PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_options(lifting_target_aarch64 PRIVATE -v)
-
-add_custom_command(
-  OUTPUT lifted_target_aarch64.bc
-  COMMAND lifting_target_aarch64 --arch aarch64 --bc_out lifted_target_aarch64.bc
-  DEPENDS lifting_target_aarch64 semantics
-)
-
-add_custom_command(
-  OUTPUT  lifted_target_aarch64.S
-  COMMAND ${CMAKE_BC_COMPILER}
-          -Wno-override-module
-          -S -O1 -g0
-          -c lifted_target_aarch64.bc
-          -o lifted_target_aarch64.S
-          -mllvm -opaque-pointers
-  DEPENDS lifted_target_aarch64.bc
-)
-
-message(STATUS "Adding New Target aarch64 as only liftin_target_aarch64: aarch64 as run-aarch64-tests")
-add_dependencies(test_dependencies lifting_target_aarch64)
+target_link_libraries(elfconv PUBLIC remill ${PROJECT_LIBRARIES} )
+target_include_directories(elfconv PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
+target_include_directories(elfconv PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_options(elfconv PRIVATE -v)

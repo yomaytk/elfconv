@@ -15,7 +15,7 @@ const uint64_t HEAP_SIZE = 1 * 1024 * 1024;  /* 1 MiB */
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
-class EmulatedMemory;
+class MappedMemory;
 class RuntimeManager;
 
 extern RuntimeManager *g_run_mgr;
@@ -68,17 +68,17 @@ enum class MemoryAreaType : uint8_t {
   OTHER,
 };
 
-class EmulatedMemory {
+class MappedMemory {
 
   public:
-    EmulatedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len, uint8_t *__bytes, uint8_t* __upper_bytes, bool __bytes_on_heap)
+    MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len, uint8_t *__bytes, uint8_t* __upper_bytes, bool __bytes_on_heap)
       : memory_area_type(__memory_area_type), name(__name), vma(__vma), len(__len), bytes(__bytes), bytes_on_heap(__bytes_on_heap), upper_bytes(__upper_bytes) {}
-    ~EmulatedMemory() {
+    ~MappedMemory() {
       if (bytes_on_heap)  free(bytes);
     }
 
-    static EmulatedMemory *VMAStackEntryInit(int argc, char *argv[], State *state /* start stack pointer */);
-    static EmulatedMemory *VMAHeapEntryInit();
+    static MappedMemory *VMAStackEntryInit(int argc, char *argv[], State *state /* start stack pointer */);
+    static MappedMemory *VMAHeapEntryInit();
     void DebugEmulatedMemory();
 
     MemoryAreaType memory_area_type;
@@ -94,20 +94,20 @@ class EmulatedMemory {
 
 class RuntimeManager {
   public:
-    RuntimeManager(std::vector<EmulatedMemory*> __emulated_memorys) : emulated_memorys(__emulated_memorys), addr_fn_map({}) {}
+    RuntimeManager(std::vector<MappedMemory*> __emulated_memorys) : mapped_memorys(__emulated_memorys), addr_fn_map({}) {}
     RuntimeManager() {}
     ~RuntimeManager() {
-      for (auto memory : emulated_memorys)
+      for (auto memory : mapped_memorys)
           delete(memory);
     }
     
     void *TranslateVMA(addr_t vma_addr);
     void DebugEmulatedMemorys() {
-      for (auto memory : emulated_memorys)
+      for (auto memory : mapped_memorys)
           memory->DebugEmulatedMemory();
     }
 
-    std::vector<EmulatedMemory*> emulated_memorys;
+    std::vector<MappedMemory*> mapped_memorys;
     /* heap area manage */
     addr_t heaps_end_addr;
     uint64_t heap_num;

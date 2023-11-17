@@ -12,7 +12,7 @@
 #include <sys/utsname.h>
 #include <sys/stat.h>
 
-#include "memory.h"
+#include "Memory.h"
 
 /*
     syscall number table
@@ -279,7 +279,7 @@ void __svc_call(void) {
       break;
     case AARCH64_SYS_BRK: /* brk (unsigned long brk) */
     {
-      auto heap_memory = g_run_mgr->emulated_memorys[1];
+      auto heap_memory = g_run_mgr->mapped_memorys[1];
       if (state_gpr.x0.qword == 0) {
         /* init program break (FIXME) */
         state_gpr.x0.qword = heap_memory->heap_cur;
@@ -299,7 +299,7 @@ void __svc_call(void) {
     case AARCH64_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* TODO */
     {
-      auto heap_memory = g_run_mgr->emulated_memorys[1];
+      auto heap_memory = g_run_mgr->mapped_memorys[1];
       if (state_gpr.x4.dword != -1) {
         printf("Unsupported mmap (X4=0x%08ld)\n", state_gpr.x4.dword);
         abort();

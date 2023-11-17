@@ -1,6 +1,6 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <gtest/gtest.h>
+// #include <gtest/gtest.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/Instructions.h>
@@ -26,7 +26,7 @@
 #include "remill/OS/OS.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Runtime.h"
-#include "binary/loader.h"
+#include "Binary/Loader.h"
 
 #ifdef __APPLE__
 #  define SYMBOL_PREFIX "_"

@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include <remill/BC/Lifter.h>
-#include <tests/Lifting/binary/loader.h>
-
+#include "remill/BC/Lifter.h"
+#include "remill/Arch/Arch.h"
 #include <functional>
 #include <unordered_map>
 
 namespace remill {
 
 using TraceMap = std::unordered_map<uint64_t, llvm::Function *>;
+using DecoderWorkList = std::set<uint64_t>;  // For ordering.
 
 enum class DevirtualizedTargetKind { kTraceLocal, kTraceHead };
 
@@ -89,6 +89,10 @@ class TraceManager {
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
+ protected:
+  class Impl;
+  std::unique_ptr<Impl> impl;
+
  public:
   ~TraceLifter(void);
 
@@ -96,6 +100,9 @@ class TraceLifter {
     : TraceLifter(arch_, &manager_) {}
     
   TraceLifter(const Arch *arch_, TraceManager *manager_);
+  
+  /* called derived class */
+  TraceLifter(Impl *impl_) : impl(impl_) {}
 
   static void NullCallback(uint64_t, llvm::Function *);
 
@@ -104,25 +111,87 @@ class TraceLifter {
   bool
   Lift(uint64_t addr, const char *fun_name = "",
        std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
-    
-  void SetEntryPoint(std::string &entry_func_name);
-  void SetEntryPC(uint64_t pc);
-  void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
-  void DefinePreReferedFunction(std::string sub_func_name, std::string lifted_func_name, LLVMFunTypeIdent llvm_fn_ty_id);
-  void SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph);
-  void SetPlatform(const char *platform_name);
-  void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
-  /* debug */
-  void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
-  void DeclareDebugStateMachine();
-  void DeclareDebugPC();
+
 
  private:
   TraceLifter(void) = delete;
 
-  class Impl;
+};
 
-  std::unique_ptr<Impl> impl;
+class TraceLifter::Impl {
+ public:
+  Impl(const Arch *arch_, TraceManager *manager_)
+    : arch(arch_),
+      intrinsics(arch->GetInstrinsicTable()),
+      word_type(arch->AddressType()),
+      context(word_type->getContext()),
+      module(intrinsics->async_hyper_call->getParent()),
+      addr_mask(arch->address_size >= 64 ? ~0ULL
+                                         : (~0ULL >> arch->address_size)),
+      manager(*manager_),
+      func(nullptr),
+      block(nullptr),
+      switch_inst(nullptr),
+      debug_pc_name("debug_pc"),
+      // TODO(Ian): The trace lfiter is not supporting contexts
+      max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())) {
+    inst_bytes.reserve(max_inst_bytes);
+  }
+  
+  // Lift one or more traces starting from `addr`. Calls `callback` with each
+  // lifted trace.
+  bool Lift(uint64_t addr, const char* fn_name = "",
+            std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
+
+  // Reads the bytes of an instruction at `addr` into `state.inst_bytes`.
+  bool ReadInstructionBytes(uint64_t addr);
+
+  // Return an already lifted trace starting with the code at address
+  // `addr`.
+  //
+  // NOTE: This is guaranteed to return either `nullptr`, or a function
+  //       within `module`.
+  llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
+
+  // Return an already lifted trace starting with the code at address
+  // `addr`.
+  //
+  // NOTE: This is guaranteed to return either `nullptr`, or a function
+  //       within `module`.
+  llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
+
+  llvm::BasicBlock *GetOrCreateBlock(uint64_t block_pc);
+
+  llvm::BasicBlock *GetOrCreateBranchTakenBlock(void);
+
+  llvm::BasicBlock *GetOrCreateBranchNotTakenBlock(void);
+
+  llvm::BasicBlock *GetOrCreateNextBlock(void);
+
+  uint64_t PopTraceAddress(void);
+
+  uint64_t PopInstructionAddress(void);
+
+  const Arch *const arch;
+  const remill::IntrinsicTable *intrinsics;
+  llvm::Type *word_type;
+  llvm::LLVMContext &context;
+  llvm::Module *const module;
+  const uint64_t addr_mask;
+  TraceManager &manager;
+
+  llvm::Function *func;
+  llvm::BasicBlock *block;
+  llvm::SwitchInst *switch_inst;
+  const size_t max_inst_bytes;
+  std::string inst_bytes;
+  Instruction inst;
+  Instruction delayed_inst;
+  std::unordered_map<uint64_t, bool> control_flow_debug_list;
+  DecoderWorkList trace_work_list;
+  DecoderWorkList inst_work_list;
+  std::map<uint64_t, llvm::BasicBlock *> blocks;
+  std::string debug_pc_name;
 };
 
 }  // namespace remill
