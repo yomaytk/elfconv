@@ -71,7 +71,7 @@ remill_disass.egg-info/*
 # Compiled Static libraries
 *.lai
 *.la
-*.a
+# *.a
 *.lib
 
 # Executables
