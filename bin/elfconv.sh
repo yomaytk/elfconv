@@ -9,10 +9,9 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
-# build Lift.cpp
 # $1 : path to target ELF
 echo "[INFO] ELF Converting Start."
-    elflift \
+    ./elflift \
     --arch aarch64 \
     --bc_out lift.bc \
     --target_elf "$1" \
@@ -21,4 +20,4 @@ echo "[INFO] Generate lift.bc."
 
 # generate executable by emscripten (target: wasm)
     $EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
-    $EMCC $EMCCFLAGS -o exe.wasm -L"${HOME}/.elfconv/lib" lift.o -lelfconv
+    $EMCC $EMCCFLAGS -o exe.wasm -L"./" lift.o -lelfconv

@@ -38,16 +38,3 @@ target_link_libraries(elflift PUBLIC remill ${PROJECT_LIBRARIES} )
 target_include_directories(elflift PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
 target_include_directories(elflift PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_options(elflift PRIVATE -v)
-
-add_library(elfconv STATIC
-  Entry.cpp
-  MainLifter.cpp
-  Memory.cpp
-  Syscall.cpp
-  VmIntrinsics.cpp
-)
-
-target_link_libraries(elfconv PUBLIC remill ${PROJECT_LIBRARIES} )
-target_include_directories(elfconv PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
-target_include_directories(elfconv PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_options(elfconv PRIVATE -v)
