@@ -302,10 +302,10 @@ target_link_libraries(remill INTERFACE
 add_custom_target(semantics)
 
 # shared JIT tools
-add_subdirectory(test_runner_lib)
+# add_subdirectory(test_runner_lib)
 
 # tools
-add_subdirectory(bin)
+# add_subdirectory(bin)
 
 if(REMILL_ENABLE_INSTALL_TARGET)
   # install(TARGETS remill EXPORT remillTargets)

@@ -18,11 +18,9 @@
 #   /path/to/home/remill-build
 
 ROOT_DIR="${HOME}/workspace/compiler/elfconv"
-REMILL_DIR=$( cd "${ROOT_DIR}/backend/remill" && pwd )
-SRC_DIR=${ROOT_DIR}
+REMILL_DIR=$( cd "$( realpath "${ROOT_DIR}/backend/remill" )" && pwd )
 DOWNLOAD_DIR="$( cd "$( dirname "${REMILL_DIR}" )" && pwd )/lifting-bits-downloads"
-CURR_DIR=$( pwd )
-BUILD_DIR="${CURR_DIR}/build"
+BUILD_DIR="${ROOT_DIR}/build"
 BUILD_FRONT_DIR="${BUILD_DIR}/front"
 INSTALL_DIR="${HOME}/.elfconv/bin"
 INSTALL_LIB_DIR="${HOME}/.elfconv/lib"
@@ -31,11 +29,10 @@ OS_VERSION=
 ARCH_VERSION=
 BUILD_FLAGS=
 CXX_COMMON_VERSION="0.5.0"
-CREATE_PACKAGES=true # FIXME
 EMCC=${HOME}/emsdk/upstream/emscripten/emcc
 EMAR=${HOME}/emsdk/upstream/emscripten/emar
-EMCCFLAGS="-I${REMILL_DIR}/include -O3"
-FRONT_DIR="${ROOT_DIR}/front"
+EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -O3"
+FRONT_DIR=""$( realpath "${ROOT_DIR}" )"/front"
 
 # There are pre-build versions of various libraries for specific
 # Ubuntu releases.
@@ -241,7 +238,7 @@ function Configure
         -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
         -DREMILL_BUILD_SPARC32_RUNTIME=OFF \
         ${BUILD_FLAGS} \
-        "${SRC_DIR}"
+        "${ROOT_DIR}"
   ) || exit $?
 
   return $?
@@ -258,38 +255,7 @@ function Build
 
   (
     set -x
-    cmake --build . -- -j"${NPROC}"
-  ) || return $?
-
-  return $?
-}
-
-# Create the packages
-function Package
-{
-  remill_tag=$(cd "${SRC_DIR}" && git describe --tags --always --abbrev=0)
-  remill_commit=$(cd "${SRC_DIR}" && git rev-parse HEAD | cut -c1-7)
-  remill_version="${remill_tag:1}.${remill_commit}"
-
-  (
-    set -x
-
-    if [[ -d "install" ]]; then
-      rm -rf "install"
-    fi
-
-    mkdir "install"
-    export DESTDIR="$(pwd)/install"
-
-    cmake --build . \
-      --target install
-
-
-    if [ "$CREATE_PACKAGES" = true ]; then
-      cpack -D REMILL_DATA_PATH="${DESTDIR}" \
-        -R ${remill_version} \
-        --config "${SRC_DIR}/packaging/main.cmake"
-    fi
+    cmake --build . -- -j"${NPROC}" --silent
   ) || return $?
 
   return $?
@@ -346,6 +312,11 @@ function main
       --help)
         Help
         exit 0
+      ;;
+
+      --root-dir)
+        ROOT_DIR="${2}"
+        shift
       ;;
 
       # Change the default installation prefix.
