@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-EMCC=${HOME}/emsdk/upstream/emscripten/emcc
+EMCC=emcc
 EMCCFLAGS="-O3"
 
 if [ $# -eq 0 ]; then

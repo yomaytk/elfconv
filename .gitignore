@@ -78,6 +78,7 @@ remill_disass.egg-info/*
 *.exe
 # *.out
 *.app
+*.wasm
 
 *.pyc
 

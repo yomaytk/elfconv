@@ -187,7 +187,6 @@ extern "C" int main(int argc, char *argv[]) {
       /* append the address of necesarry debug function */
       if (strncmp(dasm_func.func_name.c_str(), FLAGS_dbg_fun_cfg.c_str(), FLAGS_dbg_fun_cfg.length()) == 0) {
         control_flow_debug_list[fn_addr] = true;
-        printf("entry!\n");
         break;
       }
     }
@@ -245,6 +244,6 @@ extern "C" int main(int argc, char *argv[]) {
   host_arch->PrepareModule(module.get());
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
-  printf("[INFO] Lift Done\n");
+  printf("[INFO] Lift Done.\n");
   return 0;
 }

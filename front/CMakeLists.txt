@@ -37,4 +37,3 @@ target_link_libraries(
 target_link_libraries(elflift PUBLIC remill ${PROJECT_LIBRARIES} )
 target_include_directories(elflift PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
 target_include_directories(elflift PRIVATE ${CMAKE_SOURCE_DIR})
-target_link_options(elflift PRIVATE -v)

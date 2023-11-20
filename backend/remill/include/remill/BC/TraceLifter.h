@@ -132,9 +132,9 @@ class TraceLifter::Impl {
       func(nullptr),
       block(nullptr),
       switch_inst(nullptr),
-      debug_pc_name("debug_pc"),
       // TODO(Ian): The trace lfiter is not supporting contexts
-      max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())) {
+      max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+      debug_pc_name("debug_pc") {
     inst_bytes.reserve(max_inst_bytes);
   }
   

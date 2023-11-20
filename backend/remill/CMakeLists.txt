@@ -287,52 +287,8 @@ target_link_libraries(remill INTERFACE
   ${LINKER_END_GROUP}
 )
 
-#
-# Also install clang, libllvm and llvm-link
-#
-# set(INSTALLED_CLANG_NAME "remill-clang-${REMILL_LLVM_VERSION}${CMAKE_EXECUTABLE_SUFFIX}")
-# set(INSTALLED_LLVMLINK_NAME "remill-llvm-link-${REMILL_LLVM_VERSION}${CMAKE_EXECUTABLE_SUFFIX}")
-
-# InstallExternalTarget("ext_clang" "${CLANG_PATH}" "BIN" "${INSTALLED_CLANG_NAME}")
-
-# InstallExternalTarget("ext_llvmlink" "${LLVMLINK_PATH}" "BIN" "${INSTALLED_LLVMLINK_NAME}")
-
-# additional targets
-#
+# add semantics target
 add_custom_target(semantics)
-
-# shared JIT tools
-# add_subdirectory(test_runner_lib)
-
-# tools
-# add_subdirectory(bin)
-
-if(REMILL_ENABLE_INSTALL_TARGET)
-  # install(TARGETS remill EXPORT remillTargets)
-
-  # install(TARGETS remill_settings
-  #   EXPORT remillTargets
-  # )
-
-  # install(FILES "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla" DESTINATION "${CMAKE_INSTALL_DATADIR}/sleigh/specfiles/Ghidra/Processors/PowerPC/data/languages/")
-
-  # configure_file(
-  #   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/remillConfig.cmake.in"
-  #   "${CMAKE_CURRENT_BINARY_DIR}/remillConfig.cmake"
-  #   @ONLY
-  # )
-
-  # install(FILES "${CMAKE_CURRENT_BINARY_DIR}/remillConfig.cmake"
-  #   DESTINATION "${REMILL_INSTALL_LIB_DIR}/cmake/remill"
-  # )
-
-  # install(DIRECTORY "${REMILL_INCLUDE_DIR}/remill/"
-  #   DESTINATION "${REMILL_INSTALL_INCLUDE_DIR}/remill"
-  # )
-
-  # install(EXPORT remillTargets
-  #   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/remill")
-endif()
 
 # tests (no tests now)
 if(REMILL_ENABLE_TESTING)

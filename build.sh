@@ -17,7 +17,7 @@
 #   /path/to/home/remill
 #   /path/to/home/remill-build
 
-ROOT_DIR="${HOME}/workspace/compiler/elfconv"
+ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 REMILL_DIR=$( cd "$( realpath "${ROOT_DIR}/backend/remill" )" && pwd )
 DOWNLOAD_DIR="$( cd "$( dirname "${REMILL_DIR}" )" && pwd )/lifting-bits-downloads"
 BUILD_DIR="${ROOT_DIR}/build"
@@ -29,8 +29,8 @@ OS_VERSION=
 ARCH_VERSION=
 BUILD_FLAGS=
 CXX_COMMON_VERSION="0.5.0"
-EMCC=${HOME}/emsdk/upstream/emscripten/emcc
-EMAR=${HOME}/emsdk/upstream/emscripten/emar
+EMCC=emcc
+EMAR=emar
 EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -O3"
 FRONT_DIR=""$( realpath "${ROOT_DIR}" )"/front"
 
@@ -237,6 +237,8 @@ function Configure
         -DCMAKE_TOOLCHAIN_FILE="${DOWNLOAD_DIR}/${LIBRARY_VERSION}/scripts/buildsystems/vcpkg.cmake" \
         -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
         -DREMILL_BUILD_SPARC32_RUNTIME=OFF \
+        -DCMAKE_C_COMPILER=clang \
+        -DCMAKE_CXX_COMPILER=clang++ \
         ${BUILD_FLAGS} \
         "${ROOT_DIR}"
   ) || exit $?
@@ -312,11 +314,6 @@ function main
       --help)
         Help
         exit 0
-      ;;
-
-      --root-dir)
-        ROOT_DIR="${2}"
-        shift
       ;;
 
       # Change the default installation prefix.
@@ -416,6 +413,10 @@ function main
     ${EMCC} ${EMCCFLAGS} -o VmIntrinsics.o -c VmIntrinsics.cpp
     ${EMAR} rcs "${INSTALL_LIB_DIR}/libelfconv.a" Entry.o Memory.o Syscall.o VmIntrinsics.o
     rm *.o
+
+  # for sample execution
+  cp -p "${BUILD_FRONT_DIR}/elflift"  "${ROOT_DIR}/bin"
+  cp -p "${INSTALL_LIB_DIR}/libelfconv.a"  "${ROOT_DIR}/bin" 
 
   return $?
 }
