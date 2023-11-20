@@ -25,7 +25,7 @@ You can test elfconv using `bin/elfconv.sh` as following.
 WIP
 
 ## Acknowledgement
-elfconv uses or refers projects as following. Great thanks to its all developers!
+elfconv uses or references some projects as following. Great thanks to its all developers!
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
     - Original Source: https://github.com/lifting-bits/remill
     - elfconv uses remill in order to convert machine codes to LLVM IR instructions. the source code is contained in [`./backend/remill`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and is modified for using from front-end and supporting additional instructions.
