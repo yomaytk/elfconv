@@ -19,6 +19,7 @@ You can test elfconv using `bin/elfconv.sh` as following.
 ```bash
 ~/elfconv# cd bin
 ~/elfconv/bin# ./elfconv.sh /path/to/ELF # ex.) ../exmaples/print_hello/a.out
+~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Build
 WIP
