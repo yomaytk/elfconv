@@ -71,7 +71,7 @@ remill_disass.egg-info/*
 # Compiled Static libraries
 *.lai
 *.la
-# *.a
+*.a
 *.lib
 
 # Executables
@@ -79,6 +79,7 @@ remill_disass.egg-info/*
 # *.out
 *.app
 *.wasm
+elflift
 
 *.pyc
 
