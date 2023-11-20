@@ -4,14 +4,21 @@ elfconv is an experimental AOT compiler that translates a Linux/aarch64 ELF bina
 elfconv converts a original ELF binary to the LLVM bitcode using the library for lifting machine code to LLVM bitcode, [remill](https://github.com/lifting-bits/remill),
 and it uses [emscripten](https://github.com/emscripten-core/emscripten) in order to generate the WASM binary from the LLVM bitcode file.
 
-## Examples
-`bin` directory contains all binary files needed for ELF conversion (those are Linux/aarch64 ELF binary files), and you can generate WASM binary `(exe.wasm)` executing `bin/elfconv.sh`.
-elfconv uses emscripten, so you should set environment variable `EMCC` in the elfconv.sh to the path to `emcc` command.
-And `examples` directory has some sample ELF binaries, so you can use those for experimental use (But `hello/a.out` cannot be executed now).
+## Quick Start
+You can build elfconv using docker container (currently supported for only aarch64).Please execute the commands as following.
+In default settings, both `elflift` (used for generating LLVM bitcode file) and `libelfconv.a` (used for executing generated LLVM bitcode) are installed to `~/.elfconv`.
 ```bash
-$ cd bin
-$ ./elfconv.sh </path/to/ELF/> # ex.) ../examples/add/a.out
-$ <WASM Runtime> exe.wasm # ex.) <WASM Runtime>: wasmedge, wasmtime ...
+$ git clone https://github.com/yomaytk/elfconv
+$ cd elfconv
+$ docker build . -t elfconv-img
+$ docker run -it --name elfconv-sample-container elfconv-img bash
+~/elfconv# source ~/.bash_profile
+~/elfconv# ./build.sh
+```
+You can test elfconv using `bin/elfconv.sh` as following.
+```bash
+~/elfconv# cd bin
+~/elfconv/bin# ./elfconv.sh /path/to/ELF # ex.) ../exmaples/print_hello/a.out
 ```
 ## Build
 WIP
