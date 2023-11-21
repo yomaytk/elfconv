@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
 #include "Decode.h"
 
 namespace remill {
@@ -115,7 +116,7 @@ const char *const kIClassName[] = {
     "URHADD",    "URSHL",    "URSHR",     "URSQRTE",   "URSRA",    "USHL",
     "USHLL",     "USHR",     "USQADD",    "USRA",      "USUBL",    "USUBW",
     "UZP1",      "UZP2",     "WFE",       "WFI",       "XTN",      "YIELD",
-    "ZIP1",      "ZIP2",
+    "ZIP1",      "ZIP2",     "CNTX",      "WHILE",
 };
 
 const char *const kIFormName[] = {
@@ -1704,6 +1705,11 @@ const char *const kIFormName[] = {
     "YIELD_HI_SYSTEM",
     "ZIP1_ASIMDPERM_ONLY",
     "ZIP2_ASIMDPERM_ONLY",
+    "CNTB_X64_BITCOUNT",
+    "CNTD_X64_BITCOUNT",
+    "CNTH_X64_BITCOUNT",
+    "CNTW_X64_BITCOUNT",
+    "WHILELO_PREDICATE",
 };
 
 static bool TryExtractFRECPX_ASISDMISCFP16_R(InstData &inst, uint32_t bits);
@@ -3290,6 +3296,12 @@ static bool TryExtractLDCLRAB_32_MEMOP(InstData &inst, uint32_t bits);
 static bool TryExtractLDCLRALB_32_MEMOP(InstData &inst, uint32_t bits);
 static bool TryExtractLDCLRB_32_MEMOP(InstData &inst, uint32_t bits);
 static bool TryExtractLDCLRLB_32_MEMOP(InstData &inst, uint32_t bits);
+static bool TryExtractCNTB_X64_BITCOUNT(InstData& inst, uint32_t bits);
+static bool TryExtractCNTD_X64_BITCOUNT (InstData& inst, uint32_t bits);
+static bool TryExtractCNTH_X64_BITCOUNT (InstData& inst, uint32_t bits);
+static bool TryExtractCNTW_X64_BITCOUNT (InstData& inst, uint32_t bits);
+static bool TryExtractWHILELO_PREDICATE (InstData& inst, uint32_t bits);
+
 static bool TryExtractFRECPX_ASISDMISCFP16_R(InstData &inst, uint32_t bits) {
 
   //   bits
@@ -75870,6 +75882,232 @@ static bool TryExtractLDCLRLB_32_MEMOP(InstData &inst, uint32_t bits) {
   return true;
 }
 
+static bool TryExtractCNTB_X64_BITCOUNT (InstData& inst, uint32_t bits) {
+  
+  //   bits
+  // & 1111'1111'1111'0000'1111'1100'0000'0000
+  //   ---------------------------------------
+  //   0000'0100'0010'0000'1110'0000'0000'0000
+  if ((bits & 0xfff0fc00) != 0x0420e000) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t pattern : 5;
+      uint32_t _10 : 1;
+      uint32_t _11 : 1;
+      uint32_t _12 : 1;
+      uint32_t _13 : 1;
+      uint32_t _14 : 1;
+      uint32_t _15 : 1;
+      uint32_t imm4 : 4;
+      uint32_t _20 : 1;
+      uint32_t _21 : 1;
+      uint32_t size : 2;
+      uint32_t _24 : 1;
+      uint32_t _25 : 1;
+      uint32_t _26 : 1;
+      uint32_t _27 : 1;
+      uint32_t _28 : 1;
+      uint32_t _29 : 1;
+      uint32_t _30 : 1;
+      uint32_t _31 : 1;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.pattern = static_cast<uint8_t>(enc.pattern);
+  inst.imm4.uimm = static_cast<uint64_t>(enc.imm4);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.iform = InstForm::CNTB_X64_BITCOUNT;
+  inst.iclass = InstName::CNTX;
+  return true;
+}
+
+static bool TryExtractCNTD_X64_BITCOUNT (InstData& inst, uint32_t bits) {
+  
+  //   bits
+  // & 1111'1111'1111'0000'1111'1100'0000'0000
+  //   ---------------------------------------
+  //   0000'0100'1110'0000'1110'0000'0000'0000
+  if ((bits & 0xfff0fc00) != 0x04e0e000) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t pattern : 5;
+      uint32_t _10 : 1;
+      uint32_t _11 : 1;
+      uint32_t _12 : 1;
+      uint32_t _13 : 1;
+      uint32_t _14 : 1;
+      uint32_t _15 : 1;
+      uint32_t imm4 : 4;
+      uint32_t _20 : 1;
+      uint32_t _21 : 1;
+      uint32_t size : 2;
+      uint32_t _24 : 1;
+      uint32_t _25 : 1;
+      uint32_t _26 : 1;
+      uint32_t _27 : 1;
+      uint32_t _28 : 1;
+      uint32_t _29 : 1;
+      uint32_t _30 : 1;
+      uint32_t _31 : 1;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.pattern = static_cast<uint8_t>(enc.pattern);
+  inst.imm4.uimm = static_cast<uint64_t>(enc.imm4);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.iform = InstForm::CNTD_X64_BITCOUNT;
+  inst.iclass = InstName::CNTX;
+  return true;
+}
+
+static bool TryExtractCNTH_X64_BITCOUNT (InstData& inst, uint32_t bits) {
+  
+  //   bits
+  // & 1111'1111'1111'0000'1111'1100'0000'0000
+  //   ---------------------------------------
+  //   0000'0100'0110'0000'1110'0000'0000'0000
+  if ((bits & 0xfff0fc00) != 0x0460e000) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t pattern : 5;
+      uint32_t _10 : 1;
+      uint32_t _11 : 1;
+      uint32_t _12 : 1;
+      uint32_t _13 : 1;
+      uint32_t _14 : 1;
+      uint32_t _15 : 1;
+      uint32_t imm4 : 4;
+      uint32_t _20 : 1;
+      uint32_t _21 : 1;
+      uint32_t size : 2;
+      uint32_t _24 : 1;
+      uint32_t _25 : 1;
+      uint32_t _26 : 1;
+      uint32_t _27 : 1;
+      uint32_t _28 : 1;
+      uint32_t _29 : 1;
+      uint32_t _30 : 1;
+      uint32_t _31 : 1;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.pattern = static_cast<uint8_t>(enc.pattern);
+  inst.imm4.uimm = static_cast<uint64_t>(enc.imm4);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.iform = InstForm::CNTH_X64_BITCOUNT;
+  inst.iclass = InstName::CNTX;
+  return true;
+}
+
+static bool TryExtractCNTW_X64_BITCOUNT (InstData& inst, uint32_t bits) {
+  
+  //   bits
+  // & 1111'1111'1111'0000'1111'1100'0000'0000
+  //   ---------------------------------------
+  //   0000'0100'1010'0000'1110'0000'0000'0000
+  if ((bits & 0xfff0fc00) != 0x04a0e000) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Rt : 5;
+      uint32_t pattern : 5;
+      uint32_t _10 : 1;
+      uint32_t _11 : 1;
+      uint32_t _12 : 1;
+      uint32_t _13 : 1;
+      uint32_t _14 : 1;
+      uint32_t _15 : 1;
+      uint32_t imm4 : 4;
+      uint32_t _20 : 1;
+      uint32_t _21 : 1;
+      uint32_t size : 2;
+      uint32_t _24 : 1;
+      uint32_t _25 : 1;
+      uint32_t _26 : 1;
+      uint32_t _27 : 1;
+      uint32_t _28 : 1;
+      uint32_t _29 : 1;
+      uint32_t _30 : 1;
+      uint32_t _31 : 1;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Rt = static_cast<uint8_t>(enc.Rt);
+  inst.pattern = static_cast<uint8_t>(enc.pattern);
+  inst.imm4.uimm = static_cast<uint64_t>(enc.imm4);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.iform = InstForm::CNTW_X64_BITCOUNT;
+  inst.iclass = InstName::CNTX;
+  return true;
+}
+
+static bool TryExtractWHILELO_PREDICATE(InstData& inst, uint32_t bits) {
+  
+  //   bits
+  // & 1111'1111'0010'0000'1110'1100'0001'0000
+  //   ---------------------------------------
+  //   0010'0101'0010'0000'0000'1100'0000'0000
+  if ((bits & 0xff20ec10) != 0x25200c00) {
+    return false;
+  }
+  union {
+    uint32_t flat;
+    struct {
+      uint32_t Pd : 4;
+      uint32_t _4 : 1;
+      uint32_t Rn : 5;
+      uint32_t _10 : 1;
+      uint32_t _11 : 1;
+      uint32_t sf : 1;
+      uint32_t _13 : 1;
+      uint32_t _14 : 1;
+      uint32_t _15 : 1;
+      uint32_t Rm : 5;
+      uint32_t _21 : 1;
+      uint32_t size : 2;
+      uint32_t _24 : 1;
+      uint32_t _25 : 1;
+      uint32_t _26 : 1;
+      uint32_t _27 : 1;
+      uint32_t _28 : 1;
+      uint32_t _29 : 1;
+      uint32_t _30 : 1;
+      uint32_t _31 : 1;
+    } __attribute__((packed));
+  } __attribute__((packed)) enc;
+  static_assert(sizeof(enc) == 4, " ");
+  enc.flat = bits;
+  inst.Pd = static_cast<uint8_t>(enc.Pd);
+  inst.Rn = static_cast<uint8_t>(enc.Rn);
+  inst.sf = static_cast<uint8_t>(enc.sf);
+  inst.Rm = static_cast<uint8_t>(enc.Rm);
+  inst.size = static_cast<uint8_t>(enc.size);
+  inst.iform = InstForm::WHILELO_PREDICATE;
+  inst.iclass = InstName::WHILE;
+  return true;
+}
+
 // 00000000000000000000000000000000
 static bool TryExtract0(InstData &inst, uint32_t bits) {
   return false;
@@ -75877,7 +76115,11 @@ static bool TryExtract0(InstData &inst, uint32_t bits) {
 
 // 00000100000000000000000000000000
 static bool TryExtract1(InstData &inst, uint32_t bits) {
-  return false;
+  return false || TryExtractCNTB_X64_BITCOUNT(inst, bits) || 
+         TryExtractCNTD_X64_BITCOUNT(inst, bits) ||
+         TryExtractCNTH_X64_BITCOUNT(inst, bits) ||
+         TryExtractCNTW_X64_BITCOUNT(inst, bits) ||
+         TryExtractWHILELO_PREDICATE(inst, bits);
 }
 
 // 00001000000000000000000000000000
@@ -77397,7 +77639,7 @@ const char *InstNameToString(InstName iclass) {
   auto num = static_cast<uint16_t>(iclass);
   if (iclass == InstName::INVALID) {
     return nullptr;
-  } else if (static_cast<uint16_t>(InstName::ZIP2) < num) {
+  } else if (static_cast<uint16_t>(InstName::WHILE) < num) {
     return nullptr;
   } else {
     return kIClassName[num];
@@ -77408,13 +77650,13 @@ const char *InstFormToString(InstForm iform) {
   auto num = static_cast<uint16_t>(iform);
   if (iform == InstForm::INVALID) {
     return nullptr;
-  } else if (static_cast<uint16_t>(InstForm::ZIP2_ASIMDPERM_ONLY) < num) {
+  } else if (static_cast<uint16_t>(InstForm::WHILELO_PREDICATE) < num) {
+    printf("[WARNING] failed to convert iform \"%d\" to InstForm value.\n", num);
     return nullptr;
   } else {
     return kIFormName[num];
   }
 }
-
 
 bool TryExtract(const uint8_t *bytes, InstData &inst) {
   uint32_t bits = 0;

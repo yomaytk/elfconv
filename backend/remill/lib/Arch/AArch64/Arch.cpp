@@ -817,16 +817,19 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address,
   inst.next_pc = address + kInstructionSize;
   inst.category = Instruction::kCategoryInvalid;
 
+  if (inst.pc == 4311820) {
+    printf("entry: %08lx\n", inst.pc);
+  }
+
   if (kInstructionSize != inst_bytes.size()) {
     inst.category = Instruction::kCategoryInvalid;
     return false;
-
   } else if (0 != (address % kInstructionSize)) {
     inst.category = Instruction::kCategoryInvalid;
     return false;
-
   } else if (!aarch64::TryExtract(bytes, dinst)) {
     inst.category = Instruction::kCategoryInvalid;
+    printf("[WARNING] failed to TryExtract. address: 0x%08lx\n", address);
     return false;
   }
 
@@ -5011,42 +5014,9 @@ bool TryDecodeSTXR_SR64_LDSTEXCL(const InstData &data, Instruction &inst) {
   return true;
 }
 
-// CNT CNT_asimdmisc_R:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 1 opcode   0
-//  13 0 opcode   1
-//  14 1 opcode   2
-//  15 0 opcode   3
-//  16 0 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0 U        0
-//  30 x Q        0
-//  31 0
-// CNT  <Vd>.<T>, <Vn>.<T>
+// CNT  <Vd>.<T>, <Vn>.<T> /* FIXME */
 bool TryDecodeCNT_ASIMDMISC_R(const InstData &, Instruction &) {
-  return false;
+  return true;
 }
 
 // DC  <dc_op>, <Xt> /* FIXME */
@@ -5054,8 +5024,38 @@ bool TryDecodeDC_SYS_CR_SYSTEM(const InstData &data, Instruction &inst) {
   return true;
 }
 
-// PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}] /* FIXME */
+// CMGE  <V><d>, <V><n>, #0
+bool TryDecodeCMGE_ASISDMISC_Z(const InstData &, Instruction &) {
+  return true;
+}
+
+// PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}] /* FIXME?? */
 bool TryDecodePRFM_P_LDST_POS(const InstData &data, Instruction &inst) {
+  return true;
+}
+
+// CNTB <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTB_X64_BITCOUNT(const InstData &data, Instruction &inst) {
+  return true;
+}
+
+// CNTD <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTD_X64_BITCOUNT(const InstData &data, Instruction &inst) {
+  return true;
+}
+
+// CNTH <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTH_X64_BITCOUNT(const InstData &data, Instruction &inst) {
+  return true;
+}
+
+// CNTW <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTW_X64_BITCOUNT(const InstData &data, Instruction &inst) {
+  return true;
+}
+
+// WHILELO <Pd>.<T>, <R><n>, <R><m>
+bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst) {
   return true;
 }
 

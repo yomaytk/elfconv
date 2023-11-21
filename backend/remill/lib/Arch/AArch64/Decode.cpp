@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <stdio.h>
+#include "remill/Arch/Instruction.h"
 #include "Decode.h"
 
 namespace remill {
@@ -5465,45 +5467,6 @@ bool TryDecodeSWPAL_64_MEMOP(const InstData &, Instruction &) {
 //  31 1
 // SMC  #<imm>
 bool TryDecodeSMC_EX_EXCEPTION(const InstData &, Instruction &) {
-  return false;
-}
-
-
-// CMGE CMGE_asisdmisc_Z:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 0 op       0
-//  13 0
-//  14 0
-//  15 1
-//  16 0
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 1 U        0
-//  30 1
-//  31 0
-// CMGE  <V><d>, <V><n>, #0
-bool TryDecodeCMGE_ASISDMISC_Z(const InstData &, Instruction &) {
   return false;
 }
 
@@ -42551,6 +42514,11 @@ static bool (*const kDecoder[])(const InstData &data, Instruction &inst) = {
     TryDecodeYIELD_HI_SYSTEM,
     TryDecodeZIP1_ASIMDPERM_ONLY,
     TryDecodeZIP2_ASIMDPERM_ONLY,
+    TryDecodeCNTB_X64_BITCOUNT,
+    TryDecodeCNTD_X64_BITCOUNT,
+    TryDecodeCNTH_X64_BITCOUNT,
+    TryDecodeCNTW_X64_BITCOUNT,
+    TryDecodeWHILELO_PREDICATE,
 };
 
 }  // namespace
@@ -42558,7 +42526,13 @@ static bool (*const kDecoder[])(const InstData &data, Instruction &inst) = {
 
 bool TryDecode(const InstData &data, Instruction &inst) {
   auto iform_num = static_cast<unsigned>(data.iform);
-  return kDecoder[iform_num - 1](data, inst);
+  if (iform_num - 1 < sizeof(kDecoder) / sizeof(kDecoder[0])) {
+    return kDecoder[iform_num - 1](data, inst);
+  } else {
+    printf("[ERROR] inst function \"%s\" is not registerd to kDecoder table.\n", inst.function.c_str());
+    abort();
+  }
+  return false;
 }
 
 }  // namespace aarch64

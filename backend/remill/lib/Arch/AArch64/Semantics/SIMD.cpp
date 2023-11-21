@@ -446,12 +446,6 @@ DEF_ISEL(CMTST_ASIMDSAME_ONLY_2D) = CMPTST_64<V128, uint64v2_t>;
 
 namespace {
 
-}
-
-// DEF_ISEL(CNT_ASIMDMISC_R);
-
-namespace {
-
 #define MAKE_PAIRWAISE_BROADCAST(op, prefix, binop, size) \
   template <typename S, typename V> \
   DEF_SEM(op##_##size, V128W dst, S src1, S src2) { \

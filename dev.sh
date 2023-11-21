@@ -36,13 +36,14 @@ cd ${BUILD_FRONT_DIR} && \
   ${CXX} ${CLANGFLAGS} -o exe.aarch64 lift.o Entry.aarch64.o Memory.aarch64.o Syscall.aarch64.o VmIntrinsics.aarch64.o
 
 # wasm
-cd "${BUILD_FRONT_DIR}" && \
-    ${EMCC} ${EMCCFLAGS} -o Entry.wasm.o -c ${FRONT_DIR}/Entry.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o Memory.wasm.o -c ${FRONT_DIR}/Memory.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o Syscall.wasm.o -c ${FRONT_DIR}/Syscall.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o VmIntrinsics.wasm.o -c ${FRONT_DIR}/VmIntrinsics.cpp && \
-    ${EMCC} ${EMCCFLAGS} -c lift.bc -o lift.o && \
-    ${EMCC} ${EMCCFLAGS} -o exe.wasm lift.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o
+# cd "${BUILD_FRONT_DIR}" && \
+#     ${EMCC} ${EMCCFLAGS} -o Entry.wasm.o -c ${FRONT_DIR}/Entry.cpp && \
+#     ${EMCC} ${EMCCFLAGS} -o Memory.wasm.o -c ${FRONT_DIR}/Memory.cpp && \
+#     ${EMCC} ${EMCCFLAGS} -o Syscall.wasm.o -c ${FRONT_DIR}/Syscall.cpp && \
+#     ${EMCC} ${EMCCFLAGS} -o VmIntrinsics.wasm.o -c ${FRONT_DIR}/VmIntrinsics.cpp && \
+#     ${EMCC} ${EMCCFLAGS} -c lift.bc -o lift.o && \
+#     ${EMCC} ${EMCCFLAGS} -o exe.wasm lift.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o
 
 # delete obj
-rm *.o
+cd "${BUILD_FRONT_DIR}" && \
+  rm *.o

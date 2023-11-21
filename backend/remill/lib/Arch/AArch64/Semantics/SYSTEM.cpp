@@ -117,14 +117,6 @@ DEF_SEM(DataMemoryBarrier) {
   return __remill_barrier_store_store(memory);
 }
 
-DEF_SEM(FIXME_PC_NOP, R64W) {
-  return memory;
-}
-
-DEF_SEM(FIXME_NOP) {
-  return memory;
-}
-
 }  // namespace
 
 DEF_ISEL(SVC_EX_EXCEPTION) = CallSupervisor;
@@ -149,8 +141,3 @@ DEF_ISEL(MRS_RS_SYSTEM_MIDR_EL1) = DoMRS_RS_SYSTEM_MIDR_EL1;
 DEF_ISEL(MSR_SR_SYSTEM_MIDR_EL1) = DoMSR_SR_SYSTEM_MIDR_EL1;
 
 DEF_ISEL(DMB_BO_SYSTEM) = DataMemoryBarrier;
-
-/* FIXME */
-DEF_ISEL(DC_SYS_CR_SYSTEM) = FIXME_PC_NOP;
-
-DEF_ISEL(PRFM_P_LDST_POS) = FIXME_NOP;

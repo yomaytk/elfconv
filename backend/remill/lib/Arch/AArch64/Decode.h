@@ -591,6 +591,9 @@ enum class InstName : uint16_t {
   YIELD,
   ZIP1,
   ZIP2,
+  CNTX,
+  WHILE,
+  // LD1B,
 };
 
 enum class InstForm : uint16_t {
@@ -2179,6 +2182,12 @@ enum class InstForm : uint16_t {
   YIELD_HI_SYSTEM,
   ZIP1_ASIMDPERM_ONLY,
   ZIP2_ASIMDPERM_ONLY,
+  CNTB_X64_BITCOUNT,
+  CNTD_X64_BITCOUNT,
+  CNTH_X64_BITCOUNT,
+  CNTW_X64_BITCOUNT,
+  WHILELO_PREDICATE,
+  // LD1B_SCALAR_CONS_REG,
 };
 
 union InstImm {
@@ -2269,6 +2278,7 @@ struct InstData {
   RegNum Rs;  // LDCLRLB_32_memop, ...
   RegNum Rt;  // LDCLRLB_32_memop, ...
   RegNum Rt2;  // STP_64_ldstpair_off, ...
+  RegNum Pd;  // WHILELO_predicate, ...
   uint8_t b40;  // TBZ_only_testbranch, ...
   uint8_t op2;  // EXT_asimdext_only, ...
   uint8_t op4;  // RET_64R_branch_reg, ...
@@ -2326,6 +2336,8 @@ struct InstData {
   uint8_t o2;  // FRINTN_asimdmisc_R, ...
   uint8_t o3;  // LDCLRLB_32_memop, ...
   uint8_t sf;  // ORN_64_log_shift, ...
+  uint8_t pattern; // CNTB_X64_bitcount, ...
+
 };
 
 // FRECPX  <Hd>, <Hn>
@@ -7098,6 +7110,20 @@ bool TryDecodeLDCLRB_32_MEMOP(const InstData &data, Instruction &inst);
 // LDCLRLB  <Ws>, <Wt>, [<Xn|SP>]
 bool TryDecodeLDCLRLB_32_MEMOP(const InstData &data, Instruction &inst);
 
+// CNTB <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTB_X64_BITCOUNT(const InstData &data, Instruction &inst);
+
+// CNTD <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTD_X64_BITCOUNT(const InstData &data, Instruction &inst);
+
+// CNTH <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTH_X64_BITCOUNT(const InstData &data, Instruction &inst);
+
+// CNTW <Xd>{, <pattern>{, MUL #<imm>}}
+bool TryDecodeCNTW_X64_BITCOUNT(const InstData &data, Instruction &inst);
+
+// WHILELO <Pd>.<T>, <R><n>, <R><m>
+bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst);
 
 const char *InstNameToString(InstName iclass);
 const char *InstFormToString(InstForm iform);
