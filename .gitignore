@@ -27,7 +27,7 @@ CMakeLists.txt.user
 cmake-build-debug
 cmake-build-release
 compile_commands.json
-.cache
+*.cache
 
 third_party/*
 build/*

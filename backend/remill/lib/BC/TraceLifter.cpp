@@ -240,8 +240,19 @@ bool TraceLifter::Impl::Lift(
     // Fill in the function, and make sure the block with all register
     // variables jumps to the block that will contain the first instruction
     // of the trace.
-    arch->InitializeEmptyLiftedFunction(func);
-
+    arch->InitializeEmptyLiftedFunction(func);    
+/* insert debug call stack function (for debug) */
+// #if false
+#if defined(LIFT_DEBUG)
+      llvm::BasicBlock &first_block = *std::prev(func->end()); /* arch->InitializeEmptyLiftedFunction(func) generates first block */
+      llvm::IRBuilder<> __builder(&first_block);
+      auto _debug_call_stack_fn = module->getFunction(debug_call_stack_name);
+      if (!_debug_call_stack_fn) {
+        printf("[ERROR] debug_pc is undeclared.\n");
+        abort();
+      }
+      __builder.CreateCall(_debug_call_stack_fn);
+#endif
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
 
     if (auto entry_block = &(func->front())) {
@@ -260,9 +271,7 @@ bool TraceLifter::Impl::Lift(
     CHECK(inst_work_list.empty());
     inst_work_list.insert(trace_addr);
 
-    // if (0x0041ce80 == trace_addr) {
-    //   printf("%lx entry!\n", trace_addr);
-    // }
+
 
     // Decode instructions. 
     while (!inst_work_list.empty()) {
@@ -312,7 +321,6 @@ bool TraceLifter::Impl::Lift(
           printf("[ERROR] debug_pc is undeclared.\n");
           abort();
         }
-        printf("0x%llx\n", trace_addr);
         __builder.CreateCall(_debug_pc_fn);
       }
 #endif

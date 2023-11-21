@@ -180,7 +180,7 @@ extern "C" int main(int argc, char *argv[]) {
 
   /* debug */
 #if defined(LIFT_DEBUG)
-  /* debug function control flow */
+  /* target function control flow */
   std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
@@ -193,8 +193,7 @@ extern "C" int main(int argc, char *argv[]) {
     main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
   /* declare debug function */
-  main_lifter.DeclareDebugStateMachine();
-  main_lifter.DeclareDebugPC();
+  main_lifter.DeclareDebugFunction();
 #endif
 
   /* lift every disassembled function */
@@ -219,6 +218,8 @@ extern "C" int main(int argc, char *argv[]) {
   main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
   /* set lifted function pointer table (necessary for indirect call) */
   main_lifter.SetLiftedFunPtrTable(addr_fn_map);
+  /* debug call stack (FIXME) */
+  main_lifter.SetFuncSymbolNameTable(addr_fn_map);
   /* set Platform name (FIXME) */
   main_lifter.SetPlatform("unknown");
   /* set entry point */

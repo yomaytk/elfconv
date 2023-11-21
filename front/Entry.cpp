@@ -39,6 +39,10 @@ int main(int argc, char* argv[]) {
   for (int i = 0;__g_fn_vmas[i] && __g_fn_ptr_table[i];i++) {
     g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
   }
+  /* set lifted function symbol table (for debug) */
+  for (int i = 0;__g_fn_vmas_second[i] && __g_fn_symbol_table[i];i++) {
+    g_run_mgr->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char*)__g_fn_symbol_table[i];
+  }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
   __g_entry_func(&g_state, __g_entry_pc, reinterpret_cast<Memory*>(g_run_mgr));
 

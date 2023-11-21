@@ -43,14 +43,14 @@ void MainLifter::SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__c
   static_cast<WrapImpl*>(impl.get())->SetControlFlowDebugList(__control_flow_debug_list);
 }
 
-/* Declare debug_state_machine function */
-void MainLifter::DeclareDebugStateMachine() {
-  static_cast<WrapImpl*>(impl.get())->DeclareDebugStateMachine();
+/* Declare debug function */
+void MainLifter::DeclareDebugFunction() {
+  static_cast<WrapImpl*>(impl.get())->DeclareDebugFunction();
 }
 
-/* Declare debug_pc function */
-void MainLifter::DeclareDebugPC() {
-  static_cast<WrapImpl*>(impl.get())->DeclareDebugPC();
+/* Set lifted function symbol name table */
+void MainLifter::SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
+  static_cast<WrapImpl*>(impl.get())->SetFuncSymbolNameTable(addr_fn_map);
 }
 
 /* Set entry function pointer */ 
@@ -359,8 +359,10 @@ void MainLifter::WrapImpl::SetControlFlowDebugList(std::unordered_map<uint64_t, 
   control_flow_debug_list = __control_flow_debug_list;
 }
 
-llvm::Function *MainLifter::WrapImpl::DeclareDebugStateMachine() {
-  return llvm::Function::Create(
+/* Declare debug function */
+llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
+  /* void debug_state_machine() */
+  llvm::Function::Create(
     llvm::FunctionType::get(
       llvm::Type::getVoidTy(context),
       {},
@@ -370,10 +372,8 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugStateMachine() {
     debug_state_machine_name,
     *module
   );
-}
-
-llvm::Function *MainLifter::WrapImpl::DeclareDebugPC() {
-  return llvm::Function::Create(
+  /* void debug_call_stack() */
+  llvm::Function::Create(
     llvm::FunctionType::get(
       llvm::Type::getVoidTy(context),
       {},
@@ -383,4 +383,59 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugPC() {
     debug_pc_name,
     *module
   );
+  /* void debug_call_stack() */
+  return llvm::Function::Create(
+    llvm::FunctionType::get(
+      llvm::Type::getVoidTy(context),
+      {},
+      false
+    ),
+    llvm::Function::ExternalLinkage,
+    debug_call_stack_name,
+    *module
+  );
+}
+
+/* Set lifted function symbol name table */
+llvm::GlobalVariable *MainLifter::WrapImpl::SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
+  
+  std::vector<llvm::Constant*> func_symbol_ptr_list, fn_vma_list;
+  
+  for (auto& [fn_addr, symbol_name] : addr_fn_map) {
+    auto symbol_name_val = llvm::ConstantDataArray::getString(context, symbol_name, true);
+    auto symbol_name_gvar = new llvm::GlobalVariable(
+      *module,
+      symbol_name_val->getType(),
+      true,
+      llvm::GlobalVariable::ExternalLinkage,
+      symbol_name_val,
+      symbol_name
+    );
+    symbol_name_gvar->setUnnamedAddr(llvm::GlobalVariable::UnnamedAddr::Global);
+    symbol_name_gvar->setAlignment(llvm::Align(1));
+    func_symbol_ptr_list.emplace_back(llvm::ConstantExpr::getBitCast(symbol_name_gvar, llvm::Type::getInt8PtrTy(context)));
+    fn_vma_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), fn_addr));
+  }
+
+  auto array_symbol_name_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), func_symbol_ptr_list.size());
+  auto array_fn_vma_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), fn_vma_list.size());
+  
+  auto array_symbol_name_ptrs = new llvm::GlobalVariable(
+    *module,
+    array_symbol_name_ptr_type,
+    true,
+    llvm::GlobalVariable::ExternalLinkage,
+    llvm::ConstantArray::get(array_symbol_name_ptr_type, func_symbol_ptr_list),
+    g_fun_symbol_table_name
+  );
+  new llvm::GlobalVariable (
+    *module,
+    array_fn_vma_type,
+    true,
+    llvm::GlobalVariable::ExternalLinkage,
+    llvm::ConstantArray::get(array_fn_vma_type, fn_vma_list),
+    g_addr_list_second_name
+  );
+  
+  return array_symbol_name_ptrs;
 }

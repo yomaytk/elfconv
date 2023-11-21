@@ -25,6 +25,8 @@ class MainLifter final : public TraceLifter {
       g_platform_name("__g_platform_name"),
       g_addr_list_name("__g_fn_vmas"),
       g_fun_ptr_table_name("__g_fn_ptr_table"),
+      g_fun_symbol_table_name("__g_fn_symbol_table"),
+      g_addr_list_second_name("__g_fn_vmas_second"),
       debug_state_machine_name("debug_state_machine") {}
 
       std::string g_entry_func_name;
@@ -40,6 +42,8 @@ class MainLifter final : public TraceLifter {
       std::string g_platform_name;
       std::string g_addr_list_name;
       std::string g_fun_ptr_table_name;
+      std::string g_fun_symbol_table_name;
+      std::string g_addr_list_second_name;
       std::string debug_state_machine_name;
 
       // Set entry function pointer
@@ -72,11 +76,11 @@ class MainLifter final : public TraceLifter {
       /* Set control flow debug list */
       void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list);
       
-      /* Declare debug_state_machine function */
-      llvm::Function *DeclareDebugStateMachine();
+      /* Declare debug function */
+      llvm::Function *DeclareDebugFunction();
 
-      /* Declare debug_pc function */
-      llvm::Function *DeclareDebugPC();
+      /* Set lifted function symbol name table */
+      llvm::GlobalVariable *SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
   };
 
   public:
@@ -92,8 +96,8 @@ class MainLifter final : public TraceLifter {
     void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
     /* debug */
     void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
-    void DeclareDebugStateMachine();
-    void DeclareDebugPC();
+    void DeclareDebugFunction();
+    void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
 
   private:
     MainLifter(void) = delete;

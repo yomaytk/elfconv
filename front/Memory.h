@@ -58,6 +58,9 @@ extern "C" {
   extern LiftedFunc __g_fn_ptr_table[];
   /* platform name */
   extern const char *__g_platform_name;
+  /* lifted function symbol table (for debug) */
+  extern const uint8_t *__g_fn_symbol_table[];
+  extern uint64_t __g_fn_vmas_second[];
 }
 
 enum class MemoryAreaType : uint8_t {
@@ -112,4 +115,5 @@ class RuntimeManager {
     addr_t heaps_end_addr;
     uint64_t heap_num;
     std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
+    std::unordered_map<addr_t, const char*> addr_fn_symbol_map;
 };

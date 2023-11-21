@@ -1,6 +1,6 @@
 #include "Memory.h"
 
-#define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx, ", g_state.gpr.x##index.qword)
+#define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
 
 /* 
   MappedMemory 
@@ -145,9 +145,10 @@ void *_ecv_translate_ptr(addr_t vma_addr) {
   return g_run_mgr->TranslateVMA(vma_addr);
 }
 
+/* debug func */
 extern "C" void debug_state_machine() {
   printf("[Debug] State Machine. Program Counter: 0x%016llx\n", g_state.gpr.pc.qword);
-  printf("State.GPR: ");
+  printf("State.GPR:\n");
   PRINT_GPREGISTERS(0);
   PRINT_GPREGISTERS(1);
   PRINT_GPREGISTERS(2);
@@ -188,6 +189,9 @@ extern "C" void debug_state_machine() {
   printf("\n");
 }
 
-extern "C" void debug_pc() {
-  printf("[Debug] PC: 0x%llx, x0: 0x%llx, x1: 0x%llx, x2: 0x%llx, x3: 0x%llx, x4: 0x%llx\n", g_state.gpr.pc.qword, g_state.gpr.x0.qword, g_state.gpr.x1.qword, g_state.gpr.x2.qword, g_state.gpr.x3.qword, g_state.gpr.x4.qword);
+extern "C" void debug_call_stack() {
+  auto current_pc = g_state.gpr.pc;
+  if (auto func_name = g_run_mgr->addr_fn_symbol_map[current_pc.qword]; func_name) {
+    printf("entry: %s\n", func_name);
+  }
 }
