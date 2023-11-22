@@ -106,3 +106,4 @@ obj-intel64/*
 VERSION
 
 examples/w2c
+dev.sh
