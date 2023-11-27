@@ -298,6 +298,7 @@ MAKE_READV(F, 80, tdouble)
 
 #undef MAKE_READV
 
+// MAKE_MREADV(U, 16, words, 16)
 #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVn<T> mem) \

@@ -242,8 +242,7 @@ bool TraceLifter::Impl::Lift(
     // of the trace.
     arch->InitializeEmptyLiftedFunction(func);    
 /* insert debug call stack function (for debug) */
-// #if false
-#if defined(LIFT_DEBUG)
+#if defined(LIFT_CALLSTACK_DEBUG)
       llvm::BasicBlock &first_block = *std::prev(func->end()); /* arch->InitializeEmptyLiftedFunction(func) generates first block */
       llvm::IRBuilder<> __builder(&first_block);
       auto _debug_call_stack_fn = module->getFunction(debug_call_stack_name);
@@ -312,7 +311,6 @@ bool TraceLifter::Impl::Lift(
         AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
         continue;
       }
-#if defined(LIFT_DEBUG)
       /* append debug pc function */
       if (control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]) {
         llvm::IRBuilder<> __builder(block);
@@ -323,7 +321,6 @@ bool TraceLifter::Impl::Lift(
         }
         __builder.CreateCall(_debug_pc_fn);
       }
-#endif
       // Handle lifting a delayed instruction.
       auto try_delay = arch->MayHaveDelaySlot(inst);
       if (try_delay) {

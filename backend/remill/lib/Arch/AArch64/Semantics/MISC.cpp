@@ -16,7 +16,9 @@
 
 #include <stdio.h>
 
-#define UNDEF_INSN_PRINT(name) printf("[WARNING] reach the instruction ( " #name " ) which is not defined semantics");
+extern "C" void debug_state_machine();
+
+#define UNDEF_INSN_PRINT(name) printf("[WARNING] reach the instruction ( " #name " ) whose semantic is not defined.\n");
 
 namespace {
 

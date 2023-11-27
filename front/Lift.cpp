@@ -178,8 +178,10 @@ extern "C" int main(int argc, char *argv[]) {
 
   std::unordered_map<uint64_t, const char*> addr_fn_map;
 
-  /* debug */
 #if defined(LIFT_DEBUG)
+  /* declare debug function */
+  main_lifter.DeclareDebugFunction();
+#endif
   /* target function control flow */
   std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
   if (!FLAGS_dbg_fun_cfg.empty()) {
@@ -192,9 +194,6 @@ extern "C" int main(int argc, char *argv[]) {
     }
     main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
-  /* declare debug function */
-  main_lifter.DeclareDebugFunction();
-#endif
 
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {

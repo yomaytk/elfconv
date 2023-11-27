@@ -817,10 +817,6 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address,
   inst.next_pc = address + kInstructionSize;
   inst.category = Instruction::kCategoryInvalid;
 
-  if (inst.pc == 4311820) {
-    printf("entry: %08lx\n", inst.pc);
-  }
-
   if (kInstructionSize != inst_bytes.size()) {
     inst.category = Instruction::kCategoryInvalid;
     return false;
@@ -829,7 +825,7 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address,
     return false;
   } else if (!aarch64::TryExtract(bytes, dinst)) {
     inst.category = Instruction::kCategoryInvalid;
-    printf("[WARNING] failed to TryExtract. address: 0x%08lx\n", address);
+    printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryExtract)\n", address);
     return false;
   }
 
