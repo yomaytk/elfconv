@@ -14,6 +14,16 @@
 
 #include "Memory.h"
 
+// #define SYSCALL_DEBUG 1
+
+#if defined(SYSCALL_DEBUG)
+  #define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
+  #define NOP_SYSCALL(sysnum) printf("[INFO] syscall \"" #sysnum "\" is nop (but maybe allowd) now.\n");
+#else
+  #define EMPTY_SYSCALL(sysnum) ;
+  #define NOP_SYSCALL(sysnum) ;
+#endif
+
 /*
     syscall number table
 */
@@ -116,7 +126,7 @@ void __svc_call(void) {
 
   auto &state_gpr = g_state.gpr;
   errno = 0;
-  // printf("__svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword, g_state.gpr.pc.qword);
+  printf("__svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword, g_state.gpr.pc.qword);
   switch (state_gpr.x8.qword)
   {
     case AARCH64_SYS_IOCTL:  /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -152,6 +162,7 @@ void __svc_call(void) {
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       state_gpr.x0.qword = -1;
+      EMPTY_SYSCALL(AARCH64_SYS_FACCESSAT);
       errno = _ECV_EACESS;
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
@@ -176,13 +187,15 @@ void __svc_call(void) {
       }
       break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-      /* TODO */
-      state_gpr.x0.qword = -1;
-      errno = _ECV_EACESS;
+      state_gpr.x0.qword = readlinkat(state_gpr.x0.dword, 
+                                      (const char*)_ecv_translate_ptr(state_gpr.x1.qword),
+                                      (char*)_ecv_translate_ptr(state_gpr.x2.qword),
+                                      state_gpr.x3.dword);
       break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
       state_gpr.x0.qword = -1;
+      EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
       errno = _ECV_EACESS;
       break;
     case AARCH64_SYS_EXIT: /* exit (int error_code) */
@@ -211,10 +224,12 @@ void __svc_call(void) {
         printf("Unknown futex op 0x%08u\n", state_gpr.x1.dword);
         abort();
       }
+      NOP_SYSCALL(AARCH64_SYS_FUTEX);
       break;
     case AARCH64_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
       state_gpr.x0.qword = 0;
-      errno = _ECV_ENOSYS;
+      NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
+      errno = _ECV_EACESS;
       break;
     case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
       {
@@ -238,6 +253,7 @@ void __svc_call(void) {
     case AARCH64_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
       /* TODO */
       state_gpr.x0.qword = 0;
+      EMPTY_SYSCALL(AARCH64_SYS_RT_SIGPROCMASK);
       break;
     case AARCH64_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       state_gpr.x0.dword = sigaction(state_gpr.x0.dword, 
@@ -295,6 +311,7 @@ void __svc_call(void) {
     case AARCH64_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
       /* TODO */
       state_gpr.x0.qword = 0;
+      EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
       break;
     case AARCH64_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* TODO */
@@ -316,12 +333,15 @@ void __svc_call(void) {
         abort();
       }
     }
+      NOP_SYSCALL(AARCH64_SYS_MMAP);
       break;
     case AARCH64_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       state_gpr.x0.qword = 0;
+      NOP_SYSCALL(AARCH64_SYS_MPROTECT);
       break;
     case AARCH64_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
       state_gpr.x0.qword = 0;
+      NOP_SYSCALL(AARCH64_SYS_PRLIMIT64);
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
@@ -330,7 +350,6 @@ void __svc_call(void) {
         state_gpr.x0.qword = state_gpr.x1.qword;
       } else {
         state_gpr.x0.qword = -1;
-        errno = _ECV_ENOSYS;
       }
     }
       break;
@@ -344,8 +363,7 @@ void __svc_call(void) {
         }
         struct stat _stat;
         // execute fstat
-        // errno = fstat(dfd, &_stat);
-        errno = 0;
+        errno = fstat(dfd, &_stat);
         if (errno == 0) {
           struct _ecv_statx _statx;
           memset(&_statx, 0, sizeof(_statx));
@@ -370,6 +388,7 @@ void __svc_call(void) {
     case AARCH64_SYS_RSEQ:
       /* TODO */
       state_gpr.x0.qword = 0;
+      EMPTY_SYSCALL(AARCH64_SYS_RSEQ);
       break;
     default:
       printf("Unknown syscall number: %lu, PC: 0x%llx\n", state_gpr.x8.qword, state_gpr.pc.qword);
