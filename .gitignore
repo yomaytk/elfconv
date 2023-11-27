@@ -28,6 +28,7 @@ cmake-build-debug
 cmake-build-release
 compile_commands.json
 *.cache
+*.gdb
 
 third_party/*
 build/*
