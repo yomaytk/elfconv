@@ -31,6 +31,11 @@ int main(int argc, char* argv[]) {
   }
   /* set program counter */
   g_state.gpr.pc = { .qword = __g_entry_pc };
+  /* set system register (FIXME) */
+  g_state.sr.tpidr_el0 = { .qword = 0 };
+  g_state.sr.midr_el1 = { .qword = 0xf0510 };
+  g_state.sr.ctr_el0 = { .qword = 0x80038003 };
+  g_state.sr.dczid_el0 = { .qword = 0x4 };
   /* set global RuntimeManager */
   g_run_mgr = new RuntimeManager (emulated_memorys);
   g_run_mgr->heap_num = 1;
