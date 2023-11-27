@@ -14,7 +14,6 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
 
   /* Initialize the stack */
   sp = vma + len;
-  state->gpr.x29.qword = sp;
 
   /* Initialize AT_RANDOM */
   /* FIXME: this shouldn't be on the stack? */
@@ -49,7 +48,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
     {23 /* AT_SECURE */, 0},
     {25 /* AT_RANDOM */, randomp},
     {15 /* AT_PLATFORM */, (_ecv_reg64_t)__g_platform_name},
-    {33 /* AT_SYSINFO_EHDR */, 0xffffffffebe8},
+    // {33 /* AT_SYSINFO_EHDR */, 0xffffffffebe8},
     {0 /* AT_NULL */, 0},
   };
   sp -= sizeof(_ecv_auxv64);
@@ -131,7 +130,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
     }
   }
   if (!vma_allocated) {
-    printf("[ERROR] The accessed memory is not mapped. vma_addr: 0x%016llx, pc: %016llx\nHeap vma: %016llx, Heap len: %016llx\n",
+    printf("[ERROR] The accessed memory is not mapped. vma_addr: 0x%016llx, pc: 0x%016llx\nHeap vma: %016llx, Heap len: %016llx\n",
              vma_addr, g_state.gpr.pc.qword, mapped_memorys[1]->vma, mapped_memorys[1]->len);
     debug_state_machine();
     abort();
@@ -181,12 +180,17 @@ extern "C" void debug_state_machine() {
   PRINT_GPREGISTERS(29);
   PRINT_GPREGISTERS(30);
   printf("sp: 0x%016llx, pc: 0x%016llx\n", g_state.gpr.sp.qword, g_state.gpr.pc.qword);
-  auto nzcv = g_state.nzcv;
-  printf("State.NZCV:\nn: %hhu, z: %hhu, c: %hhu, v: %hhu\n", nzcv.n, nzcv.z, nzcv.c, nzcv.v);
+  // auto nzcv = g_state.nzcv;
+  // printf("State.NZCV:\nn: %hhu, z: %hhu, c: %hhu, v: %hhu\n", nzcv.n, nzcv.z, nzcv.c, nzcv.v);
   auto sr = g_state.sr;
   printf("State.SR:\ntpidr_el0: %llu, tpidrro_el0: %llu, ctr_el0: %llu, dczid_el0: %llu, midr_el0: %llu, n: %hhu, z: %hhu, c: %hhu, v: %hhu, ixc: %hhu, ofc: %hhu, ufc: %hhu, idc: %hhu, ioc: %hhu\n", 
     sr.tpidr_el0.qword, sr.tpidrro_el0.qword, sr.ctr_el0.qword, sr.dczid_el0.qword, sr.midr_el1.qword, sr.n, sr.z, sr.c, sr.v, sr.ixc, sr.ofc, sr.ufc, sr.idc, sr.ioc);
+  
   printf("\n");
+}
+
+extern "C" void debug_pc() {
+  printf("PC: 0x%08lx\n", g_state.gpr.pc);
 }
 
 extern "C" void debug_call_stack() {
