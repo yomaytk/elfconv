@@ -1453,11 +1453,11 @@ DEF_SEM(MOVI_DS, V128W dst, I64 src) {
 template <typename V, typename VNW>
 DEF_SEM(BIC_L_HL, VNW dst, I16 src) {
   auto imm = Read(src);
+  auto src_vec = UReadV16(dst);
   V res = {};
-  res = UInsertV16(res, 0, imm);
-  res = UInsertV16(res, 1, imm);
-  res = UInsertV16(res, 2, imm);
-  res = UInsertV16(res, 3, imm);
+  _Pragma("unroll") for (int i = 0;i < NumVectorElems(src_vec);i++) {
+    res.elems[i] = src_vec.elems[i] & (~imm);
+  }
   UWriteV16(dst, res);
   return memory;
 }
@@ -1465,9 +1465,10 @@ DEF_SEM(BIC_L_HL, VNW dst, I16 src) {
 template <typename V, typename VNW>
 DEF_SEM(BIC_L_SL, VNW dst, I32 src) {
   auto imm = Read(src);
+  auto src_vec = UReadV32(dst);
   V res = {};
-  _Pragma("unroll") for (auto &elem : res.elems) {
-    elem = elem & (~imm);
+  _Pragma("unroll") for (int i = 0;i < NumVectorElems(src_vec);i++) {
+    res.elems[i] = src_vec.elems[i] & (~imm);
   }
   UWriteV32(dst, res);
   return memory;
