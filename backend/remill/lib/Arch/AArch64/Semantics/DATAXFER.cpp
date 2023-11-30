@@ -1524,3 +1524,18 @@ DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64, M64W>;
 
 DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32, M32W>;
 DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64, M64W>;
+
+namespace {
+
+template <typename D>
+DEF_SEM(DC_ZVA, D dst_mem, R64W) {
+  auto bs = state.sr.dczid_el0.qword & 0b1111; /* get BS field */
+  for (int i = 0 ;i < (int)pow(2, bs);i++) {
+    Write_Dc_Zva(dst_mem, sizeof(uint32_t) * i, 0);
+  }
+  return memory;
+}
+
+}
+
+DEF_ISEL(DC_SYS_CR_SYSTEM) = DC_ZVA<M64W>; /* DC  <dc_op>, <Xt> */

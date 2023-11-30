@@ -5017,6 +5017,7 @@ bool TryDecodeCNT_ASIMDMISC_R(const InstData &, Instruction &) {
 
 // DC  <dc_op>, <Xt> /* FIXME */
 bool TryDecodeDC_SYS_CR_SYSTEM(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
   return true;
 }
 

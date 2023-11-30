@@ -623,6 +623,10 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
     memory = _Write(memory, op, (val)); \
   } while (false)
 
+#define Write_Dc_Zva(op, diff, val) \
+  do { \
+    memory = __remill_write_memory_32(memory, op.addr + diff, val); \
+  } while (false)
 
 #if !defined(issignaling)
 

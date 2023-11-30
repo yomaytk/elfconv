@@ -18,8 +18,13 @@
 
 extern "C" void debug_state_machine();
 
-#define UNDEF_INSN_PRINT(name) printf("[WARNING] reach the instruction ( " #name " ) whose semantic is not defined.\n");
+// #define LIFT_UNDEFINSN_DEBUG 1
 
+#if defined(LIFT_UNDEFINSN_DEBUG)
+  #define UNDEF_INSN_PRINT(name) printf("[WARNING] reach the instruction ( " #name " ) whose semantic is not defined.\n");
+#else
+  #define UNDEF_INSN_PRINT(name) ;
+#endif
 namespace {
 
 DEF_SEM(DoNOP) {
@@ -38,11 +43,6 @@ DEF_ISEL(NOP_HI_SYSTEM) = DoNOP;
 DEF_ISEL(PRFM_P_LDST_POS) = DoNOP;
 
 namespace {
-
-DEF_SEM(UNDEF_DC_SYS_CR_SYSTEM, R64W) {
-  UNDEF_INSN_PRINT(DC_SYS_CR_SYSTEM);
-  return memory;
-}
 
 DEF_SEM(UNDEF_CNT_ASIMDMISC_R) {
   UNDEF_INSN_PRINT(CNT_ASIMDMISC_R);
@@ -82,7 +82,6 @@ DEF_SEM(UNDEF_WHILELO_PREDICATE) {
 }
 
 /* FIXME */
-DEF_ISEL(DC_SYS_CR_SYSTEM) = UNDEF_DC_SYS_CR_SYSTEM; /* DC  <dc_op>, <Xt> */
 DEF_ISEL(CNT_ASIMDMISC_R) = UNDEF_CNT_ASIMDMISC_R; /* CNT  <Vd>.<T>, <Vn>.<T> */
 DEF_ISEL(CMGE_ASISDMISC_Z) = UNDEF_CMGE_ASISDMISC_Z;  /* CMGE  <V><d>, <V><n>, #0 */
 DEF_ISEL(CNTB_X64_BITCOUNT) = UNDEF_CNTB_X64_BITCOUNT; /* CNTB <Xd>{, <pattern>{, MUL #<imm>}} */
