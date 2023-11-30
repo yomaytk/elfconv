@@ -4,6 +4,8 @@
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "Memory.h"
 
+#define LIFT_CALLSTACK_DEBUG 1
+
 #define UNDEFINED_INTRINSICS(intrinsics) printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
                                           debug_state_machine(); \
                                           fflush(stdout); \
@@ -93,7 +95,27 @@ extern "C" void __remill_mark_as_used(void *mem) {
   asm("" ::"m"(mem));
 }
 
-Memory *__remill_function_return(State &, addr_t, Memory *memory) {
+Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
+#if defined(LIFT_CALLSTACK_DEBUG)
+  if (g_run_mgr->call_stacks.empty()) {
+    printf("invalid call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
+    abort();
+  } else {
+    auto last_call_vma = g_run_mgr->call_stacks.back();
+    auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
+    if (strncmp(func_name, "fn_plt", 6) == 0) {
+      return memory;
+    } else {
+      g_run_mgr->call_stacks.pop_back();
+      char return_func_log[100];
+      memset(return_func_log, ' ', g_run_mgr->call_stacks.size());
+      snprintf(return_func_log + g_run_mgr->call_stacks.size(),
+                100 - g_run_mgr->call_stacks.size(),
+                "end : %s\n", func_name);
+      // printf(return_func_log);
+    }
+  }
+#endif
   return memory;
 }
 
@@ -128,18 +150,18 @@ Memory * __remill_function_call(State &state, addr_t fn_vma, Memory *memory){
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table.\n", fn_vma);
+    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: 0x%08llx\n", fn_vma, state.gpr.pc.dword);
     abort();
   }
   return memory;
 }
 
-/* BL instruction */
+/* BR instruction */
 Memory * __remill_jump(State &state, addr_t fn_vma, Memory *memory){
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table.\n", fn_vma);
+    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: 0x%08llx\n", fn_vma, state.gpr.pc.dword);
     abort();
   }
   return memory;

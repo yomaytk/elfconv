@@ -29,6 +29,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
   memcpy(bytes + (sp - vma), __g_e_ph, e_ph_size);
   _ecv_reg64_t phdr = sp;
 
+  printf("auxv end: 0x%016llx\n", sp);
   /* auxv */
   struct {
     _ecv_reg64_t _ecv_a_type;
@@ -47,8 +48,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
     {14 /* AT_EGID */, getegid()},
     {23 /* AT_SECURE */, 0},
     {25 /* AT_RANDOM */, randomp},
-    {15 /* AT_PLATFORM */, (_ecv_reg64_t)__g_platform_name},
-    // {33 /* AT_SYSINFO_EHDR */, 0xffffffffebe8},
+    // {15 /* AT_PLATFORM */, (_ecv_reg64_t)&__g_platform_name},
     {0 /* AT_NULL */, 0},
   };
   sp -= sizeof(_ecv_auxv64);
@@ -113,27 +113,30 @@ void MappedMemory::DebugEmulatedMemory() {
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   void *pma_addr = nullptr;
   /* search in every emulated memory */
-  bool vma_allocated = false;
+  std::vector<std::string> allocated_sections;
   for(auto &memory : mapped_memorys) {
     if (memory->vma <= vma_addr && vma_addr < memory->vma + memory->len) {
-          /* 
-            for Debug (we should break out this loop at the same time of finding the target emulated memory) 
-            There are multiple sections whose vma is 0x00000000
-          */
-          if (vma_allocated && 0x00000000 != memory->vma) {
-            debug_state_machine();
-            printf("[ERROR] vma_addr (0x%016llx) exists at multiple memorys.\n", vma_addr);
-            abort();
-          }
-      vma_allocated = true;
+      /* 
+        for Debug (we should break out this loop at the same time of finding the target emulated memory) 
+        There are multiple sections whose vma is 0x00000000
+      */
+      allocated_sections.push_back(memory->name);
       pma_addr = reinterpret_cast<void*>(memory->bytes + (vma_addr - memory->vma));
     }
   }
-  if (!vma_allocated) {
+  /* don't exist sections which includes the vma_addr. */
+  if (allocated_sections.empty()) {
     printf("[ERROR] The accessed memory is not mapped. vma_addr: 0x%016llx, pc: 0x%016llx\nHeap vma: %016llx, Heap len: %016llx\n",
              vma_addr, g_state.gpr.pc.qword, mapped_memorys[1]->vma, mapped_memorys[1]->len);
     debug_state_machine();
     abort();
+  }
+  /* multiple sections which includes the vma_addr */
+  if (allocated_sections.size() > 1) {
+    printf("[WARNING] vma_addr (0x%016llx) exists at multiple sections.\n", vma_addr);
+    printf("Sections: ");
+    for(auto &sec_name : allocated_sections)  printf("%s ", sec_name.c_str());
+    printf("\n");
   }
   
   return pma_addr;
@@ -193,9 +196,26 @@ extern "C" void debug_pc() {
   printf("PC: 0x%08lx\n", g_state.gpr.pc);
 }
 
+extern "C" void debug_insn() {
+  auto gpr = g_state.gpr;
+  printf("[DEBUG_INSN]\nPC: 0x%08llx, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x25: 0x%016llx\n", gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x25.qword);
+}
+
 extern "C" void debug_call_stack() {
-  auto current_pc = g_state.gpr.pc;
-  if (auto func_name = g_run_mgr->addr_fn_symbol_map[current_pc.qword]; func_name) {
-    printf("entry: %s\n", func_name);
+  auto current_pc = g_state.gpr.pc.qword;
+  if (auto func_name = g_run_mgr->addr_fn_symbol_map[current_pc]; func_name) {
+    if (strncmp(func_name, "fn_plt", 6) == 0) {
+      return;
+    }
+    g_run_mgr->call_stacks.push_back(current_pc);
+    char entry_func_log[100];
+    memset(entry_func_log, ' ', g_run_mgr->call_stacks.size() - 1);
+    snprintf(entry_func_log + g_run_mgr->call_stacks.size() - 1, 
+              100 - (g_run_mgr->call_stacks.size() - 1), 
+              "start : %s\n", func_name);
+    printf(entry_func_log);
+  } else {
+    printf("[ERROR] unknown entry func vma: 0x%08lx\n", current_pc);
+    abort();
   }
 }

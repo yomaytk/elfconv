@@ -134,6 +134,7 @@ class TraceLifter::Impl {
       switch_inst(nullptr),
       // TODO(Ian): The trace lfiter is not supporting contexts
       max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+      debug_insn_name("debug_insn"),
       debug_pc_name("debug_pc"),
       debug_call_stack_name("debug_call_stack") {
     inst_bytes.reserve(max_inst_bytes);
@@ -193,6 +194,7 @@ class TraceLifter::Impl {
   DecoderWorkList inst_work_list;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   std::string debug_pc_name;
+  std::string debug_insn_name;
   std::string debug_call_stack_name;
 };
 

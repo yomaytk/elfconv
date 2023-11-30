@@ -57,7 +57,7 @@ extern "C" {
   extern uint64_t __g_fn_vmas[];
   extern LiftedFunc __g_fn_ptr_table[];
   /* platform name */
-  extern const char *__g_platform_name;
+  extern const char __g_platform_name[];
   /* lifted function symbol table (for debug) */
   extern const uint8_t *__g_fn_symbol_table[];
   extern uint64_t __g_fn_vmas_second[];
@@ -116,4 +116,5 @@ class RuntimeManager {
     uint64_t heap_num;
     std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
     std::unordered_map<addr_t, const char*> addr_fn_symbol_map;
+    std::vector<addr_t> call_stacks;
 };

@@ -372,7 +372,7 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
     debug_state_machine_name,
     *module
   );
-  /* void debug_call_stack() */
+  /* void debug_pc() */
   llvm::Function::Create(
     llvm::FunctionType::get(
       llvm::Type::getVoidTy(context),
@@ -384,7 +384,7 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
     *module
   );
   /* void debug_call_stack() */
-  return llvm::Function::Create(
+  llvm::Function::Create(
     llvm::FunctionType::get(
       llvm::Type::getVoidTy(context),
       {},
@@ -392,6 +392,17 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
     ),
     llvm::Function::ExternalLinkage,
     debug_call_stack_name,
+    *module
+  );
+  /* void debug_insn() */
+  return llvm::Function::Create(
+    llvm::FunctionType::get(
+      llvm::Type::getVoidTy(context),
+      {},
+      false
+    ),
+    llvm::Function::ExternalLinkage,
+    debug_insn_name,
     *module
   );
 }

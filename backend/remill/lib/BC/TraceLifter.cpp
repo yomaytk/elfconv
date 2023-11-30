@@ -283,7 +283,22 @@ bool TraceLifter::Impl::Lift(
       if (!block->empty()) {
         continue;
       }
-
+#if defined(LIFT_INSN_DEBUG)
+      do {
+        std::vector<uint64_t> target_addrs = {};
+        for (auto &t_addr : target_addrs) {
+          if (t_addr == inst_addr) {
+            llvm::IRBuilder<> __builder(block);
+            auto _debug_insn_fn = module->getFunction(debug_insn_name);
+            if (!_debug_insn_fn) {
+              printf("[ERROR] debug_pc is undeclared.\n");
+              abort();
+            }
+            __builder.CreateCall(_debug_insn_fn);
+          }
+        }
+      } while (false);
+#endif
       // Check to see if this instruction corresponds with an existing
       // trace head, and if so, tail-call into that trace directly without
       // decoding or lifting the instruction.
@@ -312,15 +327,17 @@ bool TraceLifter::Impl::Lift(
         continue;
       }
       /* append debug pc function */
-      if (control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]) {
-        llvm::IRBuilder<> __builder(block);
-        auto _debug_pc_fn = module->getFunction(debug_pc_name);
-        if (!_debug_pc_fn) {
-          printf("[ERROR] debug_pc is undeclared.\n");
-          abort();
+      do {
+        if (control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]) {
+          llvm::IRBuilder<> __builder(block);
+          auto _debug_pc_fn = module->getFunction(debug_pc_name);
+          if (!_debug_pc_fn) {
+            printf("[ERROR] debug_pc is undeclared.\n");
+            abort();
+          }
+          __builder.CreateCall(_debug_pc_fn);
         }
-        __builder.CreateCall(_debug_pc_fn);
-      }
+      } while (false);
       // Handle lifting a delayed instruction.
       auto try_delay = arch->MayHaveDelaySlot(inst);
       if (try_delay) {
