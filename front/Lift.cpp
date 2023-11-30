@@ -147,9 +147,8 @@ void AArch64TraceManager::SetELFData() {
         memory[plt_section.vma + ins_s + 2] = plt_section.bytes[ins_s + 2];
         memory[plt_section.vma + ins_s + 3] = plt_section.bytes[ins_s + 3];
         plt_i += sizeof(uint32_t); /* 4bytes fixed instruction */
-        // uint8_t* bts = &plt_section.bytes[ins_s];
-        // printf("0x%x, 0x%x, 0x%x, 0x%x\n", bts[ins_s], bts[ins_s + 1], bts[ins_s + 2], bts[ins_s + 3]);
-        if (plt_section.bytes[ins_s] == 0x20 && plt_section.bytes[ins_s + 1] == 0x02 && plt_section.bytes[ins_s + 2] == 0x1f && plt_section.bytes[ins_s + 3] == 0xd6) { /* bl instruction (FIXME) */
+        uint8_t* bts = plt_section.bytes + ins_s;
+        if (bts[0] == 0x20 && bts[1] == 0x02 && bts[2] == 0x1f && bts[3] == 0xd6) { /* bl instruction (FIXME) */
           break;
         }
       }
@@ -157,6 +156,36 @@ void AArch64TraceManager::SetELFData() {
       fn_name << "fn_plt_" << std::hex << b_entry;
       disasm_funcs.emplace(b_entry, DisasmFunc(fn_name.str(), b_entry, plt_i - b_entry));
     }
+  }
+  /* 
+    define __wrap_main function (FIXME)
+    __libc_start_call_main BLR jump to the instructions as following in _start.
+    `nop`
+    `b main`
+    `nop`
+  */
+  if (disasm_funcs.count(entry_point) == 1) {
+    auto _start_disasm_fn = disasm_funcs[entry_point];
+    auto __wrap_main_size = sizeof(uint32_t) * 3;
+    auto &text_section = elf_obj.code_sections[".text"];
+    auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
+    uint64_t __wrap_main_diff = UINT64_MAX;
+    for (int i = 0; i + __wrap_main_size < _start_disasm_fn.func_size; i += 4) {
+      if (/* nop */_s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 && _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
+          /* b main */(_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
+          /* nop */_s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 && _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5
+        ) {
+          __wrap_main_diff = _start_disasm_fn.vma + i;
+          disasm_funcs.emplace(__wrap_main_diff, DisasmFunc("__wrap_main", __wrap_main_diff, __wrap_main_size));
+          break;
+        }
+    }
+    if (UINT64_MAX == __wrap_main_diff) {
+      printf("[WARNING] __wrap_main cannot be found.\n");
+    }
+  } else {
+    printf("[ERROR] Entry function is not defined.\n");
+    exit(EXIT_FAILURE);
   }
 }
 
@@ -220,7 +249,7 @@ extern "C" int main(int argc, char *argv[]) {
   /* debug call stack (FIXME) */
   main_lifter.SetFuncSymbolNameTable(addr_fn_map);
   /* set Platform name (FIXME) */
-  main_lifter.SetPlatform("unknown");
+  main_lifter.SetPlatform("aarch64");
   /* set entry point */
   main_lifter.SetEntryPC(manager.entry_point);
   /* set data section */
