@@ -110,6 +110,7 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   if (!block) {
     block = llvm::BasicBlock::Create(context, "", func);
   }
+  switch_block_map[block_pc] = block;
   return block;
 }
 
@@ -127,6 +128,18 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBranchNotTakenBlock(void) {
 llvm::BasicBlock *TraceLifter::Impl::GetOrCreateNextBlock(void) {
   inst_work_list.insert(inst.next_pc);
   return GetOrCreateBlock(inst.next_pc);
+}
+
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateSwitchBlock(void) {
+  llvm::Function::iterator fun_iter = func->begin();
+  llvm::Function::iterator fun_iter_e = func->end();
+  for (;fun_iter != fun_iter_e;fun_iter++) {
+    llvm::BasicBlock *bb = &*fun_iter;
+    if (bb->getName() == switch_block_name) {
+      return bb;
+    }
+  }
+  return llvm::BasicBlock::Create(context, switch_block_name, func);
 }
 
 uint64_t TraceLifter::Impl::PopTraceAddress(void) {
@@ -190,6 +203,7 @@ bool TraceLifter::Impl::Lift(
   func = nullptr;
   switch_inst = nullptr;
   block = nullptr;
+  br_switch_block = nullptr;
   inst.Reset();
   delayed_inst.Reset();
 
@@ -228,14 +242,14 @@ bool TraceLifter::Impl::Lift(
 
     func = get_trace_decl(trace_addr);
     blocks.clear();
-
+    switch_block_map.clear();
+    br_switch_block = nullptr;
 
     if (!func || !func->isDeclaration()) {
       func = arch->DeclareLiftedFunction(manager.TraceName(trace_addr), module);
     }
 
     CHECK(func->isDeclaration());
-
 
     // Fill in the function, and make sure the block with all register
     // variables jumps to the block that will contain the first instruction
@@ -270,14 +284,13 @@ bool TraceLifter::Impl::Lift(
     CHECK(inst_work_list.empty());
     inst_work_list.insert(trace_addr);
 
-
-
     // Decode instructions. 
     while (!inst_work_list.empty()) {
       const auto inst_addr = PopInstructionAddress();
 
       block = GetOrCreateBlock(inst_addr);
       switch_inst = nullptr;
+      switch_block_map[inst_addr] = block;
 
       // We have already lifted this instruction block.
       if (!block->empty()) {
@@ -393,9 +406,18 @@ bool TraceLifter::Impl::Lift(
           llvm::BranchInst::Create(GetOrCreateBranchTakenBlock(), block);
           break;
 
+        /* case: BR instruction */
         case Instruction::kCategoryIndirectJump: {
           try_add_delay_slot(true, block);
-          AddTerminatingTailCall(block, intrinsics->jump, *intrinsics);
+          /* switch basic block */
+          br_switch_block = GetOrCreateSwitchBlock();
+          llvm::IRBuilder<> ir(block);
+          /* find switch key */
+          llvm::Value *switch_key = FindSwitchKeyofBR(block);
+          auto switch_key_ref = LoadSwitchKeyRef(block);
+          (void) new llvm::StoreInst(switch_key, switch_key_ref, block);
+          /* jmp to switch block */
+          ir.CreateBr(br_switch_block);
           break;
         }
 
@@ -639,6 +661,22 @@ bool TraceLifter::Impl::Lift(
           block = orig_not_taken_block;
           continue;
         }
+      }
+
+      if (br_switch_block && manager.GetFuncVMAENd(inst_addr)) {
+        GetOrCreateNextBlock();
+      }
+    }
+
+    /* switch block for BR. default basic block is jmp_bb. */
+    if (br_switch_block) {
+      llvm::BasicBlock *jmp_bb = llvm::BasicBlock::Create(context, "", func);
+      AddTerminatingTailCall(jmp_bb, intrinsics->jump, *intrinsics);
+      llvm::IRBuilder<> ir(br_switch_block);
+      auto switch_key_u64 = ir.CreateLoad(llvm::Type::getInt64Ty(context), LoadSwitchKeyRef(br_switch_block));
+      llvm::SwitchInst *switch_inst = ir.CreateSwitch(switch_key_u64, jmp_bb);
+      for (auto &[__insn_addr, target_bb] : switch_block_map) {
+        switch_inst->addCase(ir.getInt64(__insn_addr), target_bb);
       }
     }
 

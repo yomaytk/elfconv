@@ -323,6 +323,11 @@ llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kReturnPCVariableName).first;
 }
 
+/* Return a reference to the swithc key. */ 
+llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kSwitchKeyName).first;
+}
+
 // Update the program counter in the state struct with a new value.
 void StoreProgramCounter(llvm::BasicBlock *block, llvm::Value *pc) {
   (void) new llvm::StoreInst(pc, LoadProgramCounterRef(block), block);
@@ -421,6 +426,28 @@ LoadArchSemantics(const Arch *arch,
     Annotate<remill::Semantics>(&func);
   }
   return module;
+}
+
+/* 
+	find switch key (%key = load i64, ptr %XZZZ, align 8) 
+	Note. assuming that the BB of BR contains only one `load ptr %XZ`
+*/
+llvm::Value *FindSwitchKeyofBR(llvm::BasicBlock *block) {
+	llvm::Value *switch_key = nullptr;
+	for (llvm::Instruction &llvm_inst : *block) {
+		if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
+				llvm::Value *op = load_inst->getPointerOperand();
+				if (op->getName().startswith("X")) {
+				switch_key = load_inst;
+				break;
+				}
+		}
+	}
+	if (nullptr == switch_key) {
+		printf("[ERROR] BR instruction doesn't have the LLVM IR insn like `load ptr \\%XZZ`");
+		abort();
+	}
+	return switch_key;
 }
 
 std::optional<std::string> VerifyModuleMsg(llvm::Module *module) {

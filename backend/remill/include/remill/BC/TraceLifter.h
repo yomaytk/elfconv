@@ -85,6 +85,9 @@ class TraceManager {
   // at address `addr` is executable and readable, and updates the byte
   // pointed to by `byte` with the read value.
   virtual bool TryReadExecutableByte(uint64_t addr, uint8_t *byte) = 0;
+
+  /* judge whether the addr is end vma of function or not. */
+  virtual bool GetFuncVMAENd(uint64_t addr) = 0;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -134,6 +137,7 @@ class TraceLifter::Impl {
       switch_inst(nullptr),
       // TODO(Ian): The trace lfiter is not supporting contexts
       max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+      switch_block_name("SWITCH_BB"),
       debug_insn_name("debug_insn"),
       debug_pc_name("debug_pc"),
       debug_call_stack_name("debug_call_stack") {
@@ -170,6 +174,8 @@ class TraceLifter::Impl {
 
   llvm::BasicBlock *GetOrCreateNextBlock(void);
 
+  llvm::BasicBlock *GetOrCreateSwitchBlock(void);
+
   uint64_t PopTraceAddress(void);
 
   uint64_t PopInstructionAddress(void);
@@ -184,7 +190,10 @@ class TraceLifter::Impl {
 
   llvm::Function *func;
   llvm::BasicBlock *block;
+  llvm::BasicBlock *br_switch_block;
   llvm::SwitchInst *switch_inst;
+  std::string switch_block_name;
+  std::map<uint64_t, llvm::BasicBlock*> switch_block_map;
   const size_t max_inst_bytes;
   std::string inst_bytes;
   Instruction inst;

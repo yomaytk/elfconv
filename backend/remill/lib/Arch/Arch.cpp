@@ -748,6 +748,7 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   auto &context = module->getContext();
   auto block = llvm::BasicBlock::Create(context, "", func);
   auto u8 = llvm::Type::getInt8Ty(context);
+  auto u64 = llvm::Type::getInt64Ty(context);
   auto addr = llvm::Type::getIntNTy(context, address_size);
   auto memory = remill::NthArgument(func, kMemoryPointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
@@ -756,6 +757,7 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   ir.CreateAlloca(u8, nullptr, "BRANCH_TAKEN");
   ir.CreateAlloca(addr, nullptr, "RETURN_PC");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
+  ir.CreateAlloca(u64, nullptr, "SWITCH_KEY");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.

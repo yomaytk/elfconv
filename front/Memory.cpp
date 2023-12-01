@@ -29,7 +29,6 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
   memcpy(bytes + (sp - vma), __g_e_ph, e_ph_size);
   _ecv_reg64_t phdr = sp;
 
-  printf("auxv end: 0x%016llx\n", sp);
   /* auxv */
   struct {
     _ecv_reg64_t _ecv_a_type;

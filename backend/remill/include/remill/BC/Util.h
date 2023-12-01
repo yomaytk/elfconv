@@ -151,6 +151,9 @@ llvm::Value *LoadMemoryPointer(llvm::BasicBlock *block,
 // Return a reference to the memory pointer.
 llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
 
+/* Return a reference to the swithc key. */ 
+llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block);
+
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
 // or not a conditional branch is taken.
 llvm::Value *LoadBranchTaken(llvm::IRBuilder<> &builder);
@@ -163,6 +166,12 @@ llvm::Function *FindFunction(llvm::Module *M, std::string_view name);
 
 // Find a global variable with name `name` in the module `M`.
 llvm::GlobalVariable *FindGlobaVariable(llvm::Module *M, std::string_view name);
+
+/* 
+	find switch key (%key = load i64, ptr %XZZZ, align 8) 
+	Note. assuming that the BB of BR contains only one `load ptr %XZ`
+*/
+llvm::Value *FindSwitchKeyofBR(llvm::BasicBlock *block);
 
 // Try to verify a module.
 bool VerifyModule(llvm::Module *module);

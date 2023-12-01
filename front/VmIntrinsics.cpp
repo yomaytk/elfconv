@@ -112,7 +112,7 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
       snprintf(return_func_log + g_run_mgr->call_stacks.size(),
                 100 - g_run_mgr->call_stacks.size(),
                 "end : %s\n", func_name);
-      // printf(return_func_log);
+      printf(return_func_log);
     }
   }
 #endif

@@ -80,6 +80,15 @@ std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name) 
   return func_name + "_" + to_string(unique_i64++) + "__Lifted";
 }
 
+bool AArch64TraceManager::GetFuncVMAENd(uint64_t addr) {
+  for (auto &[fn_vma, disasm_fn] : disasm_funcs) {
+    if (fn_vma <= addr && addr + sizeof(uint32_t) < fn_vma + disasm_fn.func_size) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void AArch64TraceManager::SetELFData() {
 
   elf_obj.LoadELF();
@@ -90,12 +99,10 @@ void AArch64TraceManager::SetELFData() {
   auto func_entrys = elf_obj.GetFuncEntry();
   std::sort(func_entrys.rbegin(), func_entrys.rend());
   /* set instructions of every symbol in the table */
-  size_t i = 0;
-  while (i < func_entrys.size()) {
+  for (size_t i = 0;i < func_entrys.size();) {
     uint64_t fun_bytes_size;
     uintptr_t fun_end_addr;
     uintptr_t sec_addr;
-    uintptr_t n_fun_end_addr;
     uint8_t *bytes;
     int sec_included_cnt = 0;
     /* specify included section */
@@ -103,7 +110,6 @@ void AArch64TraceManager::SetELFData() {
       if (code_sec.vma <= func_entrys[i].entry && func_entrys[i].entry < code_sec.vma + code_sec.size) {
         sec_addr = code_sec.vma;
         fun_end_addr = code_sec.vma + code_sec.size;
-        fun_bytes_size = (code_sec.vma + code_sec.size) - func_entrys[i].entry;
         bytes = code_sec.bytes;
         sec_included_cnt++;
       }
@@ -112,8 +118,7 @@ void AArch64TraceManager::SetELFData() {
       printf("[ERROR] \"%s\" is not included in one code section.\n", func_entrys[i].func_name.c_str());
       exit(EXIT_FAILURE);
     }
-    n_fun_end_addr = UINTPTR_MAX;
-    while (sec_addr < n_fun_end_addr) {
+    while (sec_addr < fun_end_addr) {
       /* assign every insn to the manager */
       auto lifted_func_name = GetUniqueLiftedFuncName(func_entrys[i].func_name);
       /* program entry point */
@@ -127,8 +132,9 @@ void AArch64TraceManager::SetELFData() {
       for (uintptr_t addr = func_entrys[i].entry;addr < fun_end_addr; addr++) {
         memory[addr] = bytes[addr - sec_addr];
       }
-      disasm_funcs.emplace(func_entrys[i].entry, DisasmFunc(lifted_func_name, func_entrys[i].entry, fun_bytes_size));
-      n_fun_end_addr = func_entrys[i].entry;
+      disasm_funcs.emplace(func_entrys[i].entry, DisasmFunc(lifted_func_name, func_entrys[i].entry, fun_end_addr - func_entrys[i].entry));
+      /* next loop */
+      fun_end_addr = func_entrys[i].entry;
       i++;
     }
   }
@@ -170,7 +176,7 @@ void AArch64TraceManager::SetELFData() {
     auto &text_section = elf_obj.code_sections[".text"];
     auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
     uint64_t __wrap_main_diff = UINT64_MAX;
-    for (int i = 0; i + __wrap_main_size < _start_disasm_fn.func_size; i += 4) {
+    for (int i = 0; i + __wrap_main_size <= _start_disasm_fn.func_size; i += 4) {
       if (/* nop */_s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 && _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
           /* b main */(_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
           /* nop */_s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 && _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5
@@ -266,7 +272,6 @@ extern "C" int main(int argc, char *argv[]) {
       remill::LLVMFunTypeIdent::NULL_FUN_TY
     );
   }
-  
   /* generate LLVM bitcode file */
   auto host_arch =
       remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));

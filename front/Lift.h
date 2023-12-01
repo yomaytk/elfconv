@@ -63,6 +63,7 @@ class AArch64TraceManager : public remill::TraceManager {
     /* same for TraceManager::TraceName */
     static std::string Sub_FuncName(uint64_t addr);
     inline std::string GetUniqueLiftedFuncName(std::string func_name);
+    bool GetFuncVMAENd(uint64_t addr);
 
     void SetELFData();
 
