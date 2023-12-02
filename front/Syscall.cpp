@@ -187,10 +187,15 @@ void __svc_call(void) {
       }
       break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
+#if defined(__EMSCRIPTEN__)
+      /* TODO */
+      // state_gpr.x0.qword = state_gpr.x3.dword;
+#else
       state_gpr.x0.qword = readlinkat(state_gpr.x0.dword, 
                                       (const char*)_ecv_translate_ptr(state_gpr.x1.qword),
                                       (char*)_ecv_translate_ptr(state_gpr.x2.qword),
                                       state_gpr.x3.dword);
+#endif
       break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
@@ -363,7 +368,11 @@ void __svc_call(void) {
         }
         struct stat _stat;
         // execute fstat
+#if defined(__EMSCRIPTEN__)
+        // errno = fstat(dfd, &_stat);
+#else
         errno = fstat(dfd, &_stat);
+#endif
         if (errno == 0) {
           struct _ecv_statx _statx;
           memset(&_statx, 0, sizeof(_statx));
