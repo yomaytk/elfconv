@@ -15,15 +15,19 @@ $ docker run -it --name elfconv-sample-container elfconv-img bash
 ~/elfconv# source ~/.bash_profile
 ~/elfconv# ./build.sh
 ```
-You can test elfconv using `bin/elfconv.sh` as following.
+You can test elfconv using `bin/elfconv.sh` as following at both browser and host environment.
+### Browser
 ```bash
 ~/elfconv# cd bin
 ~/elfconv/bin# ./elfconv.sh /path/to/ELF # ex.) ../exmaples/print_hello/a.out
+~/elfconv/bin# emrun exe.wasm.html
+```
+### Host
+```bash
+~/elfconv# cd bin
+~/elfconv/bin# SERVER=1 ./elfconv.sh /path/to/ELF # ex.) ../exmaples/print_hello/a.out
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
-## Build
-WIP
-
 ## Acknowledgement
 elfconv uses or references some projects as following. Great thanks to its all developers!
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
