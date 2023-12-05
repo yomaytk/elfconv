@@ -29,6 +29,9 @@ elfconv uses or references some projects as following. Great thanks to its all d
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
     - Original Source: https://github.com/lifting-bits/remill
     - elfconv uses remill in order to convert machine codes to LLVM IR instructions. the source code is contained in [`./backend/remill`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and is modified for using from front-end and supporting additional instructions.
+- Sleigh Library ([Apache Lisence 2.0](https://github.com/lifting-bits/sleigh/blob/master/LICENSE))
+    - Original Source: https://github.com/lifting-bits/sleigh
+    - sleigh is a language to describe the semantics of instructions, and this library is part of the [Ghidra reverse engineering platform](https://github.com/NationalSecurityAgency/ghidra) and underpins its disassemler and decompilation engines.
 - MyAOT ([Apache Lisence 2.0](https://github.com/AkihiroSuda/myaot/blob/master/LICENSE))
     - Original Source: https://github.com/AkihiroSuda/myaot
     - An experimental AOT-ish compiler (Linux/riscv32 ELF → Linux/x86_64 ELF, Mach-O, WASM, ...)
