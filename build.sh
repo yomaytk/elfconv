@@ -34,6 +34,8 @@ EMCC=emcc
 EMAR=emar
 EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -O3"
 FRONT_DIR=""$( realpath "${ROOT_DIR}" )"/front"
+ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
+ELFCONV_DEBUG_MACROS=
 
 # There are pre-build versions of various libraries for specific
 # Ubuntu releases.
@@ -359,6 +361,7 @@ function main
       # Make the build type to be a debug build.
       --debug)
         LIFT_DEBUG_MACROS="-DLIFT_DEBUG=1 -DLIFT_CALLSTACK_DEBUG=1 -DLIFT_INSN_DEBUG=1"
+        ELFCONV_DEBUG_MACROS="-DSYSCALL_DEBUG=1"
         echo "[+] Enabling a debug lifting of elfconv"
       ;;
 
@@ -405,14 +408,18 @@ function main
   # install elflift
   mkdir -p "${INSTALL_DIR}"
   cp -p "${BUILD_FRONT_DIR}/elflift"  "${INSTALL_DIR}"
+
+  if [ -n "$SERVER" ]; then
+    ELFCONV_MACROS="-DELFCONV_SERVER_ENV=1"
+  fi
   
   # build libelfconv using emscripten
   mkdir -p "${INSTALL_LIB_DIR}"
   cd "${FRONT_DIR}" && \
-    ${EMCC} ${EMCCFLAGS} -o Entry.o -c Entry.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o Memory.o -c Memory.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o Syscall.o -c Syscall.cpp && \
-    ${EMCC} ${EMCCFLAGS} -o VmIntrinsics.o -c VmIntrinsics.cpp
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Entry.o -c Entry.cpp && \
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Memory.o -c Memory.cpp && \
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Syscall.o -c Syscall.cpp && \
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o VmIntrinsics.o -c VmIntrinsics.cpp
     ${EMAR} rcs "${INSTALL_LIB_DIR}/libelfconv.a" Entry.o Memory.o Syscall.o VmIntrinsics.o
     rm *.o
 

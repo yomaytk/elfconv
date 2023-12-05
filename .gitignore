@@ -29,6 +29,8 @@ cmake-build-release
 compile_commands.json
 *.cache
 *.gdb
+*.js
+*.html
 
 third_party/*
 build/*
