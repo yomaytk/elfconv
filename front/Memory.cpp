@@ -1,5 +1,7 @@
 #include "Memory.h"
 
+// #define WARNING_MSG 1
+
 #define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
 
 /* 
@@ -131,12 +133,14 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
     abort();
   }
   /* multiple sections which includes the vma_addr */
+#if defined(WARNING_MSG)
   if (allocated_sections.size() > 1) {
     printf("[WARNING] vma_addr (0x%016llx) exists at multiple sections.\n", vma_addr);
     printf("Sections: ");
     for(auto &sec_name : allocated_sections)  printf("%s ", sec_name.c_str());
     printf("\n");
   }
+#endif
   
   return pma_addr;
 }
@@ -192,12 +196,12 @@ extern "C" void debug_state_machine() {
 }
 
 extern "C" void debug_pc() {
-  printf("PC: 0x%08lx\n", g_state.gpr.pc);
+  printf("PC: 0x%08lx\n", g_state.gpr.pc.dword);
 }
 
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
-  printf("[DEBUG_INSN]\nPC: 0x%08llx, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x25: 0x%016llx\n", gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x25.qword);
+  printf("[DEBUG_INSN]\nPC: 0x%08llx, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x4: 0x%016llx, x5: 0x%016llx\n", gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x4.qword, gpr.x5.qword);
 }
 
 extern "C" void debug_call_stack() {
@@ -207,11 +211,16 @@ extern "C" void debug_call_stack() {
       return;
     }
     g_run_mgr->call_stacks.push_back(current_pc);
+    std::string tab_space;
+    for (int i = 0;i < g_run_mgr->call_stacks.size();i++) {
+      if (i & 0b1)  tab_space += "\033[34m";
+      else tab_space += "\033[31m";
+      tab_space += "|";
+    }
+    tab_space += "\033[0m";
     char entry_func_log[100];
-    memset(entry_func_log, ' ', g_run_mgr->call_stacks.size() - 1);
-    snprintf(entry_func_log + g_run_mgr->call_stacks.size() - 1, 
-              100 - (g_run_mgr->call_stacks.size() - 1), 
-              "start : %s\n", func_name);
+    snprintf(entry_func_log, 100, "start : %s\n", func_name);
+    printf(tab_space.c_str());
     printf(entry_func_log);
   } else {
     printf("[ERROR] unknown entry func vma: 0x%08lx\n", current_pc);

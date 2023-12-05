@@ -150,6 +150,23 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
                                                      arch_inst.bytes.size())),
         next_pc_ref);
   }
+  
+#if defined(LIFT_INSN_DEBUG)
+  do {
+    std::vector<uint64_t> target_addrs = {};
+    for (auto &t_addr : target_addrs) {
+      if (t_addr == arch_inst.pc) {
+        llvm::IRBuilder<> __builder(block);
+        auto _debug_insn_fn = module->getFunction("debug_insn");
+        if (!_debug_insn_fn) {
+          printf("[ERROR] debug_insn is undeclared.\n");
+          abort();
+        }
+        __builder.CreateCall(_debug_insn_fn);
+      }
+    }
+  } while (false);
+#endif
 
   // Begin an atomic block.
   if (arch_inst.is_atomic_read_modify_write) {

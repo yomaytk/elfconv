@@ -154,7 +154,7 @@ void AArch64TraceManager::SetELFData() {
         memory[plt_section.vma + ins_s + 3] = plt_section.bytes[ins_s + 3];
         plt_i += sizeof(uint32_t); /* 4bytes fixed instruction */
         uint8_t* bts = plt_section.bytes + ins_s;
-        if (bts[0] == 0x20 && bts[1] == 0x02 && bts[2] == 0x1f && bts[3] == 0xd6) { /* bl instruction (FIXME) */
+        if (bts[0] == 0x20 && bts[1] == 0x02 && bts[2] == 0x1f && bts[3] == 0xd6) { /* br instruction (FIXME) */
           break;
         }
       }

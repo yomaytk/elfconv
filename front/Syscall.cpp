@@ -14,9 +14,7 @@
 
 #include "Memory.h"
 
-// #define SYSCALL_DEBUG 1
-
-#if defined(SYSCALL_DEBUG)
+#if defined(ELFCONV_SYSCALL_DEBUG)
   #define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
   #define NOP_SYSCALL(sysnum) printf("[INFO] syscall \"" #sysnum "\" is nop (but maybe allowd) now.\n");
 #else
@@ -60,7 +58,7 @@
 #define AARCH64_SYS_STATX 291
 #define AARCH64_SYS_RSEQ 293
 
-#define _ECV_EACESS 13
+#define _ECV_EACCESS 13
 #define _ECV_ENOSYS 38
 
 /*
@@ -126,7 +124,9 @@ void __svc_call(void) {
 
   auto &state_gpr = g_state.gpr;
   errno = 0;
+#if defined(ELFCONV_SYSCALL_DEBUG)
   printf("__svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword, g_state.gpr.pc.qword);
+#endif
   switch (state_gpr.x8.qword)
   {
     case AARCH64_SYS_IOCTL:  /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -163,7 +163,7 @@ void __svc_call(void) {
       /* TODO */
       state_gpr.x0.qword = -1;
       EMPTY_SYSCALL(AARCH64_SYS_FACCESSAT);
-      errno = _ECV_EACESS;
+      errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
       state_gpr.x0.qword = read(state_gpr.x0.dword, _ecv_translate_ptr(state_gpr.x1.qword), static_cast<size_t>(state_gpr.x2.qword));
@@ -187,9 +187,9 @@ void __svc_call(void) {
       }
       break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-#if defined(__EMSCRIPTEN__)
+#if defined(ELFCONV_SERVER_ENV)
       /* TODO */
-      // state_gpr.x0.qword = state_gpr.x3.dword;
+      state_gpr.x0.qword = state_gpr.x3.dword;
 #else
       state_gpr.x0.qword = readlinkat(state_gpr.x0.dword, 
                                       (const char*)_ecv_translate_ptr(state_gpr.x1.qword),
@@ -201,7 +201,7 @@ void __svc_call(void) {
       /* TODO */
       state_gpr.x0.qword = -1;
       EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
-      errno = _ECV_EACESS;
+      errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_EXIT: /* exit (int error_code) */
       exit(state_gpr.x0.dword);
@@ -234,7 +234,7 @@ void __svc_call(void) {
     case AARCH64_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
       state_gpr.x0.qword = 0;
       NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
-      errno = _ECV_EACESS;
+      errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
       {
@@ -266,12 +266,32 @@ void __svc_call(void) {
                                       (struct sigaction*)_ecv_translate_ptr(state_gpr.x2.qword));
       break;
     case AARCH64_SYS_UNAME: /* uname (struct old_utsname* buf) */
-      {
-        struct utsname _utsname;
-        int ret = uname(&_utsname);
-        memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &_utsname, sizeof(utsname));
-        state_gpr.x0.dword = ret;
-      }
+#if defined(__linux__)
+    {
+      struct utsname _utsname;
+      int ret = uname(&_utsname);
+      memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &_utsname, sizeof(utsname));
+      state_gpr.x0.dword = ret;
+    }
+#elif defined(__EMSCRIPTEN__)
+    {
+      struct __my_utsname {
+        char sysname[65];
+        char nodename[65];
+        char relase[65];
+        char version[65];
+        char machine[65];
+      } new_utsname = {
+        "Linux",
+        "xxxxxxx-QEMU-Virtual-Machine",
+        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
+        "#0~elfconv",
+        "aarch64"
+      };
+      memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &new_utsname, sizeof(new_utsname));
+      state_gpr.x0.dword = 0;
+    }
+#endif
       break;
     case AARCH64_SYS_GETPID: /* getpid () */
       state_gpr.x0.dword = getpid();
@@ -350,12 +370,16 @@ void __svc_call(void) {
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
+#if defined(ELFCONV_SERVER_ENV)
+      auto res = 0;
+#else 
       auto res = getentropy(_ecv_translate_ptr(state_gpr.x0.qword), static_cast<size_t>(state_gpr.x1.qword));
       if (res == 0) {
         state_gpr.x0.qword = state_gpr.x1.qword;
       } else {
         state_gpr.x0.qword = -1;
       }
+#endif
     }
       break;
     case AARCH64_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
@@ -368,8 +392,8 @@ void __svc_call(void) {
         }
         struct stat _stat;
         // execute fstat
-#if defined(__EMSCRIPTEN__)
-        // errno = fstat(dfd, &_stat);
+#if defined(ELFCONV_SERVER_ENV)
+        errno = _ECV_EACCESS;
 #else
         errno = fstat(dfd, &_stat);
 #endif

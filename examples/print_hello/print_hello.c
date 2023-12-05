@@ -1,6 +1,6 @@
-#define HELLO_LEN 13
+#define HELLO_LEN 14
 
-static char hello_world[] = "Hello, World!";
+static char hello_world[] = "Hello, World!\n";
 
 void write_stdout(char *str, unsigned long length) {
      __asm__ volatile(

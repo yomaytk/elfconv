@@ -28,6 +28,7 @@ LLVM_VERSION=llvm-16
 OS_VERSION=
 ARCH_VERSION=
 BUILD_FLAGS=
+LIFT_DEBUG_MACROS=
 CXX_COMMON_VERSION="0.5.0"
 EMCC=emcc
 EMAR=emar
@@ -240,6 +241,7 @@ function Configure
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
         ${BUILD_FLAGS} \
+        ${LIFT_DEBUG_MACROS} \
         "${ROOT_DIR}"
   ) || exit $?
 
@@ -356,8 +358,8 @@ function main
 
       # Make the build type to be a debug build.
       --debug)
-        BUILD_FLAGS="${BUILD_FLAGS} -DCMAKE_BUILD_TYPE=Debug"
-        echo "[+] Enabling a debug build of remill"
+        LIFT_DEBUG_MACROS="-DLIFT_DEBUG=1 -DLIFT_CALLSTACK_DEBUG=1 -DLIFT_INSN_DEBUG=1"
+        echo "[+] Enabling a debug lifting of elfconv"
       ;;
 
       --extra-cmake-args)

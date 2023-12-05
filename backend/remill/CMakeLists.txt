@@ -132,6 +132,8 @@ option(REMILL_BUILD_SPARC32_RUNTIME "Build the Runtime for SPARC32. Turn this of
 # target settings
 #
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${LIFT_DEBUG_MACROS}")
+
 # add everything as public.
 add_library(remill_settings INTERFACE)
 

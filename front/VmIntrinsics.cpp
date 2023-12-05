@@ -4,7 +4,7 @@
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "Memory.h"
 
-#define LIFT_CALLSTACK_DEBUG 1
+// #define LIFT_CALLSTACK_DEBUG 1 /* LIFT_DEBUG must be defined */
 
 #define UNDEFINED_INTRINSICS(intrinsics) printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
                                           debug_state_machine(); \
@@ -98,7 +98,7 @@ extern "C" void __remill_mark_as_used(void *mem) {
 Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
 #if defined(LIFT_CALLSTACK_DEBUG)
   if (g_run_mgr->call_stacks.empty()) {
-    printf("invalid call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
+    printf("invalid debug call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
     abort();
   } else {
     auto last_call_vma = g_run_mgr->call_stacks.back();
@@ -106,13 +106,18 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
     if (strncmp(func_name, "fn_plt", 6) == 0) {
       return memory;
     } else {
-      g_run_mgr->call_stacks.pop_back();
+      std::string tab_space;
+      for (int i = 0;i < g_run_mgr->call_stacks.size();i++) {
+        if (i & 0b1)  tab_space += "\033[34m";
+        else tab_space += "\033[31m";
+        tab_space += "|";
+      }
+      tab_space += "\033[0m";
       char return_func_log[100];
-      memset(return_func_log, ' ', g_run_mgr->call_stacks.size());
-      snprintf(return_func_log + g_run_mgr->call_stacks.size(),
-                100 - g_run_mgr->call_stacks.size(),
-                "end : %s\n", func_name);
+      snprintf(return_func_log, 100, "end : %s\n", func_name);
+      printf(tab_space.c_str());
       printf(return_func_log);
+      g_run_mgr->call_stacks.pop_back();
     }
   }
 #endif
