@@ -30,7 +30,7 @@ if [ -n "$SERVER" ]; then
 fi
 
 echo "[INFO] Building libelfconv.a ..."
-  cd "${FRONT_DIR}" && \
+  cd "${FRONT_DIR}"
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c Syscall.cpp && \
@@ -55,14 +55,15 @@ if [ -n "$SERVER" ]; then
 	# generate executable by emscripten (for server)
 	echo "[INFO] Converting LLVM bitcode to WASM binary (for server) ..."
 		cd "${BIN_DIR}"
-		$EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
-		$EMCC $EMCCFLAGS -o exe.wasm -L"./" lift.o -lelfconv
+			$EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
+			$EMCC $EMCCFLAGS -o exe.wasm -L"./" lift.o -lelfconv
 	echo "[INFO] Generate WASM binary."
 else
 	# generate glud code (for browser)
 	echo "[INFO] Converting LLVM bitcode to WASM binary and glue code (for browser) ..."
 	cd "${BIN_DIR}"
-	$EMCC $EMCCFLAGS -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
+		$EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
+		$EMCC $EMCCFLAGS -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
 	echo "[INFO] Generate WASM binary."
 fi
 
