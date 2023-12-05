@@ -15,7 +15,7 @@ $ docker run -it --name elfconv-sample-container elfconv-img bash
 ~/elfconv# source ~/.bash_profile
 ~/elfconv# ./build.sh
 ```
-You can test elfconv using `bin/elfconv.sh` as following at both browser and host environment.
+You can test elfconv using `bin/elfconv.sh` on both browser and host environment using WASI runtimes.
 ### Browser
 ```bash
 ~/elfconv# cd bin
