@@ -28,9 +28,9 @@
 #include <llvm/IR/Module.h>
 #pragma clang diagnostic pop
 
-// #define LIFT_DEBUG 1
-// #define LIFT_CALLSTACK_DEBUG 1
-// #define LIFT_INSN_DEBUG 1
+#define LIFT_DEBUG 1
+#define LIFT_CALLSTACK_DEBUG 1
+#define LIFT_INSN_DEBUG 1
 
 // clang-format on
 
@@ -153,6 +153,12 @@ llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
 
 /* Return a reference to the swithc key. */ 
 llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block);
+
+/* Return a reference to the vma start address */
+llvm::Value *LoadVMASRef(llvm::BasicBlock *block);
+
+/* Return a reference to the vma end address */
+llvm::Value *LoadVMAERef(llvm::BasicBlock *block);
 
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
 // or not a conditional branch is taken.

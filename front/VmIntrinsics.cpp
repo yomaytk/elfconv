@@ -141,7 +141,7 @@ Memory *__remill_panic_plt_jmp(State &, addr_t, Memory *) {
 }
 
 Memory * __remill_error(State &, addr_t addr, Memory *){
-  printf("[WARNING] Reached __remill_error.\n");
+  printf("[ERROR] Reached __remill_error.\n");
   debug_state_machine();
   fflush(stdout);
   abort();

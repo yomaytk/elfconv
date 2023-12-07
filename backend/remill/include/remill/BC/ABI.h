@@ -38,6 +38,8 @@ extern const std::string_view kNextPCVariableName;
 extern const std::string_view kReturnPCVariableName;
 extern const std::string_view kBranchTakenVariableName;
 extern const std::string_view kSwitchKeyName;
+extern const std::string_view kFunctionVMASName;
+extern const std::string_view kFunctionVMAEName;
 
 extern const std::string_view kInvalidInstructionISelName;
 extern const std::string_view kUnsupportedInstructionISelName;

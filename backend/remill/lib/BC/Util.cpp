@@ -323,9 +323,19 @@ llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kReturnPCVariableName).first;
 }
 
-/* Return a reference to the swithc key. */ 
+/* Return a reference to the switch key. */ 
 llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kSwitchKeyName).first;
+}
+
+/* Return a reference to the vma start address */
+llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kFunctionVMASName).first;
+}
+
+/* Return a reference to the vma end address */
+llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kFunctionVMAEName).first;
 }
 
 // Update the program counter in the state struct with a new value.

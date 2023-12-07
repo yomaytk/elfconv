@@ -194,6 +194,8 @@ class TraceLifter::Impl {
   llvm::SwitchInst *switch_inst;
   std::string switch_block_name;
   std::map<uint64_t, llvm::BasicBlock*> switch_block_map;
+  uint64_t vma_s;
+  uint64_t vma_e;
   const size_t max_inst_bytes;
   std::string inst_bytes;
   Instruction inst;
