@@ -151,8 +151,8 @@ llvm::Value *LoadMemoryPointer(llvm::BasicBlock *block,
 // Return a reference to the memory pointer.
 llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
 
-/* Return a reference to the swithc key. */ 
-llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block);
+/* Return a reference to the indirect br addr ref. */ 
+llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block);
 
 /* Return a reference to the vma start address */
 llvm::Value *LoadVMASRef(llvm::BasicBlock *block);
@@ -174,10 +174,10 @@ llvm::Function *FindFunction(llvm::Module *M, std::string_view name);
 llvm::GlobalVariable *FindGlobaVariable(llvm::Module *M, std::string_view name);
 
 /* 
-	find switch key (%key = load i64, ptr %XZZZ, align 8) 
-	Note. assuming that the BB of BR contains only one `load ptr %XZ`
+	find indirect br address (%address = load i64, ptr %XZZZ, align 8) 
+	Note. assuming that the BB of BR contains only one `load ptr %XZZZ`
 */
-llvm::Value *FindSwitchKeyofBR(llvm::BasicBlock *block);
+llvm::Value *FindIndirectBrAddress(llvm::BasicBlock *block);
 
 // Try to verify a module.
 bool VerifyModule(llvm::Module *module);

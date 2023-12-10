@@ -24,7 +24,9 @@ const std::string_view kPCVariableName = "PC";
 const std::string_view kNextPCVariableName = "NEXT_PC";
 const std::string_view kReturnPCVariableName = "RETURN_PC";
 const std::string_view kBranchTakenVariableName = "BRANCH_TAKEN";
-const std::string_view kSwitchKeyName = "SWITCH_KEY";
+const std::string_view kIndirectBrAddrName = "INDIRECT_BR_ADDR";
+const std::string_view kFunctionVMASName = "VMA_S";
+const std::string_view kFunctionVMAEName = "VMA_E";
 
 const std::string_view kInvalidInstructionISelName = "INVALID_INSTRUCTION";
 const std::string_view kUnsupportedInstructionISelName =

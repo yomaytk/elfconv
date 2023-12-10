@@ -149,28 +149,6 @@ llvm::Function *MainLifter::WrapImpl::GetDefinedFunction(std::string fun_name, s
   return callee_fun;
 }
 
-/* Convert LLVMFunTypeIdent to llvm::FunctionType */
-llvm::FunctionType *MainLifter::WrapImpl::FunTypeID_2_FunType(LLVMFunTypeIdent llvm_fn_ty_id) {
-  
-  llvm::FunctionType *fun_type = nullptr;
-  switch (llvm_fn_ty_id)
-  {
-  case LLVMFunTypeIdent::VOID_VOID:
-    fun_type = llvm::FunctionType::get(
-      llvm::Type::getVoidTy(context),
-      {},
-      false
-    );
-    break;
-  default:
-    printf("[ERROR] The arg of MainLifter::WrapImpl::FunType_2_FunType must not be LLVMFunTypeIdent::NULL.\n");
-    abort();
-    break;
-  }
-
-  return fun_type;
-}
-
 llvm::GlobalVariable *MainLifter::WrapImpl::SetDataSections(std::vector<BinaryLoader::ELFSection> &sections) {
 
   std::vector<llvm::Constant*> data_sec_name_ptr_array, data_sec_vma_array, data_sec_size_array, data_sec_bytes_ptr_array;

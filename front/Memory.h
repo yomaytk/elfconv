@@ -22,13 +22,13 @@ extern RuntimeManager *g_run_mgr;
 
 /* own implementation of syscall emulation */
 extern void __svc_call();
-/* translate the address of the original ELF to the actual address of emulated space */
+/* translate the address of the original ELF to the actual address of mapped space */
 extern void *_ecv_translate_ptr(addr_t vma_addr);
 /* debug function */
 extern "C" void debug_state_machine();
 extern "C" void debug_pc();
 
-/* get emulated memory address of vma */
+/* get mapped memory address of vma */
 template <typename T>
 T *getMemoryAddr(addr_t vma_addr) {
   auto pma_addr = reinterpret_cast<T*>(_ecv_translate_ptr(vma_addr));

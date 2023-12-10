@@ -59,11 +59,11 @@ class AArch64TraceManager : public remill::TraceManager {
     llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
     llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
     bool TryReadExecutableByte(uint64_t addr, uint8_t *byte);
-    std::string TraceName(uint64_t addr);
-    /* same for TraceManager::TraceName */
-    static std::string Sub_FuncName(uint64_t addr);
-    inline std::string GetUniqueLiftedFuncName(std::string func_name);
+    std::string GetLiftedFuncName(uint64_t addr);
+    inline std::string GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s);
+    bool isFunctionEntry(uint64_t addr);
     bool GetFuncVMAENd(uint64_t addr);
+    uint64_t GetFuncVMA_E(uint64_t vma_s);
 
     void SetELFData();
 
@@ -71,7 +71,6 @@ class AArch64TraceManager : public remill::TraceManager {
     std::unordered_map<uintptr_t, uint8_t> memory;
     std::unordered_map<uintptr_t, llvm::Function *> traces;
     std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
-    std::unordered_map<uintptr_t, bool> prerefered_func_addrs;
     std::string entry_func_lifted_name;
     std::string panic_plt_jmp_fun_name;
     uintptr_t entry_point;
