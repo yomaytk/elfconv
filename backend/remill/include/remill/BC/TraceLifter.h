@@ -72,6 +72,12 @@ class TraceManager {
   //       it is checking if some trace has already been lifted.
   virtual llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
 
+  /* get lifted function name of the target address */
+  virtual std::string GetLiftedFuncName(uint64_t addr) = 0;
+
+  /* get whether or not addr is entry of function */
+  virtual bool isFunctionEntry(uint64_t addr) = 0;
+
   // Apply a callback that gives the decoder access to multiple
   // targets of this instruction (indirect call or jump). This enables the
   // lifter to support devirtualization, e.g. handling jump tables as
@@ -88,6 +94,9 @@ class TraceManager {
 
   /* judge whether the addr is end vma of function or not. */
   virtual bool GetFuncVMAENd(uint64_t addr) = 0;
+
+  /* get vma end address of the target function */
+  virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -137,7 +146,7 @@ class TraceLifter::Impl {
       switch_inst(nullptr),
       // TODO(Ian): The trace lfiter is not supporting contexts
       max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
-      switch_block_name("SWITCH_BB"),
+      indirectbr_block_name("INDIRECT_BR_BB"),
       debug_insn_name("debug_insn"),
       debug_pc_name("debug_pc"),
       debug_call_stack_name("debug_call_stack") {
@@ -174,7 +183,7 @@ class TraceLifter::Impl {
 
   llvm::BasicBlock *GetOrCreateNextBlock(void);
 
-  llvm::BasicBlock *GetOrCreateSwitchBlock(void);
+  llvm::BasicBlock *GetOrCreateIndirectJmpBlock(void);
 
   uint64_t PopTraceAddress(void);
 
@@ -190,10 +199,10 @@ class TraceLifter::Impl {
 
   llvm::Function *func;
   llvm::BasicBlock *block;
-  llvm::BasicBlock *br_switch_block;
+  llvm::BasicBlock *indirectbr_block;
   llvm::SwitchInst *switch_inst;
-  std::string switch_block_name;
-  std::map<uint64_t, llvm::BasicBlock*> switch_block_map;
+  std::string indirectbr_block_name;
+  std::map<uint64_t, llvm::BasicBlock*> indirectbr_block_map;
   uint64_t vma_s;
   uint64_t vma_e;
   const size_t max_inst_bytes;

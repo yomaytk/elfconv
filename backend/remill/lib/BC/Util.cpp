@@ -324,8 +324,8 @@ llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block) {
 }
 
 /* Return a reference to the switch key. */ 
-llvm::Value *LoadSwitchKeyRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kSwitchKeyName).first;
+llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kIndirectBrAddrName).first;
 }
 
 /* Return a reference to the vma start address */
@@ -334,7 +334,7 @@ llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
 }
 
 /* Return a reference to the vma end address */
-llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
+llvm::Value *LoadVMAERef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kFunctionVMAEName).first;
 }
 
@@ -439,25 +439,25 @@ LoadArchSemantics(const Arch *arch,
 }
 
 /* 
-	find switch key (%key = load i64, ptr %XZZZ, align 8) 
-	Note. assuming that the BB of BR contains only one `load ptr %XZ`
+	find indirect jmp address (%address = load i64, ptr %XZZZ, align 8) 
+	Note. assuming that the BB of BR contains only one `load ptr %XZZZ`
 */
-llvm::Value *FindSwitchKeyofBR(llvm::BasicBlock *block) {
-	llvm::Value *switch_key = nullptr;
+llvm::Value *FindIndirectBrAddress(llvm::BasicBlock *block) {
+	llvm::Value *indirect_addr = nullptr;
 	for (llvm::Instruction &llvm_inst : *block) {
 		if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
 				llvm::Value *op = load_inst->getPointerOperand();
 				if (op->getName().startswith("X")) {
-				switch_key = load_inst;
+				indirect_addr = load_inst;
 				break;
 				}
 		}
 	}
-	if (nullptr == switch_key) {
+	if (nullptr == indirect_addr) {
 		printf("[ERROR] BR instruction doesn't have the LLVM IR insn like `load ptr \\%XZZ`");
 		abort();
 	}
-	return switch_key;
+	return indirect_addr;
 }
 
 std::optional<std::string> VerifyModuleMsg(llvm::Module *module) {

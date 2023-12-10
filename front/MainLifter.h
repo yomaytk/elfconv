@@ -58,9 +58,6 @@ class MainLifter final : public TraceLifter {
       // Get pre-defined function (extern function is included)
       llvm::Function *GetDefinedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id);
 
-      // Convert LLVMFunTypeIdent to llvm::FunctionType
-      llvm::FunctionType *FunTypeID_2_FunType (LLVMFunTypeIdent llvm_fn_ty_id);
-
       // Set data sections
       llvm::GlobalVariable *SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
 

@@ -37,7 +37,7 @@ extern const std::string_view kPCVariableName;
 extern const std::string_view kNextPCVariableName;
 extern const std::string_view kReturnPCVariableName;
 extern const std::string_view kBranchTakenVariableName;
-extern const std::string_view kSwitchKeyName;
+extern const std::string_view kIndirectBrAddrName;
 extern const std::string_view kFunctionVMASName;
 extern const std::string_view kFunctionVMAEName;
 

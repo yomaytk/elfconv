@@ -758,6 +758,7 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   ir.CreateAlloca(addr, nullptr, "RETURN_PC");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
   ir.CreateAlloca(u64, nullptr, "SWITCH_KEY");
+  ir.CreateAlloca(u64, nullptr, "INDIRECT_BR_ADDR");
   ir.CreateAlloca(u64, nullptr, "VMA_S");
   ir.CreateAlloca(u64, nullptr, "VMA_E");
 

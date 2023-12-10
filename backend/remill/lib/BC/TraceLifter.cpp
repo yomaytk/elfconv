@@ -110,7 +110,7 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   if (!block) {
     block = llvm::BasicBlock::Create(context, "", func);
   }
-  switch_block_map[block_pc] = block;
+  indirectbr_block_map[block_pc] = block;
   return block;
 }
 
@@ -130,16 +130,16 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateNextBlock(void) {
   return GetOrCreateBlock(inst.next_pc);
 }
 
-llvm::BasicBlock *TraceLifter::Impl::GetOrCreateSwitchBlock(void) {
+llvm::BasicBlock *TraceLifter::Impl::GetOrCreateIndirectJmpBlock(void) {
   llvm::Function::iterator fun_iter = func->begin();
   llvm::Function::iterator fun_iter_e = func->end();
   for (;fun_iter != fun_iter_e;fun_iter++) {
     llvm::BasicBlock *bb = &*fun_iter;
-    if (bb->getName() == switch_block_name) {
+    if (bb->getName() == indirectbr_block_name) {
       return bb;
     }
   }
-  return llvm::BasicBlock::Create(context, switch_block_name, func);
+  return llvm::BasicBlock::Create(context, indirectbr_block_name, func);
 }
 
 uint64_t TraceLifter::Impl::PopTraceAddress(void) {
@@ -203,26 +203,23 @@ bool TraceLifter::Impl::Lift(
   func = nullptr;
   switch_inst = nullptr;
   block = nullptr;
-  br_switch_block = nullptr;
+  indirectbr_block_map.clear();
+  indirectbr_block = nullptr;
   inst.Reset();
   delayed_inst.Reset();
 
   // Get a trace head that the manager knows about, or that we
   // will eventually tell the trace manager about.
   auto get_trace_decl = [=](uint64_t trace_addr) -> llvm::Function * {
-    if (auto lifted_fn = GetLiftedTraceDeclaration(trace_addr)) {
-      return lifted_fn;
-    } else if (trace_work_list.count(trace_addr)) {
-      auto sub_fn_name = manager.TraceName(trace_addr);
-      llvm::Function* sub_fn;
-      sub_fn = module->getFunction(sub_fn_name);
-      // append function declaration
-      if (!sub_fn) {
-        sub_fn = arch->DeclareLiftedFunction(sub_fn_name, module);
-      }
-      return sub_fn;
-    } else {
+    if (!manager.isFunctionEntry(trace_addr))
       return nullptr;
+    
+    if (auto lifted_fn = GetLiftedTraceDeclaration(trace_addr); lifted_fn) {
+      return lifted_fn;
+    } else if (auto declared_fn = module->getFunction(manager.GetLiftedFuncName(trace_addr)); declared_fn) {
+      return declared_fn;
+    } else {
+      return arch->DeclareLiftedFunction(manager.GetLiftedFuncName(trace_addr), module);
     }
   };
 
@@ -242,12 +239,8 @@ bool TraceLifter::Impl::Lift(
 
     func = get_trace_decl(trace_addr);
     blocks.clear();
-    switch_block_map.clear();
-    br_switch_block = nullptr;
-
-    if (!func || !func->isDeclaration()) {
-      func = arch->DeclareLiftedFunction(manager.TraceName(trace_addr), module);
-    }
+    indirectbr_block_map.clear();
+    indirectbr_block = nullptr;
 
     CHECK(func->isDeclaration());
 
@@ -257,15 +250,27 @@ bool TraceLifter::Impl::Lift(
     arch->InitializeEmptyLiftedFunction(func);    
 /* insert debug call stack function (for debug) */
 #if defined(LIFT_CALLSTACK_DEBUG)
+    do {
       llvm::BasicBlock &first_block = *std::prev(func->end()); /* arch->InitializeEmptyLiftedFunction(func) generates first block */
-      llvm::IRBuilder<> __builder(&first_block);
+      llvm::IRBuilder<> __debug_ir(&first_block);
       auto _debug_call_stack_fn = module->getFunction(debug_call_stack_name);
       if (!_debug_call_stack_fn) {
         printf("[ERROR] debug_pc is undeclared.\n");
         abort();
       }
-      __builder.CreateCall(_debug_call_stack_fn);
+      __debug_ir.CreateCall(_debug_call_stack_fn);
+    } while (false);
 #endif
+
+    /* make basic block for initializing VMA_S and VMA_E */
+    auto vma_block = llvm::BasicBlock::Create(context, "VMA_BB", func);
+    const uint64_t vma_e = manager.GetFuncVMA_E(trace_addr);
+    llvm::IRBuilder<> vma_ir(vma_block);
+    auto vma_s_ref = LoadVMASRef(vma_block);
+    auto vma_e_ref = LoadVMAERef(vma_block);
+    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), vma_s_ref);
+    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma_e), vma_e_ref);
+
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
 
     if (auto entry_block = &(func->front())) {
@@ -290,7 +295,10 @@ bool TraceLifter::Impl::Lift(
 
       block = GetOrCreateBlock(inst_addr);
       switch_inst = nullptr;
-      switch_block_map[inst_addr] = block;
+      indirectbr_block_map[inst_addr] = block;
+      if (!vma_block->getTerminator()) {
+        vma_ir.CreateBr(block);
+      }
 
       // We have already lifted this instruction block.
       if (!block->empty()) {
@@ -327,13 +335,13 @@ bool TraceLifter::Impl::Lift(
       /* append debug pc function */
       do {
         if (control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]) {
-          llvm::IRBuilder<> __builder(block);
+          llvm::IRBuilder<> __debug_ir(block);
           auto _debug_pc_fn = module->getFunction(debug_pc_name);
           if (!_debug_pc_fn) {
             printf("[ERROR] debug_pc is undeclared.\n");
             abort();
           }
-          __builder.CreateCall(_debug_pc_fn);
+          __debug_ir.CreateCall(_debug_pc_fn);
         }
       } while (false);
       // Handle lifting a delayed instruction.
@@ -394,15 +402,18 @@ bool TraceLifter::Impl::Lift(
         /* case: BR instruction */
         case Instruction::kCategoryIndirectJump: {
           try_add_delay_slot(true, block);
-          /* switch basic block */
-          br_switch_block = GetOrCreateSwitchBlock();
+          /* indirectbr entry block */
+          indirectbr_block = GetOrCreateIndirectJmpBlock();
           llvm::IRBuilder<> ir(block);
-          /* find switch key */
-          llvm::Value *switch_key = FindSwitchKeyofBR(block);
-          auto switch_key_ref = LoadSwitchKeyRef(block);
-          (void) new llvm::StoreInst(switch_key, switch_key_ref, block);
+          /* store indirect br addr to `INDIRECT_BR_ADDR` */
+          llvm::Value *indirect_br_addr = FindIndirectBrAddress(block);
+          auto braddr_key_ref = LoadIndirectBrAddrRef(block);
+          (void) new llvm::StoreInst(indirect_br_addr, braddr_key_ref, block);
           /* jmp to switch block */
-          ir.CreateBr(br_switch_block);
+          ir.CreateBr(indirectbr_block);
+          if (manager.GetFuncVMAENd(inst_addr)) {
+            GetOrCreateNextBlock();
+          }
           break;
         }
 
@@ -648,21 +659,60 @@ bool TraceLifter::Impl::Lift(
         }
       }
 
-      if (br_switch_block && manager.GetFuncVMAENd(inst_addr)) {
+      if (manager.GetFuncVMAENd(inst_addr)) {
         GetOrCreateNextBlock();
       }
+
     }
 
-    /* switch block for BR. default basic block is jmp_bb. */
-    if (br_switch_block) {
-      llvm::BasicBlock *jmp_bb = llvm::BasicBlock::Create(context, "", func);
-      AddTerminatingTailCall(jmp_bb, intrinsics->jump, *intrinsics);
-      llvm::IRBuilder<> ir(br_switch_block);
-      auto switch_key_u64 = ir.CreateLoad(llvm::Type::getInt64Ty(context), LoadSwitchKeyRef(br_switch_block));
-      llvm::SwitchInst *switch_inst = ir.CreateSwitch(switch_key_u64, jmp_bb);
-      for (auto &[__insn_addr, target_bb] : switch_block_map) {
-        switch_inst->addCase(ir.getInt64(__insn_addr), target_bb);
-      }
+    /* indirect br block for BR instruction */
+    if (indirectbr_block) {
+      // if (((vma_e - trace_addr) >> 2) != indirectbr_block_map.size()) {
+      printf("func: %s, lhs: %ld, rhs: %ld\n", func->getName(), (vma_e - trace_addr) >> 2, indirectbr_block_map.size());
+      // }
+      // CHECK_EQ((vma_e - trace_addr) >> 2, indirectbr_block_map.size());
+      std::vector<llvm::Constant*> bb_addrs;
+      for (auto &[_, _bb] : indirectbr_block_map)
+        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
+      auto bb_addrs_ty = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), bb_addrs.size());
+      auto ir_bb_addrs = new llvm::GlobalVariable(
+        *module,
+        bb_addrs_ty,
+        false,
+        llvm::GlobalValue::InternalLinkage,
+        llvm::ConstantArray::get(bb_addrs_ty, bb_addrs),
+        func->getName() + ".bb_addrs"
+      );
+      auto br_to_within_func_block = llvm::BasicBlock::Create(context, "", func);
+      auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
+      /* indirectbr_block */
+      llvm::IRBuilder<> ir_1(indirectbr_block);
+      auto br_addr = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
+      auto vma_s_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
+      auto vma_e_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMAERef(indirectbr_block));
+      auto s_le_addr = ir_1.CreateICmpULE(/* vma_s <=? br_addr */
+        vma_s_reg,
+        br_addr
+      );
+      auto addr_lt_e = ir_1.CreateICmpULT(/* br_addr <? vma_e */
+        br_addr,
+        vma_e_reg
+      );
+      auto s_addr_e = ir_1.CreateAnd(s_le_addr, addr_lt_e);
+      ir_1.CreateCondBr(s_addr_e, br_to_within_func_block, br_to_func_block);
+      /* br_to_within_func_block */
+      llvm::IRBuilder<> ir_2(br_to_within_func_block);
+      auto b_id = ir_2.CreateLShr(ir_2.CreateSub(br_addr, vma_s_reg), 2); /* b_id = (br_addr - vma_s) >> 2 */
+      auto target_bb_ptr = ir_2.CreateInBoundsGEP(
+        llvm::Type::getInt8PtrTy(context), 
+        ir_bb_addrs, 
+        {ir_2.getInt32(0), b_id}
+      );
+      auto indirect_br_i = ir_2.CreateIndirectBr(target_bb_ptr, bb_addrs.size());
+      for (auto &[_vma, _block] : indirectbr_block_map)
+        indirect_br_i->addDestination(_block);
+      /* br_to_func_block */
+      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics);
     }
 
     for (auto &block : *func) {
