@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
   g_state.sr.dczid_el0 = { .qword = 0x4 };
   /* set global RuntimeManager */
   g_run_mgr = new RuntimeManager (emulated_memorys);
-  g_run_mgr->heap_num = 1;
   g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_SIZE;
   /* set lifted function pointer table */
   for (int i = 0;__g_fn_vmas[i] && __g_fn_ptr_table[i];i++) {

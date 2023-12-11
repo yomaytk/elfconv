@@ -113,7 +113,6 @@ class RuntimeManager {
     std::vector<MappedMemory*> mapped_memorys;
     /* heap area manage */
     addr_t heaps_end_addr;
-    uint64_t heap_num;
     std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
     std::unordered_map<addr_t, const char*> addr_fn_symbol_map;
     std::vector<addr_t> call_stacks;
