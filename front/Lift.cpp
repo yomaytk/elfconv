@@ -79,17 +79,21 @@ bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
 
 std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s) {
   std::stringstream lifted_fn_name;
-  lifted_fn_name << func_name << "_" << to_string(unique_i64++) << "_0x" << std::hex << to_string(vma_s);
+  lifted_fn_name << func_name << "_" << to_string(unique_i64++) << "_" << std::hex << vma_s;
   return lifted_fn_name.str();
 }
 
-bool AArch64TraceManager::GetFuncVMAENd(uint64_t addr) {
-  for (auto &[fn_vma, disasm_fn] : disasm_funcs) {
-    if (fn_vma <= addr && addr + sizeof(uint32_t) < fn_vma + disasm_fn.func_size) {
+bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_addr) {
+  if (disasm_funcs.count(trace_addr) == 1) {
+    if (trace_addr <= target_addr && target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
       return true;
+    } else {
+      return false;
     }
+  } else {
+    printf("[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", __func__);
+    abort();
   }
-  return false;
 }
 
 uint64_t AArch64TraceManager::GetFuncVMA_E(uint64_t vma_s) {
@@ -155,24 +159,23 @@ void AArch64TraceManager::SetELFData() {
   if (plt_section.sec_name.empty()) {
     printf("[WARNING] .plt section is not found.\n");
   } else {
-    int plt_i = 0;
-    while(plt_i < plt_section.size) {
-      auto b_entry = plt_section.vma + plt_i;
-      for(;plt_i < plt_section.size;) {
-        auto ins_s = plt_i;
-        memory[plt_section.vma + ins_s] = plt_section.bytes[ins_s];
-        memory[plt_section.vma + ins_s + 1] = plt_section.bytes[ins_s + 1];
-        memory[plt_section.vma + ins_s + 2] = plt_section.bytes[ins_s + 2];
-        memory[plt_section.vma + ins_s + 3] = plt_section.bytes[ins_s + 3];
-        plt_i += sizeof(uint32_t); /* 4bytes fixed instruction */
-        uint8_t* bts = plt_section.bytes + ins_s;
+    int ins_i = 0;
+    while(ins_i < plt_section.size) {
+      auto b_entry = plt_section.vma + ins_i;
+      for(;ins_i < plt_section.size;) {
+        memory[plt_section.vma + ins_i] = plt_section.bytes[ins_i];
+        memory[plt_section.vma + ins_i + 1] = plt_section.bytes[ins_i + 1];
+        memory[plt_section.vma + ins_i + 2] = plt_section.bytes[ins_i + 2];
+        memory[plt_section.vma + ins_i + 3] = plt_section.bytes[ins_i + 3];
+        uint8_t* bts = plt_section.bytes + ins_i;
+        ins_i += sizeof(uint32_t); /* 4bytes fixed instruction */
         if (bts[0] == 0x20 && bts[1] == 0x02 && bts[2] == 0x1f && bts[3] == 0xd6) { /* br instruction (FIXME) */
           break;
         }
       }
       std::stringstream fn_name;
       fn_name << "fn_plt_" << std::hex << b_entry;
-      disasm_funcs.emplace(b_entry, DisasmFunc(fn_name.str(), b_entry, plt_i - b_entry));
+      disasm_funcs.emplace(b_entry, DisasmFunc(fn_name.str(), b_entry, (plt_section.vma + ins_i) - b_entry));
     }
   }
   /* 

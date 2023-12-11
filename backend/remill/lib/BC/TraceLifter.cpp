@@ -110,7 +110,8 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   if (!block) {
     block = llvm::BasicBlock::Create(context, "", func);
   }
-  indirectbr_block_map[block_pc] = block;
+  if (indirectbr_block_map.count(block_pc) == 0 && manager.isWithinFunction(__trace_addr, block_pc))
+    indirectbr_block_map[block_pc] = block;
   return block;
 }
 
@@ -214,9 +215,9 @@ bool TraceLifter::Impl::Lift(
     if (!manager.isFunctionEntry(trace_addr))
       return nullptr;
     
-    if (auto lifted_fn = GetLiftedTraceDeclaration(trace_addr); lifted_fn) {
+    if (auto lifted_fn = GetLiftedTraceDeclaration(trace_addr)) {
       return lifted_fn;
-    } else if (auto declared_fn = module->getFunction(manager.GetLiftedFuncName(trace_addr)); declared_fn) {
+    } else if (auto declared_fn = module->getFunction(manager.GetLiftedFuncName(trace_addr))) {
       return declared_fn;
     } else {
       return arch->DeclareLiftedFunction(manager.GetLiftedFuncName(trace_addr), module);
@@ -227,6 +228,7 @@ bool TraceLifter::Impl::Lift(
   while (!trace_work_list.empty()) {
 
     const auto trace_addr = PopTraceAddress();
+    __trace_addr = trace_addr;
 
     // Already lifted.
     func = GetLiftedTraceDefinition(trace_addr);
@@ -262,12 +264,12 @@ bool TraceLifter::Impl::Lift(
     } while (false);
 #endif
 
-    /* make basic block for initializing VMA_S and VMA_E */
-    auto vma_block = llvm::BasicBlock::Create(context, "VMA_BB", func);
+    /* add basic block for initializing VMA_S and VMA_E */
+    auto vma_bb = llvm::BasicBlock::Create(context, "VMA_INIT", func);
     const uint64_t vma_e = manager.GetFuncVMA_E(trace_addr);
-    llvm::IRBuilder<> vma_ir(vma_block);
-    auto vma_s_ref = LoadVMASRef(vma_block);
-    auto vma_e_ref = LoadVMAERef(vma_block);
+    llvm::IRBuilder<> vma_ir(vma_bb);
+    auto vma_s_ref = LoadVMASRef(vma_bb);
+    auto vma_e_ref = LoadVMAERef(vma_bb);
     vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), vma_s_ref);
     vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma_e), vma_e_ref);
 
@@ -282,8 +284,8 @@ bool TraceLifter::Impl::Lift(
       // Initialize `NEXT_PC`.
       (void) new llvm::StoreInst(pc, next_pc_ref, entry_block);
 
-      // Branch to the first basic block.
-      llvm::BranchInst::Create(GetOrCreateBlock(trace_addr), entry_block);
+      // Branch to the VMA_INIT basic block.
+      llvm::BranchInst::Create(vma_bb, entry_block);
     }
 
     CHECK(inst_work_list.empty());
@@ -295,10 +297,10 @@ bool TraceLifter::Impl::Lift(
 
       block = GetOrCreateBlock(inst_addr);
       switch_inst = nullptr;
-      indirectbr_block_map[inst_addr] = block;
-      if (!vma_block->getTerminator()) {
+      if (indirectbr_block_map.count(inst_addr) == 0 && manager.isWithinFunction(trace_addr, inst_addr))
+        indirectbr_block_map[inst_addr] = block;
+      if (!vma_bb->getTerminator())
         vma_ir.CreateBr(block);
-      }
 
       // We have already lifted this instruction block.
       if (!block->empty()) {
@@ -385,7 +387,16 @@ bool TraceLifter::Impl::Lift(
 
         case Instruction::kCategoryNormal:
         case Instruction::kCategoryNoOp:
-          llvm::BranchInst::Create(GetOrCreateNextBlock(), block);
+          if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t))) {
+            llvm::BranchInst::Create(GetOrCreateNextBlock(), block);
+          } else {
+            llvm::IRBuilder<> _nop_ir(block);
+            const auto [mem_ptr_ref, mem_ptr_ref_type] =
+              this->arch->DefaultLifter(*this->intrinsics)
+                ->LoadRegAddress(block, state_ptr, kMemoryVariableName);
+            _nop_ir.CreateRet(_nop_ir.CreateLoad(mem_ptr_ref_type, mem_ptr_ref));
+          }
+            
           break;
 
         // Direct jumps could either be local or could be tail-calls. In the
@@ -405,15 +416,12 @@ bool TraceLifter::Impl::Lift(
           /* indirectbr entry block */
           indirectbr_block = GetOrCreateIndirectJmpBlock();
           llvm::IRBuilder<> ir(block);
-          /* store indirect br addr to `INDIRECT_BR_ADDR` */
+          /* store indirectbr addr to `INDIRECT_BR_ADDR` */
           llvm::Value *indirect_br_addr = FindIndirectBrAddress(block);
           auto braddr_key_ref = LoadIndirectBrAddrRef(block);
           (void) new llvm::StoreInst(indirect_br_addr, braddr_key_ref, block);
-          /* jmp to switch block */
+          /* jmp to indirectbr block */
           ir.CreateBr(indirectbr_block);
-          if (manager.GetFuncVMAENd(inst_addr)) {
-            GetOrCreateNextBlock();
-          }
           break;
         }
 
@@ -489,11 +497,18 @@ bool TraceLifter::Impl::Lift(
             AddCall(block, target_trace, *intrinsics);
           }
 
-          const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
-          const auto next_pc_ref = LoadNextProgramCounterRef(block);
           llvm::IRBuilder<> ir(block);
-          ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
-          ir.CreateBr(GetOrCreateBranchNotTakenBlock());
+          if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t))) {
+            const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
+            const auto next_pc_ref = LoadNextProgramCounterRef(block);
+            ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
+            ir.CreateBr(GetOrCreateBranchNotTakenBlock());
+          } else {
+            const auto [mem_ptr_ref, mem_ptr_ref_type] =
+              this->arch->DefaultLifter(*this->intrinsics)
+                ->LoadRegAddress(block, state_ptr, kMemoryVariableName);
+            ir.CreateRet(ir.CreateLoad(mem_ptr_ref_type, mem_ptr_ref));
+          }
 
           continue;
         }
@@ -659,22 +674,22 @@ bool TraceLifter::Impl::Lift(
         }
       }
 
-      if (manager.GetFuncVMAENd(inst_addr)) {
+      if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t)))
         GetOrCreateNextBlock();
-      }
 
     }
 
     /* indirect br block for BR instruction */
     if (indirectbr_block) {
-      // if (((vma_e - trace_addr) >> 2) != indirectbr_block_map.size()) {
-      printf("func: %s, lhs: %ld, rhs: %ld\n", func->getName(), (vma_e - trace_addr) >> 2, indirectbr_block_map.size());
-      // }
+      if (((vma_e - trace_addr) >> 2) != indirectbr_block_map.size()) {
+        printf("[WARNING] func: %s, vma_e: 0x%lx, trace_addr: 0x%lx, lhs: %ld, rhs: %ld\n", func->getName().str().c_str(), vma_e, trace_addr, ((vma_e - trace_addr) >> 2), indirectbr_block_map.size());
+        for(auto &[target_addr, _] : indirectbr_block_map)  printf("addr: 0x%lx\n", target_addr);
+      }
       // CHECK_EQ((vma_e - trace_addr) >> 2, indirectbr_block_map.size());
       std::vector<llvm::Constant*> bb_addrs;
       for (auto &[_, _bb] : indirectbr_block_map)
         bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
-      auto bb_addrs_ty = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), bb_addrs.size());
+      auto bb_addrs_ty = llvm::ArrayType::get(llvm::Type::getInt64PtrTy(context), bb_addrs.size());
       auto ir_bb_addrs = new llvm::GlobalVariable(
         *module,
         bb_addrs_ty,
@@ -704,7 +719,7 @@ bool TraceLifter::Impl::Lift(
       llvm::IRBuilder<> ir_2(br_to_within_func_block);
       auto b_id = ir_2.CreateLShr(ir_2.CreateSub(br_addr, vma_s_reg), 2); /* b_id = (br_addr - vma_s) >> 2 */
       auto target_bb_ptr = ir_2.CreateInBoundsGEP(
-        llvm::Type::getInt8PtrTy(context), 
+        bb_addrs_ty, 
         ir_bb_addrs, 
         {ir_2.getInt32(0), b_id}
       );

@@ -93,7 +93,7 @@ class TraceManager {
   virtual bool TryReadExecutableByte(uint64_t addr, uint8_t *byte) = 0;
 
   /* judge whether the addr is end vma of function or not. */
-  virtual bool GetFuncVMAENd(uint64_t addr) = 0;
+  virtual bool isWithinFunction(uint64_t trace_addr, uint64_t inst_addr) = 0;
 
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
@@ -212,6 +212,7 @@ class TraceLifter::Impl {
   std::unordered_map<uint64_t, bool> control_flow_debug_list;
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
+  uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   std::string debug_pc_name;
   std::string debug_insn_name;

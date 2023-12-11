@@ -4,7 +4,7 @@
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "Memory.h"
 
-// #define LIFT_CALLSTACK_DEBUG 1 /* LIFT_DEBUG must be defined */
+#define LIFT_CALLSTACK_DEBUG 1 /* LIFT_DEBUG must be defined */
 
 #define UNDEFINED_INTRINSICS(intrinsics) printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
                                           debug_state_machine(); \
