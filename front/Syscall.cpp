@@ -343,11 +343,11 @@ void __svc_call(void) {
     {
       auto heap_memory = g_run_mgr->mapped_memorys[1];
       if (state_gpr.x4.dword != -1) {
-        printf("Unsupported mmap (X4=0x%08ld)\n", state_gpr.x4.dword);
+        printf("Unsupported mmap (X4=0x%08x)\n", state_gpr.x4.dword);
         abort();
       }
       if (state_gpr.x5.dword != 0) {
-        printf("Unsupported mmap (X5=0x%016lld)\n", state_gpr.x5.qword);
+        printf("Unsupported mmap (X5=0x%016llx)\n", state_gpr.x5.qword);
         abort();
       }
       if (state_gpr.x0.qword == 0) {
@@ -424,7 +424,7 @@ void __svc_call(void) {
       EMPTY_SYSCALL(AARCH64_SYS_RSEQ);
       break;
     default:
-      printf("Unknown syscall number: %lu, PC: 0x%llx\n", state_gpr.x8.qword, state_gpr.pc.qword);
+      printf("Unknown syscall number: %llu, PC: 0x%llx\n", state_gpr.x8.qword, state_gpr.pc.qword);
       abort();
       break;
   }

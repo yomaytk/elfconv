@@ -37,9 +37,15 @@ void MainLifter::SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *>
 void MainLifter::SetBlockAddressData(
   std::vector<llvm::Constant*> &block_address_ptrs_array,
   std::vector<llvm::Constant*> &block_address_vmas_array,
-  std::vector<llvm::Constant*> &block_address_sizes_array
+  std::vector<llvm::Constant*> &block_address_sizes_array,
+  std::vector<llvm::Constant*> &block_address_fn_vma_array
 ) {
-  static_cast<WrapImpl*>(impl.get())->SetBlockAddressData(block_address_ptrs_array, block_address_vmas_array, block_address_sizes_array);
+  static_cast<WrapImpl*>(impl.get())->SetBlockAddressData(block_address_ptrs_array, block_address_vmas_array, block_address_sizes_array, block_address_fn_vma_array);
+}
+
+/* declare helper function used in lifted LLVM bitcode */
+void MainLifter::DeclareHelperFunction() {
+  static_cast<WrapImpl*>(impl.get())->DeclareHelperFunction();
 }
 
 /* Set Control Flow debug list */
@@ -229,20 +235,30 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetLiftedFunPtrTable(std::unordered_
 llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
   std::vector<llvm::Constant*> &block_address_ptrs_array,
   std::vector<llvm::Constant*> &block_address_vmas_array,
-  std::vector<llvm::Constant*> &block_address_sizes_array
+  std::vector<llvm::Constant*> &block_address_sizes_array,
+  std::vector<llvm::Constant*> &block_address_fn_vma_array
 ) {
+  (void) new llvm::GlobalVariable(
+    *module,
+    llvm::Type::getInt64Ty(context),
+    true,
+    llvm::GlobalValue::ExternalLinkage,
+    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), block_address_ptrs_array.size()),
+    g_block_address_array_size_name
+  );
   GenGlobalArrayHelper(llvm::Type::getInt64PtrTy(context), block_address_ptrs_array, g_block_address_ptrs_array_name);
-  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_vmas_array, g_block_address_vmas_array_name);
-  return GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_sizes_array, g_block_address_sizes_array_name);
+  GenGlobalArrayHelper(llvm::Type::getInt64PtrTy(context), block_address_vmas_array, g_block_address_vmas_array_name);
+  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_sizes_array, g_block_address_size_array_name);
+  return GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_fn_vma_array, g_block_address_fn_vma_array_name);
 }
 
 /* Global variable array definition helper */
 llvm::GlobalVariable *MainLifter::WrapImpl::GenGlobalArrayHelper(
   llvm::Type *elem_type,
   std::vector<llvm::Constant*> &constant_array, 
-  const llvm::Twine &Name = "",
-  bool isConstant = true, 
-  llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+  const llvm::Twine &Name,
+  bool isConstant, 
+  llvm::GlobalValue::LinkageTypes linkage
 ) {
   auto constant_array_type = llvm::ArrayType::get(elem_type, constant_array.size());
   return new llvm::GlobalVariable(
@@ -252,6 +268,21 @@ llvm::GlobalVariable *MainLifter::WrapImpl::GenGlobalArrayHelper(
     linkage,
     llvm::ConstantArray::get(constant_array_type, constant_array),
     Name
+  );
+}
+
+/* declare helper function in the lifted LLVM bitcode */
+llvm::Function *MainLifter::WrapImpl::DeclareHelperFunction() {
+  /* uint64_t *__g_get_jmp_block_address(uint64_t, uint64_t) */
+  return llvm::Function::Create(
+    llvm::FunctionType::get(
+      llvm::Type::getInt64PtrTy(context),
+      {llvm::Type::getInt64Ty(context), llvm::Type::getInt64Ty(context)},
+      false
+    ),
+    llvm::Function::ExternalLinkage,
+    g_get_jmp_block_address_func_name,
+    *module
   );
 }
 

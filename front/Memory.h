@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <vector>
 #include <unordered_map>
+#include <map>
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Types.h"
 
@@ -27,6 +28,7 @@ extern void *_ecv_translate_ptr(addr_t vma_addr);
 /* debug function */
 extern "C" void debug_state_machine();
 extern "C" void debug_pc();
+extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);
 
 /* get mapped memory address of vma */
 template <typename T>
@@ -62,9 +64,11 @@ extern "C" {
   extern const uint8_t *__g_fn_symbol_table[];
   extern uint64_t __g_fn_vmas_second[];
   /* block addres arrays of the lifted function which includes BR instruction */
-  extern const uint64_t *__g_block_address_ptrs_array[];
+  extern uint64_t **__g_block_address_ptrs_array[];
   extern const uint64_t *__g_block_address_vmas_array[];
-  extern const uint64_t __g_block_address_sizes_array[];
+  extern const uint64_t __g_block_address_size_array[];
+  extern const uint64_t __g_block_address_fn_vma_array[];
+  extern const uint64_t __g_block_address_array_size;
 }
 
 enum class MemoryAreaType : uint8_t {
@@ -119,5 +123,6 @@ class RuntimeManager {
     addr_t heaps_end_addr;
     std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
     std::unordered_map<addr_t, const char*> addr_fn_symbol_map;
+    std::map<addr_t, std::map<uint64_t, uint64_t *>> addr_block_addrs_map; 
     std::vector<addr_t> call_stacks;
 };

@@ -17,6 +17,7 @@
 #include "remill/BC/Lifter.h"
 #include "Lift.h"
 #include "remill/BC/Util.h"
+#include "remill/BC/Debug.h"
 
 DEFINE_string(bc_out, "",
               "Name of the file in which to place the generated bitcode.");

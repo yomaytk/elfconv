@@ -27,8 +27,9 @@ class MainLifter final : public TraceLifter {
       g_fun_ptr_table_name("__g_fn_ptr_table"),
       g_block_address_ptrs_array_name("__g_block_address_ptrs_array"),
       g_block_address_vmas_array_name("__g_block_address_vmas_array"),
-      g_block_address_sizes_array_name("__g_block_address_sizes_array"),
-      g_get_jmp_block_address_func_name("__g_get_jmp_block_address"),
+      g_block_address_size_array_name("__g_block_address_size_array"),
+      g_block_address_fn_vma_array_name("__g_block_address_fn_vma_array"),
+      g_block_address_array_size_name("__g_block_address_array_size"),
       g_fun_symbol_table_name("__g_fn_symbol_table"),
       g_addr_list_second_name("__g_fn_vmas_second"),
       debug_state_machine_name("debug_state_machine") {}
@@ -48,8 +49,9 @@ class MainLifter final : public TraceLifter {
       std::string g_fun_ptr_table_name;
       std::string g_block_address_ptrs_array_name;
       std::string g_block_address_vmas_array_name;
-      std::string g_block_address_sizes_array_name;
-      std::string g_get_jmp_block_address_func_name;
+      std::string g_block_address_size_array_name;
+      std::string g_block_address_fn_vma_array_name;
+      std::string g_block_address_array_size_name;
       std::string g_fun_symbol_table_name;
       std::string g_addr_list_second_name;
       std::string debug_state_machine_name;
@@ -76,7 +78,8 @@ class MainLifter final : public TraceLifter {
       llvm::GlobalVariable *SetBlockAddressData(
         std::vector<llvm::Constant*> &block_address_ptrs_array,
         std::vector<llvm::Constant*> &block_address_vmas_array,
-        std::vector<llvm::Constant*> &block_address_sizes_array
+        std::vector<llvm::Constant*> &block_address_size_array,
+        std::vector<llvm::Constant*> &block_address_fn_vma_array
       );
 
       /* Global variable array definition helper */
@@ -114,8 +117,10 @@ class MainLifter final : public TraceLifter {
     void SetBlockAddressData(
       std::vector<llvm::Constant*> &block_address_ptrs_array,
       std::vector<llvm::Constant*> &block_address_vmas_array,
-      std::vector<llvm::Constant*> &block_address_sizes_array
+      std::vector<llvm::Constant*> &block_address_size_array,
+      std::vector<llvm::Constant*> &block_address_fn_vma_array
     );
+    void DeclareHelperFunction();
     /* debug */
     void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
     void DeclareDebugFunction();

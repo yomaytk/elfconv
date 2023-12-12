@@ -2,9 +2,8 @@
 #include <cstdarg>
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/BC/Debug.h"
 #include "Memory.h"
-
-#define LIFT_CALLSTACK_DEBUG 1 /* LIFT_DEBUG must be defined */
 
 #define UNDEFINED_INTRINSICS(intrinsics) printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
                                           debug_state_machine(); \
@@ -115,8 +114,8 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
       tab_space += "\033[0m";
       char return_func_log[100];
       snprintf(return_func_log, 100, "end : %s\n", func_name);
-      printf(tab_space.c_str());
-      printf(return_func_log);
+      printf("%s", tab_space.c_str());
+      printf("%s", return_func_log);
       g_run_mgr->call_stacks.pop_back();
     }
   }
@@ -155,7 +154,7 @@ Memory * __remill_function_call(State &state, addr_t fn_vma, Memory *memory){
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: 0x%08llx\n", fn_vma, state.gpr.pc.dword);
+    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: 0x%08x\n", fn_vma, state.gpr.pc.dword);
     abort();
   }
   return memory;
@@ -166,7 +165,7 @@ Memory * __remill_jump(State &state, addr_t fn_vma, Memory *memory){
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: 0x%08llx\n", fn_vma, state.gpr.pc.dword);
+    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: 0x%08x\n", fn_vma, state.gpr.pc.dword);
     abort();
   }
   return memory;

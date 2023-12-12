@@ -244,7 +244,8 @@ extern "C" int main(int argc, char *argv[]) {
     }
     main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
-
+  /* declare helper function for lifted LLVM bitcode */
+  main_lifter.DeclareHelperFunction();
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
@@ -276,7 +277,12 @@ extern "C" int main(int argc, char *argv[]) {
   /* set data section */
   main_lifter.SetDataSections(manager.elf_obj.sections);
   /* set block address data */
-  main_lifter.SetBlockAddressData(manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array, manager.g_block_address_sizes_array);
+  main_lifter.SetBlockAddressData(
+    manager.g_block_address_ptrs_array, 
+    manager.g_block_address_vmas_array, 
+    manager.g_block_address_size_array,
+    manager.g_block_address_fn_vma_array
+  );
   
   /* generate LLVM bitcode file */
   auto host_arch =

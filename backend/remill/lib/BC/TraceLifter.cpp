@@ -21,6 +21,7 @@
 #include <remill/BC/IntrinsicTable.h>
 #include <remill/BC/TraceLifter.h>
 #include <remill/BC/Util.h>
+#include <remill/BC/Debug.h>
 
 #include <map>
 #include <set>
@@ -110,8 +111,8 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   if (!block) {
     block = llvm::BasicBlock::Create(context, "", func);
   }
-  if (indirectbr_block_map.count(block_pc) == 0 && manager.isWithinFunction(__trace_addr, block_pc))
-    indirectbr_block_map[block_pc] = block;
+  if (lifted_block_map.count(block_pc) == 0)
+    lifted_block_map[block_pc] = block;
   return block;
 }
 
@@ -161,9 +162,9 @@ uint64_t TraceLifter::Impl::PopInstructionAddress(void) {
 llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(
   llvm::Type *elem_type,
   std::vector<llvm::Constant*> &constant_array, 
-  const llvm::Twine &Name = "",
-  bool isConstant = true, 
-  llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+  const llvm::Twine &Name,
+  bool isConstant, 
+  llvm::GlobalValue::LinkageTypes linkage
 ) {
   printf("[ERROR] %s must be called by derived class instance.\n", __func__);
   abort();
@@ -216,7 +217,8 @@ bool TraceLifter::Impl::Lift(
   func = nullptr;
   switch_inst = nullptr;
   block = nullptr;
-  indirectbr_block_map.clear();
+  lifted_block_map.clear();
+  lift_all_insn = false;
   indirectbr_block = nullptr;
   inst.Reset();
   delayed_inst.Reset();
@@ -253,8 +255,9 @@ bool TraceLifter::Impl::Lift(
 
     func = get_trace_decl(trace_addr);
     blocks.clear();
-    indirectbr_block_map.clear();
+    lifted_block_map.clear();
     indirectbr_block = nullptr;
+    lift_all_insn = false;
 
     CHECK(func->isDeclaration());
 
@@ -277,7 +280,7 @@ bool TraceLifter::Impl::Lift(
 #endif
 
     /* add basic block for initializing VMA_S and VMA_E */
-    auto vma_bb = llvm::BasicBlock::Create(context, "VMA_INIT", func);
+    auto vma_bb = llvm::BasicBlock::Create(context, "L_vma_init", func);
     const uint64_t vma_e = manager.GetFuncVMA_E(trace_addr);
     llvm::IRBuilder<> vma_ir(vma_bb);
     auto vma_s_ref = LoadVMASRef(vma_bb);
@@ -304,13 +307,14 @@ bool TraceLifter::Impl::Lift(
     inst_work_list.insert(trace_addr);
 
     // Decode instructions. 
+    inst_lifting_start:
     while (!inst_work_list.empty()) {
       const auto inst_addr = PopInstructionAddress();
 
       block = GetOrCreateBlock(inst_addr);
       switch_inst = nullptr;
-      if (indirectbr_block_map.count(inst_addr) == 0 && manager.isWithinFunction(trace_addr, inst_addr))
-        indirectbr_block_map[inst_addr] = block;
+      if (lifted_block_map.count(inst_addr) == 0)
+        lifted_block_map[inst_addr] = block;
       if (!vma_bb->getTerminator())
         vma_ir.CreateBr(block);
 
@@ -399,16 +403,7 @@ bool TraceLifter::Impl::Lift(
 
         case Instruction::kCategoryNormal:
         case Instruction::kCategoryNoOp:
-          if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t))) {
-            llvm::BranchInst::Create(GetOrCreateNextBlock(), block);
-          } else {
-            llvm::IRBuilder<> _nop_ir(block);
-            const auto [mem_ptr_ref, mem_ptr_ref_type] =
-              this->arch->DefaultLifter(*this->intrinsics)
-                ->LoadRegAddress(block, state_ptr, kMemoryVariableName);
-            _nop_ir.CreateRet(_nop_ir.CreateLoad(mem_ptr_ref_type, mem_ptr_ref));
-          }
-            
+          llvm::BranchInst::Create(GetOrCreateNextBlock(), block);  
           break;
 
         // Direct jumps could either be local or could be tail-calls. In the
@@ -508,20 +503,11 @@ bool TraceLifter::Impl::Lift(
             auto target_trace = get_trace_decl(inst.branch_taken_pc);
             AddCall(block, target_trace, *intrinsics);
           }
-
           llvm::IRBuilder<> ir(block);
-          if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t))) {
-            const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
-            const auto next_pc_ref = LoadNextProgramCounterRef(block);
-            ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
-            ir.CreateBr(GetOrCreateBranchNotTakenBlock());
-          } else {
-            const auto [mem_ptr_ref, mem_ptr_ref_type] =
-              this->arch->DefaultLifter(*this->intrinsics)
-                ->LoadRegAddress(block, state_ptr, kMemoryVariableName);
-            ir.CreateRet(ir.CreateLoad(mem_ptr_ref_type, mem_ptr_ref));
-          }
-
+          const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
+          const auto next_pc_ref = LoadNextProgramCounterRef(block);
+          ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
+          ir.CreateBr(GetOrCreateBranchNotTakenBlock());
           continue;
         }
 
@@ -686,18 +672,24 @@ bool TraceLifter::Impl::Lift(
         }
       }
 
-      if (manager.isWithinFunction(trace_addr, inst_addr + sizeof(uint32_t)))
-        GetOrCreateNextBlock();
+    }
 
+    /* if func includes BR instruction, it is necessary to lift all instructions of the func. */
+    if (!lift_all_insn && indirectbr_block) {
+      CHECK(inst_work_list.empty());
+      for (int insn_vma = trace_addr;insn_vma < vma_e; insn_vma += 4)
+        if (lifted_block_map.count(insn_vma) == 0)
+          inst_work_list.insert(insn_vma);
+      lift_all_insn = true;
+      goto inst_lifting_start;
     }
 
     /* indirect br block for BR instruction */
     if (indirectbr_block) {
-      auto br_to_within_func_block = llvm::BasicBlock::Create(context, "", func);
       auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
       /* generate gvar of block address array (g_bb_addrs) and vma array of it (g_bb_addr_vmas) */
       std::vector<llvm::Constant*> bb_addrs, bb_addr_vmas;
-      for (auto &[_vma, _bb] : indirectbr_block_map) {
+      for (auto &[_vma, _bb] : lifted_block_map) {
         bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
         bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), _vma));
       }
@@ -708,36 +700,24 @@ bool TraceLifter::Impl::Lift(
       auto g_bb_addr_vmas = GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), bb_addr_vmas, func->getName() + ".bb_addr_vmas");
       /* save pointers of the array */
       manager.g_block_address_ptrs_array.push_back(llvm::ConstantExpr::getBitCast(g_bb_addrs, llvm::Type::getInt64PtrTy(context)));
-      manager.g_block_address_vmas_array.push_back(llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64Ty(context)));
-      manager.g_block_address_sizes_array.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
-      
+      manager.g_block_address_vmas_array.push_back(llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_size_array.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
+      manager.g_block_address_fn_vma_array.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
       /* indirectbr_block */
-      // llvm::IRBuilder<> ir_1(indirectbr_block);
-      // auto br_addr = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
-      // auto vma_s_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
-      // auto vma_e_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMAERef(indirectbr_block));
-      // auto s_le_addr = ir_1.CreateICmpULE(/* vma_s <=? br_addr */
-      //   vma_s_reg,
-      //   br_addr
-      // );
-      // auto addr_lt_e = ir_1.CreateICmpULT(/* br_addr <? vma_e */
-      //   br_addr,
-      //   vma_e_reg
-      // );
-      // auto s_addr_e = ir_1.CreateAnd(s_le_addr, addr_lt_e);
-      // ir_1.CreateCondBr(s_addr_e, br_to_within_func_block, br_to_func_block);
-      
-      /* br_to_within_func_block */
-      llvm::IRBuilder<> ir_2(br_to_within_func_block);
-      auto b_id = ir_2.CreateLShr(ir_2.CreateSub(br_addr, vma_s_reg), 2); /* b_id = (br_addr - vma_s) >> 2 */
-      auto target_bb_ptr = ir_2.CreateInBoundsGEP(
-        bb_addrs_ty, 
-        g_bb_addrs, 
-        {ir_2.getInt32(0), b_id}
+      llvm::IRBuilder<> ir_1(indirectbr_block);
+      auto br_vma = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
+      auto fn_vma = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
+      /* calculate the target block address */
+      auto g_get_jmp_helper_fn = module->getFunction(g_get_jmp_block_address_func_name); /* return type: uint64_t* */
+      CHECK(g_get_jmp_helper_fn);
+      auto target_bb_i64 = ir_1.CreateCall(g_get_jmp_helper_fn, {fn_vma, br_vma});
+      auto indirect_br_i = ir_1.CreateIndirectBr(
+        ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)), 
+        bb_addrs.size()
       );
-      auto indirect_br_i = ir_2.CreateIndirectBr(target_bb_ptr, bb_addrs.size());
-      for (auto &[_vma, _block] : indirectbr_block_map)
+      for (auto &[_vma, _block] : lifted_block_map)
         indirect_br_i->addDestination(_block);
+      indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics);
     }

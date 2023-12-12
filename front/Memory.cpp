@@ -150,6 +150,25 @@ void *_ecv_translate_ptr(addr_t vma_addr) {
   return g_run_mgr->TranslateVMA(vma_addr);
 }
 
+extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma) {
+  if (g_run_mgr->addr_block_addrs_map.count(fun_vma) == 1) {
+    auto vma_bb_map = g_run_mgr->addr_block_addrs_map[fun_vma];
+    if (vma_bb_map.count(bb_vma) == 1) {
+      return vma_bb_map[bb_vma];
+    } else {
+      if (g_run_mgr->addr_fn_map.count(fun_vma) == 1) {
+        return vma_bb_map[UINT64_MAX];
+      } else {
+        printf("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n", bb_vma, __func__);
+        abort();
+      }
+    }
+  } else {
+    printf("[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma, __func__);
+    abort();
+  }
+}
+
 /* debug func */
 extern "C" void debug_state_machine() {
   printf("[Debug] State Machine. Program Counter: 0x%016llx\n", g_state.gpr.pc.qword);
@@ -196,12 +215,12 @@ extern "C" void debug_state_machine() {
 }
 
 extern "C" void debug_pc() {
-  printf("PC: 0x%08lx\n", g_state.gpr.pc.dword);
+  printf("PC: 0x%08x\n", g_state.gpr.pc.dword);
 }
 
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
-  printf("[DEBUG_INSN]\nPC: 0x%08llx, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x4: 0x%016llx, x5: 0x%016llx\n", gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x4.qword, gpr.x5.qword);
+  printf("[DEBUG_INSN]\nPC: 0x%08x, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x4: 0x%016llx, x5: 0x%016llx\n", gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x4.qword, gpr.x5.qword);
 }
 
 extern "C" void debug_call_stack() {
@@ -220,10 +239,10 @@ extern "C" void debug_call_stack() {
     tab_space += "\033[0m";
     char entry_func_log[100];
     snprintf(entry_func_log, 100, "start : %s\n", func_name);
-    printf(tab_space.c_str());
-    printf(entry_func_log);
+    printf("%s", tab_space.c_str());
+    printf("%s", entry_func_log);
   } else {
-    printf("[ERROR] unknown entry func vma: 0x%08lx\n", current_pc);
+    printf("[ERROR] unknown entry func vma: 0x%08llx\n", current_pc);
     abort();
   }
 }

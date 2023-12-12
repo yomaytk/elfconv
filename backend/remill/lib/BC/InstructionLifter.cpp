@@ -15,6 +15,7 @@
  */
 
 #include "InstructionLifter.h"
+#include "remill/BC/Debug.h"
 
 namespace remill {
 namespace {

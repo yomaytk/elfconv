@@ -1,8 +1,10 @@
 #include <stdio.h>
 #include <cstring>
 #include <cstdint>
+#include <map>
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/BC/Debug.h"
 #include "Memory.h"
 
 State g_state = State();
@@ -43,9 +45,21 @@ int main(int argc, char* argv[]) {
   for (int i = 0;__g_fn_vmas[i] && __g_fn_ptr_table[i];i++) {
     g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
   }
+#if defined(LIFT_CALLSTACK_DEBUG)
   /* set lifted function symbol table (for debug) */
   for (int i = 0;__g_fn_vmas_second[i] && __g_fn_symbol_table[i];i++) {
     g_run_mgr->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char*)__g_fn_symbol_table[i];
+  }
+#endif
+  /* set global block address data array */
+  for (int i = 0;i < __g_block_address_array_size;i++) {
+    auto bb_num = __g_block_address_size_array[i];
+    std::map<uint64_t, uint64_t *> vma_bb_map;
+    auto t_block_address_ptrs = __g_block_address_ptrs_array[i];
+    auto t_block_address_vmas = __g_block_address_vmas_array[i];
+    for (int j = 0;j < bb_num;j++)
+      vma_bb_map[t_block_address_vmas[j]] = t_block_address_ptrs[j];
+    g_run_mgr->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
   }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
   __g_entry_func(&g_state, __g_entry_pc, reinterpret_cast<Memory*>(g_run_mgr));
