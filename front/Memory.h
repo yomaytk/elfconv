@@ -61,6 +61,10 @@ extern "C" {
   /* lifted function symbol table (for debug) */
   extern const uint8_t *__g_fn_symbol_table[];
   extern uint64_t __g_fn_vmas_second[];
+  /* block addres arrays of the lifted function which includes BR instruction */
+  extern const uint64_t *__g_block_address_ptrs_array[];
+  extern const uint64_t *__g_block_address_vmas_array[];
+  extern const uint64_t __g_block_address_sizes_array[];
 }
 
 enum class MemoryAreaType : uint8_t {

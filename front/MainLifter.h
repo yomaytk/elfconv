@@ -25,6 +25,10 @@ class MainLifter final : public TraceLifter {
       g_platform_name("__g_platform_name"),
       g_addr_list_name("__g_fn_vmas"),
       g_fun_ptr_table_name("__g_fn_ptr_table"),
+      g_block_address_ptrs_array_name("__g_block_address_ptrs_array"),
+      g_block_address_vmas_array_name("__g_block_address_vmas_array"),
+      g_block_address_sizes_array_name("__g_block_address_sizes_array"),
+      g_get_jmp_block_address_func_name("__g_get_jmp_block_address"),
       g_fun_symbol_table_name("__g_fn_symbol_table"),
       g_addr_list_second_name("__g_fn_vmas_second"),
       debug_state_machine_name("debug_state_machine") {}
@@ -42,6 +46,10 @@ class MainLifter final : public TraceLifter {
       std::string g_platform_name;
       std::string g_addr_list_name;
       std::string g_fun_ptr_table_name;
+      std::string g_block_address_ptrs_array_name;
+      std::string g_block_address_vmas_array_name;
+      std::string g_block_address_sizes_array_name;
+      std::string g_get_jmp_block_address_func_name;
       std::string g_fun_symbol_table_name;
       std::string g_addr_list_second_name;
       std::string debug_state_machine_name;
@@ -51,12 +59,6 @@ class MainLifter final : public TraceLifter {
 
       // Set entry PC
       llvm::GlobalVariable *SetEntryPC(uint64_t pc);
-
-      // Define pre-refered function
-      llvm::Function *DefinePreReferedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id);
-
-      // Get pre-defined function (extern function is included)
-      llvm::Function *GetDefinedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id);
 
       // Set data sections
       llvm::GlobalVariable *SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
@@ -70,6 +72,24 @@ class MainLifter final : public TraceLifter {
       /* Set lifted function pointer table */
       llvm::GlobalVariable *SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map);
 
+      /* Set block address data */
+      llvm::GlobalVariable *SetBlockAddressData(
+        std::vector<llvm::Constant*> &block_address_ptrs_array,
+        std::vector<llvm::Constant*> &block_address_vmas_array,
+        std::vector<llvm::Constant*> &block_address_sizes_array
+      );
+
+      /* Global variable array definition helper */
+      llvm::GlobalVariable *GenGlobalArrayHelper(
+        llvm::Type *elem_type,
+        std::vector<llvm::Constant*> &constant_array, 
+        const llvm::Twine &Name = "",
+        bool isConstant = true, 
+        llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+      ) override;
+
+      llvm::Function *DeclareHelperFunction();
+      
       /* Set control flow debug list */
       void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list);
       
@@ -78,6 +98,7 @@ class MainLifter final : public TraceLifter {
 
       /* Set lifted function symbol name table */
       llvm::GlobalVariable *SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+
   };
 
   public:
@@ -87,10 +108,14 @@ class MainLifter final : public TraceLifter {
     void SetEntryPoint(std::string &entry_func_name);
     void SetEntryPC(uint64_t pc);
     void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
-    void DefinePreReferedFunction(std::string sub_func_name, std::string lifted_func_name, LLVMFunTypeIdent llvm_fn_ty_id);
     void SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph);
     void SetPlatform(const char *platform_name);
     void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+    void SetBlockAddressData(
+      std::vector<llvm::Constant*> &block_address_ptrs_array,
+      std::vector<llvm::Constant*> &block_address_vmas_array,
+      std::vector<llvm::Constant*> &block_address_sizes_array
+    );
     /* debug */
     void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
     void DeclareDebugFunction();

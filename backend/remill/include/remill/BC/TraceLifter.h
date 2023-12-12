@@ -97,6 +97,11 @@ class TraceManager {
 
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
+
+  /* global array of block address various data */
+  std::vector<llvm::Constant*> g_block_address_ptrs_array;
+  std::vector<llvm::Constant*> g_block_address_vmas_array;
+  std::vector<llvm::Constant*> g_block_address_sizes_array;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -189,6 +194,15 @@ class TraceLifter::Impl {
 
   uint64_t PopInstructionAddress(void);
 
+  /* Global variable array definition helper */
+  virtual llvm::GlobalVariable *GenGlobalArrayHelper(
+    llvm::Type *elem_type,
+    std::vector<llvm::Constant*> &constant_array, 
+    const llvm::Twine &Name = "",
+    bool isConstant = true, 
+    llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+  );
+
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
   llvm::Type *word_type;
@@ -196,6 +210,10 @@ class TraceLifter::Impl {
   llvm::Module *const module;
   const uint64_t addr_mask;
   TraceManager &manager;
+
+  std::vector<llvm::Constant*> g_block_address_ptrs_array;
+  std::vector<llvm::Constant*> g_block_address_vmas_array;
+  std::vector<llvm::Constant*> g_block_address_sizes_array;
 
   llvm::Function *func;
   llvm::BasicBlock *block;

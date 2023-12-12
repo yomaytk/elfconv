@@ -157,6 +157,18 @@ uint64_t TraceLifter::Impl::PopInstructionAddress(void) {
   return inst_addr;
 }
 
+/* Global variable array definition helper */
+llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(
+  llvm::Type *elem_type,
+  std::vector<llvm::Constant*> &constant_array, 
+  const llvm::Twine &Name = "",
+  bool isConstant = true, 
+  llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+) {
+  printf("[ERROR] %s must be called by derived class instance.\n", __func__);
+  abort();
+}
+
 /*
   TraceLifter methods
 */
@@ -681,46 +693,46 @@ bool TraceLifter::Impl::Lift(
 
     /* indirect br block for BR instruction */
     if (indirectbr_block) {
-      if (((vma_e - trace_addr) >> 2) != indirectbr_block_map.size()) {
-        printf("[WARNING] func: %s, vma_e: 0x%lx, trace_addr: 0x%lx, lhs: %ld, rhs: %ld\n", func->getName().str().c_str(), vma_e, trace_addr, ((vma_e - trace_addr) >> 2), indirectbr_block_map.size());
-        for(auto &[target_addr, _] : indirectbr_block_map)  printf("addr: 0x%lx\n", target_addr);
-      }
-      // CHECK_EQ((vma_e - trace_addr) >> 2, indirectbr_block_map.size());
-      std::vector<llvm::Constant*> bb_addrs;
-      for (auto &[_, _bb] : indirectbr_block_map)
-        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
-      auto bb_addrs_ty = llvm::ArrayType::get(llvm::Type::getInt64PtrTy(context), bb_addrs.size());
-      auto ir_bb_addrs = new llvm::GlobalVariable(
-        *module,
-        bb_addrs_ty,
-        false,
-        llvm::GlobalValue::InternalLinkage,
-        llvm::ConstantArray::get(bb_addrs_ty, bb_addrs),
-        func->getName() + ".bb_addrs"
-      );
       auto br_to_within_func_block = llvm::BasicBlock::Create(context, "", func);
       auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
+      /* generate gvar of block address array (g_bb_addrs) and vma array of it (g_bb_addr_vmas) */
+      std::vector<llvm::Constant*> bb_addrs, bb_addr_vmas;
+      for (auto &[_vma, _bb] : indirectbr_block_map) {
+        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
+        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), _vma));
+      }
+      /* the end element is br_to_func_block */
+      bb_addrs.push_back(llvm::BlockAddress::get(func, br_to_func_block));
+      bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
+      auto g_bb_addrs = GenGlobalArrayHelper(llvm::Type::getInt64PtrTy(context), bb_addrs, func->getName() + ".bb_addrs");
+      auto g_bb_addr_vmas = GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), bb_addr_vmas, func->getName() + ".bb_addr_vmas");
+      /* save pointers of the array */
+      manager.g_block_address_ptrs_array.push_back(llvm::ConstantExpr::getBitCast(g_bb_addrs, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_vmas_array.push_back(llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64Ty(context)));
+      manager.g_block_address_sizes_array.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
+      
       /* indirectbr_block */
-      llvm::IRBuilder<> ir_1(indirectbr_block);
-      auto br_addr = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
-      auto vma_s_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
-      auto vma_e_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMAERef(indirectbr_block));
-      auto s_le_addr = ir_1.CreateICmpULE(/* vma_s <=? br_addr */
-        vma_s_reg,
-        br_addr
-      );
-      auto addr_lt_e = ir_1.CreateICmpULT(/* br_addr <? vma_e */
-        br_addr,
-        vma_e_reg
-      );
-      auto s_addr_e = ir_1.CreateAnd(s_le_addr, addr_lt_e);
-      ir_1.CreateCondBr(s_addr_e, br_to_within_func_block, br_to_func_block);
+      // llvm::IRBuilder<> ir_1(indirectbr_block);
+      // auto br_addr = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
+      // auto vma_s_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
+      // auto vma_e_reg = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMAERef(indirectbr_block));
+      // auto s_le_addr = ir_1.CreateICmpULE(/* vma_s <=? br_addr */
+      //   vma_s_reg,
+      //   br_addr
+      // );
+      // auto addr_lt_e = ir_1.CreateICmpULT(/* br_addr <? vma_e */
+      //   br_addr,
+      //   vma_e_reg
+      // );
+      // auto s_addr_e = ir_1.CreateAnd(s_le_addr, addr_lt_e);
+      // ir_1.CreateCondBr(s_addr_e, br_to_within_func_block, br_to_func_block);
+      
       /* br_to_within_func_block */
       llvm::IRBuilder<> ir_2(br_to_within_func_block);
       auto b_id = ir_2.CreateLShr(ir_2.CreateSub(br_addr, vma_s_reg), 2); /* b_id = (br_addr - vma_s) >> 2 */
       auto target_bb_ptr = ir_2.CreateInBoundsGEP(
         bb_addrs_ty, 
-        ir_bb_addrs, 
+        g_bb_addrs, 
         {ir_2.getInt32(0), b_id}
       );
       auto indirect_br_i = ir_2.CreateIndirectBr(target_bb_ptr, bb_addrs.size());

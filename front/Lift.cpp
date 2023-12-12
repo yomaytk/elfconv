@@ -275,6 +275,9 @@ extern "C" int main(int argc, char *argv[]) {
   main_lifter.SetEntryPC(manager.entry_point);
   /* set data section */
   main_lifter.SetDataSections(manager.elf_obj.sections);
+  /* set block address data */
+  main_lifter.SetBlockAddressData(manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array, manager.g_block_address_sizes_array);
+  
   /* generate LLVM bitcode file */
   auto host_arch =
       remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));

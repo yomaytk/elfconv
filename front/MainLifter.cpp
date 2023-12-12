@@ -13,11 +13,6 @@ void MainLifter::SetEntryPC(uint64_t pc) {
   static_cast<WrapImpl*>(impl.get())->SetEntryPC(pc);
 }
 
-/* Define pre-referenced function */
-void MainLifter::DefinePreReferedFunction(std::string sub_func_name, std::string lifted_func_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-  static_cast<WrapImpl*>(impl.get())->DefinePreReferedFunction(sub_func_name, lifted_func_name, llvm_fn_ty_id);
-}
-
 /* Set every data sections of the original ELF to LLVM bitcode */
 void MainLifter::SetDataSections(std::vector<BinaryLoader::ELFSection> &sections) {
   static_cast<WrapImpl*>(impl.get())->SetDataSections(sections);
@@ -36,6 +31,15 @@ void MainLifter::SetPlatform(const char* platform_name) {
 /* Set lifted function pointer table */
 void MainLifter::SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
   static_cast<WrapImpl*>(impl.get())->SetLiftedFunPtrTable(addr_fn_map);
+}
+
+/* Set block address data */
+void MainLifter::SetBlockAddressData(
+  std::vector<llvm::Constant*> &block_address_ptrs_array,
+  std::vector<llvm::Constant*> &block_address_vmas_array,
+  std::vector<llvm::Constant*> &block_address_sizes_array
+) {
+  static_cast<WrapImpl*>(impl.get())->SetBlockAddressData(block_address_ptrs_array, block_address_vmas_array, block_address_sizes_array);
 }
 
 /* Set Control Flow debug list */
@@ -92,63 +96,6 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetEntryPC(uint64_t pc) {
   return entry_pc;
 }
 
-/* Define pre-referenced function */
-llvm::Function *MainLifter::WrapImpl::DefinePreReferedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-  
-  auto callee_fun = GetDefinedFunction(fun_name, callee_fun_name, llvm_fn_ty_id);
-
-  /* generate sub function */
-  llvm::Function *sub_fn;
-  sub_fn = module->getFunction(fun_name);
-  if (!sub_fn) {
-    sub_fn = arch->DeclareLiftedFunction(fun_name, module);
-  }
-  /* insert callee basic block */
-  auto *callee_bb = llvm::BasicBlock::Create(context, "entry", sub_fn);
-  llvm::IRBuilder<> ir(callee_bb);
-  std::vector<llvm::Value*> callee_args;
-  for (size_t _arg_i = 0;_arg_i < sub_fn->arg_size();_arg_i++) {
-    callee_args.emplace_back(sub_fn->getArg(_arg_i));
-  }
-  llvm::AllocaInst *mem_ptr_reg = ir.CreateAlloca(word_type, nullptr, kMemoryVariableName);
-  mem_ptr_reg->setAlignment(llvm::Align(8));
-  if (callee_fun->getReturnType()->isVoidTy()) {
-    ir.CreateStore(
-      llvm::Constant::getNullValue(word_type),
-      mem_ptr_reg
-    );
-    ir.CreateCall(callee_fun, callee_args);
-  } else {
-    ir.CreateStore(
-      ir.CreateCall(callee_fun, callee_args),
-      mem_ptr_reg
-    );
-  }
-  ir.CreateRet(mem_ptr_reg);
-
-  return sub_fn;
-}
-
-/* Generate LLVM function which call extern function */
-llvm::Function *MainLifter::WrapImpl::GetDefinedFunction(std::string fun_name, std::string callee_fun_name, LLVMFunTypeIdent llvm_fn_ty_id) {
-
-  llvm::Function *callee_fun;
-  if (LLVMFunTypeIdent::NULL_FUN_TY == llvm_fn_ty_id) {
-    callee_fun = module->getFunction(callee_fun_name);
-    if (!callee_fun) {
-      printf("[ERROR] No defined function (%s) is pre-referenced.\n", callee_fun_name.c_str());
-      abort();
-    }
-  } else {
-    callee_fun = llvm::cast<llvm::Function>(
-      module->getOrInsertFunction(callee_fun_name, arch->LiftedFunctionType()).getCallee()
-    );
-    callee_fun->setLinkage(llvm::GlobalVariable::ExternalLinkage);
-  }
-  
-  return callee_fun;
-}
-
 llvm::GlobalVariable *MainLifter::WrapImpl::SetDataSections(std::vector<BinaryLoader::ELFSection> &sections) {
 
   std::vector<llvm::Constant*> data_sec_name_ptr_array, data_sec_vma_array, data_sec_size_array, data_sec_bytes_ptr_array;
@@ -201,49 +148,11 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetDataSections(std::vector<BinaryLo
     data_sec_num_name
   );
 
-  auto array_sec_name_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), data_sec_name_ptr_array.size());
-  auto array_sec_vma_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), data_sec_vma_array.size());
-  auto array_sec_size_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), data_sec_size_array.size());
-  auto array_sec_bytes_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), data_sec_bytes_ptr_array.size());
-  
-  // add section "name" ptr array
-  auto g_data_sec_name_array = new llvm::GlobalVariable(
-    *module,
-    array_sec_name_ptr_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_name_ptr_type, data_sec_name_ptr_array),
-    data_sec_name_array_name 
-  );
-  // add section "vma" array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_vma_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_vma_type, data_sec_vma_array),
-    data_sec_vma_array_name 
-  );
-  // add section "size" array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_size_type,
-    false,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_size_type, data_sec_size_array),
-    data_sec_size_array_name 
-  );
-  // add section "bytes" ptr array
-  new llvm::GlobalVariable(
-    *module,
-    array_sec_bytes_ptr_type,
-    false,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_sec_bytes_ptr_type, data_sec_bytes_ptr_array),
-    data_sec_bytes_array_name 
-  );
-
-  return g_data_sec_name_array;
+  /* generate global array */
+  GenGlobalArrayHelper(llvm::Type::getInt8PtrTy(context), data_sec_name_ptr_array, data_sec_name_array_name);
+  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), data_sec_vma_array, data_sec_vma_array_name);
+  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), data_sec_size_array, data_sec_size_array_name);
+  return GenGlobalArrayHelper(llvm::Type::getInt8PtrTy(context), data_sec_bytes_ptr_array, data_sec_bytes_array_name);
 }
 
 llvm::GlobalVariable *MainLifter::WrapImpl::SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph) {
@@ -312,23 +221,37 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetLiftedFunPtrTable(std::unordered_
   /* insert guard */
   addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0));
   /* define global fn ptr table */
-  auto addr_list_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), addr_list.size());
-  auto fn_ptr_list_type = llvm::ArrayType::get(fn_ptr_list[0]->getType(), fn_ptr_list.size());
-  new llvm::GlobalVariable(
-    *module,
-    addr_list_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(addr_list_type, addr_list),
-    g_addr_list_name
-  );
+  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), addr_list, g_addr_list_name);
+  return GenGlobalArrayHelper(fn_ptr_list[0]->getType(), fn_ptr_list, g_fun_ptr_table_name);
+}
+
+/* Set block address data */
+llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
+  std::vector<llvm::Constant*> &block_address_ptrs_array,
+  std::vector<llvm::Constant*> &block_address_vmas_array,
+  std::vector<llvm::Constant*> &block_address_sizes_array
+) {
+  GenGlobalArrayHelper(llvm::Type::getInt64PtrTy(context), block_address_ptrs_array, g_block_address_ptrs_array_name);
+  GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_vmas_array, g_block_address_vmas_array_name);
+  return GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), block_address_sizes_array, g_block_address_sizes_array_name);
+}
+
+/* Global variable array definition helper */
+llvm::GlobalVariable *MainLifter::WrapImpl::GenGlobalArrayHelper(
+  llvm::Type *elem_type,
+  std::vector<llvm::Constant*> &constant_array, 
+  const llvm::Twine &Name = "",
+  bool isConstant = true, 
+  llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
+) {
+  auto constant_array_type = llvm::ArrayType::get(elem_type, constant_array.size());
   return new llvm::GlobalVariable(
     *module,
-    fn_ptr_list_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(fn_ptr_list_type, fn_ptr_list),
-    g_fun_ptr_table_name
+    constant_array_type,
+    isConstant,
+    linkage,
+    llvm::ConstantArray::get(constant_array_type, constant_array),
+    Name
   );
 }
 
@@ -406,25 +329,6 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetFuncSymbolNameTable(std::unordere
     fn_vma_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), fn_addr));
   }
 
-  auto array_symbol_name_ptr_type = llvm::ArrayType::get(llvm::Type::getInt8PtrTy(context), func_symbol_ptr_list.size());
-  auto array_fn_vma_type = llvm::ArrayType::get(llvm::Type::getInt64Ty(context), fn_vma_list.size());
-  
-  auto array_symbol_name_ptrs = new llvm::GlobalVariable(
-    *module,
-    array_symbol_name_ptr_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_symbol_name_ptr_type, func_symbol_ptr_list),
-    g_fun_symbol_table_name
-  );
-  new llvm::GlobalVariable (
-    *module,
-    array_fn_vma_type,
-    true,
-    llvm::GlobalVariable::ExternalLinkage,
-    llvm::ConstantArray::get(array_fn_vma_type, fn_vma_list),
-    g_addr_list_second_name
-  );
-  
-  return array_symbol_name_ptrs;
+  GenGlobalArrayHelper(llvm::Type::getInt8PtrTy(context), func_symbol_ptr_list, g_fun_symbol_table_name);
+  return GenGlobalArrayHelper(llvm::Type::getInt64Ty(context), fn_vma_list, g_addr_list_second_name);
 }
