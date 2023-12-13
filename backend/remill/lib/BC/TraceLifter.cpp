@@ -671,11 +671,11 @@ bool TraceLifter::Impl::Lift(
           continue;
         }
       }
-
+    
     }
 
     /* if func includes BR instruction, it is necessary to lift all instructions of the func. */
-    if (!lift_all_insn && indirectbr_block) {
+    if (!lift_all_insn && indirectbr_block && inst_work_list.empty()) {
       CHECK(inst_work_list.empty());
       for (int insn_vma = trace_addr;insn_vma < vma_e; insn_vma += 4)
         if (lifted_block_map.count(insn_vma) == 0)
@@ -683,8 +683,8 @@ bool TraceLifter::Impl::Lift(
       lift_all_insn = true;
       goto inst_lifting_start;
     }
-
-    /* indirect br block for BR instruction */
+    
+    /* indirectbr block for BR instruction */
     if (indirectbr_block) {
       auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
       /* generate gvar of block address array (g_bb_addrs) and vma array of it (g_bb_addr_vmas) */

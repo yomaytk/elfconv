@@ -1,6 +1,6 @@
 #include "Memory.h"
 
-// #define WARNING_MSG 1
+// #define MULSECTIONS_WARNING_MSG 1
 
 #define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
 
@@ -133,7 +133,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
     abort();
   }
   /* multiple sections which includes the vma_addr */
-#if defined(WARNING_MSG)
+#if defined(MULSECTIONS_WARNING_MSG)
   if (allocated_sections.size() > 1) {
     printf("[WARNING] vma_addr (0x%016llx) exists at multiple sections.\n", vma_addr);
     printf("Sections: ");
@@ -205,8 +205,6 @@ extern "C" void debug_state_machine() {
   PRINT_GPREGISTERS(29);
   PRINT_GPREGISTERS(30);
   printf("sp: 0x%016llx, pc: 0x%016llx\n", g_state.gpr.sp.qword, g_state.gpr.pc.qword);
-  // auto nzcv = g_state.nzcv;
-  // printf("State.NZCV:\nn: %hhu, z: %hhu, c: %hhu, v: %hhu\n", nzcv.n, nzcv.z, nzcv.c, nzcv.v);
   auto sr = g_state.sr;
   printf("State.SR:\ntpidr_el0: %llu, tpidrro_el0: %llu, ctr_el0: %llu, dczid_el0: %llu, midr_el0: %llu, n: %hhu, z: %hhu, c: %hhu, v: %hhu, ixc: %hhu, ofc: %hhu, ufc: %hhu, idc: %hhu, ioc: %hhu\n", 
     sr.tpidr_el0.qword, sr.tpidrro_el0.qword, sr.ctr_el0.qword, sr.dczid_el0.qword, sr.midr_el1.qword, sr.n, sr.z, sr.c, sr.v, sr.ixc, sr.ofc, sr.ufc, sr.idc, sr.ioc);

@@ -15,7 +15,7 @@
  */
 
 #include "remill/BC/Lifter.h"
-#include "remill/BC/Util.h"
+#include "remill/BC/Debug.h"
 
 #include "Lift.h"
 #include "MainLifter.h"
@@ -268,8 +268,10 @@ extern "C" int main(int argc, char *argv[]) {
   main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
   /* set lifted function pointer table (necessary for indirect call) */
   main_lifter.SetLiftedFunPtrTable(addr_fn_map);
-  /* debug call stack (FIXME) */
+#if defined(LIFT_CALLSTACK_DEBUG)
+  /* debug call stack */
   main_lifter.SetFuncSymbolNameTable(addr_fn_map);
+#endif
   /* set Platform name (FIXME) */
   main_lifter.SetPlatform("aarch64");
   /* set entry point */
