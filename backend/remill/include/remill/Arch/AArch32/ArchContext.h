@@ -1,7 +1,6 @@
 #pragma once
 
 #include <remill/Arch/Context.h>
-
 #include <string>
 
 namespace remill {

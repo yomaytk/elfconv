@@ -40,9 +40,8 @@ class X86ArchBase : public virtual ArchBase {
 
   // Populate a just-initialized lifted function function with architecture-
   // specific variables.
-  void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const override;
+  void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                          llvm::Function *bb_func) const override;
   virtual ~X86ArchBase(void) = default;
 };
 }  // namespace remill

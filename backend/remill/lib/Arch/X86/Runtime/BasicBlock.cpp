@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/X86/Runtime/State.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cmath>
-
-#include "remill/Arch/Runtime/Float.h"
-#include "remill/Arch/X86/Runtime/State.h"
 
 extern "C" {
 

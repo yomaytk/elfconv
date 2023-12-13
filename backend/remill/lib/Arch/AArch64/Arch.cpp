@@ -14,28 +14,25 @@
  * limitations under the License.
  */
 
+#include "remill/Arch/AArch64/AArch64Base.h"
+
+#include <algorithm>
+#include <cctype>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <iomanip>
 #include <llvm/ADT/Triple.h>
 #include <llvm/IR/Attributes.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
-
-#include <algorithm>
-#include <cctype>
-#include <iomanip>
 #include <map>
 #include <memory>
 #include <sstream>
 #include <string>
 
-#include "remill/Arch/AArch64/AArch64Base.h"
-
 #define REMILL_AARCH_STRICT_REGNUM
-
-#include <remill/Arch/ArchBase.h>
 
 #include "Decode.h"
 #include "remill/Arch/Instruction.h"
@@ -44,6 +41,8 @@
 #include "remill/BC/Util.h"
 #include "remill/BC/Version.h"
 #include "remill/OS/OS.h"
+
+#include <remill/Arch/ArchBase.h>
 
 // clang-format off
 #define INCLUDED_FROM_REMILL
@@ -79,13 +78,11 @@ Instruction::Category InstCategory(const aarch64::InstData &inst) {
     case aarch64::InstName::CBZ:
     case aarch64::InstName::CBNZ:
     case aarch64::InstName::TBZ:
-    case aarch64::InstName::TBNZ:
-      return Instruction::kCategoryConditionalBranch;
+    case aarch64::InstName::TBNZ: return Instruction::kCategoryConditionalBranch;
 
     case aarch64::InstName::BL: return Instruction::kCategoryDirectFunctionCall;
 
-    case aarch64::InstName::BLR:
-      return Instruction::kCategoryIndirectFunctionCall;
+    case aarch64::InstName::BLR: return Instruction::kCategoryIndirectFunctionCall;
 
     case aarch64::InstName::RET: return Instruction::kCategoryFunctionReturn;
 
@@ -109,8 +106,7 @@ Instruction::Category InstCategory(const aarch64::InstData &inst) {
 
 class AArch64Arch final : public AArch64ArchBase, DefaultContextAndLifter {
  public:
-  AArch64Arch(llvm::LLVMContext *context_, OSName os_name_,
-              ArchName arch_name_);
+  AArch64Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_);
 
   virtual ~AArch64Arch(void);
 
@@ -122,8 +118,7 @@ class AArch64Arch final : public AArch64ArchBase, DefaultContextAndLifter {
   AArch64Arch(void) = delete;
 };
 
-AArch64Arch::AArch64Arch(llvm::LLVMContext *context_, OSName os_name_,
-                         ArchName arch_name_)
+AArch64Arch::AArch64Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
     : ArchBase(context_, os_name_, arch_name_),
       AArch64ArchBase(context_, os_name_, arch_name_),
       DefaultContextAndLifter(context_, os_name_, arch_name_) {}
@@ -288,8 +283,7 @@ static std::string RegNameFP(Action action, RegClass rclass, RegUsage rtype,
   return ss.str();
 }
 
-static std::string RegName(Action action, RegClass rclass, RegUsage rtype,
-                           aarch64::RegNum number) {
+static std::string RegName(Action action, RegClass rclass, RegUsage rtype, aarch64::RegNum number) {
   switch (rclass) {
     case kRegX:
     case kRegW: return RegNameXW(action, rclass, rtype, number);
@@ -349,8 +343,8 @@ static Operand::Register Reg(Action action, RegClass rclass, RegUsage rtype,
   return reg;
 }
 
-static void AddRegOperand(Instruction &inst, Action action, RegClass rclass,
-                          RegUsage rtype, aarch64::RegNum reg_num) {
+static void AddRegOperand(Instruction &inst, Action action, RegClass rclass, RegUsage rtype,
+                          aarch64::RegNum reg_num) {
   Operand op;
   op.type = Operand::kTypeRegister;
 
@@ -369,9 +363,8 @@ static void AddRegOperand(Instruction &inst, Action action, RegClass rclass,
   }
 }
 
-static void AddShiftRegOperand(Instruction &inst, RegClass rclass,
-                               RegUsage rtype, aarch64::RegNum reg_num,
-                               Shift shift_type, uint64_t shift_size) {
+static void AddShiftRegOperand(Instruction &inst, RegClass rclass, RegUsage rtype,
+                               aarch64::RegNum reg_num, Shift shift_type, uint64_t shift_size) {
   if (!shift_size) {
     AddRegOperand(inst, kActionRead, rclass, rtype, reg_num);
   } else {
@@ -391,9 +384,8 @@ static void AddShiftRegOperand(Instruction &inst, RegClass rclass,
 //
 // NOTE(pag): `rclass` is explicitly passed instead of inferred because some
 //            instructions, e.g. `ADD_32_ADDSUB_EXT` specify `Wm` only.
-static void AddExtendRegOperand(Instruction &inst, RegClass reg_class,
-                                RegUsage rtype, aarch64::RegNum reg_num,
-                                Extend extend_type, uint64_t output_size,
+static void AddExtendRegOperand(Instruction &inst, RegClass reg_class, RegUsage rtype,
+                                aarch64::RegNum reg_num, Extend extend_type, uint64_t output_size,
                                 uint64_t shift_size = 0) {
   Operand op;
   op.shift_reg.reg = Reg(kActionRead, reg_class, rtype, reg_num);
@@ -423,8 +415,8 @@ static void AddExtendRegOperand(Instruction &inst, RegClass reg_class,
   inst.operands.push_back(op);
 }
 
-static void AddImmOperand(Instruction &inst, uint64_t val,
-                          ImmType signedness = kUnsigned, unsigned size = 64) {
+static void AddImmOperand(Instruction &inst, uint64_t val, ImmType signedness = kUnsigned,
+                          unsigned size = 64) {
   Operand op;
   op.type = Operand::kTypeImmediate;
   op.action = Operand::kActionRead;
@@ -463,8 +455,7 @@ static void AddPCRegMemOp(Instruction &inst, Action action, int64_t disp) {
   if (kActionRead == action) {
     AddPCRegOp(inst, Operand::kActionRead, disp, Operand::Address::kMemoryRead);
   } else if (kActionWrite == action) {
-    AddPCRegOp(inst, Operand::kActionWrite, disp,
-               Operand::Address::kMemoryWrite);
+    AddPCRegOp(inst, Operand::kActionWrite, disp, Operand::Address::kMemoryWrite);
   } else {
     LOG(FATAL) << __FUNCTION__ << " only accepts simple operand actions.";
   }
@@ -472,8 +463,7 @@ static void AddPCRegMemOp(Instruction &inst, Action action, int64_t disp) {
 
 // Emit an address operand that computes `PC + disp`.
 static void AddPCDisp(Instruction &inst, int64_t disp) {
-  AddPCRegOp(inst, Operand::kActionRead, disp,
-             Operand::Address::kAddressCalculation);
+  AddPCRegOp(inst, Operand::kActionRead, disp, Operand::Address::kAddressCalculation);
 }
 
 static void DecodeFallThroughPC(Instruction &inst) {
@@ -499,8 +489,7 @@ static void DecodeFallThroughPC(Instruction &inst) {
 // Which gets is:
 //    addr = Xn + imm
 //    ... deref addr and do stuff ...
-static void AddBasePlusOffsetMemOp(Instruction &inst, Action action,
-                                   uint64_t access_size,
+static void AddBasePlusOffsetMemOp(Instruction &inst, Action action, uint64_t access_size,
                                    aarch64::RegNum base_reg, uint64_t disp) {
   Operand op;
   op.type = Operand::kTypeAddress;
@@ -537,9 +526,8 @@ static constexpr auto kInvalidReg = static_cast<aarch64::RegNum>(0xFF);
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm + imm).
-static void AddPreIndexMemOp(Instruction &inst, Action action,
-                             uint64_t access_size, aarch64::RegNum base_reg,
-                             uint64_t disp,
+static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+                             aarch64::RegNum base_reg, uint64_t disp,
                              aarch64::RegNum dest_reg1 = kInvalidReg,
                              aarch64::RegNum dest_reg2 = kInvalidReg) {
   AddBasePlusOffsetMemOp(inst, action, access_size, base_reg, disp);
@@ -552,8 +540,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action,
   // We don't care about the case of `31` because then `base_reg` will be
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
-  if (static_cast<uint8_t>(base_reg) != 31 &&
-      (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
+  if (static_cast<uint8_t>(base_reg) != 31 && (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
     reg_op.reg.name = "SUPPRESS_WRITEBACK";
     reg_op.reg.size = 64;
   } else {
@@ -581,9 +568,8 @@ static void AddPreIndexMemOp(Instruction &inst, Action action,
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm).
-static void AddPostIndexMemOp(Instruction &inst, Action action,
-                              uint64_t access_size, aarch64::RegNum base_reg,
-                              uint64_t disp,
+static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+                              aarch64::RegNum base_reg, uint64_t disp,
                               aarch64::RegNum dest_reg1 = kInvalidReg,
                               aarch64::RegNum dest_reg2 = kInvalidReg) {
   AddBasePlusOffsetMemOp(inst, action, access_size, base_reg, 0);
@@ -596,8 +582,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action,
   // We don't care about the case of `31` because then `base_reg` will be
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
-  if (static_cast<uint8_t>(base_reg) != 31 &&
-      (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
+  if (static_cast<uint8_t>(base_reg) != 31 && (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
     reg_op.reg.name = "SUPPRESS_WRITEBACK";
     reg_op.reg.size = 64;
   } else {
@@ -627,9 +612,8 @@ static void AddPostIndexMemOp(Instruction &inst, Action action,
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm).
-static void AddPostIndexMemOp(Instruction &inst, Action action,
-                              uint64_t access_size, aarch64::RegNum base_reg,
-                              aarch64::RegNum disp_reg,
+static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+                              aarch64::RegNum base_reg, aarch64::RegNum disp_reg,
                               aarch64::RegNum dest_reg1 = kInvalidReg,
                               aarch64::RegNum dest_reg2 = kInvalidReg) {
   AddBasePlusOffsetMemOp(inst, action, access_size, base_reg, 0);
@@ -642,8 +626,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action,
   // We don't care about the case of `31` because then `base_reg` will be
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
-  if (static_cast<uint8_t>(base_reg) != 31 &&
-      (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
+  if (static_cast<uint8_t>(base_reg) != 31 && (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
     reg_op.reg.name = "SUPPRESS_WRITEBACK";
     reg_op.reg.size = 64;
   } else {
@@ -664,8 +647,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action,
 static bool MostSignificantSetBit(uint64_t val, uint64_t *highest_out) {
 #if __has_builtin(__builtin_clzll)
   if (val) {
-    *highest_out =
-        63 - (__builtin_clzll(val) - (sizeof(unsigned long long) * 8 - 64));
+    *highest_out = 63 - (__builtin_clzll(val) - (sizeof(unsigned long long) * 8 - 64));
     return true;
   } else {
     return false;
@@ -735,11 +717,9 @@ static uint64_t Replicate(uint64_t val, uint64_t val_size, uint64_t goal_size) {
 //      https://stackoverflow.com/a/33265035/247591
 //
 // The gist of the format is that you hav
-static bool DecodeBitMasks(uint64_t N /* one bit */,
-                           uint64_t imms /* six bits */,
-                           uint64_t immr /* six bits */, bool is_immediate,
-                           uint64_t data_size, uint64_t *wmask_out = nullptr,
-                           uint64_t *tmask_out = nullptr) {
+static bool DecodeBitMasks(uint64_t N /* one bit */, uint64_t imms /* six bits */,
+                           uint64_t immr /* six bits */, bool is_immediate, uint64_t data_size,
+                           uint64_t *wmask_out = nullptr, uint64_t *tmask_out = nullptr) {
   uint64_t len = 0;
   if (!MostSignificantSetBit((N << 6ULL) | (~imms & 0x3fULL), &len)) {
     return false;
@@ -802,8 +782,7 @@ static uint64_t VFPExpandImmToFloat64(uint64_t imm) {
 }
 
 
-bool AArch64Arch::ArchDecodeInstruction(uint64_t address,
-                                        std::string_view inst_bytes,
+bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                         Instruction &inst) const {
 
   aarch64::InstData dinst = {};
@@ -837,7 +816,8 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address,
   }
 
   inst.category = InstCategory(dinst);
-  inst.function = aarch64::InstFormToString(dinst.iform); /* SEM function symbol must be ISEL_<inst.function> */
+  inst.function =
+      aarch64::InstFormToString(dinst.iform); /* SEM function symbol must be ISEL_<inst.function> */
   /* set operands of insn */
   if (!aarch64::TryDecode(dinst, inst)) {
     inst.category = Instruction::kCategoryInvalid;
@@ -882,16 +862,14 @@ static uint64_t DecodeScale(const InstData &data) {
 }
 
 // <OPCODE>  <Xd>, <Xn>
-static bool TryDecodeRdW_Rn(const InstData &data, Instruction &inst,
-                            RegClass rclass) {
+static bool TryDecodeRdW_Rn(const InstData &data, Instruction &inst, RegClass rclass) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   return true;
 }
 
 // <OPCODE>  <Xd>, <Xn>, <Xm>
-static bool TryDecodeRdW_Rn_Rm(const InstData &data, Instruction &inst,
-                               RegClass rclass) {
+static bool TryDecodeRdW_Rn_Rm(const InstData &data, Instruction &inst, RegClass rclass) {
   TryDecodeRdW_Rn(data, inst, rclass);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
   return true;
@@ -980,8 +958,7 @@ bool TryDecodeSTP_64_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   return true;
 }
 
-static bool TryDecodeSTP_Vn_LDSTPAIR_OFF(const InstData &data,
-                                         Instruction &inst, RegClass rclass) {
+static bool TryDecodeSTP_Vn_LDSTPAIR_OFF(const InstData &data, Instruction &inst, RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -1009,8 +986,7 @@ bool TryDecodeSTP_Q_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   return TryDecodeSTP_Vn_LDSTPAIR_OFF(data, inst, kRegQ);
 }
 
-static bool TryDecodeSTP_Vn_LDSTPAIR_PRE(const InstData &data,
-                                         Instruction &inst, RegClass rclass) {
+static bool TryDecodeSTP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst, RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -1019,8 +995,8 @@ static bool TryDecodeSTP_Vn_LDSTPAIR_PRE(const InstData &data,
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rt2);
   AddPreIndexMemOp(inst, kActionWrite, size * 2, data.Rn,
-                    static_cast<uint64_t>(data.imm7.simm7) << scale);
-                        
+                   static_cast<uint64_t>(data.imm7.simm7) << scale);
+
   return true;
 }
 
@@ -1029,8 +1005,8 @@ bool TryDecodeSTP_Q_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   return TryDecodeSTP_Vn_LDSTPAIR_PRE(data, inst, kRegQ);
 }
 
-static bool TryDecodeSTP_Vn_LDSTPAIR_POST(const InstData &data,
-                                         Instruction &inst, RegClass rclass) {
+static bool TryDecodeSTP_Vn_LDSTPAIR_POST(const InstData &data, Instruction &inst,
+                                          RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -1040,7 +1016,7 @@ static bool TryDecodeSTP_Vn_LDSTPAIR_POST(const InstData &data,
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rt2);
   AddPostIndexMemOp(inst, kActionWrite, size * 2, data.Rn,
                     static_cast<uint64_t>(data.imm7.simm7) << scale);
-                        
+
   return true;
 }
 
@@ -1061,8 +1037,7 @@ bool TryDecodeLDP_32_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt2);
-  AddPostIndexMemOp(inst, kActionRead, 64, data.Rn,
-                    static_cast<uint64_t>(data.imm7.simm7) << 2);
+  AddPostIndexMemOp(inst, kActionRead, 64, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 2);
   return true;
 }
 
@@ -1078,8 +1053,7 @@ bool TryDecodeLDP_64_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt2);
-  AddPostIndexMemOp(inst, kActionRead, 128, data.Rn,
-                    static_cast<uint64_t>(data.imm7.simm7) << 3);
+  AddPostIndexMemOp(inst, kActionRead, 128, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 3);
   return true;
 }
 
@@ -1102,8 +1076,7 @@ bool TryDecodeLDPSW_64_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt2);
-  AddPostIndexMemOp(inst, kActionRead, 64, data.Rn,
-                    static_cast<uint64_t>(data.imm7.simm7) << 2);
+  AddPostIndexMemOp(inst, kActionRead, 64, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 2);
   return true;
 }
 
@@ -1114,9 +1087,8 @@ bool TryDecodeLDPSW_64_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt2);
-  AddPreIndexMemOp(inst, kActionRead, 64, data.Rn,
-                   static_cast<uint64_t>(data.imm7.simm7) << 2, data.Rt,
-                   data.Rt2);
+  AddPreIndexMemOp(inst, kActionRead, 64, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 2,
+                   data.Rt, data.Rt2);
   return true;
 }
 
@@ -1132,9 +1104,8 @@ bool TryDecodeLDP_32_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt2);
-  AddPreIndexMemOp(inst, kActionRead, 64, data.Rn,
-                   static_cast<uint64_t>(data.imm7.simm7) << 2, data.Rt,
-                   data.Rt2);
+  AddPreIndexMemOp(inst, kActionRead, 64, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 2,
+                   data.Rt, data.Rt2);
   return true;
 }
 
@@ -1150,9 +1121,8 @@ bool TryDecodeLDP_64_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt2);
-  AddPreIndexMemOp(inst, kActionRead, 128, data.Rn,
-                   static_cast<uint64_t>(data.imm7.simm7) << 3, data.Rt,
-                   data.Rt2);
+  AddPreIndexMemOp(inst, kActionRead, 128, data.Rn, static_cast<uint64_t>(data.imm7.simm7) << 3,
+                   data.Rt, data.Rt2);
   return true;
 }
 
@@ -1239,16 +1209,14 @@ bool TryDecodeLDR_64_LDST_POS(const InstData &data, Instruction &inst) {
 // LDR  <Wt>, <label>
 bool TryDecodeLDR_32_LOADLIT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt);
-  AddPCRegMemOp(inst, kActionRead,
-                static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
+  AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
 
 // LDR  <Xt>, <label>
 bool TryDecodeLDR_64_LOADLIT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
-  AddPCRegMemOp(inst, kActionRead,
-                static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
+  AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
 
@@ -1263,8 +1231,7 @@ static bool TryDecodeLDR_n_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionWrite, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionRead, 8U << scale, data.Rn, 0);
-  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -1321,16 +1288,14 @@ bool TryDecodeSTR_64_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // STR  <Wt>, [<Xn|SP>{, #<pimm>}]
 bool TryDecodeSTR_32_LDST_POS(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
-  AddBasePlusOffsetMemOp(inst, kActionWrite, 32, data.Rn,
-                         data.imm12.uimm << 2 /* size = 2 */);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 32, data.Rn, data.imm12.uimm << 2 /* size = 2 */);
   return true;
 }
 
 // STR  <Xt>, [<Xn|SP>{, #<pimm>}]
 bool TryDecodeSTR_64_LDST_POS(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
-  AddBasePlusOffsetMemOp(inst, kActionWrite, 64, data.Rn,
-                         data.imm12.uimm << 3 /* size = 3 */);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 64, data.Rn, data.imm12.uimm << 3 /* size = 3 */);
   return true;
 }
 
@@ -1344,8 +1309,8 @@ static bool TryDecodeSTR_n_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto shift = data.S ? scale : 0U;
   AddRegOperand(inst, kActionRead, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionWrite, 8U << data.size, data.Rn, 0);
-  AddExtendRegOperand(inst, ExtendTypeToRegClass(extend_type), kUseAsValue,
-                      data.Rm, extend_type, 64, shift);
+  AddExtendRegOperand(inst, ExtendTypeToRegClass(extend_type), kUseAsValue, data.Rm, extend_type,
+                      64, shift);
   return true;
 }
 
@@ -1542,8 +1507,7 @@ bool TryDecodeMOVZ_32_MOVEWIDE(const InstData &data, Instruction &inst) {
   }
   auto shift = static_cast<uint64_t>(data.hw) << 4U;
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
-  AddImmOperand(inst, static_cast<uint32_t>(data.imm16.uimm << shift),
-                kUnsigned, 32);
+  AddImmOperand(inst, static_cast<uint32_t>(data.imm16.uimm << shift), kUnsigned, 32);
   return true;
 }
 
@@ -1613,8 +1577,8 @@ bool TryDecodeADRP_ONLY_PCRELADDR(const InstData &data, Instruction &inst) {
 // B  <label>
 bool TryDecodeB_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
   AddPCDisp(inst, data.imm26.simm26 << 2LL);
-  inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.pc) +
-                                               (data.imm26.simm26 << 2ULL));
+  inst.branch_taken_pc =
+      static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + (data.imm26.simm26 << 2ULL));
   inst.branch_taken_arch_name = inst.arch_name;
   return true;
 }
@@ -1643,8 +1607,7 @@ static void DecodeConditionalBranch(Instruction &inst, int64_t disp) {
   taken_op.addr.kind = Operand::Address::kControlFlowTarget;
   inst.operands.push_back(taken_op);
 
-  inst.branch_taken_pc =
-      static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + disp);
+  inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + disp);
 
   if (inst.branch_taken_pc % 2u) {
     inst.branch_taken_arch_name = ArchName::kArchThumb2LittleEndian;
@@ -1656,8 +1619,7 @@ static void DecodeConditionalBranch(Instruction &inst, int64_t disp) {
   DecodeFallThroughPC(inst);
 }
 
-static bool DecodeBranchRegLabel(const InstData &data, Instruction &inst,
-                                 RegClass reg_class) {
+static bool DecodeBranchRegLabel(const InstData &data, Instruction &inst, RegClass reg_class) {
   DecodeConditionalBranch(inst, data.imm19.simm19 << 2);
   AddRegOperand(inst, kActionRead, reg_class, kUseAsValue, data.Rt);
   return true;
@@ -1712,8 +1674,8 @@ bool TryDecodeTBNZ_ONLY_TESTBRANCH(const InstData &data, Instruction &inst) {
 // BL  <label>
 bool TryDecodeBL_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
   inst.branch_taken_arch_name = inst.arch_name;
-  inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.pc) +
-                                               (data.imm26.simm26 << 2ULL));
+  inst.branch_taken_pc =
+      static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + (data.imm26.simm26 << 2ULL));
   inst.branch_not_taken_pc = inst.next_pc;
   AddPCDisp(inst, data.imm26.simm26 << 2LL);
   DecodeFallThroughPC(inst);  // Decodes the return address.
@@ -1733,9 +1695,7 @@ static bool ShiftImmediate(uint64_t &value, uint8_t shift) {
     case 1:  // Shift left 12 bits.
       value = value << 12;
       break;
-    default:
-      LOG(ERROR) << "Decoding reserved bit for shift value.";
-      return false;
+    default: LOG(ERROR) << "Decoding reserved bit for shift value."; return false;
   }
   return true;
 }
@@ -1775,8 +1735,7 @@ bool TryDecodeADD_32_ADDSUB_SHIFT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
-  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm, shift_type,
-                     data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm, shift_type, data.imm6.uimm);
   return true;
 }
 
@@ -1788,8 +1747,7 @@ bool TryDecodeADD_64_ADDSUB_SHIFT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
-  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, shift_type,
-                     data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, shift_type, data.imm6.uimm);
   return true;
 }
 
@@ -1802,8 +1760,7 @@ bool TryDecodeADD_32_ADDSUB_EXT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsAddress, data.Rd);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsAddress, data.Rn);
-  AddExtendRegOperand(inst, kRegW, kUseAsValue, data.Rm, extend_type, 32,
-                      shift);
+  AddExtendRegOperand(inst, kRegW, kUseAsValue, data.Rm, extend_type, 32, shift);
   return true;
 }
 
@@ -1817,8 +1774,7 @@ bool TryDecodeADD_64_ADDSUB_EXT(const InstData &data, Instruction &inst) {
   auto reg_class = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsAddress, data.Rn);
-  AddExtendRegOperand(inst, reg_class, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, reg_class, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -1862,8 +1818,7 @@ bool TryDecodeSUBS_32_ADDSUB_SHIFT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
-  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm, shift_type,
-                     data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm, shift_type, data.imm6.uimm);
   return true;
 }
 
@@ -1875,8 +1830,7 @@ bool TryDecodeSUBS_64_ADDSUB_SHIFT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
-  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, shift_type,
-                     data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, shift_type, data.imm6.uimm);
   return true;
 }
 
@@ -1913,8 +1867,7 @@ bool TryDecodeSUBS_32S_ADDSUB_EXT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsAddress, data.Rn);
-  AddExtendRegOperand(inst, kRegW, kUseAsValue, data.Rm, extend_type, 32,
-                      shift);
+  AddExtendRegOperand(inst, kRegW, kUseAsValue, data.Rm, extend_type, 32, shift);
   return true;
 }
 
@@ -1928,8 +1881,7 @@ bool TryDecodeSUBS_64S_ADDSUB_EXT(const InstData &data, Instruction &inst) {
   auto reg_class = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsAddress, data.Rn);
-  AddExtendRegOperand(inst, reg_class, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, reg_class, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -1963,11 +1915,9 @@ bool TryDecodeADDS_64S_ADDSUB_EXT(const InstData &data, Instruction &inst) {
   return TryDecodeSUBS_64S_ADDSUB_EXT(data, inst);
 }
 
-static const char *kCondName[] = {"EQ", "CS", "MI", "VS",
-                                  "HI", "GE", "GT", "AL"};
+static const char *kCondName[] = {"EQ", "CS", "MI", "VS", "HI", "GE", "GT", "AL"};
 
-static const char *kNegCondName[] = {"NE", "CC", "PL", "VC",
-                                     "LS", "LT", "LE", "AL"};
+static const char *kNegCondName[] = {"NE", "CC", "PL", "VC", "LS", "LT", "LE", "AL"};
 
 static const char *CondName(uint8_t cond) {
   if (cond & 1) {
@@ -2061,8 +2011,7 @@ static bool TryDecodeLDRn_m_LDST_REGOFF(const InstData &data, Instruction &inst,
   AddRegOperand(inst, kActionRead, kRegX, kUseAsAddress, data.Rn);
   auto extend_type = static_cast<Extend>(data.option);
   auto rclass = ExtendTypeToRegClass(extend_type);
-  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64,
-                      data.S * scale);
+  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, data.S * scale);
   return true;
 }
 
@@ -2105,8 +2054,7 @@ static bool TryDecodeSTRn_m_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionRead, dest_rclass, kUseAsValue, data.Rt);
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
-  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -2162,16 +2110,16 @@ bool TryDecodeEOR_32_LOG_SHIFT(const InstData &data, Instruction &inst) {
     return false;  // `if sf == '0' && imm6<5> == '1' then ReservedValue();`.
   }
   TryDecodeRdW_Rn(data, inst, kRegW);
-  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm,
-                     static_cast<Shift>(data.shift), data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rm, static_cast<Shift>(data.shift),
+                     data.imm6.uimm);
   return true;
 }
 
 // EOR  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 bool TryDecodeEOR_64_LOG_SHIFT(const InstData &data, Instruction &inst) {
   TryDecodeRdW_Rn(data, inst, kRegX);
-  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm,
-                     static_cast<Shift>(data.shift), data.imm6.uimm);
+  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, static_cast<Shift>(data.shift),
+                     data.imm6.uimm);
   return true;
 }
 
@@ -2181,8 +2129,7 @@ bool TryDecodeEOR_32_LOG_IMM(const InstData &data, Instruction &inst) {
   if (data.N) {
     return false;  // `if sf == '0' && N != '0' then ReservedValue();`.
   }
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, true, 32,
-                      &wmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, true, 32, &wmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsAddress, data.Rd);
@@ -2194,8 +2141,7 @@ bool TryDecodeEOR_32_LOG_IMM(const InstData &data, Instruction &inst) {
 // EOR  <Xd|SP>, <Xn>, #<imm>
 bool TryDecodeEOR_64_LOG_IMM(const InstData &data, Instruction &inst) {
   uint64_t wmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, true, 64,
-                      &wmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, true, 64, &wmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rd);
@@ -2254,8 +2200,7 @@ bool TryDecodeBIC_64_LOG_SHIFT(const InstData &data, Instruction &inst) {
   return TryDecodeEOR_64_LOG_SHIFT(data, inst);
 }
 
-static bool TryDecodeLDUR_Vn_LDST_UNSCALED(const InstData &data,
-                                           Instruction &inst,
+static bool TryDecodeLDUR_Vn_LDST_UNSCALED(const InstData &data, Instruction &inst,
                                            RegClass val_class) {
   uint64_t scale = DecodeScale(data);
   if (scale > 4) {
@@ -2293,8 +2238,7 @@ bool TryDecodeLDUR_Q_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   return TryDecodeLDUR_Vn_LDST_UNSCALED(data, inst, kRegQ);
 }
 
-static bool TryDecodeLDUR_n_LDST_UNSCALED(const InstData &data,
-                                          Instruction &inst, RegClass rclass,
+static bool TryDecodeLDUR_n_LDST_UNSCALED(const InstData &data, Instruction &inst, RegClass rclass,
                                           uint64_t mem_size) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionRead, mem_size, data.Rn,
@@ -2342,8 +2286,7 @@ bool TryDecodeLDURSW_64_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   return TryDecodeLDUR_n_LDST_UNSCALED(data, inst, kRegX, 64);
 }
 
-static bool TryDecodeSTUR_Vn_LDST_UNSCALED(const InstData &data,
-                                           Instruction &inst,
+static bool TryDecodeSTUR_Vn_LDST_UNSCALED(const InstData &data, Instruction &inst,
                                            RegClass val_class) {
   uint64_t scale = DecodeScale(data);
   if (scale > 4) {
@@ -2381,8 +2324,7 @@ bool TryDecodeSTUR_Q_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   return TryDecodeSTUR_Vn_LDST_UNSCALED(data, inst, kRegQ);
 }
 
-static bool TryDecodeSTUR_n_LDST_UNSCALED(const InstData &data,
-                                          Instruction &inst, RegClass rclass,
+static bool TryDecodeSTUR_n_LDST_UNSCALED(const InstData &data, Instruction &inst, RegClass rclass,
                                           uint64_t mem_size) {
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionWrite, mem_size, data.Rn,
@@ -2410,12 +2352,11 @@ bool TryDecodeSTUR_64_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   return TryDecodeSTUR_n_LDST_UNSCALED(data, inst, kRegX, 64);
 }
 
-static bool TryDecodeLDRSn_m_LDST_IMMPOST(const InstData &data,
-                                          Instruction &inst, RegClass rclass,
+static bool TryDecodeLDRSn_m_LDST_IMMPOST(const InstData &data, Instruction &inst, RegClass rclass,
                                           uint64_t mem_size) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rt);
-  AddPostIndexMemOp(inst, kActionRead, mem_size, data.Rn,
-                    static_cast<uint64_t>(data.imm9.simm9), data.Rt);
+  AddPostIndexMemOp(inst, kActionRead, mem_size, data.Rn, static_cast<uint64_t>(data.imm9.simm9),
+                    data.Rt);
   return true;
 }
 
@@ -2454,12 +2395,11 @@ bool TryDecodeLDRSW_64_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   return TryDecodeLDRSn_m_LDST_IMMPOST(data, inst, kRegX, 32);
 }
 
-static bool TryDecodeLDRSn_m_LDST_IMMPRE(const InstData &data,
-                                         Instruction &inst, RegClass rclass,
+static bool TryDecodeLDRSn_m_LDST_IMMPRE(const InstData &data, Instruction &inst, RegClass rclass,
                                          uint64_t mem_size) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rt);
-  AddPreIndexMemOp(inst, kActionRead, mem_size, data.Rn,
-                   static_cast<uint64_t>(data.imm9.simm9), data.Rt);
+  AddPreIndexMemOp(inst, kActionRead, mem_size, data.Rn, static_cast<uint64_t>(data.imm9.simm9),
+                   data.Rt);
   return true;
 }
 
@@ -2498,12 +2438,10 @@ bool TryDecodeLDRSW_64_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   return TryDecodeLDRSn_m_LDST_IMMPRE(data, inst, kRegX, 32);
 }
 
-static bool TryDecodeLDRSn_m_LDST_POS(const InstData &data, Instruction &inst,
-                                      RegClass rclass, uint64_t mem_size,
-                                      uint64_t scale) {
+static bool TryDecodeLDRSn_m_LDST_POS(const InstData &data, Instruction &inst, RegClass rclass,
+                                      uint64_t mem_size, uint64_t scale) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rt);
-  AddBasePlusOffsetMemOp(inst, kActionRead, mem_size, data.Rn,
-                         data.imm12.uimm << scale);
+  AddBasePlusOffsetMemOp(inst, kActionRead, mem_size, data.Rn, data.imm12.uimm << scale);
   return true;
 }
 
@@ -2671,14 +2609,12 @@ bool TryDecodeUBFM_32M_BITFIELD(const InstData &data, Instruction &inst) {
 
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask, &tmask)) {
     return false;
   }
 
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
-  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rn, kShiftROR,
-                     data.immr.uimm);
+  AddShiftRegOperand(inst, kRegW, kUseAsValue, data.Rn, kShiftROR, data.immr.uimm);
   AddImmOperand(inst, wmask & tmask, kUnsigned, 32);
   return true;
 }
@@ -2691,14 +2627,12 @@ bool TryDecodeUBFM_64M_BITFIELD(const InstData &data, Instruction &inst) {
 
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask, &tmask)) {
     return false;
   }
 
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
-  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rn, kShiftROR,
-                     data.immr.uimm);
+  AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rn, kShiftROR, data.immr.uimm);
   AddImmOperand(inst, wmask & tmask, kUnsigned, 64);
   return true;
 }
@@ -2713,8 +2647,7 @@ bool TryDecodeSBFM_32M_BITFIELD(const InstData &data, Instruction &inst) {
   }
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask, &tmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
@@ -2733,8 +2666,7 @@ bool TryDecodeSBFM_64M_BITFIELD(const InstData &data, Instruction &inst) {
   }
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask, &tmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
@@ -2756,8 +2688,7 @@ bool TryDecodeBFM_32M_BITFIELD(const InstData &data, Instruction &inst) {
   }
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 32, &wmask, &tmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
@@ -2775,8 +2706,7 @@ bool TryDecodeBFM_64M_BITFIELD(const InstData &data, Instruction &inst) {
   }
   uint64_t wmask = 0;
   uint64_t tmask = 0;
-  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask,
-                      &tmask)) {
+  if (!DecodeBitMasks(data.N, data.imms.uimm, data.immr.uimm, false, 64, &wmask, &tmask)) {
     return false;
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
@@ -3201,8 +3131,7 @@ bool TryDecodeFMOV_64VX_FLOAT2INT(const InstData &data, Instruction &inst) {
   return true;
 }
 
-static bool TryDecodeFn_Fm(const InstData &data, Instruction &inst,
-                           RegClass rclass) {
+static bool TryDecodeFn_Fm(const InstData &data, Instruction &inst, RegClass rclass) {
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3211,8 +3140,7 @@ static bool TryDecodeFn_Fm(const InstData &data, Instruction &inst,
   return true;
 }
 
-static bool TryDecodeFdW_Fn_Fm(const InstData &data, Instruction &inst,
-                               RegClass rclass) {
+static bool TryDecodeFdW_Fn_Fm(const InstData &data, Instruction &inst, RegClass rclass) {
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3319,8 +3247,7 @@ bool TryDecodeFCMPE_D_FLOATCMP(const InstData &data, Instruction &inst) {
   return TryDecodeFn_Fm(data, inst, kRegD);
 }
 
-static bool TryDecodeFCMP_ToZero(const InstData &data, Instruction &inst,
-                                 RegClass rclass) {
+static bool TryDecodeFCMP_ToZero(const InstData &data, Instruction &inst, RegClass rclass) {
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3437,8 +3364,7 @@ union SystemReg {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(sizeof(SystemReg) == sizeof(uint64_t),
-              "Invalid packing of `union SystemReg`.");
+static_assert(sizeof(SystemReg) == sizeof(uint64_t), "Invalid packing of `union SystemReg`.");
 
 static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
   std::stringstream ss;
@@ -3454,9 +3380,8 @@ static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
     case SystemReg::kMIDR_EL1: ss << "MIDR_EL1"; break;
     default:
       LOG(ERROR) << "Unrecognized system register " << std::hex << bits.flat
-                 << " with op0=" << bits.op0 << ", op1=" << bits.op1
-                 << ", crn=" << bits.crn << ", crm=" << bits.crm
-                 << ", op2=" << bits.op2 << std::dec;
+                 << " with op0=" << bits.op0 << ", op1=" << bits.op1 << ", crn=" << bits.crn
+                 << ", crm=" << bits.crm << ", op2=" << bits.op2 << std::dec;
       return false;
   }
 
@@ -3488,8 +3413,7 @@ bool TryDecodeMSR_SR_SYSTEM(const InstData &data, Instruction &inst) {
   return AppendSysRegName(inst, bits);
 }
 
-static bool TryDecodeSTR_Vn_LDST_POS(const InstData &data, Instruction &inst,
-                                     RegClass val_class) {
+static bool TryDecodeSTR_Vn_LDST_POS(const InstData &data, Instruction &inst, RegClass val_class) {
   uint64_t scale = DecodeScale(data);
   if (scale > 4) {
     return false;
@@ -3538,8 +3462,7 @@ static bool TryDecodeSTR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionRead, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionWrite, 8U << scale, data.Rn, 0);
-  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -3565,8 +3488,7 @@ bool TryDecodeSTR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   return TryDecodeSTR_Vn_LDST_IMMPRE(data, inst, kRegQ);
 }
 
-static bool TryDecodeLDR_Vn_LDST_POS(const InstData &data, Instruction &inst,
-                                     RegClass val_class) {
+static bool TryDecodeLDR_Vn_LDST_POS(const InstData &data, Instruction &inst, RegClass val_class) {
   uint64_t scale = DecodeScale(data);
   if (scale > 4) {
     return false;
@@ -3615,8 +3537,7 @@ static bool TryDecodeLDR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionWrite, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionRead, 8U << scale, data.Rn, 0);
-  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64,
-                      shift);
+  AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
 
@@ -3650,8 +3571,7 @@ bool TryDecodeLDR_Q_LDST_REGOFF(const InstData &data, Instruction &inst) {
   return TryDecodeLDR_Vn_LDST_REGOFF(data, inst, kRegQ);
 }
 
-static bool TryDecodeLDR_Vn_LDST_IMMPOST(const InstData &data,
-                                         Instruction &inst,
+static bool TryDecodeLDR_Vn_LDST_IMMPOST(const InstData &data, Instruction &inst,
                                          RegClass val_class) {
   uint64_t scale = DecodeScale(data);
   if (scale > 4) {
@@ -3730,29 +3650,26 @@ bool TryDecodeLDR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // LDR  <St>, <label>
 bool TryDecodeLDR_S_LOADLIT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rt);
-  AddPCRegMemOp(inst, kActionRead,
-                static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
+  AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
 
 // LDR  <Dt>, <label>
 bool TryDecodeLDR_D_LOADLIT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rt);
-  AddPCRegMemOp(inst, kActionRead,
-                static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
+  AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
 
 // LDR  <Qt>, <label>
 bool TryDecodeLDR_Q_LOADLIT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegQ, kUseAsValue, data.Rt);
-  AddPCRegMemOp(inst, kActionRead,
-                static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
+  AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
 
-static bool TryDecodeLDP_Vn_LDSTPAIR_POST(const InstData &data,
-                                          Instruction &inst, RegClass rclass) {
+static bool TryDecodeLDP_Vn_LDSTPAIR_POST(const InstData &data, Instruction &inst,
+                                          RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -3780,8 +3697,7 @@ bool TryDecodeLDP_Q_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   return TryDecodeLDP_Vn_LDSTPAIR_POST(data, inst, kRegQ);
 }
 
-static bool TryDecodeLDP_Vn_LDSTPAIR_PRE(const InstData &data,
-                                         Instruction &inst, RegClass rclass) {
+static bool TryDecodeLDP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst, RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -3809,8 +3725,7 @@ bool TryDecodeLDP_Q_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   return TryDecodeLDP_Vn_LDSTPAIR_PRE(data, inst, kRegQ);
 }
 
-static bool TryDecodeLDP_Vn_LDSTPAIR_OFF(const InstData &data,
-                                         Instruction &inst, RegClass rclass) {
+static bool TryDecodeLDP_Vn_LDSTPAIR_OFF(const InstData &data, Instruction &inst, RegClass rclass) {
   auto size = ReadRegSize(rclass);
   auto scale = 2U + data.opc;
   if (data.opc == 0x3) {
@@ -3852,9 +3767,8 @@ bool TryDecodeCLZ_64_DP_1SRC(const InstData &data, Instruction &inst) {
   return true;
 }
 
-static bool DecodeConditionalRegSelect(const InstData &data, Instruction &inst,
-                                       RegClass r_class, int n_regs,
-                                       bool invert_cond = false) {
+static bool DecodeConditionalRegSelect(const InstData &data, Instruction &inst, RegClass r_class,
+                                       int n_regs, bool invert_cond = false) {
   CHECK(1 <= n_regs && n_regs <= 3);
 
   AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
@@ -4058,15 +3972,14 @@ bool TryDecodeREV64_ASIMDMISC_R(const InstData &, Instruction &) {
   return false;
 }
 
-static void AddQArrangementSpecifier(const InstData &data, Instruction &inst,
-                                     const char *if_Q, const char *if_not_Q) {
+static void AddQArrangementSpecifier(const InstData &data, Instruction &inst, const char *if_Q,
+                                     const char *if_not_Q) {
   std::stringstream ss;
   ss << inst.function << "_" << (data.Q ? if_Q : if_not_Q);
   inst.function = ss.str();
 }
 
-static const char *ArrangementSpecifier(uint64_t total_size,
-                                        uint64_t element_size) {
+static const char *ArrangementSpecifier(uint64_t total_size, uint64_t element_size) {
   if (128 == total_size) {
     switch (element_size) {
       case 8: return "16B";
@@ -4085,13 +3998,12 @@ static const char *ArrangementSpecifier(uint64_t total_size,
     }
   }
 
-  LOG(FATAL) << "Can't deduce specifier for " << total_size << "-vector with "
-             << element_size << "-bit elements";
+  LOG(FATAL) << "Can't deduce specifier for " << total_size << "-vector with " << element_size
+             << "-bit elements";
   return nullptr;
 }
 
-static void AddArrangementSpecifier(Instruction &inst, uint64_t total_size,
-                                    uint64_t element_size) {
+static void AddArrangementSpecifier(Instruction &inst, uint64_t total_size, uint64_t element_size) {
   std::stringstream ss;
   ss << inst.function;
   ss << "_" << ArrangementSpecifier(total_size, element_size);
@@ -4108,10 +4020,8 @@ bool TryDecodeDUP_ASIMDINS_DR_R(const InstData &data, Instruction &inst) {
   }
 
   AddArrangementSpecifier(inst, data.Q ? 128 : 64, 8UL << size);
-  AddRegOperand(inst, kActionWrite, data.Q ? kRegQ : kRegD, kUseAsValue,
-                data.Rd);
-  AddRegOperand(inst, kActionRead, size == 3 ? kRegX : kRegW, kUseAsValue,
-                data.Rn);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegQ : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, size == 3 ? kRegX : kRegW, kUseAsValue, data.Rn);
   return true;
 }
 
@@ -4129,8 +4039,7 @@ bool TryDecodeSUB_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   return TryDecodeADD_ASIMDSAME_ONLY(data, inst);
 }
 
-static bool TryDecodeLDnSTnOpcode(uint8_t opcode, uint64_t *rpt,
-                                  uint64_t *selem) {
+static bool TryDecodeLDnSTnOpcode(uint8_t opcode, uint64_t *rpt, uint64_t *selem) {
   switch (opcode) {
     case 0:  // `0000`, LD/ST4 (4 registers).
       *rpt = 1;
@@ -4176,8 +4085,7 @@ bool TryDecodeEXT_ASIMDEXT_ONLY(const InstData &data, Instruction &inst) {
 }
 
 // Load/store one or more data structures.
-bool TryDecodeLDnSTn(const InstData &data, Instruction &inst,
-                     uint64_t *total_num_bytes) {
+bool TryDecodeLDnSTn(const InstData &data, Instruction &inst, uint64_t *total_num_bytes) {
   uint64_t rpt = 0;
   uint64_t selem = 0;
   if (!TryDecodeLDnSTnOpcode(data.opcode, &rpt, &selem)) {
@@ -4380,8 +4288,7 @@ bool TryDecodeUMOV_ASIMDINS_W_W(const InstData &data, Instruction &inst) {
     default: return false;
   }
   inst.function = ss.str();
-  AddRegOperand(inst, kActionWrite, data.Q ? kRegX : kRegW, kUseAsValue,
-                data.Rd);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegX : kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm >> (size + 1));
   return true;
@@ -4409,8 +4316,7 @@ bool TryDecodeSMOV_ASIMDINS_W_W(const InstData &data, Instruction &inst) {
     default: return false;
   }
   inst.function = ss.str();
-  AddRegOperand(inst, kActionWrite, data.Q ? kRegX : kRegW, kUseAsValue,
-                data.Rd);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegX : kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm >> (size + 1));
   return true;
@@ -4442,8 +4348,7 @@ bool TryDecodeSDIV_64_DP_2SRC(const InstData &data, Instruction &inst) {
 }
 
 static bool TryDecodeSCVTF_Sn_FLOAT2INT(const InstData &data, Instruction &inst,
-                                        RegClass dest_class,
-                                        RegClass src_class) {
+                                        RegClass dest_class, RegClass src_class) {
   if (0x3 == data.type) {
     return false;  // `case type of ... when '10' UnallocatedEncoding();`
   }
@@ -4571,8 +4476,7 @@ bool TryDecodeFMINNMV_ASIMDALL_ONLY_H(const InstData &data, Instruction &inst) {
 }
 
 // FMINNMV  <V><d>, <Vn>.<T>
-bool TryDecodeFMINNMV_ASIMDALL_ONLY_SD(const InstData &data,
-                                       Instruction &inst) {
+bool TryDecodeFMINNMV_ASIMDALL_ONLY_SD(const InstData &data, Instruction &inst) {
   return TryDecodeFMAXV_ASIMDALL_ONLY_SD(data, inst);
 }
 
@@ -4582,8 +4486,7 @@ bool TryDecodeFMAXNMV_ASIMDALL_ONLY_H(const InstData &data, Instruction &inst) {
 }
 
 // FMAXNMV  <V><d>, <Vn>.<T>
-bool TryDecodeFMAXNMV_ASIMDALL_ONLY_SD(const InstData &data,
-                                       Instruction &inst) {
+bool TryDecodeFMAXNMV_ASIMDALL_ONLY_SD(const InstData &data, Instruction &inst) {
   return TryDecodeFMAXV_ASIMDALL_ONLY_SD(data, inst);
 }
 
@@ -4631,8 +4534,7 @@ bool TryDecodeINS_ASIMDINS_IR_R(const InstData &data, Instruction &inst) {
 
   AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rd);
   AddImmOperand(inst, data.imm5.uimm >> (size + 1));
-  AddRegOperand(inst, kActionRead, (size == 3) ? kRegX : kRegW, kUseAsValue,
-                data.Rn);
+  AddRegOperand(inst, kActionRead, (size == 3) ? kRegX : kRegW, kUseAsValue, data.Rn);
   return true;
 }
 
@@ -5058,8 +4960,8 @@ bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst) {
 
 }  // namespace aarch64
 
-auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_,
-                      ArchName arch_name_) -> ArchPtr {
+auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
   return std::make_unique<AArch64Arch>(context_, os_name_, arch_name_);
 }
 

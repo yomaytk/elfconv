@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include "remill/BC/Lifter.h"
-#include "remill/BC/Debug.h"
-
 #include "Lift.h"
-#include "MainLifter.h"
 
-DEFINE_string(bc_out, "",
-              "Name of the file in which to place the generated bitcode.");
+#include "MainLifter.h"
+#include "remill/BC/Debug.h"
+#include "remill/BC/Lifter.h"
+
+DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 
 DEFINE_string(os, REMILL_OS,
               "Operating system name of the code being "
@@ -30,10 +29,8 @@ DEFINE_string(arch, REMILL_ARCH,
               "Architecture of the code being translated. "
               "Valid architectures: x86, amd64 (with or without "
               "`_avx` or `_avx512` appended), aarch64, aarch32");
-DEFINE_string(target_elf, "DUMMY_ELF",
-              "Name of the target ELF binary");
-DEFINE_string(dbg_fun_cfg, "",
-              "Function Name of the debug target");
+DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
+DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
   traces[addr] = lifted_func;
@@ -53,7 +50,7 @@ llvm::Function *AArch64TraceManager::GetLiftedTraceDefinition(uint64_t addr) {
 }
 
 bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
-  
+
   auto byte_it = memory.find(addr);
   if (byte_it != memory.end()) {
     *byte = byte_it->second;
@@ -61,7 +58,6 @@ bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
   } else {
     return false;
   }
-
 }
 
 std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr) {
@@ -85,7 +81,8 @@ std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, 
 
 bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_addr) {
   if (disasm_funcs.count(trace_addr) == 1) {
-    if (trace_addr <= target_addr && target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
+    if (trace_addr <= target_addr &&
+        target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
       return true;
     } else {
       return false;
@@ -115,7 +112,7 @@ void AArch64TraceManager::SetELFData() {
   auto func_entrys = elf_obj.GetFuncEntry();
   std::sort(func_entrys.rbegin(), func_entrys.rend());
   /* set instructions of every symbol in the table */
-  for (size_t i = 0;i < func_entrys.size();) {
+  for (size_t i = 0; i < func_entrys.size();) {
     uint64_t fun_bytes_size;
     uintptr_t fun_end_addr;
     uintptr_t sec_addr;
@@ -123,7 +120,8 @@ void AArch64TraceManager::SetELFData() {
     int sec_included_cnt = 0;
     /* specify included section */
     for (auto &[_, code_sec] : elf_obj.code_sections) {
-      if (code_sec.vma <= func_entrys[i].entry && func_entrys[i].entry < code_sec.vma + code_sec.size) {
+      if (code_sec.vma <= func_entrys[i].entry &&
+          func_entrys[i].entry < code_sec.vma + code_sec.size) {
         sec_addr = code_sec.vma;
         fun_end_addr = code_sec.vma + code_sec.size;
         bytes = code_sec.bytes;
@@ -131,12 +129,14 @@ void AArch64TraceManager::SetELFData() {
       }
     }
     if (sec_included_cnt != 1) {
-      printf("[ERROR] \"%s\" is not included in one code section.\n", func_entrys[i].func_name.c_str());
+      printf("[ERROR] \"%s\" is not included in one code section.\n",
+             func_entrys[i].func_name.c_str());
       exit(EXIT_FAILURE);
     }
     while (sec_addr < fun_end_addr) {
       /* assign every insn to the manager */
-      auto lifted_func_name = GetUniqueLiftedFuncName(func_entrys[i].func_name, func_entrys[i].entry);
+      auto lifted_func_name =
+          GetUniqueLiftedFuncName(func_entrys[i].func_name, func_entrys[i].entry);
       /* program entry point */
       if (entry_point == func_entrys[i].entry) {
         if (!entry_func_lifted_name.empty()) {
@@ -145,10 +145,11 @@ void AArch64TraceManager::SetELFData() {
         }
         entry_func_lifted_name = lifted_func_name;
       }
-      for (uintptr_t addr = func_entrys[i].entry;addr < fun_end_addr; addr++) {
+      for (uintptr_t addr = func_entrys[i].entry; addr < fun_end_addr; addr++) {
         memory[addr] = bytes[addr - sec_addr];
       }
-      disasm_funcs.emplace(func_entrys[i].entry, DisasmFunc(lifted_func_name, func_entrys[i].entry, fun_end_addr - func_entrys[i].entry));
+      disasm_funcs.emplace(func_entrys[i].entry, DisasmFunc(lifted_func_name, func_entrys[i].entry,
+                                                            fun_end_addr - func_entrys[i].entry));
       /* next loop */
       fun_end_addr = func_entrys[i].entry;
       i++;
@@ -160,22 +161,24 @@ void AArch64TraceManager::SetELFData() {
     printf("[WARNING] .plt section is not found.\n");
   } else {
     int ins_i = 0;
-    while(ins_i < plt_section.size) {
+    while (ins_i < plt_section.size) {
       auto b_entry = plt_section.vma + ins_i;
-      for(;ins_i < plt_section.size;) {
+      for (; ins_i < plt_section.size;) {
         memory[plt_section.vma + ins_i] = plt_section.bytes[ins_i];
         memory[plt_section.vma + ins_i + 1] = plt_section.bytes[ins_i + 1];
         memory[plt_section.vma + ins_i + 2] = plt_section.bytes[ins_i + 2];
         memory[plt_section.vma + ins_i + 3] = plt_section.bytes[ins_i + 3];
-        uint8_t* bts = plt_section.bytes + ins_i;
+        uint8_t *bts = plt_section.bytes + ins_i;
         ins_i += AARCH64_OP_SIZE; /* 4bytes fixed instruction */
-        if ((bts[0] & 0x1f) == 0x00 && (bts[1] & 0xfc) == 0x00 && bts[2] == 0x1f && bts[3] == 0xd6) { /* br instruction (FIXME) */
+        if ((bts[0] & 0x1f) == 0x00 && (bts[1] & 0xfc) == 0x00 && bts[2] == 0x1f &&
+            bts[3] == 0xd6) { /* br instruction (FIXME) */
           break;
         }
       }
       std::stringstream fn_name;
       fn_name << "fn_plt_" << std::hex << b_entry;
-      disasm_funcs.emplace(b_entry, DisasmFunc(fn_name.str(), b_entry, (plt_section.vma + ins_i) - b_entry));
+      disasm_funcs.emplace(b_entry,
+                           DisasmFunc(fn_name.str(), b_entry, (plt_section.vma + ins_i) - b_entry));
     }
   }
   /* 
@@ -192,14 +195,16 @@ void AArch64TraceManager::SetELFData() {
     auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
     uint64_t __wrap_main_diff = UINT64_MAX;
     for (int i = 0; i + __wrap_main_size <= _start_disasm_fn.func_size; i += 4) {
-      if (/* nop */_s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 && _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
-          /* b main */(_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
-          /* nop */_s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 && _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5
-        ) {
-          __wrap_main_diff = _start_disasm_fn.vma + i;
-          disasm_funcs.emplace(__wrap_main_diff, DisasmFunc("__wrap_main", __wrap_main_diff, __wrap_main_size));
-          break;
-        }
+      if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
+          _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
+          /* b main */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
+          /* nop */ _s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 &&
+          _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5) {
+        __wrap_main_diff = _start_disasm_fn.vma + i;
+        disasm_funcs.emplace(__wrap_main_diff,
+                             DisasmFunc("__wrap_main", __wrap_main_diff, __wrap_main_size));
+        break;
+      }
     }
     if (UINT64_MAX == __wrap_main_diff) {
       printf("[WARNING] __wrap_main cannot be found.\n");
@@ -226,7 +231,7 @@ int main(int argc, char *argv[]) {
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
 
-  std::unordered_map<uint64_t, const char*> addr_fn_map;
+  std::unordered_map<uint64_t, const char *> addr_fn_map;
 
 #if defined(LIFT_DEBUG)
   /* declare debug function */
@@ -237,7 +242,8 @@ int main(int argc, char *argv[]) {
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
       /* append the address of necesarry debug function */
-      if (strncmp(dasm_func.func_name.c_str(), FLAGS_dbg_fun_cfg.c_str(), FLAGS_dbg_fun_cfg.length()) == 0) {
+      if (strncmp(dasm_func.func_name.c_str(), FLAGS_dbg_fun_cfg.c_str(),
+                  FLAGS_dbg_fun_cfg.length()) == 0) {
         control_flow_debug_list[fn_addr] = true;
         break;
       }
@@ -280,15 +286,11 @@ int main(int argc, char *argv[]) {
   main_lifter.SetDataSections(manager.elf_obj.sections);
   /* set block address data */
   main_lifter.SetBlockAddressData(
-    manager.g_block_address_ptrs_array, 
-    manager.g_block_address_vmas_array, 
-    manager.g_block_address_size_array,
-    manager.g_block_address_fn_vma_array
-  );
-  
+      manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array,
+      manager.g_block_address_size_array, manager.g_block_address_fn_vma_array);
+
   /* generate LLVM bitcode file */
-  auto host_arch =
-      remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
+  auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
   host_arch->PrepareModule(module.get());
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 

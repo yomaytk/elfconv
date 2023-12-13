@@ -17,8 +17,7 @@
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1,
-          typename S2>
+template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
   auto val = check_cond(state) ? Read(src1) : Read(src2);
   WriteZExt(dst, val);
@@ -48,11 +47,9 @@ DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64W, R64, R64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1,
-          typename S2>
+template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSNEG, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, Select(check_cond(state), Read(src1),
-                        UAdd(UNot(Read(src2)), ZExtTo<S2>(1))));
+  WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S2>(1))));
   return memory;
 }
 
@@ -64,8 +61,7 @@ DEF_COND_ISEL(CSNEG_64_CONDSEL, CSNEG, R64W, R64, R64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1,
-          typename S2>
+template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSINC, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(Read(src2), 1)));
   return memory;
@@ -77,8 +73,7 @@ DEF_COND_ISEL(CSINC_64_CONDSEL, CSINC, R64W, R64, R64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1,
-          typename S2>
+template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSINV, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, Select(check_cond(state), Read(src1), UNot(Read(src2))));
   return memory;
@@ -93,8 +88,7 @@ template <bool (*check_cond)(const State &), typename S1, typename S2>
 DEF_SEM(CCMP, S1 src1, S2 src2, S2 nzcv) {
   using T = typename BaseType<S1>::BT;
   if (check_cond(state)) {
-    (void) AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2),
-                            T(1));
+    (void) AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2), T(1));
   } else {
     auto nzcv_val = Read(nzcv);
     FLAG_V = UCmpNeq(UAnd(nzcv_val, T(1)), T(0));

@@ -45,8 +45,7 @@
 
 #include "remill/Arch/Runtime/Intrinsics.h"
 
-Memory *__remill_sync_hyper_call(State &state, Memory *mem,
-                                 SyncHyperCall::Name call) {
+Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name call) {
 
 #if REMILL_HYPERCALL_X86
   register uint32_t esp asm("esp") = state.gpr.rsp.dword;
@@ -72,26 +71,22 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
       asm volatile("cpuid"
                    : "=a"(state.gpr.rax.aword), "=b"(state.gpr.rbx.aword),
                      "=c"(state.gpr.rcx.aword), "=d"(state.gpr.rdx.aword)
-                   : "a"(state.gpr.rax.aword), "b"(state.gpr.rbx.aword),
-                     "c"(state.gpr.rcx.aword), "d"(state.gpr.rdx.aword));
+                   : "a"(state.gpr.rax.aword), "b"(state.gpr.rbx.aword), "c"(state.gpr.rcx.aword),
+                     "d"(state.gpr.rdx.aword));
       break;
 
     case SyncHyperCall::kX86ReadTSC:
-      asm volatile("rdtsc"
-                   : "=a"(state.gpr.rax.dword), "=d"(state.gpr.rdx.dword));
+      asm volatile("rdtsc" : "=a"(state.gpr.rax.dword), "=d"(state.gpr.rdx.dword));
       break;
 
     case SyncHyperCall::kX86ReadTSCP:
       asm volatile("rdtscp"
-                   : "=a"(state.gpr.rax.aword), "=c"(state.gpr.rcx.aword),
-                     "=d"(state.gpr.rdx.aword)
-                   : "a"(state.gpr.rax.aword), "c"(state.gpr.rcx.aword),
-                     "d"(state.gpr.rdx.aword));
+                   : "=a"(state.gpr.rax.aword), "=c"(state.gpr.rcx.aword), "=d"(state.gpr.rdx.aword)
+                   : "a"(state.gpr.rax.aword), "c"(state.gpr.rcx.aword), "d"(state.gpr.rdx.aword));
       break;
 
     case SyncHyperCall::kX86LoadGlobalDescriptorTable: {
-      const auto read =
-          __remill_read_memory_64(mem, static_cast<addr_t>(state.addr_to_load));
+      const auto read = __remill_read_memory_64(mem, static_cast<addr_t>(state.addr_to_load));
       struct GdtrRecord {
         uint16_t *length;
         void *base;
@@ -102,8 +97,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
     }
 
     case SyncHyperCall::kX86LoadInterruptDescriptorTable: {
-      const auto read =
-          __remill_read_memory_64(mem, static_cast<addr_t>(state.addr_to_load));
+      const auto read = __remill_read_memory_64(mem, static_cast<addr_t>(state.addr_to_load));
       struct IdtrRecord {
         uint16_t length;
         void *base;
@@ -125,71 +119,45 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
                    : "a"(state.gpr.rax.dword), "d"(state.gpr.rdx.dword));
       break;
 
-    case SyncHyperCall::kX86WriteBackInvalidate:
-      asm volatile("wbinvd" :);
-      break;
+    case SyncHyperCall::kX86WriteBackInvalidate: asm volatile("wbinvd" :); break;
 
-    case SyncHyperCall::kX86SetSegmentES:
-      mem = __remill_x86_set_segment_es(mem);
-      break;
+    case SyncHyperCall::kX86SetSegmentES: mem = __remill_x86_set_segment_es(mem); break;
 
-    case SyncHyperCall::kX86SetSegmentSS:
-      mem = __remill_x86_set_segment_ss(mem);
-      break;
+    case SyncHyperCall::kX86SetSegmentSS: mem = __remill_x86_set_segment_ss(mem); break;
 
-    case SyncHyperCall::kX86SetSegmentDS:
-      mem = __remill_x86_set_segment_ds(mem);
-      break;
+    case SyncHyperCall::kX86SetSegmentDS: mem = __remill_x86_set_segment_ds(mem); break;
 
-    case SyncHyperCall::kX86SetSegmentFS:
-      mem = __remill_x86_set_segment_fs(mem);
-      break;
+    case SyncHyperCall::kX86SetSegmentFS: mem = __remill_x86_set_segment_fs(mem); break;
 
-    case SyncHyperCall::kX86SetSegmentGS:
-      mem = __remill_x86_set_segment_gs(mem);
-      break;
+    case SyncHyperCall::kX86SetSegmentGS: mem = __remill_x86_set_segment_gs(mem); break;
 
 #  if REMILL_HYPERCALL_X86
 
-    case SyncHyperCall::kX86SetDebugReg:
-      mem = __remill_x86_set_debug_reg(mem);
-      break;
+    case SyncHyperCall::kX86SetDebugReg: mem = __remill_x86_set_debug_reg(mem); break;
 
-    case SyncHyperCall::kX86SetControlReg0:
-      mem = __remill_x86_set_control_reg_0(mem);
-      break;
+    case SyncHyperCall::kX86SetControlReg0: mem = __remill_x86_set_control_reg_0(mem); break;
 
-    case SyncHyperCall::kX86SetControlReg1:
-      mem = __remill_x86_set_control_reg_1(mem);
-      break;
+    case SyncHyperCall::kX86SetControlReg1: mem = __remill_x86_set_control_reg_1(mem); break;
 
-    case SyncHyperCall::kX86SetControlReg2:
-      mem = __remill_x86_set_control_reg_2(mem);
-      break;
+    case SyncHyperCall::kX86SetControlReg2: mem = __remill_x86_set_control_reg_2(mem); break;
 
-    case SyncHyperCall::kX86SetControlReg3:
-      mem = __remill_x86_set_control_reg_3(mem);
-      break;
+    case SyncHyperCall::kX86SetControlReg3: mem = __remill_x86_set_control_reg_3(mem); break;
 
-    case SyncHyperCall::kX86SetControlReg4:
-      mem = __remill_x86_set_control_reg_4(mem);
-      break;
+    case SyncHyperCall::kX86SetControlReg4: mem = __remill_x86_set_control_reg_4(mem); break;
 
     case SyncHyperCall::kX86SysCall:
       asm volatile("syscall"
                    : "=a"(state.gpr.rax.dword), "=r"(esp)
-                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword),
-                     "c"(state.gpr.rcx.dword), "d"(state.gpr.rdx.dword),
-                     "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
+                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword), "c"(state.gpr.rcx.dword),
+                     "d"(state.gpr.rdx.dword), "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
                      "r"(esp), "r"(ebp));
       break;
 
     case SyncHyperCall::kX86SysEnter:
       asm volatile("sysenter"
                    : "=a"(state.gpr.rax.dword), "=r"(esp)
-                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword),
-                     "c"(state.gpr.rcx.dword), "d"(state.gpr.rdx.dword),
-                     "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
+                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword), "c"(state.gpr.rcx.dword),
+                     "d"(state.gpr.rdx.dword), "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
                      "r"(esp), "r"(ebp));
       break;
 
@@ -197,71 +165,53 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
     case SyncHyperCall::kX86SysExit:
       asm volatile("sysexit"
                    : "=a"(state.gpr.rax.dword), "=r"(esp)
-                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword),
-                     "c"(state.gpr.rcx.dword), "d"(state.gpr.rdx.dword),
-                     "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
+                   : "a"(state.gpr.rax.dword), "b"(state.gpr.rbx.dword), "c"(state.gpr.rcx.dword),
+                     "d"(state.gpr.rdx.dword), "S"(state.gpr.rsi.dword), "D"(state.gpr.rdi.dword),
                      "r"(esp), "r"(ebp));
       break;
 
 #  elif REMILL_HYPERCALL_AMD64
 
-    case SyncHyperCall::kAMD64SetDebugReg:
-      mem = __remill_amd64_set_debug_reg(mem);
-      break;
+    case SyncHyperCall::kAMD64SetDebugReg: mem = __remill_amd64_set_debug_reg(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg0:
-      mem = __remill_amd64_set_control_reg_0(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg0: mem = __remill_amd64_set_control_reg_0(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg1:
-      mem = __remill_amd64_set_control_reg_1(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg1: mem = __remill_amd64_set_control_reg_1(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg2:
-      mem = __remill_amd64_set_control_reg_2(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg2: mem = __remill_amd64_set_control_reg_2(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg3:
-      mem = __remill_amd64_set_control_reg_3(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg3: mem = __remill_amd64_set_control_reg_3(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg4:
-      mem = __remill_amd64_set_control_reg_4(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg4: mem = __remill_amd64_set_control_reg_4(mem); break;
 
-    case SyncHyperCall::kAMD64SetControlReg8:
-      mem = __remill_amd64_set_control_reg_8(mem);
-      break;
+    case SyncHyperCall::kAMD64SetControlReg8: mem = __remill_amd64_set_control_reg_8(mem); break;
 
     case SyncHyperCall::kX86SysCall:
       asm volatile("syscall"
                    : "=a"(state.gpr.rax.qword), "=r"(rsp)
-                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword),
-                     "c"(state.gpr.rcx.qword), "d"(state.gpr.rdx.qword),
-                     "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
-                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11),
-                     "r"(r12), "r"(r13), "r"(r14), "r"(r15));
+                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword), "c"(state.gpr.rcx.qword),
+                     "d"(state.gpr.rdx.qword), "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
+                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11), "r"(r12), "r"(r13),
+                     "r"(r14), "r"(r15));
       break;
 
     case SyncHyperCall::kX86SysEnter:
       asm volatile("sysenter"
                    : "=a"(state.gpr.rax.qword), "=r"(rsp)
-                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword),
-                     "c"(state.gpr.rcx.qword), "d"(state.gpr.rdx.qword),
-                     "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
-                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11),
-                     "r"(r12), "r"(r13), "r"(r14), "r"(r15));
+                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword), "c"(state.gpr.rcx.qword),
+                     "d"(state.gpr.rdx.qword), "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
+                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11), "r"(r12), "r"(r13),
+                     "r"(r14), "r"(r15));
       break;
 
 
     case SyncHyperCall::kX86SysExit:
       asm volatile("sysexit"
                    : "=a"(state.gpr.rax.qword), "=r"(rsp)
-                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword),
-                     "c"(state.gpr.rcx.qword), "d"(state.gpr.rdx.qword),
-                     "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
-                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11),
-                     "r"(r12), "r"(r13), "r"(r14), "r"(r15));
+                   : "a"(state.gpr.rax.qword), "b"(state.gpr.rbx.qword), "c"(state.gpr.rcx.qword),
+                     "d"(state.gpr.rdx.qword), "S"(state.gpr.rsi.qword), "D"(state.gpr.rdi.qword),
+                     "r"(rsp), "r"(rbp), "r"(r8), "r"(r9), "r"(r10), "r"(r11), "r"(r12), "r"(r13),
+                     "r"(r14), "r"(r15));
       break;
 
 #  endif
@@ -272,9 +222,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
       mem = __remill_aarch32_emulate_instruction(mem);
       break;
 
-    case SyncHyperCall::kAArch32CheckNotEL2:
-      mem = __remill_aarch32_check_not_el2(mem);
-      break;
+    case SyncHyperCall::kAArch32CheckNotEL2: mem = __remill_aarch32_check_not_el2(mem); break;
 
 #elif REMILL_HYPERCALL_AARCH64
 
@@ -286,85 +234,47 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
 
 #elif REMILL_HYPERCALL_SPARC32 || REMILL_HYPERCALL_SPARC64
 
-    case SyncHyperCall::kSPARCSetAsiRegister:
-      mem = __remill_sparc_set_asi_register(mem);
-      break;
+    case SyncHyperCall::kSPARCSetAsiRegister: mem = __remill_sparc_set_asi_register(mem); break;
 
     case SyncHyperCall::kSPARCUnimplementedInstruction:
       mem = __remill_sparc_unimplemented_instruction(mem);
       break;
 
-    case SyncHyperCall::kSPARCUnhandledDCTI:
-      mem = __remill_sparc_unhandled_dcti(mem);
-      break;
+    case SyncHyperCall::kSPARCUnhandledDCTI: mem = __remill_sparc_unhandled_dcti(mem); break;
 
-    case SyncHyperCall::kSPARCWindowUnderflow:
-      mem = __remill_sparc_window_underflow(mem);
-      break;
+    case SyncHyperCall::kSPARCWindowUnderflow: mem = __remill_sparc_window_underflow(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondA:
-      mem = __remill_sparc_trap_cond_a(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondA: mem = __remill_sparc_trap_cond_a(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondN:
-      mem = __remill_sparc_trap_cond_n(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondN: mem = __remill_sparc_trap_cond_n(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondNE:
-      mem = __remill_sparc_trap_cond_ne(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondNE: mem = __remill_sparc_trap_cond_ne(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondE:
-      mem = __remill_sparc_trap_cond_e(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondE: mem = __remill_sparc_trap_cond_e(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondG:
-      mem = __remill_sparc_trap_cond_g(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondG: mem = __remill_sparc_trap_cond_g(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondLE:
-      mem = __remill_sparc_trap_cond_le(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondLE: mem = __remill_sparc_trap_cond_le(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondGE:
-      mem = __remill_sparc_trap_cond_ge(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondGE: mem = __remill_sparc_trap_cond_ge(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondL:
-      mem = __remill_sparc_trap_cond_l(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondL: mem = __remill_sparc_trap_cond_l(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondGU:
-      mem = __remill_sparc_trap_cond_gu(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondGU: mem = __remill_sparc_trap_cond_gu(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondLEU:
-      mem = __remill_sparc_trap_cond_leu(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondLEU: mem = __remill_sparc_trap_cond_leu(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondCC:
-      mem = __remill_sparc_trap_cond_cc(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondCC: mem = __remill_sparc_trap_cond_cc(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondCS:
-      mem = __remill_sparc_trap_cond_cs(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondCS: mem = __remill_sparc_trap_cond_cs(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondPOS:
-      mem = __remill_sparc_trap_cond_pos(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondPOS: mem = __remill_sparc_trap_cond_pos(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondNEG:
-      mem = __remill_sparc_trap_cond_neg(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondNEG: mem = __remill_sparc_trap_cond_neg(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondVC:
-      mem = __remill_sparc_trap_cond_vc(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondVC: mem = __remill_sparc_trap_cond_vc(mem); break;
 
-    case SyncHyperCall::kSPARCTrapCondVS:
-      mem = __remill_sparc_trap_cond_vs(mem);
-      break;
+    case SyncHyperCall::kSPARCTrapCondVS: mem = __remill_sparc_trap_cond_vs(mem); break;
 
 #  if defined(REMILL_HYPERCALL_SPARC32)
 
@@ -382,13 +292,9 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem,
 
 #elif defined(REMILL_HYPERCALL_PPC)
 
-    case SyncHyperCall::kPPCEmulateInstruction:
-      mem = __remill_ppc_emulate_instruction(mem);
-      break;
+    case SyncHyperCall::kPPCEmulateInstruction: mem = __remill_ppc_emulate_instruction(mem); break;
 
-  case SyncHyperCall::kPPCSysCall:
-      mem = __remill_ppc_syscall(mem);
-      break;
+    case SyncHyperCall::kPPCSysCall: mem = __remill_ppc_syscall(mem); break;
 
 #endif
 

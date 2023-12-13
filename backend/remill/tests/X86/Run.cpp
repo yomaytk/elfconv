@@ -16,37 +16,35 @@
 
 #define _XOPEN_SOURCE
 
-#include <dlfcn.h>
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <gtest/gtest.h>
-#include <setjmp.h>
-#include <signal.h>
-#include <ucontext.h>
-
-#include <cmath>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <limits>
-#include <map>
-#include <string>
-#include <type_traits>
-#include <vector>
-
 #include "remill/Arch/Runtime/Float.h"
 #include "remill/Arch/Runtime/Runtime.h"
 #include "remill/Arch/X86/Runtime/State.h"
 #include "tests/X86/Test.h"
 
+#include <cmath>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <dlfcn.h>
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <gtest/gtest.h>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <setjmp.h>
+#include <signal.h>
+#include <string>
+#include <type_traits>
+#include <ucontext.h>
+#include <vector>
+
 DECLARE_string(arch);
 DECLARE_string(os);
 
-DEFINE_bool(
-    enable_fpu_cs_ds_checking, false,
-    "Trace values of fxsave.cs and fxsave.ds for 32-bit instructions. Disabled "
-    "by default since it is commonly broken in virtualized environments.");
+DEFINE_bool(enable_fpu_cs_ds_checking, false,
+            "Trace values of fxsave.cs and fxsave.ds for 32-bit instructions. Disabled "
+            "by default since it is commonly broken in virtualized environments.");
 
 namespace {
 
@@ -72,11 +70,9 @@ static Flags gRflagsInitial;
 
 static const addr_t g64BitMask = IF_64BIT_ELSE(~0UL, 0UL);
 
-static const auto gStackBase =
-    reinterpret_cast<uintptr_t>(&(gLiftedStack.bytes[0]));
+static const auto gStackBase = reinterpret_cast<uintptr_t>(&(gLiftedStack.bytes[0]));
 
-static const auto gStackLimit =
-    reinterpret_cast<uintptr_t>(&(gLiftedStack._redzone2[0]));
+static const auto gStackLimit = reinterpret_cast<uintptr_t>(&(gLiftedStack._redzone2[0]));
 
 template <typename T>
 NEVER_INLINE static T &AccessMemory(addr_t addr) {
@@ -153,8 +149,7 @@ CR8Reg gCR8;
 extern void InvokeTestCase(uint64_t, uint64_t, uint64_t);
 
 #define MAKE_RW_MEMORY(size) \
-  NEVER_INLINE uint##size##_t __remill_read_memory_##size(Memory *, \
-                                                          addr_t addr) { \
+  NEVER_INLINE uint##size##_t __remill_read_memory_##size(Memory *, addr_t addr) { \
     return AccessMemory<uint##size##_t>(addr); \
   } \
   NEVER_INLINE Memory *__remill_write_memory_##size(Memory *, addr_t addr, \
@@ -164,12 +159,10 @@ extern void InvokeTestCase(uint64_t, uint64_t, uint64_t);
   }
 
 #define MAKE_RW_FP_MEMORY(size) \
-  NEVER_INLINE float##size##_t __remill_read_memory_f##size(Memory *, \
-                                                            addr_t addr) { \
+  NEVER_INLINE float##size##_t __remill_read_memory_f##size(Memory *, addr_t addr) { \
     return AccessMemory<float##size##_t>(addr); \
   } \
-  NEVER_INLINE Memory *__remill_write_memory_f##size(Memory *, addr_t addr, \
-                                                     float##size##_t in) { \
+  NEVER_INLINE Memory *__remill_write_memory_f##size(Memory *, addr_t addr, float##size##_t in) { \
     AccessMemory<float##size##_t>(addr) = in; \
     return nullptr; \
   }
@@ -184,55 +177,44 @@ MAKE_RW_FP_MEMORY(64)
 //MAKE_RW_FP_MEMORY(80)
 MAKE_RW_FP_MEMORY(128)
 
-NEVER_INLINE Memory *__remill_read_memory_f80(Memory *, addr_t addr,
-                                              native_float80_t &out) {
+NEVER_INLINE Memory *__remill_read_memory_f80(Memory *, addr_t addr, native_float80_t &out) {
   out = AccessMemory<native_float80_t>(addr);
   return nullptr;
 }
 
-NEVER_INLINE Memory *__remill_write_memory_f80(Memory *, addr_t addr,
-                                               const native_float80_t &in) {
+NEVER_INLINE Memory *__remill_write_memory_f80(Memory *, addr_t addr, const native_float80_t &in) {
   AccessMemory<native_float80_t>(addr) = in;
   return nullptr;
 }
 
-Memory *__remill_compare_exchange_memory_8(Memory *memory, addr_t addr,
-                                           uint8_t &expected, uint8_t desired) {
-  expected = __sync_val_compare_and_swap(reinterpret_cast<uint8_t *>(addr),
-                                         expected, desired);
+Memory *__remill_compare_exchange_memory_8(Memory *memory, addr_t addr, uint8_t &expected,
+                                           uint8_t desired) {
+  expected = __sync_val_compare_and_swap(reinterpret_cast<uint8_t *>(addr), expected, desired);
   return memory;
 }
 
-Memory *__remill_compare_exchange_memory_16(Memory *memory, addr_t addr,
-                                            uint16_t &expected,
+Memory *__remill_compare_exchange_memory_16(Memory *memory, addr_t addr, uint16_t &expected,
                                             uint16_t desired) {
-  expected = __sync_val_compare_and_swap(reinterpret_cast<uint16_t *>(addr),
-                                         expected, desired);
+  expected = __sync_val_compare_and_swap(reinterpret_cast<uint16_t *>(addr), expected, desired);
   return memory;
 }
 
-Memory *__remill_compare_exchange_memory_32(Memory *memory, addr_t addr,
-                                            uint32_t &expected,
+Memory *__remill_compare_exchange_memory_32(Memory *memory, addr_t addr, uint32_t &expected,
                                             uint32_t desired) {
-  expected = __sync_val_compare_and_swap(reinterpret_cast<uint32_t *>(addr),
-                                         expected, desired);
+  expected = __sync_val_compare_and_swap(reinterpret_cast<uint32_t *>(addr), expected, desired);
   return memory;
 }
 
-Memory *__remill_compare_exchange_memory_64(Memory *memory, addr_t addr,
-                                            uint64_t &expected,
+Memory *__remill_compare_exchange_memory_64(Memory *memory, addr_t addr, uint64_t &expected,
                                             uint64_t desired) {
-  expected = __sync_val_compare_and_swap(reinterpret_cast<uint64_t *>(addr),
-                                         expected, desired);
+  expected = __sync_val_compare_and_swap(reinterpret_cast<uint64_t *>(addr), expected, desired);
   return memory;
 }
 
-Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr,
-                                             uint128_t &expected,
+Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr, uint128_t &expected,
                                              uint128_t &desired) {
 #if !(defined(__x86_64__) || defined(__i386__) || defined(_M_X86))
-  expected = __sync_val_compare_and_swap(reinterpret_cast<uint128_t *>(addr),
-                                         expected, desired);
+  expected = __sync_val_compare_and_swap(reinterpret_cast<uint128_t *>(addr), expected, desired);
 #else
   bool result;
   struct alignas(16) uint128 {
@@ -243,12 +225,11 @@ Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr,
   uint128 *oldval = reinterpret_cast<uint128 *>(&expected);
   uint128 *newval = reinterpret_cast<uint128 *>(&desired);
 
-  __asm__ __volatile__(
-      "lock; cmpxchg16b %0; setz %1"
-      : "=m"(*reinterpret_cast<uint128_t *>(addr)), "=q"(result)
-      : "m"(*reinterpret_cast<uint128_t *>(addr)), "d"(oldval->hi),
-        "a"(oldval->lo), "c"(newval->hi), "b"(newval->lo)
-      : "memory");
+  __asm__ __volatile__("lock; cmpxchg16b %0; setz %1"
+                       : "=m"(*reinterpret_cast<uint128_t *>(addr)), "=q"(result)
+                       : "m"(*reinterpret_cast<uint128_t *>(addr)), "d"(oldval->hi),
+                         "a"(oldval->lo), "c"(newval->hi), "b"(newval->lo)
+                       : "memory");
 
   if (!result) {
     expected = *reinterpret_cast<uint128_t *>(addr);
@@ -260,8 +241,7 @@ Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr,
 #define MAKE_ATOMIC_INTRINSIC(intrinsic_name, type_prefix, size) \
   Memory *__remill_##intrinsic_name##_##size(Memory *memory, addr_t addr, \
                                              type_prefix##size##_t &value) { \
-    value = __sync_##intrinsic_name( \
-        reinterpret_cast<type_prefix##size##_t *>(addr), value); \
+    value = __sync_##intrinsic_name(reinterpret_cast<type_prefix##size##_t *>(addr), value); \
     return memory; \
   }
 
@@ -685,14 +665,10 @@ static void ImportX87State(State *state) {
   auto &fpu = state->x87;
 
   // Looks like MMX state.
-  if (kFPUAbridgedTagValid == fpu.fxsave.ftw.r0 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r1 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r2 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r3 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r4 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r5 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r6 &&
-      kFPUAbridgedTagValid == fpu.fxsave.ftw.r7) {
+  if (kFPUAbridgedTagValid == fpu.fxsave.ftw.r0 && kFPUAbridgedTagValid == fpu.fxsave.ftw.r1 &&
+      kFPUAbridgedTagValid == fpu.fxsave.ftw.r2 && kFPUAbridgedTagValid == fpu.fxsave.ftw.r3 &&
+      kFPUAbridgedTagValid == fpu.fxsave.ftw.r4 && kFPUAbridgedTagValid == fpu.fxsave.ftw.r5 &&
+      kFPUAbridgedTagValid == fpu.fxsave.ftw.r6 && kFPUAbridgedTagValid == fpu.fxsave.ftw.r7) {
 
     // Copy over the MMX data. A good guess for MMX data is that the
     // value looks like it's infinity.
@@ -768,9 +744,8 @@ inline static bool operator!=(const T &a, const T &b) {
   return !!memcmp(&a, &b, sizeof(a));
 }
 
-static void RunWithFlags(const test::TestInfo *info, Flags flags,
-                         std::string desc, uint64_t arg1, uint64_t arg2,
-                         uint64_t arg3) {
+static void RunWithFlags(const test::TestInfo *info, Flags flags, std::string desc, uint64_t arg1,
+                         uint64_t arg2, uint64_t arg3) {
 
   // Can't fit a 64-bit stack address into a 32-bit register.
   auto stack_addr = reinterpret_cast<uintptr_t>(&(gLiftedStack.bytes[0]));
@@ -833,9 +808,7 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags,
     gInNativeTest = false;
     std::fesetenv(FE_DFL_ENV);
     FixGlibcMxcsrBug();
-    (void) lifted_func(*lifted_state,
-                       static_cast<addr_t>(lifted_state->gpr.rip.aword),
-                       nullptr);
+    (void) lifted_func(*lifted_state, static_cast<addr_t>(lifted_state->gpr.rip.aword), nullptr);
   } else {
     EXPECT_TRUE(native_test_faulted);
   }
@@ -967,19 +940,16 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags,
   }
 
   EXPECT_EQ(lifted_state->rflag, native_state->rflag)
-      << "Lifted RFLAG after test is " << std::hex << lifted_state->rflag.flat
-      << ", native is " << native_state->rflag.flat << std::dec;
+      << "Lifted RFLAG after test is " << std::hex << lifted_state->rflag.flat << ", native is "
+      << native_state->rflag.flat << std::dec;
 
-  EXPECT_EQ(lifted_state->seg, native_state->seg)
-      << "Lifted SEG differs from native SEG";
+  EXPECT_EQ(lifted_state->seg, native_state->seg) << "Lifted SEG differs from native SEG";
 
-  EXPECT_EQ(lifted_state->gpr, native_state->gpr)
-      << "Lifted GPR differs from native GPR";
+  EXPECT_EQ(lifted_state->gpr, native_state->gpr) << "Lifted GPR differs from native GPR";
 
   EXPECT_EQ(lifted_state->x87.fxsave.swd, native_state->x87.fxsave.swd)
-      << "Lifted X87 status word after test is " << std::hex
-      << lifted_state->x87.fxsave.swd.flat << ", native is "
-      << native_state->x87.fxsave.swd.flat << std::dec;
+      << "Lifted X87 status word after test is " << std::hex << lifted_state->x87.fxsave.swd.flat
+      << ", native is " << native_state->x87.fxsave.swd.flat << std::dec;
 
   if (gLiftedState != gNativeState) {
     EXPECT_TRUE(false) << "States did not match for " << desc;
@@ -1072,9 +1042,8 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags,
     for (size_t i = 0; i < sizeof(State); ++i) {
       LOG_IF(ERROR, lifted_state_bytes[i] != native_state_bytes[i])
           << "Bytes at offset " << i << " are different: "
-          << "lifted [" << std::hex
-          << static_cast<unsigned int>(lifted_state_bytes[i]) << "] vs native ["
-          << std::hex << static_cast<unsigned int>(native_state_bytes[i])
+          << "lifted [" << std::hex << static_cast<unsigned int>(lifted_state_bytes[i])
+          << "] vs native [" << std::hex << static_cast<unsigned int>(native_state_bytes[i])
           << "]\n"
           << std::dec << "vec: " << offsetof(State, vec) << "\n"
           << "aflag:" << offsetof(State, aflag) << "\n"
@@ -1100,8 +1069,7 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags,
         LOG(ERROR) << "Lifted stack at 0x" << std::hex
                    << reinterpret_cast<uintptr_t>(&(gLiftedStack.bytes[i]))
                    << " does not match native stack at 0x" << std::hex
-                   << reinterpret_cast<uintptr_t>(&(gNativeStack.bytes[i]))
-                   << std::endl;
+                   << reinterpret_cast<uintptr_t>(&(gNativeStack.bytes[i])) << std::endl;
       }
     }
 
@@ -1111,8 +1079,7 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags,
 
 TEST_P(InstrTest, SemanticsMatchNative) {
   auto info = GetParam();
-  for (auto args = info->args_begin; args < info->args_end;
-       args += info->num_args) {
+  for (auto args = info->args_begin; args < info->args_end; args += info->num_args) {
     std::stringstream ss;
     ss << info->test_name << " with";
     if (1 <= info->num_args) {
@@ -1171,8 +1138,7 @@ std::string NameTest(const testing::TestParamInfo<InstrTest::ParamType> &test) {
   return test.param->test_name;
 }
 
-INSTANTIATE_TEST_SUITE_P(GeneralInstrTest, InstrTest, testing::ValuesIn(gTests),
-                         NameTest);
+INSTANTIATE_TEST_SUITE_P(GeneralInstrTest, InstrTest, testing::ValuesIn(gTests), NameTest);
 
 // Recover from a signal.
 static void RecoverFromError(int sig_num, siginfo_t *, void *context_) {
@@ -1291,8 +1257,7 @@ int main(int argc, char **argv) {
       sym_func = dlsym(this_exe, (std::string("_") + ss.str()).c_str());
     }
 
-    CHECK(nullptr != sym_func)
-        << "Could not find code for test case " << test.test_name;
+    CHECK(nullptr != sym_func) << "Could not find code for test case " << test.test_name;
 
     auto lifted_func = reinterpret_cast<LiftedFunc *>(sym_func);
     gTranslatedFuncs[test.test_begin] = lifted_func;

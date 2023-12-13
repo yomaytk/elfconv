@@ -14,8 +14,7 @@ namespace remill {
 
 class AArch32ArchBase : public virtual ArchBase {
  public:
-  AArch32ArchBase(llvm::LLVMContext *context_, OSName os_name_,
-                  ArchName arch_name_)
+  AArch32ArchBase(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
       : ArchBase(context_, os_name_, arch_name_) {}
 
   virtual std::string_view StackPointerRegisterName(void) const override;
@@ -33,9 +32,8 @@ class AArch32ArchBase : public virtual ArchBase {
   void PopulateRegisterTable(void) const override;
   // Populate a just-initialized lifted function function with architecture-
   // specific variables.
-  void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const override;
+  void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                          llvm::Function *bb_func) const override;
   virtual ~AArch32ArchBase(void) = default;
 };
 }  // namespace remill

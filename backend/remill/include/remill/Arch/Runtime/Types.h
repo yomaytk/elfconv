@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include "Definitions.h"
+#include "Float.h"
 #include "Int.h"
 #include "TypeTraits.h"
-#include "Float.h"
-#include "Definitions.h"
 
 #if defined(__GNUG__) && !defined(__clang__)
 #  define COMPILING_WITH_GCC 1
@@ -52,7 +52,7 @@ typedef int32_t addr_diff_t;
 typedef addr16_t addr_t;
 typedef int16_t addr_diff_t;
 #else
-# error "Invalid address size in bits"
+#  error "Invalid address size in bits"
 #endif
 
 // Entry function of the original ELF
@@ -218,8 +218,7 @@ MAKE_VECTOR(double, float64, 2, 128, 16);
 MAKE_VECTOR(double, float64, 4, 256, 32);
 MAKE_VECTOR(double, float64, 8, 512, 64);
 
-#define NumVectorElems(val) \
-  static_cast<addr_t>(VectorType<decltype(val)>::kNumElems)
+#define NumVectorElems(val) static_cast<addr_t>(VectorType<decltype(val)>::kNumElems)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-private-field"
@@ -306,8 +305,7 @@ union vec128_t final {
   int64v2_t sqwords;
 } __attribute__((packed));
 
-static_assert(16 == sizeof(vec128_t),
-              "Invalid structure packing of `vec128_t`.");
+static_assert(16 == sizeof(vec128_t), "Invalid structure packing of `vec128_t`.");
 
 union vec256_t final {
   uint8v32_t bytes;
@@ -328,8 +326,7 @@ union vec256_t final {
 #endif
 } __attribute__((packed));
 
-static_assert(32 == sizeof(vec256_t),
-              "Invalid structure packing of `vec256_t`.");
+static_assert(32 == sizeof(vec256_t), "Invalid structure packing of `vec256_t`.");
 
 union vec512_t final {
   uint8v64_t bytes;
@@ -548,11 +545,9 @@ template <typename T>
 struct UnsignedIntegerType;
 
 #define MAKE_SIGNED_INT_CHANGERS(signed_type, unsigned_type) \
-  static_assert(sizeof(signed_type) == sizeof(unsigned_type), \
-                "Invalid int changer type type."); \
-  static_assert( \
-      is_signed<signed_type>::value != is_signed<unsigned_type>::value, \
-      "Sign match between int type and next int type."); \
+  static_assert(sizeof(signed_type) == sizeof(unsigned_type), "Invalid int changer type type."); \
+  static_assert(is_signed<signed_type>::value != is_signed<unsigned_type>::value, \
+                "Sign match between int type and next int type."); \
   template <> \
   struct SignedIntegerType<unsigned_type> { \
     typedef signed_type BT; \
@@ -713,11 +708,11 @@ inline uint64_t operator"" _addr_t(unsigned long long value) {
   return static_cast<addr_t>(value);
 }
 
-#if !defined(REMILL_DISABLE_INT128)
+#  if !defined(REMILL_DISABLE_INT128)
 inline uint128_t operator"" _u128(unsigned long long value) {
   return static_cast<uint128_t>(value);
 }
-#endif
+#  endif
 
 
 inline int8_t operator"" _s8(unsigned long long value) {
@@ -736,11 +731,11 @@ inline int64_t operator"" _s64(unsigned long long value) {
   return static_cast<int64_t>(value);
 }
 
-#if !defined(REMILL_DISABLE_INT128)
+#  if !defined(REMILL_DISABLE_INT128)
 inline int128_t operator"" _s128(unsigned long long value) {
   return static_cast<int128_t>(value);
 }
-#endif
+#  endif
 
 #  define auto_t(T) typename BaseType<T>::BT
 

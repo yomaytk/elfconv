@@ -35,5 +35,4 @@ struct ArchState {
   };
 } __attribute__((packed));
 
-static_assert(16 == sizeof(ArchState),
-              "Invalid packing of `struct ArchState`.");
+static_assert(16 == sizeof(ArchState), "Invalid packing of `struct ArchState`.");

@@ -36,6 +36,8 @@
 
 // clang-format on
 
+#include "Instruction.h"
+
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -43,8 +45,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include "Instruction.h"
 
 struct ArchState;
 
@@ -108,8 +108,8 @@ struct Register {
  public:
   friend class Arch;
 
-  Register(const std::string &name_, uint64_t offset_, llvm::Type *type_,
-           const Register *parent_, const Arch *arch_);
+  Register(const std::string &name_, uint64_t offset_, llvm::Type *type_, const Register *parent_,
+           const Arch *arch_);
 
   std::string name;  // Name of the register.
   uint64_t offset;  // Byte offset in `State`.
@@ -152,8 +152,7 @@ struct Register {
 
   // Generate a value that will let us load/store to this register, given
   // a `State *`.
-  llvm::Value *AddressOf(llvm::Value *state_ptr,
-                         llvm::BasicBlock *add_to_end) const;
+  llvm::Value *AddressOf(llvm::Value *state_ptr, llvm::BasicBlock *add_to_end) const;
 
   llvm::Value *AddressOf(llvm::Value *state_ptr, llvm::IRBuilder<> &ir) const;
 
@@ -162,8 +161,7 @@ struct Register {
 
   mutable std::vector<const Register *> children;
 
-  void ComputeGEPAccessors(const llvm::DataLayout &dl,
-                           llvm::StructType *state_type);
+  void ComputeGEPAccessors(const llvm::DataLayout &dl, llvm::StructType *state_type);
 };
 
 class Arch {
@@ -177,13 +175,12 @@ class Arch {
 
   // Factory method for loading the correct architecture class for a given
   // operating system and architecture class.
-  static auto Get(llvm::LLVMContext &context, std::string_view os,
-                  std::string_view arch_name) -> ArchPtr;
+  static auto Get(llvm::LLVMContext &context, std::string_view os, std::string_view arch_name)
+      -> ArchPtr;
 
   // Factory method for loading the correct architecture class for a given
   // operating system and architecture class.
-  static auto Get(llvm::LLVMContext &context, OSName os, ArchName arch_name)
-      -> ArchPtr;
+  static auto Get(llvm::LLVMContext &context, OSName os, ArchName arch_name) -> ArchPtr;
 
   // Return the type of an address, i.e. `addr_t` in the semantics. This is
   // based off of `context` and `address_size`.
@@ -211,8 +208,7 @@ class Arch {
   virtual unsigned RegMdID(void) const = 0;
 
   // Apply `cb` to every register.
-  virtual void
-  ForEachRegister(std::function<void(const Register *)> cb) const = 0;
+  virtual void ForEachRegister(std::function<void(const Register *)> cb) const = 0;
 
   // Return information about the register at offset `offset` in the `State`
   // structure.
@@ -231,15 +227,13 @@ class Arch {
   //
   // NOTE(pag): This should be called after `PrepareModule` and after the
   //            semantics have been loaded.
-  llvm::Function *DeclareLiftedFunction(std::string_view name,
-                                        llvm::Module *module) const;
+  llvm::Function *DeclareLiftedFunction(std::string_view name, llvm::Module *module) const;
 
   // Create a lifted function with name `name` inside of `module`.
   //
   // NOTE(pag): This should be called after `PrepareModule` and after the
   //            semantics have been loaded.
-  llvm::Function *DefineLiftedFunction(std::string_view name,
-                                       llvm::Module *module) const;
+  llvm::Function *DefineLiftedFunction(std::string_view name, llvm::Module *module) const;
 
   // Initialize an empty lifted function with the default variables that it
   // should contain.
@@ -270,8 +264,7 @@ class Arch {
   virtual OperandLifter::OpLifterPtr
   DefaultLifter(const remill::IntrinsicTable &intrinsics) const = 0;
 
-  inline void
-  PrepareModuleDataLayout(const std::unique_ptr<llvm::Module> &mod) const {
+  inline void PrepareModuleDataLayout(const std::unique_ptr<llvm::Module> &mod) const {
     PrepareModuleDataLayout(mod.get());
   }
 
@@ -288,22 +281,18 @@ class Arch {
   //            or ultimately fail.
 
 
-  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes,
-                                 Instruction &inst,
+  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes, Instruction &inst,
                                  DecodingContext context) const = 0;
 
   // Decode an instruction that is within a delay slot.
-  bool DecodeDelayedInstruction(uint64_t address, std::string_view instr_bytes,
-                                Instruction &inst,
+  bool DecodeDelayedInstruction(uint64_t address, std::string_view instr_bytes, Instruction &inst,
                                 DecodingContext context) const {
     inst.in_delay_slot = true;
-    return this->DecodeInstruction(address, instr_bytes, inst,
-                                   std::move(context));
+    return this->DecodeInstruction(address, instr_bytes, inst, std::move(context));
   }
 
   // Minimum alignment of an instruction for this particular architecture.
-  virtual uint64_t
-  MinInstructionAlign(const DecodingContext &context) const = 0;
+  virtual uint64_t MinInstructionAlign(const DecodingContext &context) const = 0;
 
   // Minimum number of bytes in an instruction for this particular architecture.
   virtual uint64_t MinInstructionSize(const DecodingContext &context) const = 0;
@@ -334,8 +323,7 @@ class Arch {
   // Returns `true` if we should lift the semantics of `next_inst` as a delay
   // slot of `inst`. The `branch_taken_path` tells us whether we are in the
   // context of the taken path of a branch or the not-taken path of a branch.
-  virtual bool NextInstructionIsDelayed(const Instruction &inst,
-                                        const Instruction &next_inst,
+  virtual bool NextInstructionIsDelayed(const Instruction &inst, const Instruction &next_inst,
                                         bool branch_taken_path) const;
 
   // Get the architecture related to a module.
@@ -364,8 +352,7 @@ class Arch {
   bool IsSolaris(void) const;
 
   // Avoids global cache
-  static ArchPtr Build(llvm::LLVMContext *context, OSName os,
-                       ArchName arch_name);
+  static ArchPtr Build(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Get the (approximate) architecture of the system library was built on. This may not
   // include all feature sets.
@@ -382,16 +369,14 @@ class Arch {
   //
   // NOTE(pag): Internal API; do not invoke unless you are proxying/composing
   //            architectures.
-  virtual void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const = 0;
+  virtual void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                                  llvm::Function *bb_func) const = 0;
 
   // Add a register into this architecture.
   //
   // NOTE(pag): Internal API; do not invoke unless you are proxying/composing
   //            architectures.
-  virtual const Register *AddRegister(const char *reg_name,
-                                      llvm::Type *val_type, size_t offset,
+  virtual const Register *AddRegister(const char *reg_name, llvm::Type *val_type, size_t offset,
                                       const char *parent_reg_name) const = 0;
 
   // Returns a lock on global state. In general, Remill doesn't use global
@@ -406,44 +391,34 @@ class Arch {
   llvm::Triple BasicTriple(void) const;
 
  private:
-  static ArchPtr GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
-                               ArchName arch_name_);
+  static ArchPtr GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_);
 
   // Defined in `lib/Arch/X86/Arch.cpp`.
-  static ArchPtr GetX86(llvm::LLVMContext *context, OSName os,
-                        ArchName arch_name);
+  static ArchPtr GetX86(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/AArch32/Arch.cpp`.
-  static ArchPtr GetAArch32(llvm::LLVMContext *context, OSName os,
-                            ArchName arch_name);
+  static ArchPtr GetAArch32(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/AArch64/Arch.cpp`.
-  static ArchPtr GetAArch64(llvm::LLVMContext *context, OSName os,
-                            ArchName arch_name);
+  static ArchPtr GetAArch64(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/Sleigh/AArch64Arch.cpp`.
-  static ArchPtr GetAArch64Sleigh(llvm::LLVMContext *context, OSName os,
-                                  ArchName arch_name);
+  static ArchPtr GetAArch64Sleigh(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/Sleigh/X86Arch.cpp`
-  static ArchPtr GetSleighX86(llvm::LLVMContext *context, OSName os,
-                              ArchName arch_name);
+  static ArchPtr GetSleighX86(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/Sleigh/Thumb2Arch.cpp`
-  static ArchPtr GetSleighThumb2(llvm::LLVMContext *context, OSName os,
-                                 ArchName arch_name);
+  static ArchPtr GetSleighThumb2(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/Sleigh/PPCArch.cpp`
-  static ArchPtr GetSleighPPC(llvm::LLVMContext *context, OSName os,
-                              ArchName arch_name);
+  static ArchPtr GetSleighPPC(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/SPARC32/Arch.cpp`.
-  static ArchPtr GetSPARC(llvm::LLVMContext *context, OSName os,
-                          ArchName arch_name);
+  static ArchPtr GetSPARC(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   // Defined in `lib/Arch/SPARC64/Arch.cpp`.
-  static ArchPtr GetSPARC64(llvm::LLVMContext *context, OSName os,
-                            ArchName arch_name);
+  static ArchPtr GetSPARC64(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
   Arch(void) = delete;
 };

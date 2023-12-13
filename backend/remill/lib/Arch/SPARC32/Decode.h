@@ -16,12 +16,11 @@
 
 #pragma once
 
-#include <glog/logging.h>
-
-#include <cstdint>
-
 #include "remill/Arch/Arch.h"
 #include "remill/Arch/Instruction.h"
+
+#include <cstdint>
+#include <glog/logging.h>
 
 namespace remill {
 namespace sparc {

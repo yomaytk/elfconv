@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <glog/logging.h>
-#include <remill/Arch/Arch.h>
-#include <test_runner/TestRunner.h>
-
 #include <any>
 #include <functional>
+#include <glog/logging.h>
+#include <remill/Arch/Arch.h>
 #include <string>
+#include <test_runner/TestRunner.h>
 #include <unordered_map>
 #include <vector>
 
@@ -31,9 +30,7 @@ namespace test_runner {
 
 using MemoryModifier = std::function<void(MemoryHandler &)>;
 using RegisterValue = std::variant<uint64_t, uint32_t, uint8_t>;
-using RegisterValueRef = std::variant<uint64_t *,
-                                      uint32_t *,
-                                      uint8_t *>;
+using RegisterValueRef = std::variant<uint64_t *, uint32_t *, uint8_t *>;
 
 struct RegisterCondition {
   std::string register_name;
@@ -50,8 +47,7 @@ class TestOutputSpec {
   std::string target_bytes;
 
  private:
-  using RegisterAccessorMap =
-      std::unordered_map<std::string, std::function<RegisterValueRef(S &)>>;
+  using RegisterAccessorMap = std::unordered_map<std::string, std::function<RegisterValueRef(S &)>>;
   using RegisterConditionList = std::vector<RegisterCondition>;
   using MemoryConditionList = std::vector<MemoryModifier>;
 
@@ -72,8 +68,7 @@ class TestOutputSpec {
     if (auto underlying = std::get_if<T *>(&wrapper)) {
       return *underlying;
     }
-    throw std::runtime_error(
-        std::string("Reg value " + reg_name + " has incorrect type"));
+    throw std::runtime_error(std::string("Reg value " + reg_name + " has incorrect type"));
   }
 
   template <typename T>
@@ -85,9 +80,8 @@ class TestOutputSpec {
   template <typename T>
   void CheckCondition(S &state, const std::string &reg_name, T value) const {
     auto actual = *(this->GetRegister<T>(state, reg_name));
-    LOG(INFO) << "Reg: " << reg_name << " Actual: " << std::hex
-              << static_cast<uint64_t>(actual) << " Expected: " << std::hex
-              << static_cast<uint64_t>(value);
+    LOG(INFO) << "Reg: " << reg_name << " Actual: " << std::hex << static_cast<uint64_t>(actual)
+              << " Expected: " << std::hex << static_cast<uint64_t>(value);
     CHECK_EQ(actual, value);
   }
 
@@ -102,8 +96,7 @@ class TestOutputSpec {
   void AddPostRead(uint64_t addr, T value) {
     this->expected_memory_conditions.push_back([=](MemoryHandler &mem_hand) {
       LOG(INFO) << "Mem: " << std::hex << addr << " Actual: " << std::hex
-                << mem_hand.ReadMemory<T>(addr) << " Expected: " << std::hex
-                << value;
+                << mem_hand.ReadMemory<T>(addr) << " Expected: " << std::hex << value;
       CHECK_EQ(mem_hand.ReadMemory<T>(addr), value);
     });
   }
@@ -119,8 +112,7 @@ class TestOutputSpec {
   TestOutputSpec(uint64_t disas_addr, std::string target_bytes,
                  remill::Instruction::Category expected_category,
                  RegisterConditionList register_preconditions,
-                 RegisterConditionList register_postconditions,
-                 RegisterAccessorMap reg_to_accessor)
+                 RegisterConditionList register_postconditions, RegisterAccessorMap reg_to_accessor)
       : addr(disas_addr),
         target_bytes(std::move(target_bytes)),
         expected_category(expected_category),
@@ -131,11 +123,8 @@ class TestOutputSpec {
 
   void SetupTestPreconditions(S &state) const {
     for (auto &prec : this->register_preconditions) {
-      std::visit(
-          [&](auto &arg) {
-            this->ApplyCondition(state, prec.register_name, arg);
-          },
-          prec.enforced_value);
+      std::visit([&](auto &arg) { this->ApplyCondition(state, prec.register_name, arg); },
+                 prec.enforced_value);
     }
   }
 
@@ -145,11 +134,8 @@ class TestOutputSpec {
 
   void CheckResultingState(S &state) const {
     for (auto &post : this->register_postconditions) {
-      std::visit(
-          [&](auto &arg) {
-            this->CheckCondition(state, post.register_name, arg);
-          },
-          post.enforced_value);
+      std::visit([&](auto &arg) { this->CheckCondition(state, post.register_name, arg); },
+                 post.enforced_value);
     }
   }
 

@@ -68,10 +68,7 @@ enum RequestPrivilegeLevel : uint16_t {
   kRPLRingThree = 3
 };
 
-enum TableIndicator : uint16_t {
-  kGlobalDescriptorTable = 0,
-  kLocalDescriptorTable = 1
-};
+enum TableIndicator : uint16_t { kGlobalDescriptorTable = 0, kLocalDescriptorTable = 1 };
 
 #ifndef __clang__
 #  define RequestPrivilegeLevel uint16_t
@@ -87,8 +84,7 @@ union SegmentSelector final {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(sizeof(SegmentSelector) == 2,
-              "Invalid packing of `union SegmentSelector`.");
+static_assert(sizeof(SegmentSelector) == 2, "Invalid packing of `union SegmentSelector`.");
 
 struct SegmentShadow final {
   union {
@@ -99,8 +95,7 @@ struct SegmentShadow final {
   uint32_t flags;
 } __attribute__((packed));
 
-static_assert(sizeof(SegmentShadow) == 16,
-              "Invalid packing of `struct SegmentShadow`.");
+static_assert(sizeof(SegmentShadow) == 16, "Invalid packing of `struct SegmentShadow`.");
 
 union FPUStatusWord final {
   uint16_t flat;
@@ -122,8 +117,7 @@ union FPUStatusWord final {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(2 == sizeof(FPUStatusWord),
-              "Invalid structure packing of `FPUFlags`.");
+static_assert(2 == sizeof(FPUStatusWord), "Invalid structure packing of `FPUFlags`.");
 
 enum FPUPrecisionControl : uint16_t {
   kPrecisionSingle,
@@ -164,8 +158,7 @@ union FPUControlWord final {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(2 == sizeof(FPUControlWord),
-              "Invalid structure packing of `FPUControl`.");
+static_assert(2 == sizeof(FPUControlWord), "Invalid structure packing of `FPUControl`.");
 
 struct FPUStackElem final {
   FPUStackElem() {}
@@ -191,8 +184,7 @@ static_assert(8 == __builtin_offsetof(FPUStackElem, infinity),
 static_assert(10 == __builtin_offsetof(FPUStackElem, _rsvd[0]),
               "Invalid structure packing of `FPUStackElem::st`.");
 
-static_assert(16 == sizeof(FPUStackElem),
-              "Invalid structure packing of `FPUStackElem`.");
+static_assert(16 == sizeof(FPUStackElem), "Invalid structure packing of `FPUStackElem`.");
 
 union FPUControlStatus {
   uint32_t flat;
@@ -217,8 +209,7 @@ union FPUControlStatus {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(4 == sizeof(FPUControlStatus),
-              "Invalid structure packing of `SSEControlStatus`.");
+static_assert(4 == sizeof(FPUControlStatus), "Invalid structure packing of `SSEControlStatus`.");
 
 enum FPUTag : uint16_t {
   kFPUTagNonZero,
@@ -249,8 +240,7 @@ union FPUTagWord final {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(sizeof(FPUTagWord) == 2,
-              "Invalid structure packing of `TagWord`.");
+static_assert(sizeof(FPUTagWord) == 2, "Invalid structure packing of `TagWord`.");
 
 // Note: Stored in physical order.
 union FPUAbridgedTagWord final {
@@ -372,8 +362,7 @@ struct FPUStatusFlags final {
   uint8_t _padding[4];
 } __attribute__((packed));
 
-static_assert(24 == sizeof(FPUStatusFlags),
-              "Invalid packing of `FPUStatusFlags`.");
+static_assert(24 == sizeof(FPUStatusFlags), "Invalid packing of `FPUStatusFlags`.");
 
 union alignas(8) Flags final {
   uint64_t flat;
@@ -450,8 +439,7 @@ union XCR0 {
     uint64_t bndreg : 1;  // Part of MPX.
     uint64_t bndcsr : 1;  // Part of MPX.
     uint64_t opmask : 1;  // Registers k0 through k7, AVX512-only.
-    uint64_t
-        zmm_hi256 : 1;  // High 256 bits of ZMM0 through ZMM15, AVX512-only.
+    uint64_t zmm_hi256 : 1;  // High 256 bits of ZMM0 through ZMM15, AVX512-only.
     uint64_t hi16_zmm : 1;  // ZMM16 through ZMM31, AVX512-only.
     uint64_t pkru : 1;  // Protected key stuff.
     uint64_t _reserved0 : 53;
@@ -488,8 +476,7 @@ struct alignas(8) SegmentCaches final {
   SegmentShadow gs;
 } __attribute__((packed));
 
-static_assert(96 == sizeof(SegmentCaches),
-              "Invalid packing of `struct SegmentCaches`.");
+static_assert(96 == sizeof(SegmentCaches), "Invalid packing of `struct SegmentCaches`.");
 
 enum DescriptorPrivilegeLevel : uint64_t {
   kDPLRingZero = 0,
@@ -506,10 +493,7 @@ enum DescriptorClass : uint64_t {
   kNotPresentDescriptor
 };
 
-enum SegmentGranularity : uint64_t {
-  kSegmentGranularityNotScaled,
-  kSegmentGranularityScaled
-};
+enum SegmentGranularity : uint64_t { kSegmentGranularityNotScaled, kSegmentGranularityScaled };
 
 enum SegmentDefaultOperandSize : uint64_t {
   kSegmentDefaultOperandSize16,
@@ -537,10 +521,7 @@ enum SystemDescriptorType : uint64_t {
   kSystemTypeTrapGate
 };
 
-enum CodeSegmentMode : uint64_t {
-  kSegmentCompatibilityMode,
-  kSegment64BitMode
-};
+enum CodeSegmentMode : uint64_t { kSegmentCompatibilityMode, kSegment64BitMode };
 
 enum SegmentSystemBit : uint64_t { kSegmentBitSystem, kSegmentBitUser };
 
@@ -563,8 +544,7 @@ struct GenericDescriptor {
   uint64_t unused3 : 16;
 } __attribute__((packed));
 
-static_assert(8U == sizeof(GenericDescriptor),
-              "Invalid packing of `struct GenericDescriptor`.");
+static_assert(8U == sizeof(GenericDescriptor), "Invalid packing of `struct GenericDescriptor`.");
 
 union SegmentDescriptor {
   uint64_t flat;
@@ -588,8 +568,7 @@ union SegmentDescriptor {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(8U == sizeof(SegmentDescriptor),
-              "Invalid packing of `struct SegmentDescriptor`.");
+static_assert(8U == sizeof(SegmentDescriptor), "Invalid packing of `struct SegmentDescriptor`.");
 
 struct GateDescriptor {
   uint64_t target_offset_low : 16;
@@ -602,16 +581,14 @@ struct GateDescriptor {
   uint64_t target_offset_middle : 16;
 } __attribute__((packed));
 
-static_assert(8U == sizeof(GateDescriptor),
-              "Invalid packing of `struct GateDescriptor`.");
+static_assert(8U == sizeof(GateDescriptor), "Invalid packing of `struct GateDescriptor`.");
 
 struct ExtensionDescriptor {
   uint64_t higher_addr : 32;
   uint64_t reserved : 32;
 } __attribute__((packed));
 
-static_assert(8U == sizeof(ExtensionDescriptor),
-              "Invalid packing of `struct DescritorExtension`.");
+static_assert(8U == sizeof(ExtensionDescriptor), "Invalid packing of `struct DescritorExtension`.");
 
 union Descriptor {
   GenericDescriptor generic;
@@ -620,8 +597,7 @@ union Descriptor {
   ExtensionDescriptor extension;
 } __attribute__((packed));
 
-static_assert(8U == sizeof(Descriptor),
-              "Invalid packing of `struct SystemDescriptorExtra`.");
+static_assert(8U == sizeof(Descriptor), "Invalid packing of `struct SystemDescriptorExtra`.");
 
 // We don't want 32-bit lifted code to look like operations on 64-bit
 // registers, because then every (bitcasted from 64 bit) store of a 32-bit
@@ -642,16 +618,11 @@ struct Reg final {
 
 static_assert(sizeof(uint64_t) == sizeof(Reg), "Invalid packing of `Reg`.");
 
-static_assert(0 == __builtin_offsetof(Reg, byte.low),
-              "Invalid packing of `Reg::low`.");
-static_assert(1 == __builtin_offsetof(Reg, byte.high),
-              "Invalid packing of `Reg::high`.");
-static_assert(0 == __builtin_offsetof(Reg, word),
-              "Invalid packing of `Reg::word`.");
-static_assert(0 == __builtin_offsetof(Reg, dword),
-              "Invalid packing of `Reg::dword`.");
-IF_64BIT(static_assert(0 == __builtin_offsetof(Reg, qword),
-                       "Invalid packing of `Reg::qword`.");)
+static_assert(0 == __builtin_offsetof(Reg, byte.low), "Invalid packing of `Reg::low`.");
+static_assert(1 == __builtin_offsetof(Reg, byte.high), "Invalid packing of `Reg::high`.");
+static_assert(0 == __builtin_offsetof(Reg, word), "Invalid packing of `Reg::word`.");
+static_assert(0 == __builtin_offsetof(Reg, dword), "Invalid packing of `Reg::dword`.");
+IF_64BIT(static_assert(0 == __builtin_offsetof(Reg, qword), "Invalid packing of `Reg::qword`.");)
 
 union alignas(16) VectorReg final {
   alignas(16) vec128_t xmm;
@@ -659,17 +630,13 @@ union alignas(16) VectorReg final {
   alignas(16) vec512_t zmm;
 } __attribute__((packed));
 
-static_assert(0 == __builtin_offsetof(VectorReg, xmm),
-              "Invalid packing of `VectorReg::xmm`.");
+static_assert(0 == __builtin_offsetof(VectorReg, xmm), "Invalid packing of `VectorReg::xmm`.");
 
-static_assert(0 == __builtin_offsetof(VectorReg, ymm),
-              "Invalid packing of `VectorReg::ymm`.");
+static_assert(0 == __builtin_offsetof(VectorReg, ymm), "Invalid packing of `VectorReg::ymm`.");
 
-static_assert(0 == __builtin_offsetof(VectorReg, zmm),
-              "Invalid packing of `VectorReg::zmm`.");
+static_assert(0 == __builtin_offsetof(VectorReg, zmm), "Invalid packing of `VectorReg::zmm`.");
 
-static_assert(64 == sizeof(VectorReg),
-              "Invalid packing of `struct VectorReg`.");
+static_assert(64 == sizeof(VectorReg), "Invalid packing of `struct VectorReg`.");
 
 struct alignas(8) AddressSpace final {
   volatile uint64_t _0;
@@ -686,8 +653,7 @@ struct alignas(8) AddressSpace final {
   Reg cs_base;
 } __attribute__((packed));
 
-static_assert(96 == sizeof(AddressSpace),
-              "Invalid packing of `struct AddressSpace`.");
+static_assert(96 == sizeof(AddressSpace), "Invalid packing of `struct AddressSpace`.");
 
 // Named the same way as the 64-bit version to keep names the same
 // across architectures. All registers are here, even the 64-bit ones. The
@@ -744,8 +710,7 @@ struct alignas(16) X87Stack final {
 };
 
 
-static_assert(128 == sizeof(X87Stack),
-              "Invalid structure packing of `X87Stack`.");
+static_assert(128 == sizeof(X87Stack), "Invalid structure packing of `X87Stack`.");
 
 struct alignas(8) MMX final {
   struct alignas(8) {
@@ -786,11 +751,10 @@ struct alignas(16) X86State : public ArchState {
   XCR0 xcr0;  // 8 bytes.
   FPU x87;  // 512 bytes
   SegmentCaches seg_caches;  // 96 bytes
-  K_REG k_reg; // 128 bytes.
+  K_REG k_reg;  // 128 bytes.
 } __attribute__((packed));
 
-static_assert((96 + 3264 + 16 + 128) == sizeof(X86State),
-              "Invalid packing of `struct State`");
+static_assert((96 + 3264 + 16 + 128) == sizeof(X86State), "Invalid packing of `struct State`");
 
 struct State : public X86State {};
 

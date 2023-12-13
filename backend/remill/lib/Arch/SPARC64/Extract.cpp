@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <glog/logging.h>
-
-#include <bitset>
-
 #include "../SPARC32/Decode.h"
 #include "Decode.h"
+
+#include <bitset>
+#include <glog/logging.h>
 
 namespace remill {
 using namespace remill::sparc;
@@ -28,12 +27,11 @@ namespace sparc64 {
 namespace {
 
 static const std::string_view kFpuRegName_fN[] = {
-    "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",  "f8",  "f9",  "f10",
-    "f11", "f12", "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21",
-    "f22", "f23", "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31", "f32",
-    "f33", "f34", "f35", "f36", "f37", "f38", "f39", "f40", "f41", "f42", "f43",
-    "f44", "f45", "f46", "f47", "f48", "f49", "f50", "f51", "f52", "f53", "f54",
-    "f55", "f56", "f57", "f58", "f59", "f60", "f61", "f62", "f63"};
+    "f0",  "f1",  "f2",  "f3",  "f4",  "f5",  "f6",  "f7",  "f8",  "f9",  "f10", "f11", "f12",
+    "f13", "f14", "f15", "f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25",
+    "f26", "f27", "f28", "f29", "f30", "f31", "f32", "f33", "f34", "f35", "f36", "f37", "f38",
+    "f39", "f40", "f41", "f42", "f43", "f44", "f45", "f46", "f47", "f48", "f49", "f50", "f51",
+    "f52", "f53", "f54", "f55", "f56", "f57", "f58", "f59", "f60", "f61", "f62", "f63"};
 
 static constexpr unsigned kAddressSize32 = 32;
 static constexpr unsigned kAddressSize = 64;
@@ -71,8 +69,7 @@ static void AddReturnPCDest(Instruction &inst) {
   }
 }
 
-static void AddIntRegop(Instruction &inst, unsigned index, unsigned size,
-                        Operand::Action action) {
+static void AddIntRegop(Instruction &inst, unsigned index, unsigned size, Operand::Action action) {
   inst.operands.emplace_back();
   auto &op = inst.operands.back();
   op.type = Operand::kTypeRegister;
@@ -92,8 +89,7 @@ static void AddIntRegop(Instruction &inst, unsigned index, unsigned size,
   }
 }
 
-static bool AddFpuRegOp(Instruction &inst, unsigned index, unsigned size,
-                        Operand::Action action) {
+static bool AddFpuRegOp(Instruction &inst, unsigned index, unsigned size, Operand::Action action) {
   inst.operands.emplace_back();
   auto &op = inst.operands.back();
   op.type = Operand::kTypeRegister;
@@ -146,18 +142,16 @@ static void AddNextPCRelop(Instruction &inst, int64_t disp) {
   op.addr.displacement = disp;
 }
 
-static void AddBasePlusOffsetMemop(Instruction &inst, Operand::Action action,
-                                   uint32_t access_size, uint32_t base_reg,
-                                   uint32_t index_reg, int64_t disp) {
+static void AddBasePlusOffsetMemop(Instruction &inst, Operand::Action action, uint32_t access_size,
+                                   uint32_t base_reg, uint32_t index_reg, int64_t disp) {
   inst.operands.emplace_back();
   auto &op = inst.operands.back();
   op.type = Operand::kTypeAddress;
   op.size = access_size;
   op.action = action;
 
-  op.addr.kind = action == Operand::kActionRead
-                     ? Operand::Address::kMemoryRead
-                     : Operand::Address::kMemoryWrite;
+  op.addr.kind = action == Operand::kActionRead ? Operand::Address::kMemoryRead
+                                                : Operand::Address::kMemoryWrite;
   op.addr.address_size = kAddressSize;
 
   if (base_reg && index_reg) {
@@ -354,8 +348,7 @@ static bool TryDecodeCALL(Instruction &inst, uint32_t bits) {
     inst.has_branch_taken_delay_slot = true;
     inst.has_branch_not_taken_delay_slot = false;
 
-    inst.branch_taken_pc =
-        static_cast<uint32_t>(static_cast<int64_t>(inst.pc) + disp);
+    inst.branch_taken_pc = static_cast<uint32_t>(static_cast<int64_t>(inst.pc) + disp);
     inst.branch_taken_arch_name = inst.arch_name;
 
     inst.next_pc += 4;
@@ -535,7 +528,7 @@ static bool TryDecodeTcc(Instruction &inst, uint32_t bits) {
       inst.branch_taken_arch_name = inst.arch_name;
     }
 
-  // Trap never.
+    // Trap never.
   } else if (enc_i1.cond == 0b0000) {
     if (inst.in_delay_slot) {
       inst.category = Instruction::kCategoryNoOp;
@@ -546,7 +539,7 @@ static bool TryDecodeTcc(Instruction &inst, uint32_t bits) {
       inst.branch_taken_arch_name = inst.arch_name;
     }
 
-  // Conditional trap.
+    // Conditional trap.
   } else {
 
     // Conditional traps inside of a delay slot will turn into synchronous
@@ -555,7 +548,7 @@ static bool TryDecodeTcc(Instruction &inst, uint32_t bits) {
       inst.function += "_sync";
       inst.category = Instruction::kCategoryNormal;
 
-    // Otherwise they induce their own control-flow.
+      // Otherwise they induce their own control-flow.
     } else {
       inst.category = Instruction::kCategoryConditionalAsyncHyperCall;
       inst.branch_not_taken_pc = inst.next_pc;
@@ -584,9 +577,8 @@ static bool TryDecodeTcc(Instruction &inst, uint32_t bits) {
 }
 
 // Generic decoder for conditional branches (Bcc, BPcc).
-static bool TryDecode_Branch(Instruction &inst, unsigned cond, bool anul,
-                             int64_t disp, std::string_view iform,
-                             std::string_view ccr, bool is_fcc = false) {
+static bool TryDecode_Branch(Instruction &inst, unsigned cond, bool anul, int64_t disp,
+                             std::string_view iform, std::string_view ccr, bool is_fcc = false) {
 
   // Branch always.
   if (cond == 0b1000) {
@@ -609,7 +601,7 @@ static bool TryDecode_Branch(Instruction &inst, unsigned cond, bool anul,
       inst.has_branch_taken_delay_slot = false;
     }
 
-  // Branch never.
+    // Branch never.
   } else if (cond == 0b0000) {
     inst.category = Instruction::kCategoryDirectJump;
 
@@ -633,7 +625,7 @@ static bool TryDecode_Branch(Instruction &inst, unsigned cond, bool anul,
     inst.branch_taken_pc = inst.next_pc;
     inst.branch_taken_arch_name = inst.arch_name;
 
-  // Conditional branch.
+    // Conditional branch.
   } else {
     AddBranchTaken(inst);
 
@@ -657,8 +649,8 @@ static bool TryDecode_Branch(Instruction &inst, unsigned cond, bool anul,
 
       inst.has_branch_not_taken_delay_slot = true;
 
-    // Anulled means that the delayed instruction is executed on the taken
-    // path, but not on the not-taken path.
+      // Anulled means that the delayed instruction is executed on the taken
+      // path, but not on the not-taken path.
     } else {
       AddNextPCRelop(inst, 4);  // PC if not taken.
       AddNextPCRelop(inst, 8);  // NPC if not taken.
@@ -764,8 +756,8 @@ static bool TryDecodeBPr(Instruction &inst, uint32_t bits) {
 
     inst.has_branch_not_taken_delay_slot = true;
 
-  // Anulled means that the delayed instruction is executed on the taken
-  // path, but not on the not-taken path.
+    // Anulled means that the delayed instruction is executed on the taken
+    // path, but not on the not-taken path.
   } else {
     AddNextPCRelop(inst, 4);  // PC if not taken.
     AddNextPCRelop(inst, 8);  // NPC if not taken.
@@ -826,8 +818,7 @@ static bool TryDecodeSETHI(Instruction &inst, uint32_t bits) {
   return true;
 }
 
-static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
-                               uint32_t bits2, const char *base,
+static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1, uint32_t bits2, const char *base,
                                const char *multi) {
   Format0a enc1 = {bits1};
   Format3ai0 enc2_i0 = {bits2};
@@ -851,9 +842,9 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
         AddImmop(inst, static_cast<uint32_t>(imm_low), kAddressSize, false);
         AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
 
-      // This is a possible variant, where the `sethi` is ultimately useless.
-      //    sethi imm, rd
-      //    or rs1, imm, rd
+        // This is a possible variant, where the `sethi` is ultimately useless.
+        //    sethi imm, rd
+        //    or rs1, imm, rd
       } else {
         inst.function = base;
         AddIntRegop(inst, enc2_i1.rs1, kAddressSize, Operand::kActionRead);
@@ -861,12 +852,12 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
         AddIntRegop(inst, enc2_i1.rd, kAddressSize, Operand::kActionWrite);
       }
 
-    // This is a variant of the `SET` idiom:
-    //    sethi imm_high, rd1
-    //    or rd1, imm_low, rd2
-    //
-    // This idiom can come up when multple XREFs share the same high bits and
-    // can thus be built off of `rd1`.
+      // This is a variant of the `SET` idiom:
+      //    sethi imm_high, rd1
+      //    or rd1, imm_low, rd2
+      //
+      // This idiom can come up when multple XREFs share the same high bits and
+      // can thus be built off of `rd1`.
     } else if (enc1.rd == enc2_i1.rs1) {
       inst.function = multi;
       AddImmop(inst, imm_high, kAddressSize, false);
@@ -874,7 +865,7 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
       AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
       AddIntRegop(inst, enc2_i1.rd, kAddressSize, Operand::kActionWrite);
 
-    // This is not a SET idiom.
+      // This is not a SET idiom.
     } else {
       return false;
     }
@@ -891,18 +882,18 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
         AddIntRegop(inst, enc2_i0.rs2, kAddressSize, Operand::kActionRead);
         AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
 
-      // Another variant of a vairable `SET` idiom:
-      //    sethi imm_high, rd
-      //    or rs1, rd, rd
+        // Another variant of a vairable `SET` idiom:
+        //    sethi imm_high, rd
+        //    or rs1, rd, rd
       } else if (enc2_i0.rs2 == enc1.rd) {
         inst.function = base;
         AddIntRegop(inst, enc2_i0.rs1, kAddressSize, Operand::kActionRead);
         AddImmop(inst, imm_high, kAddressSize, false);
         AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
 
-      // This is a possible variant, where the `sethi` is ultimately useless.
-      //    sethi imm, rd
-      //    or rs1, rs2, rd
+        // This is a possible variant, where the `sethi` is ultimately useless.
+        //    sethi imm, rd
+        //    or rs1, rs2, rd
       } else {
         inst.function = base;
         AddIntRegop(inst, enc2_i0.rs1, kAddressSize, Operand::kActionRead);
@@ -910,12 +901,12 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
         AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
       }
 
-    // This is a variant of the `SET` idiom:
-    //    sethi imm_high, rd1
-    //    or rd1, rs2, rd2
-    //
-    // This idiom can come up when multple XREFs share the same high bits and
-    // can thus be built off of `rd1`.
+      // This is a variant of the `SET` idiom:
+      //    sethi imm_high, rd1
+      //    or rd1, rs2, rd2
+      //
+      // This idiom can come up when multple XREFs share the same high bits and
+      // can thus be built off of `rd1`.
     } else if (enc1.rd == enc2_i0.rs1) {
       inst.function = multi;
       AddImmop(inst, imm_high, kAddressSize, false);
@@ -923,12 +914,12 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
       AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
       AddIntRegop(inst, enc2_i0.rd, kAddressSize, Operand::kActionWrite);
 
-    // This is a variant of the `SET` idiom:
-    //    sethi imm_high, rd1
-    //    or rs1, rd1, rd2
-    //
-    // This idiom can come up when multple XREFs share the same high bits and
-    // can thus be built off of `rd1`.
+      // This is a variant of the `SET` idiom:
+      //    sethi imm_high, rd1
+      //    or rs1, rd1, rd2
+      //
+      // This idiom can come up when multple XREFs share the same high bits and
+      // can thus be built off of `rd1`.
     } else if (enc1.rd == enc2_i0.rs2) {
       inst.function = multi;
       AddImmop(inst, imm_high, kAddressSize, false);
@@ -936,7 +927,7 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
       AddIntRegop(inst, enc1.rd, kAddressSize, Operand::kActionWrite);
       AddIntRegop(inst, enc2_i0.rd, kAddressSize, Operand::kActionWrite);
 
-    // This is not a SET idiom.
+      // This is not a SET idiom.
     } else {
       return false;
     }
@@ -946,13 +937,11 @@ static bool TryDecodeSET_IDIOM(Instruction &inst, uint32_t bits1,
   return true;
 }
 
-static bool TryDecodeSET_SETHI_OR(Instruction &inst, uint32_t bits1,
-                                  uint32_t bits2) {
+static bool TryDecodeSET_SETHI_OR(Instruction &inst, uint32_t bits1, uint32_t bits2) {
   return TryDecodeSET_IDIOM(inst, bits1, bits2, "OR", "SETHI_OR");
 }
 
-static bool TryDecodeSET_SETHI_ADD(Instruction &inst, uint32_t bits1,
-                                   uint32_t bits2) {
+static bool TryDecodeSET_SETHI_ADD(Instruction &inst, uint32_t bits1, uint32_t bits2) {
   return TryDecodeSET_IDIOM(inst, bits1, bits2, "ADD", "SETHI_ADD");
 }
 
@@ -1043,8 +1032,7 @@ static bool TryDecodeRETURN(Instruction &inst, uint32_t bits) {
 }
 
 
-static bool TryDecode_rs1_simm32_op_rs2_rd(Instruction &inst, uint32_t bits,
-                                           const char *iform) {
+static bool TryDecode_rs1_simm32_op_rs2_rd(Instruction &inst, uint32_t bits, const char *iform) {
   Format3ai0 enc_i0 = {bits};
   Format3ai1 enc_i1 = {bits};
 
@@ -1349,8 +1337,7 @@ static bool TryDecodeFMOV(Instruction &inst, uint32_t bits) {
   } __attribute__((packed)) enc = {bits};
   static_assert(sizeof(enc) == 4);
 
-  if ((enc.opf_low == 0b0001) || (enc.opf_low == 0b0010) ||
-      (enc.opf_low == 0b0011)) {
+  if ((enc.opf_low == 0b0001) || (enc.opf_low == 0b0010) || (enc.opf_low == 0b0011)) {
     return TryDecodeFMOVcc(inst, bits);
   }
   return TryDecodeFMOVr(inst, bits);
@@ -1367,9 +1354,8 @@ static bool TryDecodeFCMP_FMOV(Instruction &inst, uint32_t bits) {
   return TryDecodeFMOV(inst, bits);
 }
 
-static bool TryDecodeOpf_rs1_op_rs2_rd(Instruction &inst, uint32_t bits,
-                                       uint32_t rs1_size, uint32_t rs2_size,
-                                       uint32_t rd_size, const char *iform) {
+static bool TryDecodeOpf_rs1_op_rs2_rd(Instruction &inst, uint32_t bits, uint32_t rs1_size,
+                                       uint32_t rs2_size, uint32_t rd_size, const char *iform) {
   Format3b enc = {bits};
   inst.function = iform;
   inst.category = Instruction::kCategoryNormal;
@@ -1435,8 +1421,7 @@ static bool TryDecodeBSHUFFLE(Instruction &inst, uint32_t bits) {
 
 #define DEFINE_FUNCTION(name, rs1_size, rs2_size, rd_size) \
   static bool TryDecode##name(Instruction &inst, uint32_t bits) { \
-    return TryDecodeOpf_rs1_op_rs2_rd(inst, bits, rs1_size, rs2_size, rd_size, \
-                                      #name); \
+    return TryDecodeOpf_rs1_op_rs2_rd(inst, bits, rs1_size, rs2_size, rd_size, #name); \
   }
 
 DEFINE_FUNCTION(FABSS, SZERO, SWORD, SWORD)
@@ -1491,143 +1476,100 @@ DEFINE_FUNCTION(FQTOS, SZERO, QWORD, SWORD)
 DEFINE_FUNCTION(FQTOD, SZERO, QWORD, DWORD)
 
 static bool (*const kop10_op352Level[1u << 8])(Instruction &, uint32_t) = {
-    [0b00000000] = nullptr,         [0b00000001] = TryDecodeFMOVS,
-    [0b00000010] = TryDecodeFMOVD,  [0b00000011] = TryDecodeFMOVQ,
-    [0b00000100] = nullptr,         [0b00000101] = TryDecodeFNEGS,
-    [0b00000110] = TryDecodeFNEGD,  [0b00000111] = TryDecodeFNEGQ,
-    [0b00001000] = nullptr,         [0b00001001] = TryDecodeFABSS,
-    [0b00001010] = TryDecodeFABSD,  [0b00001011] = TryDecodeFABSQ,
-    [0b00001100] = nullptr,         [0b00001101] = nullptr,
-    [0b00001110] = nullptr,         [0b00001111] = nullptr,
-    [0b00010000] = nullptr,         [0b00010001] = nullptr,
-    [0b00010010] = nullptr,         [0b00010011] = nullptr,
-    [0b00010100] = nullptr,         [0b00010101] = nullptr,
-    [0b00010110] = nullptr,         [0b00010111] = nullptr,
-    [0b00011000] = nullptr,         [0b00011001] = TryDecodeBMASK,
-    [0b00011010] = nullptr,         [0b00011011] = nullptr,
-    [0b00011100] = nullptr,         [0b00011101] = nullptr,
-    [0b00011110] = nullptr,         [0b00011111] = nullptr,
-    [0b00100000] = nullptr,         [0b00100001] = nullptr,
-    [0b00100010] = nullptr,         [0b00100011] = nullptr,
-    [0b00100100] = nullptr,         [0b00100101] = nullptr,
-    [0b00100110] = nullptr,         [0b00100111] = nullptr,
-    [0b00101000] = nullptr,         [0b00101001] = TryDecodeFSQRTS,
-    [0b00101010] = TryDecodeFSQRTD, [0b00101011] = TryDecodeFSQRTQ,
-    [0b00101100] = nullptr,         [0b00101101] = nullptr,
-    [0b00101110] = nullptr,         [0b00101111] = nullptr,
-    [0b00110000] = nullptr,         [0b00110001] = nullptr,
-    [0b00110010] = nullptr,         [0b00110011] = nullptr,
-    [0b00110100] = nullptr,         [0b00110101] = nullptr,
-    [0b00110110] = nullptr,         [0b00110111] = nullptr,
-    [0b00111000] = nullptr,         [0b00111001] = nullptr,
-    [0b00111010] = nullptr,         [0b00111011] = nullptr,
-    [0b00111100] = nullptr,         [0b00111101] = nullptr,
-    [0b00111110] = nullptr,         [0b00111111] = nullptr,
-    [0b01000000] = nullptr,         [0b01000001] = TryDecodeFADDS,
-    [0b01000010] = TryDecodeFADDD,  [0b01000011] = TryDecodeFADDQ,
-    [0b01000100] = nullptr,         [0b01000101] = TryDecodeFSUBS,
-    [0b01000110] = TryDecodeFSUBD,  [0b01000111] = TryDecodeFSUBQ,
-    [0b01001000] = nullptr,         [0b01001001] = TryDecodeFMULS,
-    [0b01001010] = TryDecodeFMULD,  [0b01001011] = TryDecodeFMULQ,
-    [0b01001100] = nullptr,         [0b01001101] = TryDecodeFDIVS,
-    [0b01001110] = TryDecodeFDIVD,  [0b01001111] = TryDecodeFDIVQ,
-    [0b01010000] = nullptr,         [0b01010001] = nullptr,
-    [0b01010010] = nullptr,         [0b01010011] = nullptr,
-    [0b01010100] = nullptr,         [0b01010101] = nullptr,
-    [0b01010110] = nullptr,         [0b01010111] = nullptr,
-    [0b01011000] = nullptr,         [0b01011001] = nullptr,
-    [0b01011010] = nullptr,         [0b01011011] = nullptr,
-    [0b01011100] = nullptr,         [0b01011101] = nullptr,
-    [0b01011110] = nullptr,         [0b01011111] = nullptr,
-    [0b01100000] = nullptr,         [0b01100001] = TryDecodeFHADDS,
-    [0b01100010] = TryDecodeFHADDD, [0b01100011] = nullptr,
-    [0b01100100] = nullptr,         [0b01100101] = nullptr,
-    [0b01100110] = nullptr,         [0b01100111] = nullptr,
-    [0b01101000] = nullptr,         [0b01101001] = TryDecodeFSMULD,
-    [0b01101010] = nullptr,         [0b01101011] = nullptr,
-    [0b01101100] = nullptr,         [0b01101101] = nullptr,
-    [0b01101110] = TryDecodeFDMULQ, [0b01101111] = nullptr,
-    [0b01110000] = nullptr,         [0b01110001] = nullptr,
-    [0b01110010] = nullptr,         [0b01110011] = nullptr,
-    [0b01110100] = nullptr,         [0b01110101] = nullptr,
-    [0b01110110] = nullptr,         [0b01110111] = nullptr,
-    [0b01111000] = nullptr,         [0b01111001] = nullptr,
-    [0b01111010] = nullptr,         [0b01111011] = nullptr,
-    [0b01111100] = nullptr,         [0b01111101] = nullptr,
-    [0b01111110] = nullptr,         [0b01111111] = nullptr,
-    [0b10000000] = nullptr,         [0b10000001] = TryDecodeFSTOX,
-    [0b10000010] = TryDecodeFDTOX,  [0b10000011] = TryDecodeFQTOX,
-    [0b10000100] = TryDecodeFXTOS,  [0b10000101] = nullptr,
-    [0b10000110] = nullptr,         [0b10000111] = nullptr,
-    [0b10001000] = TryDecodeFXTOD,  [0b10001001] = nullptr,
-    [0b10001010] = nullptr,         [0b10001011] = nullptr,
-    [0b10001100] = TryDecodeFXTOQ,  [0b10001101] = nullptr,
-    [0b10001110] = nullptr,         [0b10001111] = nullptr,
-    [0b10010000] = nullptr,         [0b10010001] = nullptr,
-    [0b10010010] = nullptr,         [0b10010011] = nullptr,
-    [0b10010100] = nullptr,         [0b10010101] = nullptr,
-    [0b10010110] = nullptr,         [0b10010111] = nullptr,
-    [0b10011000] = nullptr,         [0b10011001] = nullptr,
-    [0b10011010] = nullptr,         [0b10011011] = nullptr,
-    [0b10011100] = nullptr,         [0b10011101] = nullptr,
-    [0b10011110] = nullptr,         [0b10011111] = nullptr,
-    [0b10100000] = nullptr,         [0b10100001] = nullptr,
-    [0b10100010] = nullptr,         [0b10100011] = nullptr,
-    [0b10100100] = nullptr,         [0b10100101] = nullptr,
-    [0b10100110] = nullptr,         [0b10100111] = nullptr,
-    [0b10101000] = nullptr,         [0b10101001] = nullptr,
-    [0b10101010] = nullptr,         [0b10101011] = nullptr,
-    [0b10101100] = nullptr,         [0b10101101] = nullptr,
-    [0b10101110] = nullptr,         [0b10101111] = nullptr,
-    [0b10110000] = nullptr,         [0b10110001] = nullptr,
-    [0b10110010] = nullptr,         [0b10110011] = nullptr,
-    [0b10110100] = nullptr,         [0b10110101] = nullptr,
-    [0b10110110] = nullptr,         [0b10110111] = nullptr,
-    [0b10111000] = nullptr,         [0b10111001] = nullptr,
-    [0b10111010] = nullptr,         [0b10111011] = nullptr,
-    [0b10111100] = nullptr,         [0b10111101] = nullptr,
-    [0b10111110] = nullptr,         [0b10111111] = nullptr,
-    [0b11000000] = nullptr,         [0b11000001] = nullptr,
-    [0b11000010] = nullptr,         [0b11000011] = nullptr,
-    [0b11000100] = TryDecodeFITOS,  [0b11000101] = nullptr,
-    [0b11000110] = TryDecodeFDTOS,  [0b11000111] = TryDecodeFQTOS,
-    [0b11001000] = TryDecodeFITOD,  [0b11001001] = TryDecodeFSTOD,
-    [0b11001010] = nullptr,         [0b11001011] = TryDecodeFQTOD,
-    [0b11001100] = TryDecodeFITOQ,  [0b11001101] = TryDecodeFSTOQ,
-    [0b11001110] = TryDecodeFDTOQ,  [0b11001111] = nullptr,
-    [0b11010000] = nullptr,         [0b11010001] = TryDecodeFSTOI,
-    [0b11010010] = TryDecodeFDTOI,  [0b11010011] = TryDecodeFQTOI,
-    [0b11010100] = nullptr,         [0b11010101] = nullptr,
-    [0b11010110] = nullptr,         [0b11010111] = nullptr,
-    [0b11011000] = nullptr,         [0b11011001] = nullptr,
-    [0b11011010] = nullptr,         [0b11011011] = nullptr,
-    [0b11011100] = nullptr,         [0b11011101] = nullptr,
-    [0b11011110] = nullptr,         [0b11011111] = nullptr,
-    [0b11100000] = nullptr,         [0b11100001] = nullptr,
-    [0b11100010] = nullptr,         [0b11100011] = nullptr,
-    [0b11100100] = nullptr,         [0b11100101] = nullptr,
-    [0b11100110] = nullptr,         [0b11100111] = nullptr,
-    [0b11101000] = nullptr,         [0b11101001] = nullptr,
-    [0b11101010] = nullptr,         [0b11101011] = nullptr,
-    [0b11101100] = nullptr,         [0b11101101] = nullptr,
-    [0b11101110] = nullptr,         [0b11101111] = nullptr,
-    [0b11110000] = nullptr,         [0b11110001] = nullptr,
-    [0b11110010] = nullptr,         [0b11110011] = nullptr,
-    [0b11110100] = nullptr,         [0b11110101] = nullptr,
-    [0b11110110] = nullptr,         [0b11110111] = nullptr,
-    [0b11111000] = nullptr,         [0b11111001] = nullptr,
-    [0b11111010] = nullptr,         [0b11111011] = nullptr,
-    [0b11111100] = nullptr,         [0b11111101] = nullptr,
-    [0b11111110] = nullptr,         [0b11111111] = nullptr,
+    [0b00000000] = nullptr,         [0b00000001] = TryDecodeFMOVS,  [0b00000010] = TryDecodeFMOVD,
+    [0b00000011] = TryDecodeFMOVQ,  [0b00000100] = nullptr,         [0b00000101] = TryDecodeFNEGS,
+    [0b00000110] = TryDecodeFNEGD,  [0b00000111] = TryDecodeFNEGQ,  [0b00001000] = nullptr,
+    [0b00001001] = TryDecodeFABSS,  [0b00001010] = TryDecodeFABSD,  [0b00001011] = TryDecodeFABSQ,
+    [0b00001100] = nullptr,         [0b00001101] = nullptr,         [0b00001110] = nullptr,
+    [0b00001111] = nullptr,         [0b00010000] = nullptr,         [0b00010001] = nullptr,
+    [0b00010010] = nullptr,         [0b00010011] = nullptr,         [0b00010100] = nullptr,
+    [0b00010101] = nullptr,         [0b00010110] = nullptr,         [0b00010111] = nullptr,
+    [0b00011000] = nullptr,         [0b00011001] = TryDecodeBMASK,  [0b00011010] = nullptr,
+    [0b00011011] = nullptr,         [0b00011100] = nullptr,         [0b00011101] = nullptr,
+    [0b00011110] = nullptr,         [0b00011111] = nullptr,         [0b00100000] = nullptr,
+    [0b00100001] = nullptr,         [0b00100010] = nullptr,         [0b00100011] = nullptr,
+    [0b00100100] = nullptr,         [0b00100101] = nullptr,         [0b00100110] = nullptr,
+    [0b00100111] = nullptr,         [0b00101000] = nullptr,         [0b00101001] = TryDecodeFSQRTS,
+    [0b00101010] = TryDecodeFSQRTD, [0b00101011] = TryDecodeFSQRTQ, [0b00101100] = nullptr,
+    [0b00101101] = nullptr,         [0b00101110] = nullptr,         [0b00101111] = nullptr,
+    [0b00110000] = nullptr,         [0b00110001] = nullptr,         [0b00110010] = nullptr,
+    [0b00110011] = nullptr,         [0b00110100] = nullptr,         [0b00110101] = nullptr,
+    [0b00110110] = nullptr,         [0b00110111] = nullptr,         [0b00111000] = nullptr,
+    [0b00111001] = nullptr,         [0b00111010] = nullptr,         [0b00111011] = nullptr,
+    [0b00111100] = nullptr,         [0b00111101] = nullptr,         [0b00111110] = nullptr,
+    [0b00111111] = nullptr,         [0b01000000] = nullptr,         [0b01000001] = TryDecodeFADDS,
+    [0b01000010] = TryDecodeFADDD,  [0b01000011] = TryDecodeFADDQ,  [0b01000100] = nullptr,
+    [0b01000101] = TryDecodeFSUBS,  [0b01000110] = TryDecodeFSUBD,  [0b01000111] = TryDecodeFSUBQ,
+    [0b01001000] = nullptr,         [0b01001001] = TryDecodeFMULS,  [0b01001010] = TryDecodeFMULD,
+    [0b01001011] = TryDecodeFMULQ,  [0b01001100] = nullptr,         [0b01001101] = TryDecodeFDIVS,
+    [0b01001110] = TryDecodeFDIVD,  [0b01001111] = TryDecodeFDIVQ,  [0b01010000] = nullptr,
+    [0b01010001] = nullptr,         [0b01010010] = nullptr,         [0b01010011] = nullptr,
+    [0b01010100] = nullptr,         [0b01010101] = nullptr,         [0b01010110] = nullptr,
+    [0b01010111] = nullptr,         [0b01011000] = nullptr,         [0b01011001] = nullptr,
+    [0b01011010] = nullptr,         [0b01011011] = nullptr,         [0b01011100] = nullptr,
+    [0b01011101] = nullptr,         [0b01011110] = nullptr,         [0b01011111] = nullptr,
+    [0b01100000] = nullptr,         [0b01100001] = TryDecodeFHADDS, [0b01100010] = TryDecodeFHADDD,
+    [0b01100011] = nullptr,         [0b01100100] = nullptr,         [0b01100101] = nullptr,
+    [0b01100110] = nullptr,         [0b01100111] = nullptr,         [0b01101000] = nullptr,
+    [0b01101001] = TryDecodeFSMULD, [0b01101010] = nullptr,         [0b01101011] = nullptr,
+    [0b01101100] = nullptr,         [0b01101101] = nullptr,         [0b01101110] = TryDecodeFDMULQ,
+    [0b01101111] = nullptr,         [0b01110000] = nullptr,         [0b01110001] = nullptr,
+    [0b01110010] = nullptr,         [0b01110011] = nullptr,         [0b01110100] = nullptr,
+    [0b01110101] = nullptr,         [0b01110110] = nullptr,         [0b01110111] = nullptr,
+    [0b01111000] = nullptr,         [0b01111001] = nullptr,         [0b01111010] = nullptr,
+    [0b01111011] = nullptr,         [0b01111100] = nullptr,         [0b01111101] = nullptr,
+    [0b01111110] = nullptr,         [0b01111111] = nullptr,         [0b10000000] = nullptr,
+    [0b10000001] = TryDecodeFSTOX,  [0b10000010] = TryDecodeFDTOX,  [0b10000011] = TryDecodeFQTOX,
+    [0b10000100] = TryDecodeFXTOS,  [0b10000101] = nullptr,         [0b10000110] = nullptr,
+    [0b10000111] = nullptr,         [0b10001000] = TryDecodeFXTOD,  [0b10001001] = nullptr,
+    [0b10001010] = nullptr,         [0b10001011] = nullptr,         [0b10001100] = TryDecodeFXTOQ,
+    [0b10001101] = nullptr,         [0b10001110] = nullptr,         [0b10001111] = nullptr,
+    [0b10010000] = nullptr,         [0b10010001] = nullptr,         [0b10010010] = nullptr,
+    [0b10010011] = nullptr,         [0b10010100] = nullptr,         [0b10010101] = nullptr,
+    [0b10010110] = nullptr,         [0b10010111] = nullptr,         [0b10011000] = nullptr,
+    [0b10011001] = nullptr,         [0b10011010] = nullptr,         [0b10011011] = nullptr,
+    [0b10011100] = nullptr,         [0b10011101] = nullptr,         [0b10011110] = nullptr,
+    [0b10011111] = nullptr,         [0b10100000] = nullptr,         [0b10100001] = nullptr,
+    [0b10100010] = nullptr,         [0b10100011] = nullptr,         [0b10100100] = nullptr,
+    [0b10100101] = nullptr,         [0b10100110] = nullptr,         [0b10100111] = nullptr,
+    [0b10101000] = nullptr,         [0b10101001] = nullptr,         [0b10101010] = nullptr,
+    [0b10101011] = nullptr,         [0b10101100] = nullptr,         [0b10101101] = nullptr,
+    [0b10101110] = nullptr,         [0b10101111] = nullptr,         [0b10110000] = nullptr,
+    [0b10110001] = nullptr,         [0b10110010] = nullptr,         [0b10110011] = nullptr,
+    [0b10110100] = nullptr,         [0b10110101] = nullptr,         [0b10110110] = nullptr,
+    [0b10110111] = nullptr,         [0b10111000] = nullptr,         [0b10111001] = nullptr,
+    [0b10111010] = nullptr,         [0b10111011] = nullptr,         [0b10111100] = nullptr,
+    [0b10111101] = nullptr,         [0b10111110] = nullptr,         [0b10111111] = nullptr,
+    [0b11000000] = nullptr,         [0b11000001] = nullptr,         [0b11000010] = nullptr,
+    [0b11000011] = nullptr,         [0b11000100] = TryDecodeFITOS,  [0b11000101] = nullptr,
+    [0b11000110] = TryDecodeFDTOS,  [0b11000111] = TryDecodeFQTOS,  [0b11001000] = TryDecodeFITOD,
+    [0b11001001] = TryDecodeFSTOD,  [0b11001010] = nullptr,         [0b11001011] = TryDecodeFQTOD,
+    [0b11001100] = TryDecodeFITOQ,  [0b11001101] = TryDecodeFSTOQ,  [0b11001110] = TryDecodeFDTOQ,
+    [0b11001111] = nullptr,         [0b11010000] = nullptr,         [0b11010001] = TryDecodeFSTOI,
+    [0b11010010] = TryDecodeFDTOI,  [0b11010011] = TryDecodeFQTOI,  [0b11010100] = nullptr,
+    [0b11010101] = nullptr,         [0b11010110] = nullptr,         [0b11010111] = nullptr,
+    [0b11011000] = nullptr,         [0b11011001] = nullptr,         [0b11011010] = nullptr,
+    [0b11011011] = nullptr,         [0b11011100] = nullptr,         [0b11011101] = nullptr,
+    [0b11011110] = nullptr,         [0b11011111] = nullptr,         [0b11100000] = nullptr,
+    [0b11100001] = nullptr,         [0b11100010] = nullptr,         [0b11100011] = nullptr,
+    [0b11100100] = nullptr,         [0b11100101] = nullptr,         [0b11100110] = nullptr,
+    [0b11100111] = nullptr,         [0b11101000] = nullptr,         [0b11101001] = nullptr,
+    [0b11101010] = nullptr,         [0b11101011] = nullptr,         [0b11101100] = nullptr,
+    [0b11101101] = nullptr,         [0b11101110] = nullptr,         [0b11101111] = nullptr,
+    [0b11110000] = nullptr,         [0b11110001] = nullptr,         [0b11110010] = nullptr,
+    [0b11110011] = nullptr,         [0b11110100] = nullptr,         [0b11110101] = nullptr,
+    [0b11110110] = nullptr,         [0b11110111] = nullptr,         [0b11111000] = nullptr,
+    [0b11111001] = nullptr,         [0b11111010] = nullptr,         [0b11111011] = nullptr,
+    [0b11111100] = nullptr,         [0b11111101] = nullptr,         [0b11111110] = nullptr,
+    [0b11111111] = nullptr,
 };
 
 static bool TryDecodeOpf52(Instruction &inst, uint32_t bits) {
   Format3b enc = {bits};
   auto func = kop10_op352Level[enc.opf];
   if (!func) {
-    LOG(ERROR) << "Decoding IMPDEP1 with OP=10 op3=110100 opf="
-               << std::bitset<8>(enc.opf) << " at " << std::hex << inst.pc
-               << std::dec;
+    LOG(ERROR) << "Decoding IMPDEP1 with OP=10 op3=110100 opf=" << std::bitset<8>(enc.opf) << " at "
+               << std::hex << inst.pc << std::dec;
     return TryDecodeIMPDEP1(inst, bits);
   }
   return func(inst, bits);
@@ -1927,9 +1869,8 @@ static bool TryDecodeOpf54(Instruction &inst, uint32_t bits) {
   Format3b enc = {bits};
   auto func = kop10_op354Level[enc.opf];
   if (!func) {
-    LOG(ERROR) << "Decoding IMPDEP1 with OP=10 op3=110110 opf="
-               << std::bitset<8>(enc.opf) << " at " << std::hex << inst.pc
-               << std::dec;
+    LOG(ERROR) << "Decoding IMPDEP1 with OP=10 op3=110110 opf=" << std::bitset<8>(enc.opf) << " at "
+               << std::hex << inst.pc << std::dec;
     return TryDecodeIMPDEP1(inst, bits);
   }
   return func(inst, bits);
@@ -1941,44 +1882,25 @@ static bool TryDecodeOpf54(Instruction &inst, uint32_t bits) {
   }
 
 // Logical Operations
-DEFINE_TryDecode(AND)
-DEFINE_TryDecode(ANDcc)
-DEFINE_TryDecode(ANDN)
-DEFINE_TryDecode(ANDNcc)
+DEFINE_TryDecode(AND) DEFINE_TryDecode(ANDcc) DEFINE_TryDecode(ANDN) DEFINE_TryDecode(ANDNcc)
 
-DEFINE_TryDecode(OR)
-DEFINE_TryDecode(ORcc)
-DEFINE_TryDecode(ORN)
-DEFINE_TryDecode(ORNcc)
+    DEFINE_TryDecode(OR) DEFINE_TryDecode(ORcc) DEFINE_TryDecode(ORN) DEFINE_TryDecode(ORNcc)
 
-DEFINE_TryDecode(XOR)
-DEFINE_TryDecode(XORcc)
-DEFINE_TryDecode(XNOR)
-DEFINE_TryDecode(XNORcc)
+        DEFINE_TryDecode(XOR) DEFINE_TryDecode(XORcc) DEFINE_TryDecode(XNOR)
+            DEFINE_TryDecode(XNORcc)
 
-// Binary Operations
-DEFINE_TryDecode(ADD)
-DEFINE_TryDecode(ADDC)
-DEFINE_TryDecode(ADDcc)
-DEFINE_TryDecode(ADDCcc)
+    // Binary Operations
+    DEFINE_TryDecode(ADD) DEFINE_TryDecode(ADDC) DEFINE_TryDecode(ADDcc) DEFINE_TryDecode(ADDCcc)
 
-DEFINE_TryDecode(SUB)
-DEFINE_TryDecode(SUBC)
-DEFINE_TryDecode(SUBcc)
-DEFINE_TryDecode(SUBCcc)
+        DEFINE_TryDecode(SUB) DEFINE_TryDecode(SUBC) DEFINE_TryDecode(SUBcc)
+            DEFINE_TryDecode(SUBCcc)
 
-DEFINE_TryDecode(UMUL)
-DEFINE_TryDecode(SMUL)
-DEFINE_TryDecode(MULX)
-DEFINE_TryDecode(UMULcc)
-DEFINE_TryDecode(SMULcc)
+                DEFINE_TryDecode(UMUL) DEFINE_TryDecode(SMUL) DEFINE_TryDecode(MULX)
+                    DEFINE_TryDecode(UMULcc) DEFINE_TryDecode(SMULcc)
 
-DEFINE_TryDecode(UDIV)
-DEFINE_TryDecode(SDIV)
-DEFINE_TryDecode(UDIVX)
-DEFINE_TryDecode(SDIVX)
-DEFINE_TryDecode(UDIVcc)
-DEFINE_TryDecode(SDIVcc)
+                        DEFINE_TryDecode(UDIV) DEFINE_TryDecode(SDIV) DEFINE_TryDecode(UDIVX)
+                            DEFINE_TryDecode(SDIVX) DEFINE_TryDecode(UDIVcc)
+                                DEFINE_TryDecode(SDIVcc)
 
 #undef DEFINE_TryDecode
 #define DEFINE_TryDecode(ins) \
@@ -1990,22 +1912,19 @@ DEFINE_TryDecode(SDIVcc)
     return true; \
   }
 
-DEFINE_TryDecode(TADDcc)
-DEFINE_TryDecode(TSUBcc)
-DEFINE_TryDecode(TADDccTV)
-DEFINE_TryDecode(TSUBccTV)
+                                    DEFINE_TryDecode(TADDcc) DEFINE_TryDecode(TSUBcc)
+                                        DEFINE_TryDecode(TADDccTV) DEFINE_TryDecode(TSUBccTV)
 
 #undef DEFINE_TryDecode
 
-                                                static bool TryDecodeSWAP(
-                                                    Instruction &inst,
-                                                    uint32_t bits) {
+                                            static bool TryDecodeSWAP(Instruction &inst,
+                                                                      uint32_t bits) {
   inst.is_atomic_read_modify_write = true;
   return TryDecode_rs1_simm32_op_rs2_rd(inst, bits, "SWAP");
 }
 
-static bool TryDecode_Shift(Instruction &inst, uint32_t bits,
-                            const char *iform_name, unsigned rs1_size = 32) {
+static bool TryDecode_Shift(Instruction &inst, uint32_t bits, const char *iform_name,
+                            unsigned rs1_size = 32) {
   Format3ai0 enc_i0 = {bits};
   Format3ai0 enc_i1 = {bits};
 
@@ -2018,7 +1937,7 @@ static bool TryDecode_Shift(Instruction &inst, uint32_t bits,
     }*/
     AddImmop(inst, enc_i1.rs2 /* shcnt */, kAddressSize32, false);
 
-  // Embed the masking of the shift in the operand.
+    // Embed the masking of the shift in the operand.
   } else if (enc_i0.rs2) {
     inst.operands.emplace_back();
     auto &op = inst.operands.back();
@@ -2032,7 +1951,7 @@ static bool TryDecode_Shift(Instruction &inst, uint32_t bits,
     op.shift_reg.shift_size = 0;
     op.shift_reg.extract_size = 5;
 
-  // Register `%g0` is `rs2`.
+    // Register `%g0` is `rs2`.
   } else {
     AddImmop(inst, 0 /* shcnt */, kAddressSize32, false);
   }
@@ -2043,8 +1962,7 @@ static bool TryDecode_Shift(Instruction &inst, uint32_t bits,
   return true;
 }
 
-static bool TryDecode_ShiftX(Instruction &inst, uint32_t bits,
-                             const char *iform_name) {
+static bool TryDecode_ShiftX(Instruction &inst, uint32_t bits, const char *iform_name) {
   Format3ei0 enc_i0 = {bits};
   Format3ei2 enc_i2 = {bits};
 
@@ -2052,7 +1970,7 @@ static bool TryDecode_ShiftX(Instruction &inst, uint32_t bits,
   if (enc_i2.i) {
     AddImmop(inst, enc_i2.shcnt64 /* shcnt */, kAddressSize, false);
 
-  // Embed the masking of the shift in the operand.
+    // Embed the masking of the shift in the operand.
   } else if (enc_i0.rs2) {
     inst.operands.emplace_back();
     auto &op = inst.operands.back();
@@ -2066,7 +1984,7 @@ static bool TryDecode_ShiftX(Instruction &inst, uint32_t bits,
     op.shift_reg.shift_size = 0;
     op.shift_reg.extract_size = 6;
 
-  // Register `%g0` is `rs2`.
+    // Register `%g0` is `rs2`.
   } else {
     AddImmop(inst, 0 /* shcnt */, kAddressSize, false);
   }
@@ -2106,9 +2024,8 @@ static bool TryDecodeSRA(Instruction &inst, uint32_t bits) {
 
 enum class RegClass { kInt, kFP };
 
-static bool TryDecode_Load(Instruction &inst, uint32_t bits, const char *iform,
-                           unsigned mem_size, unsigned reg_size,
-                           RegClass rclass = RegClass::kInt,
+static bool TryDecode_Load(Instruction &inst, uint32_t bits, const char *iform, unsigned mem_size,
+                           unsigned reg_size, RegClass rclass = RegClass::kInt,
                            bool has_asi = false) {
   Format3ai0 enc_i0 = {bits};
   Format3ai1 enc_i1 = {bits};
@@ -2125,11 +2042,9 @@ static bool TryDecode_Load(Instruction &inst, uint32_t bits, const char *iform,
   }
 
   if (enc_i1.i) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, mem_size, enc_i0.rs1, 0,
-                           enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, mem_size, enc_i0.rs1, 0, enc_i1.simm13);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, mem_size, enc_i0.rs1,
-                           enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, mem_size, enc_i0.rs1, enc_i0.rs2, 0);
   }
 
   if (RegClass::kInt == rclass) {
@@ -2141,9 +2056,8 @@ static bool TryDecode_Load(Instruction &inst, uint32_t bits, const char *iform,
   return true;
 }
 
-static bool TryDecode_Store(Instruction &inst, uint32_t bits, const char *iform,
-                            unsigned reg_size, unsigned mem_size,
-                            RegClass rclass = RegClass::kInt,
+static bool TryDecode_Store(Instruction &inst, uint32_t bits, const char *iform, unsigned reg_size,
+                            unsigned mem_size, RegClass rclass = RegClass::kInt,
                             bool has_asi = false) {
   Format3ai0 enc_i0 = {bits};
   Format3ai1 enc_i1 = {bits};
@@ -2167,11 +2081,9 @@ static bool TryDecode_Store(Instruction &inst, uint32_t bits, const char *iform,
   }
 
   if (enc_i1.i) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, mem_size, enc_i0.rs1, 0,
-                           enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, mem_size, enc_i0.rs1, 0, enc_i1.simm13);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, mem_size, enc_i0.rs1,
-                           enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, mem_size, enc_i0.rs1, enc_i0.rs2, 0);
   }
   return true;
 }
@@ -2217,33 +2129,27 @@ static bool TryDecodeLDQF(Instruction &inst, uint32_t bits) {
 }
 
 static bool TryDecodeLDSBA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDSBA", 8, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDSBA", 8, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDSHA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDSHA", 16, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDSHA", 16, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDSWA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDSWA", 32, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDSWA", 32, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDUBA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDUBA", 8, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDUBA", 8, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDUHA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDUHA", 16, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDUHA", 16, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDUWA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Load(inst, bits, "LDUWA", 32, kAddressSize, RegClass::kInt,
-                        true);
+  return TryDecode_Load(inst, bits, "LDUWA", 32, kAddressSize, RegClass::kInt, true);
 }
 
 static bool TryDecodeLDXA(Instruction &inst, uint32_t bits) {
@@ -2272,11 +2178,9 @@ static bool TryDecodeLDSTUB(Instruction &inst, uint32_t bits) {
 
   // if i != 0
   if (enc_i1.i) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0,
-                           enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0, enc_i1.simm13);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0,
-                           enc_i0.rs2);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0, enc_i0.rs2);
   }
 
   AddIntRegop(inst, enc_i0.rd, kAddressSize, Operand::kActionWrite);
@@ -2295,12 +2199,10 @@ static bool TryDecodeLDSTUBA(Instruction &inst, uint32_t bits) {
   // if i != 0
   if (enc_i1.i) {
     AddDestRegop(inst, "ASI_REG", 8);
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0,
-                           enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0, enc_i1.simm13);
   } else {
     AddImmop(inst, enc_i0.asi, 8, false);
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0,
-                           enc_i0.rs2);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, 8, enc_i0.rs1, 0, enc_i0.rs2);
   }
 
   AddIntRegop(inst, enc_i0.rd, kAddressSize, Operand::kActionWrite);
@@ -2312,11 +2214,10 @@ static bool TryDecodeLDFSR(Instruction &inst, uint32_t bits) {
   Format3ai1 enc_i1 = {bits};
 
   if (enc_i1.i) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32,
-                           enc_i0.rs1, 0, enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32, enc_i0.rs1, 0,
+                           enc_i1.simm13);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32,
-                           enc_i0.rs1, enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32, enc_i0.rs1, enc_i0.rs2, 0);
   }
 
   inst.category = Instruction::kCategoryNormal;
@@ -2346,18 +2247,15 @@ static bool TryDecodeSTX(Instruction &inst, uint32_t bits) {
 }
 
 static bool TryDecodeSTBA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Store(inst, bits, "STBA", kAddressSize, 8, RegClass::kInt,
-                         true);
+  return TryDecode_Store(inst, bits, "STBA", kAddressSize, 8, RegClass::kInt, true);
 }
 
 static bool TryDecodeSTHA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Store(inst, bits, "STHA", kAddressSize, 16, RegClass::kInt,
-                         true);
+  return TryDecode_Store(inst, bits, "STHA", kAddressSize, 16, RegClass::kInt, true);
 }
 
 static bool TryDecodeSTWA(Instruction &inst, uint32_t bits) {
-  return TryDecode_Store(inst, bits, "STWA", kAddressSize, 32, RegClass::kInt,
-                         true);
+  return TryDecode_Store(inst, bits, "STWA", kAddressSize, 32, RegClass::kInt, true);
 }
 
 static bool TryDecodeSTXA(Instruction &inst, uint32_t bits) {
@@ -2393,11 +2291,10 @@ static bool TryDecodeSTFSR(Instruction &inst, uint32_t bits) {
   Format3ai1 enc_i1 = {bits};
 
   if (enc_i1.i) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, kAddressSize32,
-                           enc_i0.rs1, 0, enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, kAddressSize32, enc_i0.rs1, 0,
+                           enc_i1.simm13);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, kAddressSize32,
-                           enc_i0.rs1, enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionWrite, kAddressSize32, enc_i0.rs1, enc_i0.rs2, 0);
   }
 
   inst.category = Instruction::kCategoryNormal;
@@ -2424,8 +2321,7 @@ static bool TryDecodeMEMBAR_RDasr(Instruction &inst, uint32_t bits) {
   return true;
 }
 
-static bool TryDecode_rs1_imm_asi_op_rs2_rd(Instruction &inst, uint32_t bits,
-                                            const char *iform) {
+static bool TryDecode_rs1_imm_asi_op_rs2_rd(Instruction &inst, uint32_t bits, const char *iform) {
   Format3ai0 enc_i0 = {bits};
 
   inst.function = iform;
@@ -2458,8 +2354,7 @@ static bool TryDecodeFLUSH(Instruction &inst, uint32_t bits) {
   inst.function = "FLUSH";
   inst.category = Instruction::kCategoryNormal;
   if (enc_i0.i == 0) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1,
-                           enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1, enc_i0.rs2, 0);
   }
   return true;
 }
@@ -2472,11 +2367,10 @@ static bool TryDecodePREFETCH(Instruction &inst, uint32_t bits) {
   inst.category = Instruction::kCategoryNormal;
 
   if (enc_i0.i == 0) {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1,
-                           enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1, enc_i0.rs2, 0);
   } else {
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32,
-                           enc_i0.rs1, 0, enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32, enc_i0.rs1, 0,
+                           enc_i1.simm13);
   }
   AddImmop(inst, enc_i0.rd /* fcn */, kAddressSize32, false);
   return true;
@@ -2492,12 +2386,11 @@ static bool TryDecodePREFETCHA(Instruction &inst, uint32_t bits) {
 
   if (enc_i1.i) {
     AddDestRegop(inst, "ASI_REG", 8);
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32,
-                           enc_i0.rs1, 0, enc_i1.simm13);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize32, enc_i0.rs1, 0,
+                           enc_i1.simm13);
   } else {
     AddImmop(inst, enc_i0.asi, 8, false);
-    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1,
-                           enc_i0.rs2, 0);
+    AddBasePlusOffsetMemop(inst, Operand::kActionRead, kAddressSize, enc_i0.rs1, enc_i0.rs2, 0);
   }
 
   AddImmop(inst, enc_i0.rd /* fcn */, kAddressSize32, false);
@@ -2506,9 +2399,8 @@ static bool TryDecodePREFETCHA(Instruction &inst, uint32_t bits) {
 
 
 static bool (*const kop00_op2Level[1u << 3])(Instruction &, uint32_t) = {
-    [0b000] = TryDecodeUNIMP, [0b001] = TryDecodeBPcc,
-    [0b010] = TryDecodeBcc,   [0b011] = TryDecodeBPr,
-    [0b100] = TryDecodeSETHI, [0b101] = TryDecodeFBPcc,
+    [0b000] = TryDecodeUNIMP, [0b001] = TryDecodeBPcc,  [0b010] = TryDecodeBcc,
+    [0b011] = TryDecodeBPr,   [0b100] = TryDecodeSETHI, [0b101] = TryDecodeFBPcc,
     [0b110] = TryDecodeFBcc,  [0b111] = nullptr,
 };
 
@@ -2650,8 +2542,8 @@ static bool TryDecode_op11(Instruction &inst, uint32_t bits) {
   return func(inst, bits);
 }
 
-static bool (*const kopLevel[])(Instruction &, uint32_t) = {
-    TryDecode_op00, TryDecode_op01, TryDecode_op10, TryDecode_op11};
+static bool (*const kopLevel[])(Instruction &, uint32_t) = {TryDecode_op00, TryDecode_op01,
+                                                            TryDecode_op10, TryDecode_op11};
 
 static uint32_t BytesToBits(const uint8_t *bytes) {
   uint32_t bits = 0;
@@ -2671,12 +2563,12 @@ bool TryDecode(Instruction &inst) {
     const auto bits = BytesToBits(bytes);
     return kopLevel[bits >> 30u](inst, bits);
 
-  // Pseudo-operations, e.g. SET=SETHI+OR.
+    // Pseudo-operations, e.g. SET=SETHI+OR.
   } else if (num_bytes == 8) {
 
     if (inst.in_delay_slot) {
-      LOG(WARNING) << "Decoding 8-byte pseudo-op at " << std::hex << inst.pc
-                   << std::dec << " in delay slot; ignoring second four bytes";
+      LOG(WARNING) << "Decoding 8-byte pseudo-op at " << std::hex << inst.pc << std::dec
+                   << " in delay slot; ignoring second four bytes";
       inst.bytes.resize(4);
       inst.next_pc = inst.pc + 4;
       return TryDecode(inst);
@@ -2706,8 +2598,7 @@ bool TryDecode(Instruction &inst) {
       inst.next_pc = inst.pc + 4;
       ret = TryDecode(inst);
 
-      LOG_IF(ERROR, !ret) << "Unsupported 8-byte instruction: "
-                          << inst.Serialize();
+      LOG_IF(ERROR, !ret) << "Unsupported 8-byte instruction: " << inst.Serialize();
     }
     return ret;
 

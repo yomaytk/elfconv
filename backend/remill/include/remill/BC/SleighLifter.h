@@ -16,14 +16,13 @@
 
 #pragma once
 
-#include <glog/logging.h>
-#include <llvm/IR/IRBuilder.h>
-
-#include <mutex>
-#include <sleigh/libsleigh.hh>
-
 #include "remill/Arch/Instruction.h"
 #include "remill/BC/InstructionLifter.h"
+
+#include <glog/logging.h>
+#include <llvm/IR/IRBuilder.h>
+#include <mutex>
+#include <sleigh/libsleigh.hh>
 
 
 using namespace ghidra;
@@ -56,30 +55,26 @@ class SleighLifter : public InstructionLifter {
  public:
   static const std::string_view kInstructionFunctionPrefix;
 
-  SleighLifter(const remill::Arch &arch_,
-               const remill::sleigh::SleighDecoder &dec_,
+  SleighLifter(const remill::Arch &arch_, const remill::sleigh::SleighDecoder &dec_,
                const IntrinsicTable &intrinsics_);
 
   virtual ~SleighLifter(void) = default;
 
-  LiftStatus
-  LiftIntoBlockWithSleighState(Instruction &inst, llvm::BasicBlock *block,
-                               llvm::Value *state_ptr, bool is_delayed,
-                               const sleigh::MaybeBranchTakenVar &btaken,
-                               const ContextValues &context_values);
+  LiftStatus LiftIntoBlockWithSleighState(Instruction &inst, llvm::BasicBlock *block,
+                                          llvm::Value *state_ptr, bool is_delayed,
+                                          const sleigh::MaybeBranchTakenVar &btaken,
+                                          const ContextValues &context_values);
 
  private:
   static void SetISelAttributes(llvm::Function *);
 
 
-  llvm::Function *DefineInstructionFunction(Instruction &inst,
-                                            llvm::Module *target_mod);
+  llvm::Function *DefineInstructionFunction(Instruction &inst, llvm::Module *target_mod);
 
   std::pair<LiftStatus, std::optional<llvm::Function *>>
-  LiftIntoInternalBlockWithSleighState(
-      Instruction &inst, llvm::Module *target_mod, bool is_delayed,
-      const sleigh::MaybeBranchTakenVar &btaken,
-      const ContextValues &context_values);
+  LiftIntoInternalBlockWithSleighState(Instruction &inst, llvm::Module *target_mod, bool is_delayed,
+                                       const sleigh::MaybeBranchTakenVar &btaken,
+                                       const ContextValues &context_values);
 
   ::Sleigh &GetEngine(void) const;
 };
@@ -93,15 +88,13 @@ class SleighLifterWithState final : public InstructionLifterIntf {
   std::shared_ptr<SleighLifter> lifter;
 
  public:
-  SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken,
-                        ContextValues context_values,
+  SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken, ContextValues context_values,
                         std::shared_ptr<SleighLifter> lifter_);
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr,
-                                   bool is_delayed = false) override;
+                                   llvm::Value *state_ptr, bool is_delayed = false) override;
 
 
   // Load the address of a register.
@@ -110,8 +103,7 @@ class SleighLifterWithState final : public InstructionLifterIntf {
                  std::string_view reg_name) const override;
 
   // Load the value of a register.
-  virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block,
-                                    llvm::Value *state_ptr,
+  virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const override;
 
   virtual llvm::Type *GetMemoryType() override;

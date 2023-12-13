@@ -13,18 +13,15 @@ DecodingContext::DecodingContext(ContextValues context_value)
     : context_value(std::move(context_value)) {}
 
 
-uint64_t
-DecodingContext::GetContextValue(const std::string &context_reg) const {
-  if (auto res = this->context_value.find(context_reg);
-      res != this->context_value.end()) {
+uint64_t DecodingContext::GetContextValue(const std::string &context_reg) const {
+  if (auto res = this->context_value.find(context_reg); res != this->context_value.end()) {
     return res->second;
   }
 
   LOG(FATAL) << "Required context reg value for: " << context_reg;
 }
 
-DecodingContext DecodingContext::PutContextReg(std::string creg,
-                                               uint64_t value) const {
+DecodingContext DecodingContext::PutContextReg(std::string creg, uint64_t value) const {
   auto new_value = context_value;
   new_value.emplace(creg, value);
   return DecodingContext(std::move(new_value));
@@ -43,8 +40,7 @@ bool DecodingContext::HasValueForReg(const std::string &creg) const {
 }
 
 
-DecodingContext
-DecodingContext::ContextWithoutRegister(const std::string &creg) const {
+DecodingContext DecodingContext::ContextWithoutRegister(const std::string &creg) const {
   DecodingContext cpy = *this;
   cpy.DropReg(creg);
   return cpy;

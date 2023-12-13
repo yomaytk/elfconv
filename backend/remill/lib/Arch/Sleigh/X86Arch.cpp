@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "Arch.h"
+
 #include <glog/logging.h>
 #include <llvm/ADT/Triple.h>
 #include <llvm/IR/Attributes.h>
@@ -28,8 +30,6 @@
 #include <remill/BC/Util.h>
 #include <remill/OS/OS.h>
 
-#include "Arch.h"
-
 namespace remill {
 namespace sleigh::x86 {
 
@@ -37,32 +37,26 @@ class SleighX86Decoder final : public SleighDecoder {
  public:
   SleighX86Decoder() = delete;
   SleighX86Decoder(const remill::Arch &arch)
-      : SleighDecoder(
-            arch, kArchX86_SLEIGH == arch.arch_name ? "x86.sla" : "x86-64.sla",
-            kArchX86_SLEIGH == arch.arch_name ? "x86.pspec" : "x86-64.pspec",
-            ContextRegMappings({}, {}), {}) {}
+      : SleighDecoder(arch, kArchX86_SLEIGH == arch.arch_name ? "x86.sla" : "x86-64.sla",
+                      kArchX86_SLEIGH == arch.arch_name ? "x86.pspec" : "x86-64.pspec",
+                      ContextRegMappings({}, {}), {}) {}
 
   // The x86 default context is sufficient. No context register assignments are required.
-  void
-  InitializeSleighContext(uint64_t addr,
-                          remill::sleigh::SingleInstructionSleighContext &ctxt,
-                          const ContextValues &) const override {}
+  void InitializeSleighContext(uint64_t addr, remill::sleigh::SingleInstructionSleighContext &ctxt,
+                               const ContextValues &) const override {}
 
   llvm::Value *LiftPcFromCurrPc(llvm::IRBuilder<> &bldr, llvm::Value *curr_pc,
-                                size_t curr_insn_size,
-                                const DecodingContext &) const final {
+                                size_t curr_insn_size, const DecodingContext &) const final {
 
     // PC on thumb points to the next instructions next.
-    return bldr.CreateAdd(
-        curr_pc, llvm::ConstantInt::get(curr_pc->getType(), curr_insn_size));
+    return bldr.CreateAdd(curr_pc, llvm::ConstantInt::get(curr_pc->getType(), curr_insn_size));
   }
 };
 
 
 class SleighX86Arch : public X86ArchBase {
  public:
-  SleighX86Arch(llvm::LLVMContext *context_, OSName os_name_,
-                ArchName arch_name_)
+  SleighX86Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
       : ArchBase(context_, os_name_, arch_name_),
         X86ArchBase(context_, os_name_, arch_name_),
         decoder(*this) {}
@@ -76,8 +70,7 @@ class SleighX86Arch : public X86ArchBase {
     return this->decoder.GetOpLifter();
   }
 
-  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes,
-                                 Instruction &inst,
+  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes, Instruction &inst,
                                  DecodingContext context) const override {
     return decoder.DecodeInstruction(address, instr_bytes, inst, context);
   }
@@ -89,7 +82,6 @@ class SleighX86Arch : public X86ArchBase {
 }  // namespace sleigh::x86
 Arch::ArchPtr Arch::GetSleighX86(llvm::LLVMContext *context_, OSName os_name_,
                                  ArchName arch_name_) {
-  return std::make_unique<sleigh::x86::SleighX86Arch>(context_, os_name_,
-                                                      arch_name_);
+  return std::make_unique<sleigh::x86::SleighX86Arch>(context_, os_name_, arch_name_);
 }
 }  // namespace remill

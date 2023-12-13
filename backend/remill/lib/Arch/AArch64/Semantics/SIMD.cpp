@@ -43,8 +43,7 @@ DEF_SEM(EOR_Vec, V128W dst, S src1, S src2) {
   auto operand1 = UReadV64(src2);
   auto operand2 = UClearV64(operand4);
   auto operand3 = UNotV64(operand2);
-  UWriteV64(dst,
-            UXorV64(operand1, UAndV64(UXorV64(operand2, operand4), operand3)));
+  UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand2, operand4), operand3)));
   return memory;
 }
 
@@ -53,8 +52,7 @@ DEF_SEM(BIT_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand4 = UReadV64(src1);
   auto operand1 = UReadV64(dst_src);
   auto operand3 = UReadV64(src2);
-  UWriteV64(dst,
-            UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
+  UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
   return memory;
 }
 
@@ -63,8 +61,7 @@ DEF_SEM(BIF_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand4 = UReadV64(src1);
   auto operand1 = UReadV64(dst_src);
   auto operand3 = UNotV64(UReadV64(src2));
-  UWriteV64(dst,
-            UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
+  UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
   return memory;
 }
 
@@ -73,8 +70,7 @@ DEF_SEM(BSL_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand4 = UReadV64(src1);
   auto operand1 = UReadV64(src2);
   auto operand3 = UReadV64(dst_src);
-  UWriteV64(dst,
-            UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
+  UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
   return memory;
 }
 
@@ -174,10 +170,9 @@ ALWAYS_INLINE static T UMax(T lhs, T rhs) {
     auto vec1 = prefix##ReadV##size(src1); \
     auto vec2 = prefix##ReadV##size(src2); \
     V sum = {}; \
-    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(sum); \
-                           i < max_i; ++i) { \
-      sum.elems[i] = prefix##binop(prefix##ExtractV##size(vec1, i), \
-                                   prefix##ExtractV##size(vec2, i)); \
+    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(sum); i < max_i; ++i) { \
+      sum.elems[i] = \
+          prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec2, i)); \
     } \
     prefix##WriteV##size(dst, sum); \
     return memory; \
@@ -268,11 +263,8 @@ namespace {
     decltype(ucmp_val) zeros = 0; \
     decltype(ucmp_val) ones = ~zeros; \
     V res = {}; \
-    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); \
-                           i < max_i; ++i) { \
-      res.elems[i] = \
-          Select(prefix##binop(prefix##ExtractV##size(vec1, i), cmp_val), \
-                 ones, zeros); \
+    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); i < max_i; ++i) { \
+      res.elems[i] = Select(prefix##binop(prefix##ExtractV##size(vec1, i), cmp_val), ones, zeros); \
     } \
     UWriteV##size(dst, res); \
     return memory; \
@@ -365,11 +357,10 @@ namespace {
     uint##size##_t zeros = 0; \
     uint##size##_t ones = ~zeros; \
     V res = {}; \
-    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); \
-                           i < max_i; ++i) { \
-      res.elems[i] = Select(prefix##binop(prefix##ExtractV##size(vec1, i), \
-                                          prefix##ExtractV##size(vec2, i)), \
-                            ones, zeros); \
+    _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); i < max_i; ++i) { \
+      res.elems[i] = \
+          Select(prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec2, i)), \
+                 ones, zeros); \
     } \
     UWriteV##size(dst, res); \
     return memory; \
@@ -455,12 +446,12 @@ namespace {
     size_t max_i = NumVectorElems(res); \
     size_t j = 0; \
     _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
-      res.elems[j++] = prefix##binop(prefix##ExtractV##size(vec1, i), \
-                                     prefix##ExtractV##size(vec1, i + 1)); \
+      res.elems[j++] = \
+          prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec1, i + 1)); \
     } \
     _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
-      res.elems[j++] = prefix##binop(prefix##ExtractV##size(vec2, i), \
-                                     prefix##ExtractV##size(vec2, i + 1)); \
+      res.elems[j++] = \
+          prefix##binop(prefix##ExtractV##size(vec2, i), prefix##ExtractV##size(vec2, i + 1)); \
     } \
     prefix##WriteV##size(dst, res); \
     return memory; \
@@ -560,8 +551,7 @@ ALWAYS_INLINE static auto Reduce16(const V &vec, B binop, size_t base = 0)
 }
 
 template <typename V, typename B>
-ALWAYS_INLINE static auto Reduce(const V &vec, B binop)
-    -> decltype(Reduce2(vec, binop)) {
+ALWAYS_INLINE static auto Reduce(const V &vec, B binop) -> decltype(Reduce2(vec, binop)) {
   switch (NumVectorElems(vec)) {
     case 2: return Reduce2(vec, binop);
     case 4: return Reduce4(vec, binop);

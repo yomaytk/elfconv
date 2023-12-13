@@ -18,8 +18,7 @@
 
 namespace {
 
-ALWAYS_INLINE void SetFlagsLogical(State &state, uint64_t lhs, uint64_t rhs,
-                                   uint64_t res) {
+ALWAYS_INLINE void SetFlagsLogical(State &state, uint64_t lhs, uint64_t rhs, uint64_t res) {
   const auto res_32 = static_cast<uint32_t>(res);
   FLAG_ICC_CF = false;
   FLAG_ICC_ZF = ZeroFlag(res_32, lhs, rhs);

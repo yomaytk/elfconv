@@ -18,70 +18,65 @@
 
 #include <glog/logging.h>
 #include <llvm/Support/JSON.h>
-
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace {
-const static std::unordered_map<
-    std::string, std::function<void(X86State *, std::string_view)>>
-    accessors = {
-        {"gpr",
-         [](X86State *state, std::string_view target) {
-           uint32_t *target_ptr =
-               [state](std::string_view target) -> uint32_t * {
-             if (target == "rip") {
-               return &state->gpr.rip.dword;
-             }
+const static std::unordered_map<std::string, std::function<void(X86State *, std::string_view)>>
+    accessors = {{"gpr",
+                  [](X86State *state, std::string_view target) {
+                    uint32_t *target_ptr = [state](std::string_view target) -> uint32_t * {
+                      if (target == "rip") {
+                        return &state->gpr.rip.dword;
+                      }
 
-             if (target == "rax") {
-               return &state->gpr.rax.dword;
-             }
+                      if (target == "rax") {
+                        return &state->gpr.rax.dword;
+                      }
 
-             return nullptr;
-           }(target);
+                      return nullptr;
+                    }(target);
 
 
-           if (!target_ptr) {
-             std::string s(target);
-             throw std::runtime_error(std::string("Unknown reg: ") + s);
-           }
+                    if (!target_ptr) {
+                      std::string s(target);
+                      throw std::runtime_error(std::string("Unknown reg: ") + s);
+                    }
 
-           *target_ptr = 0;
-         }},
-        {"aflags", [](X86State *state, std::string_view target) {
-           uint8_t *target_ptr = [state](std::string_view target) -> uint8_t * {
-             if (target == "af") {
-               return &state->aflag.af;
-             }
+                    *target_ptr = 0;
+                  }},
+                 {"aflags", [](X86State *state, std::string_view target) {
+                    uint8_t *target_ptr = [state](std::string_view target) -> uint8_t * {
+                      if (target == "af") {
+                        return &state->aflag.af;
+                      }
 
-             if (target == "zf") {
-               return &state->aflag.zf;
-             }
+                      if (target == "zf") {
+                        return &state->aflag.zf;
+                      }
 
-             if (target == "of") {
-               return &state->aflag.of;
-             }
+                      if (target == "of") {
+                        return &state->aflag.of;
+                      }
 
-             return nullptr;
-           }(target);
+                      return nullptr;
+                    }(target);
 
 
-           if (!target_ptr) {
-             std::string s(target);
-             throw std::runtime_error(std::string("Unknown reg: ") + s);
-           }
+                    if (!target_ptr) {
+                      std::string s(target);
+                      throw std::runtime_error(std::string("Unknown reg: ") + s);
+                    }
 
-           *target_ptr = 0;
-         }}};
+                    *target_ptr = 0;
+                  }}};
 }
 
 
 void Accessor::ApplyOverride(X86State *state) const {
   if (accessors.find(this->section) == accessors.end()) {
-    throw std::runtime_error(std::string("Couldnt find section ") +
-                             std::string(this->section));
+    throw std::runtime_error(std::string("Couldnt find section ") + std::string(this->section));
   }
 
   accessors.find(this->section)->second(state, this->target_name);
@@ -95,8 +90,7 @@ bool Accessor::fromJSON(const llvm::json::Value &E, llvm::json::Path P) {
 
   if (section_names.size() != 2) {
     P.field("state_target")
-        .report(
-            "Currently only supports access paths of the form [section, target_var]");
+        .report("Currently only supports access paths of the form [section, target_var]");
     return false;
   }
 
@@ -107,8 +101,7 @@ bool Accessor::fromJSON(const llvm::json::Value &E, llvm::json::Path P) {
 }
 
 
-bool WhiteListInstruction::fromJSON(const llvm::json::Value &E,
-                                    llvm::json::Path P) {
+bool WhiteListInstruction::fromJSON(const llvm::json::Value &E, llvm::json::Path P) {
   auto maybe_obj = E.getAsObject();
   if (!maybe_obj) {
     P.report("Should be an object");
@@ -122,8 +115,7 @@ bool WhiteListInstruction::fromJSON(const llvm::json::Value &E,
   }
 
   std::string isel_name = "";
-  if (!llvm::json::fromJSON(maybe_isel_name->second, isel_name,
-                            P.field("isel_name"))) {
+  if (!llvm::json::fromJSON(maybe_isel_name->second, isel_name, P.field("isel_name"))) {
     return false;
   }
 
@@ -134,8 +126,7 @@ bool WhiteListInstruction::fromJSON(const llvm::json::Value &E,
     return false;
   }
 
-  if (!llvm::json::fromJSON(maybe_state_target->second,
-                            this->target_state_portion,
+  if (!llvm::json::fromJSON(maybe_state_target->second, this->target_state_portion,
                             P.field("state_target"))) {
     return false;
   }
@@ -145,8 +136,7 @@ bool WhiteListInstruction::fromJSON(const llvm::json::Value &E,
   return true;
 }
 
-void WhiteListInstruction::ApplyToInsn(std::string_view isel_name,
-                                       X86State *state) const {
+void WhiteListInstruction::ApplyToInsn(std::string_view isel_name, X86State *state) const {
   if (isel_name.rfind(target_isel_prefix, 0) == 0) {
     this->target_state_portion.ApplyOverride(state);
   }

@@ -16,16 +16,15 @@
 
 #pragma once
 
-#include <glog/logging.h>
+#include "lib/Arch/Sleigh/ControlFlowStructuring.h"
 
 #include <cstddef>
+#include <glog/logging.h>
 #include <map>
 #include <mutex>
 #include <sleigh/libsleigh.hh>
 #include <variant>
 #include <vector>
-
-#include "lib/Arch/Sleigh/ControlFlowStructuring.h"
 
 
 namespace remill::sleigh {
@@ -56,8 +55,7 @@ class PcodeBlock {
   // Default block with an instruction exit and no ops.
   PcodeBlock(size_t base_index);
 
-  PcodeBlock(size_t base_index, std::vector<RemillPcodeOp> ops,
-             BlockExit block_exit);
+  PcodeBlock(size_t base_index, std::vector<RemillPcodeOp> ops, BlockExit block_exit);
 };
 
 class PcodeCFG {

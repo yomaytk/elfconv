@@ -24,8 +24,7 @@ DEF_SEM(CallSupervisor, I32, R64W) {
 
 DEF_SEM(Breakpoint, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kAArch64Breakpoint);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kAArch64Breakpoint);
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_FPSR, R64W dest) {

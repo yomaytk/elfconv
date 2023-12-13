@@ -53,16 +53,14 @@ DEF_SEM(IMPDEP1, I32 opf) {
   HYPER_CALL_VECTOR = Literal<decltype(state.hyper_call_vector)>(Read(opf));
   return __remill_sync_hyper_call(
       state, memory,
-      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction,
-                                   kSPARC64EmulateInstruction));
+      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction, kSPARC64EmulateInstruction));
 }
 
 DEF_SEM(IMPDEP2, I32 opf) {
   HYPER_CALL_VECTOR = Literal<decltype(state.hyper_call_vector)>(Read(opf));
   return __remill_sync_hyper_call(
       state, memory,
-      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction,
-                                   kSPARC64EmulateInstruction));
+      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction, kSPARC64EmulateInstruction));
 }
 
 }  // namespace

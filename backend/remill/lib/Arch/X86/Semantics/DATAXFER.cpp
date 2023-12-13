@@ -121,9 +121,8 @@ DEF_SEM(MOVLPD, D dst, Fs... fargs, S src) {
 
 DEF_SEM(VMOVLPS, VV128W dst, V128 src1, MV64 src2) {
   auto low_vec = FReadV32(src2);
-  FWriteV32(
-      dst, FInsertV32(FInsertV32(FReadV32(src1), 0, FExtractV32(low_vec, 0)), 1,
-                      FExtractV32(low_vec, 1)));
+  FWriteV32(dst, FInsertV32(FInsertV32(FReadV32(src1), 0, FExtractV32(low_vec, 0)), 1,
+                            FExtractV32(low_vec, 1)));
   return memory;
 }
 
@@ -194,8 +193,7 @@ DEF_ISEL_RnW_Mn(MOV_OrAX_MEMv, MOV);
 DEF_ISEL(MOV_MEMb_AL) = MOV<M8W, R8>;
 DEF_ISEL_MnW_Rn(MOV_MEMv_OrAX, MOV);
 DEF_ISEL(MOV_GPR8_IMMb_D0) = MOV<R8W, I8>;
-DEF_ISEL(MOV_GPR8_IMMb_B0) =
-    MOV<R8W, I8>;  // https://github.com/intelxed/xed/commit/906d25
+DEF_ISEL(MOV_GPR8_IMMb_B0) = MOV<R8W, I8>;  // https://github.com/intelxed/xed/commit/906d25
 DEF_ISEL_RnW_In(MOV_GPRv_IMMv, MOV);
 
 DEF_ISEL(MOVNTI_MEMd_GPR32) = MOV<M32W, R32>;
@@ -664,36 +662,31 @@ namespace {
 template <typename T>
 DEF_SEM(MOV_ES, R16W dst, T src) {
   Write(dst, Read(src));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kX86SetSegmentES);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SetSegmentES);
 }
 
 template <typename T>
 DEF_SEM(MOV_SS, R16W dst, T src) {
   Write(dst, Read(src));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kX86SetSegmentSS);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SetSegmentSS);
 }
 
 template <typename T>
 DEF_SEM(MOV_DS, R16W dst, T src) {
   Write(dst, Read(src));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kX86SetSegmentDS);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SetSegmentDS);
 }
 
 template <typename T>
 DEF_SEM(MOV_FS, R16W dst, T src) {
   Write(dst, Read(src));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kX86SetSegmentFS);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SetSegmentFS);
 }
 
 template <typename T>
 DEF_SEM(MOV_GS, R16W dst, T src) {
   Write(dst, Read(src));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kX86SetSegmentGS);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SetSegmentGS);
 }
 
 }  // namespace

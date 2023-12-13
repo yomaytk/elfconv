@@ -127,8 +127,7 @@ struct alignas(8) FPURegs final {
   vec128_t v[8];
 } __attribute__((packed));
 
-static_assert(128 == sizeof(struct FPURegs),
-              "Invalid packing of `struct FPURegs`.");
+static_assert(128 == sizeof(struct FPURegs), "Invalid packing of `struct FPURegs`.");
 
 struct FSRReg final {
   volatile uint8_t _0;
@@ -157,8 +156,7 @@ struct FSRReg final {
   uint8_t fcc3;
 } __attribute__((packed));
 
-static_assert(24 == sizeof(struct FSRReg),
-              "Invalid packing of `struct FSRReg`.");
+static_assert(24 == sizeof(struct FSRReg), "Invalid packing of `struct FSRReg`.");
 
 // Integer condition code register flags
 struct ICCRFlags final {
@@ -344,8 +342,7 @@ struct alignas(16) SPARC32State : public ArchState {
   uint32_t window;
 #else
   RegisterWindow *window;  // smuggled.
-  static_assert(sizeof(RegisterWindow *) == 4,
-                "Invalid size of `RegisterWindow`");
+  static_assert(sizeof(RegisterWindow *) == 4, "Invalid size of `RegisterWindow`");
 #endif
 };
 

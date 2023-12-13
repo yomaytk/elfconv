@@ -31,8 +31,7 @@
 #    define REMILL_ON_WINDOWS 0
 #    define REMILL_ON_SOLARIS 0
 #    define REMILL_OS "linux"
-#  elif defined(WIN32) || defined(_WIN32) || defined(_WIN64) || \
-      defined(_MSC_VER)
+#  elif defined(WIN32) || defined(_WIN32) || defined(_WIN64) || defined(_MSC_VER)
 #    define REMILL_ON_MACOS 0
 #    define REMILL_ON_LINUX 0
 #    define REMILL_ON_WINDOWS 1

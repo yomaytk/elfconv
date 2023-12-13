@@ -30,8 +30,7 @@ DEF_SEM(LEA, D dst, S src) {
 DEF_SEM(LEAVE_16BIT) {
   addr_t op_size = 2;
   addr_t link_pointer = Read(REG_XBP);
-  addr_t base_pointer =
-      Read(ReadPtr<addr_t>(link_pointer _IF_32BIT(REG_SS_BASE)));
+  addr_t base_pointer = Read(ReadPtr<addr_t>(link_pointer _IF_32BIT(REG_SS_BASE)));
   Write(REG_XBP, base_pointer);
   Write(REG_XSP, UAdd(link_pointer, op_size));
   return memory;
@@ -41,8 +40,7 @@ template <typename T>
 DEF_SEM(LEAVE_FULL) {
   addr_t op_size = TruncTo<addr_t>(sizeof(T));
   addr_t link_pointer = Read(REG_XBP);
-  addr_t base_pointer =
-      Read(ReadPtr<addr_t>(link_pointer _IF_32BIT(REG_SS_BASE)));
+  addr_t base_pointer = Read(ReadPtr<addr_t>(link_pointer _IF_32BIT(REG_SS_BASE)));
   Write(REG_XBP, base_pointer);
   Write(REG_XSP, UAdd(link_pointer, op_size));
   return memory;
@@ -71,8 +69,7 @@ DEF_SEM(ENTER, I16 src1, I8 src2) {
   addr_t nesting_level = ZExtTo<addr_t>(URem(Read(src2), 32_u8));
   addr_t xsp_temp = Read(REG_XSP);
   addr_t frame_temp = USub(xsp_temp, op_size);
-  addr_t next_xsp =
-      USub(USub(frame_temp, UMul(op_size, nesting_level)), alloc_size);
+  addr_t next_xsp = USub(USub(frame_temp, UMul(op_size, nesting_level)), alloc_size);
 
   // Detect failure. This should really happen at the end of `ENTER` but we
   // do it here. This is why `frame_temp` is created before the `PUSH` of
@@ -84,8 +81,7 @@ DEF_SEM(ENTER, I16 src1, I8 src2) {
   addr_t xbp_temp = Read(REG_XBP);
   addr_t xsp_after_push = USub(xsp_temp, op_size);
   Write(REG_XSP, xsp_after_push);
-  Write(WritePtr<T>(xsp_after_push _IF_32BIT(REG_SS_BASE)),
-        TruncTo<T>(xbp_temp));
+  Write(WritePtr<T>(xsp_after_push _IF_32BIT(REG_SS_BASE)), TruncTo<T>(xbp_temp));
   xsp_temp = xsp_after_push;
 
   if (nesting_level) {
@@ -147,8 +143,7 @@ DEF_SEM(DoLFENCE) {
 DEF_SEM(DoXLAT) {
   addr_t base = Read(REG_XBX);
   addr_t offset = ZExtTo<addr_t>(Read(REG_AL));
-  Write(REG_AL,
-        Read(ReadPtr<uint8_t>(UAdd(base, offset) _IF_32BIT(REG_DS_BASE))));
+  Write(REG_AL, Read(ReadPtr<uint8_t>(UAdd(base, offset) _IF_32BIT(REG_DS_BASE))));
   return memory;
 }
 
@@ -177,11 +172,9 @@ DEF_ISEL(XLAT) = DoXLAT;
 
 DEF_ISEL(CPUID) = DoCPUID;
 
-DEF_ISEL(UD0_GPR32_MEMd) =
-    DoNothingWithParam<R32, M32, IF_32BIT_ELSE(R32W, R64W)>;
+DEF_ISEL(UD0_GPR32_MEMd) = DoNothingWithParam<R32, M32, IF_32BIT_ELSE(R32W, R64W)>;
 
-DEF_ISEL(UD1_GPR32_MEMd) =
-    DoNothingWithParam<R32, M32, IF_32BIT_ELSE(R32W, R64W)>;
+DEF_ISEL(UD1_GPR32_MEMd) = DoNothingWithParam<R32, M32, IF_32BIT_ELSE(R32W, R64W)>;
 
 DEF_ISEL(UD2) = DoNothingWithParam<IF_32BIT_ELSE(R32W, R64W)>;
 

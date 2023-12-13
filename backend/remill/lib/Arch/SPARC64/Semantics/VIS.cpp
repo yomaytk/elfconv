@@ -65,11 +65,10 @@ DEF_SEM(EDGE8CC, R64 src1, R64 src2, R64W dst) {
   auto rs2_shifted = UShr(rs2, shift);
   auto left_edge = UShr(omask, decltype(omask)(l1));
   auto right_edge = UShl(omask, decltype(omask)(USub(imask, l2)));
-  auto value = Select(UCmpEq(rs1_shifted, rs2_shifted), left_edge,
-                      UAnd(right_edge, left_edge));
+  auto value = Select(UCmpEq(rs1_shifted, rs2_shifted), left_edge, UAnd(right_edge, left_edge));
   auto diff = USub(rs1, rs2);
-  WriteICCFlagsAddSub<tag_sub>(state, Literal<uint32_t>(rs1),
-                               Literal<uint32_t>(rs2), Literal<uint32_t>(diff));
+  WriteICCFlagsAddSub<tag_sub>(state, Literal<uint32_t>(rs1), Literal<uint32_t>(rs2),
+                               Literal<uint32_t>(diff));
   WriteXCCFlagsAddSub<tag_sub>(state, rs1, rs2, diff);
   WriteZExt(dst, value);
   return memory;
@@ -92,16 +91,14 @@ DEF_SEM(IMPDEP1, I32 opf) {
   HYPER_CALL_VECTOR = Literal<decltype(state.hyper_call_vector)>(Read(opf));
   return __remill_sync_hyper_call(
       state, memory,
-      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction,
-                                   kSPARC64EmulateInstruction));
+      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction, kSPARC64EmulateInstruction));
 }
 
 DEF_SEM(IMPDEP2, I32 opf) {
   HYPER_CALL_VECTOR = Literal<decltype(state.hyper_call_vector)>(Read(opf));
   return __remill_sync_hyper_call(
       state, memory,
-      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction,
-                                   kSPARC64EmulateInstruction));
+      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction, kSPARC64EmulateInstruction));
 }
 
 }  // namespace

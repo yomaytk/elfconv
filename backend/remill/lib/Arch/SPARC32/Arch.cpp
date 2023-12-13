@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <glog/logging.h>
-#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchImpl`.
-
 #include "Decode.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
 #include "remill/BC/ABI.h"
 #include "remill/BC/Util.h"
 #include "remill/OS/OS.h"
+
+#include <glog/logging.h>
+#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchImpl`.
 
 // clang-format off
 #define ADDRESS_SIZE_BITS 32
@@ -41,13 +41,11 @@ static const std::string_view kPCRegName = "pc";
 
 const std::string_view kCCRName[4] = {"icc", {}, "xcc", {}};
 
-const std::string_view kFCCRName[8] = {"fcc0", "fcc1", "fcc2", "fcc3",
-                                       "icc",  {},     "xcc",  {}};
+const std::string_view kFCCRName[8] = {"fcc0", "fcc1", "fcc2", "fcc3", "icc", {}, "xcc", {}};
 
 const std::string_view kReadIntRegName[32] = {
-    "g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "o0", "o1", "o2",
-    "o3", "o4", "o5", "sp", "o7", "l0", "l1", "l2", "l3", "l4", "l5",
-    "l6", "l7", "i0", "i1", "i2", "i3", "i4", "i5", "fp", "i7"};
+    "g0", "g1", "g2", "g3", "g4", "g5", "g6", "g7", "o0", "o1", "o2", "o3", "o4", "o5", "sp", "o7",
+    "l0", "l1", "l2", "l3", "l4", "l5", "l6", "l7", "i0", "i1", "i2", "i3", "i4", "i5", "fp", "i7"};
 
 const std::string_view kWriteIntRegName[32] = {"ignore_write_to_g0",
                                                "g1",
@@ -157,8 +155,7 @@ class SPARC32Arch final : public DefaultContextAndLifter {
   }
 
   // Maximum number of bytes in an instruction.
-  uint64_t MaxInstructionSize(const DecodingContext &,
-                              bool permit_fuse_idioms) const final {
+  uint64_t MaxInstructionSize(const DecodingContext &, bool permit_fuse_idioms) const final {
     return permit_fuse_idioms ? 8 : 4;  // To handle `SET` idioms.
   }
 
@@ -172,9 +169,8 @@ class SPARC32Arch final : public DefaultContextAndLifter {
 
   // Populate a just-initialized lifted function function with architecture-
   // specific variables.
-  void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const override;
+  void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                          llvm::Function *bb_func) const override;
 
   llvm::Triple Triple(void) const final;
   llvm::DataLayout DataLayout(void) const final;
@@ -194,8 +190,7 @@ class SPARC32Arch final : public DefaultContextAndLifter {
   // Returns `true` if we should lift the semantics of `next_inst` as a delay
   // slot of `inst`. The `branch_taken_path` tells us whether we are in the
   // context of the taken path of a branch or the not-taken path of a branch.
-  virtual bool NextInstructionIsDelayed(const Instruction &inst,
-                                        const Instruction &next_inst,
+  virtual bool NextInstructionIsDelayed(const Instruction &inst, const Instruction &next_inst,
                                         bool branch_taken_path) const final;
 };
 
@@ -205,11 +200,10 @@ void SPARC32Arch::PopulateRegisterTable(void) const {
   reg_by_offset.resize(sizeof(SPARC32State));
 
 #define OFFSET_OF(type, access) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<const volatile char &>( \
-      static_cast<type *>(nullptr)->access)))
+  (reinterpret_cast<uintptr_t>( \
+      &reinterpret_cast<const volatile char &>(static_cast<type *>(nullptr)->access)))
 
-#define REG(name, access, type) \
-  AddRegister(#name, type, OFFSET_OF(SPARC32State, access), nullptr)
+#define REG(name, access, type) AddRegister(#name, type, OFFSET_OF(SPARC32State, access), nullptr)
 
 #define SUB_REG(name, access, type, parent_reg_name) \
   AddRegister(#name, type, OFFSET_OF(SPARC32State, access), #parent_reg_name)
@@ -380,8 +374,8 @@ void SPARC32Arch::PopulateRegisterTable(void) const {
 
 // Populate a just-initialized lifted function function with architecture-
 // specific variables.
-void SPARC32Arch::FinishLiftedFunctionInitialization(
-    llvm::Module *module, llvm::Function *bb_func) const {
+void SPARC32Arch::FinishLiftedFunctionInitialization(llvm::Module *module,
+                                                     llvm::Function *bb_func) const {
 
   auto &context = module->getContext();
   auto u8 = llvm::Type::getInt8Ty(context);
@@ -394,8 +388,7 @@ void SPARC32Arch::FinishLiftedFunctionInitialization(
   llvm::IRBuilder<> ir(entry_block);
 
   ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "g0"), false);
-  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "ignore_write_to_g0"),
-                 false);
+  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "ignore_write_to_g0"), false);
 
   // this is for unknown asr to avoid crash.
   ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "asr"), false);
@@ -413,27 +406,21 @@ void SPARC32Arch::FinishLiftedFunctionInitialization(
 
   // `WINDOW_LINK = &(WINDOW->prev_window);`
   llvm::Value *gep_indexes[2] = {zero_u32, llvm::ConstantInt::get(u32, 33)};
-  auto window_link =
-      ir.CreateInBoundsGEP(window_type, window, gep_indexes, "WINDOW_LINK");
+  auto window_link = ir.CreateInBoundsGEP(window_type, window, gep_indexes, "WINDOW_LINK");
   auto nullptr_window = llvm::Constant::getNullValue(prev_window_link->type);
   ir.CreateStore(nullptr_window, window_link, false);
 
-  ir.CreateStore(zero_u8, ir.CreateAlloca(u8, nullptr, "IGNORE_BRANCH_TAKEN"),
-                 false);
+  ir.CreateStore(zero_u8, ir.CreateAlloca(u8, nullptr, "IGNORE_BRANCH_TAKEN"), false);
   ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "IGNORE_PC"), false);
-  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "IGNORE_NEXT_PC"),
-                 false);
-  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "IGNORE_RETURN_PC"),
-                 false);
+  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "IGNORE_NEXT_PC"), false);
+  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "IGNORE_RETURN_PC"), false);
 
   const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
 
   (void) RegisterByName(kNextPCVariableName)->AddressOf(state_ptr_arg, ir);
 
-  ir.CreateStore(pc_arg,
-                 RegisterByName(kPCVariableName)->AddressOf(state_ptr_arg, ir),
-                 false);
+  ir.CreateStore(pc_arg, RegisterByName(kPCVariableName)->AddressOf(state_ptr_arg, ir), false);
 }
 
 llvm::Triple SPARC32Arch::Triple(void) const {
@@ -448,15 +435,13 @@ llvm::DataLayout SPARC32Arch::DataLayout(void) const {
 
 // Returns `true` if a given instruction might have a delay slot.
 bool SPARC32Arch::MayHaveDelaySlot(const Instruction &inst) const {
-  return inst.has_branch_taken_delay_slot ||
-         inst.has_branch_not_taken_delay_slot;
+  return inst.has_branch_taken_delay_slot || inst.has_branch_not_taken_delay_slot;
 }
 
 // Returns `true` if we should lift the semantics of `next_inst` as a delay
 // slot of `inst`. The `branch_taken_path` tells us whether we are in the
 // context of the taken path of a branch or the not-taken path of a branch.
-bool SPARC32Arch::NextInstructionIsDelayed(const Instruction &inst,
-                                           const Instruction &next_inst,
+bool SPARC32Arch::NextInstructionIsDelayed(const Instruction &inst, const Instruction &next_inst,
                                            bool branch_taken_path) const {
   if (inst.delayed_pc != next_inst.pc) {
     return false;
@@ -470,8 +455,7 @@ bool SPARC32Arch::NextInstructionIsDelayed(const Instruction &inst,
 }
 
 // Decode an instruction.
-bool SPARC32Arch::ArchDecodeInstruction(uint64_t address,
-                                        std::string_view inst_bytes,
+bool SPARC32Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                         Instruction &inst) const {
   inst.pc = address;
   inst.arch_name = arch_name;
@@ -515,14 +499,12 @@ bool SPARC32Arch::ArchDecodeInstruction(uint64_t address,
 }  // namespace sparc
 
 // TODO(pag): We pretend that these are singletons, but they aren't really!
-Arch::ArchPtr Arch::GetSPARC(llvm::LLVMContext *context_, OSName os_name_,
-                             ArchName arch_name_) {
+Arch::ArchPtr Arch::GetSPARC(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_) {
   if (arch_name_ == kArchSparc32) {
     return std::make_unique<sparc::SPARC32Arch>(context_, os_name_, arch_name_);
 
   } else {
-    LOG(FATAL) << "Invalid arch name passed to Arch::GetSPARC: "
-               << GetArchName(arch_name_);
+    LOG(FATAL) << "Invalid arch name passed to Arch::GetSPARC: " << GetArchName(arch_name_);
     return {};
   }
 }

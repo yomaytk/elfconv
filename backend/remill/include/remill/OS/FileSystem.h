@@ -27,8 +27,7 @@ bool TryCreateDirectory(const std::string &dir_name);
 using DirectoryVisitor = std::function<bool(const std::string &path)>;
 
 // Iterator over a directory.
-void ForEachFileInDirectory(const std::string &dir_name,
-                            DirectoryVisitor visitor);
+void ForEachFileInDirectory(const std::string &dir_name, DirectoryVisitor visitor);
 
 std::string CurrentWorkingDirectory(void);
 
@@ -40,8 +39,7 @@ uint64_t FileSize(const std::string &path);
 
 void RemoveFile(const std::string &path);
 bool RenameFile(const std::string &from_path, const std::string &to_path);
-void HardLinkOrCopyFile(const std::string &from_path,
-                        const std::string &to_path);
+void HardLinkOrCopyFile(const std::string &from_path, const std::string &to_path);
 void CopyFile(const std::string &from_path, const std::string &to_path);
 void MoveFile(const std::string &from_path, const std::string &to_path);
 

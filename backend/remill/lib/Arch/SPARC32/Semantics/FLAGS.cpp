@@ -76,8 +76,8 @@ struct Overflow<tag_add> {
     const T sign_lhs = lhs >> kSignShift;
     const T sign_rhs = rhs >> kSignShift;
     const T sign_res = res >> kSignShift;
-    return __remill_flag_computation_overflow(
-        2 == ((sign_lhs ^ sign_res) + (sign_rhs ^ sign_res)), lhs, rhs, res);
+    return __remill_flag_computation_overflow(2 == ((sign_lhs ^ sign_res) + (sign_rhs ^ sign_res)),
+                                              lhs, rhs, res);
   }
 };
 
@@ -86,9 +86,8 @@ template <>
 struct Overflow<tag_sub> {
   template <typename T>
   [[gnu::const]] ALWAYS_INLINE static bool Flag(T lhs, T rhs, T res) {
-    static_assert(std::is_unsigned<T>::value,
-                  "Invalid specialization of `Overflow::Flag` for "
-                  "subtraction.");
+    static_assert(std::is_unsigned<T>::value, "Invalid specialization of `Overflow::Flag` for "
+                                              "subtraction.");
     enum { kSignShift = sizeof(T) * 8 - 1 };
 
     // Overflow occurs on subtraction if the operands have different signs and
@@ -97,8 +96,8 @@ struct Overflow<tag_sub> {
     const T sign_lhs = lhs >> kSignShift;
     const T sign_rhs = rhs >> kSignShift;
     const T sign_res = res >> kSignShift;
-    return __remill_flag_computation_overflow(
-        2 == ((sign_lhs ^ sign_rhs) + (sign_lhs ^ sign_res)), lhs, rhs, res);
+    return __remill_flag_computation_overflow(2 == ((sign_lhs ^ sign_rhs) + (sign_lhs ^ sign_res)),
+                                              lhs, rhs, res);
   }
 };
 
@@ -110,19 +109,17 @@ struct Overflow<tag_mul> {
   // the operands.
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static bool
-  Flag(T lhs, T rhs, R res,
-       typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
+  Flag(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
 
-    return __remill_flag_computation_overflow(
-        static_cast<R>(static_cast<T>(res)) != res, lhs, rhs, res);
+    return __remill_flag_computation_overflow(static_cast<R>(static_cast<T>(res)) != res, lhs, rhs,
+                                              res);
   }
 
   // Signed integer multiplication overflow check, where the result is
   // truncated to the size of the operands.
   template <typename T>
   [[gnu::const]] ALWAYS_INLINE static bool
-  Flag(T lhs, T rhs, T,
-       typename std::enable_if<std::is_signed<T>::value, int>::type = 0) {
+  Flag(T lhs, T rhs, T, typename std::enable_if<std::is_signed<T>::value, int>::type = 0) {
     auto lhs_wide = SExt(lhs);
     auto rhs_wide = SExt(rhs);
     return Flag<T, decltype(lhs_wide)>(lhs, rhs, lhs_wide * rhs_wide);
@@ -134,20 +131,17 @@ template <>
 struct Overflow<tag_sdiv> {
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static bool
-  Flag(T lhs, T rhs, R res,
-       typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
+  Flag(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
 
     enum { kSignShift = sizeof(T) * 8 - 1 };
 
     return __remill_flag_computation_overflow(
-        (SExt(res << kSignShift) > 0) || (SExt(res << kSignShift) < -1), lhs,
-        rhs, res);
+        (SExt(res << kSignShift) > 0) || (SExt(res << kSignShift) < -1), lhs, rhs, res);
   }
 
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static R
-  Value(T lhs, T rhs, R res,
-        typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
+  Value(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
 
     enum { kSignShift = sizeof(T) * 8 - 1 };
 
@@ -167,19 +161,16 @@ template <>
 struct Overflow<tag_udiv> {
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static bool
-  Flag(T lhs, T rhs, R res,
-       typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
+  Flag(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
 
     enum { kShift = sizeof(T) * 8 };
 
-    return __remill_flag_computation_overflow((SExt(res << kShift) > 0), lhs,
-                                              rhs, res);
+    return __remill_flag_computation_overflow((SExt(res << kShift) > 0), lhs, rhs, res);
   }
 
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static R
-  Value(T lhs, T rhs, R res,
-        typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
+  Value(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
 
     enum { kShift = sizeof(T) * 8 };
 
@@ -204,8 +195,7 @@ struct Carry<tag_add> {
   [[gnu::const]] ALWAYS_INLINE static bool Flag(T lhs, T rhs, T res) {
     static_assert(std::is_unsigned<T>::value,
                   "Invalid specialization of `Carry::Flag` for addition.");
-    return __remill_flag_computation_carry(res < lhs || res < rhs, lhs, rhs,
-                                           res);
+    return __remill_flag_computation_carry(res < lhs || res < rhs, lhs, rhs, res);
   }
 };
 

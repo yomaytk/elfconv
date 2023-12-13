@@ -18,10 +18,9 @@
 #pragma once
 
 
-#include <stdint.h>
-
 #include <functional>
 #include <map>
+#include <stdint.h>
 #include <string_view>
 
 namespace remill {

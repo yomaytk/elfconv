@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <memory>
 #include <remill/Arch/Arch.h>
 #include <remill/Arch/Context.h>
-
-#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -77,8 +76,7 @@ class ArchBase : public remill::Arch {
   void InitFromSemanticsModule(llvm::Module *module) const final;
 
   // Add a register into this architecture.
-  const Register *AddRegister(const char *reg_name, llvm::Type *val_type,
-                              size_t offset,
+  const Register *AddRegister(const char *reg_name, llvm::Type *val_type, size_t offset,
                               const char *parent_reg_name) const final;
 
   // State type. Initially this is `nullptr` because we can construct and arch
@@ -113,27 +111,23 @@ class DefaultContextAndLifter : virtual public remill::ArchBase {
 
   Instruction::IndirectFlow GetIndirectFlow() const;
 
-  Instruction::InstructionFlowCategory FillInFlowFromCategoryAndDefaultContext(
-      const remill::Instruction &inst) const;
+  Instruction::InstructionFlowCategory
+  FillInFlowFromCategoryAndDefaultContext(const remill::Instruction &inst) const;
 
  public:
   virtual DecodingContext CreateInitialContext(void) const override;
 
-  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes,
-                                 Instruction &inst,
+  virtual bool DecodeInstruction(uint64_t address, std::string_view instr_bytes, Instruction &inst,
                                  DecodingContext context) const override;
 
 
-  OperandLifter::OpLifterPtr
-  DefaultLifter(const remill::IntrinsicTable &intrinsics) const override;
+  OperandLifter::OpLifterPtr DefaultLifter(const remill::IntrinsicTable &intrinsics) const override;
 
 
-  DefaultContextAndLifter(llvm::LLVMContext *context_, OSName os_name_,
-                          ArchName arch_name_);
+  DefaultContextAndLifter(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_);
 
  protected:
-  virtual bool ArchDecodeInstruction(uint64_t address,
-                                     std::string_view instr_bytes,
+  virtual bool ArchDecodeInstruction(uint64_t address, std::string_view instr_bytes,
                                      Instruction &inst) const = 0;
 };
 

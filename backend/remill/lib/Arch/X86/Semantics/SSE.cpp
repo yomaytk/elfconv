@@ -65,8 +65,7 @@ ALWAYS_INLINE static bool CompareFloats(FloatCompareOperator op, T v1, T v2) {
     case kLtOrderedSignal: return v1 < v2 && is_ordered;
     case kLeOrderedSignal: return v1 <= v2 && is_ordered;
     case kUnorderedQuiet: return is_unordered;
-    case kNeUnorderedQuiet:
-      return __builtin_islessgreater(v1, v2) || is_unordered;
+    case kNeUnorderedQuiet: return __builtin_islessgreater(v1, v2) || is_unordered;
     case kNltUnorderedSignal: return !(v1 < v2) || is_unordered;
     case kNleUnorderedSignal: return !(v1 <= v2) || is_unordered;
     case kOrderedQuiet: return is_ordered;
@@ -323,16 +322,15 @@ DEF_SEM(PSHUFLW, D dst, S1 src1, I8 src2) {
   // The same operation is done for each 128-bit "lane" of src1:
   auto num_lanes = NumVectorElems(UReadV128(src1));
 
-  _Pragma("unroll") for (std::size_t lane_index = 0, word_index = 0;
-                         lane_index < num_lanes; ++lane_index) {
+  _Pragma("unroll") for (std::size_t lane_index = 0, word_index = 0; lane_index < num_lanes;
+                         ++lane_index) {
     auto lane = UExtractV128(src_vec, lane_index);
 
     // Words will be shuffled in the order specified in a code in src2:
     auto order = Read(src2);
 
     // Shuffle the 4 words from the low 64-bits of the 128-bit lane:
-    _Pragma("unroll") for (std::size_t word_count = 0; word_count < 4;
-                           ++word_count, ++word_index) {
+    _Pragma("unroll") for (std::size_t word_count = 0; word_count < 4; ++word_count, ++word_index) {
       auto sel = UAnd(order, 0x3_u8);
       auto shift = UMul(sel, 16_u8);
       order = UShr(order, 2_u8);
@@ -342,10 +340,8 @@ DEF_SEM(PSHUFLW, D dst, S1 src1, I8 src2) {
 
     // After shuffling the low 64-bits, the high 64-bits of the src1 lane is
     // copied to the high quadword of the corresponding destination lane:
-    _Pragma("unroll") for (std::size_t word_count = 0; word_count < 4;
-                           ++word_count, ++word_index) {
-      dst_vec = UInsertV16(dst_vec, word_index,
-                           UExtractV16(src_words_vec, word_index));
+    _Pragma("unroll") for (std::size_t word_count = 0; word_count < 4; ++word_count, ++word_index) {
+      dst_vec = UInsertV16(dst_vec, word_index, UExtractV16(src_words_vec, word_index));
     }
   }
 
@@ -402,8 +398,7 @@ namespace {
     _Pragma("unroll") for (std::size_t i = 0; i < num_elems; ++i) { \
       auto src1_elem = SExtractV##size(src1_vec, i); \
       auto src2_elem = SExtractV##size(src2_vec, i); \
-      auto res = Select<int##size##_t>(op(src1_elem, src2_elem), -1_s##size, \
-                                       0_s##size); \
+      auto res = Select<int##size##_t>(op(src1_elem, src2_elem), -1_s##size, 0_s##size); \
       dst_vec = SInsertV##size(dst_vec, i, res); \
     } \
     SWriteV##size(dst, dst_vec); \
@@ -504,8 +499,7 @@ DEF_SEM(CMPSS, D dst, S1 src1, S2 src2, I8 src3) {
   }
   auto v1 = FExtractV32(src1_vec, 0);
   auto v2 = FExtractV32(src2_vec, 0);
-  bool cond =
-      CompareFloats<float32_t>(static_cast<FloatCompareOperator>(op), v1, v2);
+  bool cond = CompareFloats<float32_t>(static_cast<FloatCompareOperator>(op), v1, v2);
 
   dst_vec = UInsertV32(dst_vec, 0, Select<uint32_t>(cond, ~0_u32, 0_u32));
 
@@ -524,8 +518,7 @@ DEF_SEM(CMPSD, D dst, S1 src1, S2 src2, I8 src3) {
   }
   auto v1 = FExtractV64(src1_vec, 0);
   auto v2 = FExtractV64(src2_vec, 0);
-  bool cond =
-      CompareFloats<float64_t>(static_cast<FloatCompareOperator>(op), v1, v2);
+  bool cond = CompareFloats<float64_t>(static_cast<FloatCompareOperator>(op), v1, v2);
 
   dst_vec = UInsertV64(dst_vec, 0, Select<uint64_t>(cond, ~0_u64, 0_u64));
 
@@ -568,8 +561,7 @@ DEF_SEM(CMPPS, D dst, S1 src1, S2 src2, I8 src3) {
     auto v1 = FExtractV32(src1_vec, i);
     auto v2 = FExtractV32(src2_vec, i);
 
-    bool cond =
-        CompareFloats<float32_t>(static_cast<FloatCompareOperator>(op), v1, v2);
+    bool cond = CompareFloats<float32_t>(static_cast<FloatCompareOperator>(op), v1, v2);
 
     auto res = Select<uint32_t>(cond, ~0_u32, 0_u32);
     dst_vec = UInsertV32(dst_vec, i, res);
@@ -593,8 +585,7 @@ DEF_SEM(CMPPD, D dst, S1 src1, S2 src2, I8 src3) {
     auto v1 = FExtractV64(src1_vec, i);
     auto v2 = FExtractV64(src2_vec, i);
 
-    bool cond =
-        CompareFloats<float64_t>(static_cast<FloatCompareOperator>(op), v1, v2);
+    bool cond = CompareFloats<float64_t>(static_cast<FloatCompareOperator>(op), v1, v2);
 
     auto res = Select<uint64_t>(cond, ~0_u64, 0_u64);
     dst_vec = UInsertV64(dst_vec, i, res);
@@ -636,17 +627,9 @@ enum AggregationOperation : uint8_t {
   kEqualOrdered = 3
 };
 
-enum Polarity : uint8_t {
-  kPositive = 0,
-  kNegative = 1,
-  kMaskedPositive = 2,
-  kMaskedNegative = 3
-};
+enum Polarity : uint8_t { kPositive = 0, kNegative = 1, kMaskedPositive = 2, kMaskedNegative = 3 };
 
-enum OutputSelection : uint8_t {
-  kLeastSignificantIndex = 0,
-  kMostSignificantIndex = 1
-};
+enum OutputSelection : uint8_t { kLeastSignificantIndex = 0, kMostSignificantIndex = 1 };
 
 union StringCompareControl {
   uint8_t flat;
@@ -659,8 +642,7 @@ union StringCompareControl {
   } __attribute__((packed));
 } __attribute__((packed));
 
-static_assert(1 == sizeof(StringCompareControl),
-              "Invalid packing of `StringCompareControl`.");
+static_assert(1 == sizeof(StringCompareControl), "Invalid packing of `StringCompareControl`.");
 
 template <size_t x, size_t y>
 class BitMatrix : std::bitset<x * y> {
@@ -680,9 +662,8 @@ class BitMatrix : std::bitset<x * y> {
 // src1 is a char set, src2 is a string. We set a bit of `int_res_1` to `1`
 // when a char in `src2` belongs to the char set `src1`.
 template <size_t num_elems>
-ALWAYS_INLINE static uint16_t
-AggregateEqualAny(const BitMatrix<num_elems, num_elems> &bool_res,
-                  const size_t src1_len, const size_t src2_len) {
+ALWAYS_INLINE static uint16_t AggregateEqualAny(const BitMatrix<num_elems, num_elems> &bool_res,
+                                                const size_t src1_len, const size_t src2_len) {
 
   uint16_t int_res_1 = 0;
   uint16_t bit = 1;
@@ -701,9 +682,8 @@ AggregateEqualAny(const BitMatrix<num_elems, num_elems> &bool_res,
 // `src2` is a string, and `src1` is kind of like a the ranges of regular
 // expression character classes.
 template <size_t num_elems>
-ALWAYS_INLINE static uint16_t
-AggregateRanges(const BitMatrix<num_elems, num_elems> &bool_res,
-                const size_t src1_len, const size_t src2_len) {
+ALWAYS_INLINE static uint16_t AggregateRanges(const BitMatrix<num_elems, num_elems> &bool_res,
+                                              const size_t src1_len, const size_t src2_len) {
 
   uint16_t int_res_1 = 0;
   uint16_t bit = 1;
@@ -723,9 +703,8 @@ AggregateRanges(const BitMatrix<num_elems, num_elems> &bool_res,
 }
 
 template <size_t num_elems>
-ALWAYS_INLINE static uint16_t
-AggregateEqualEach(const BitMatrix<num_elems, num_elems> &bool_res,
-                   const size_t src1_len, const size_t src2_len) {
+ALWAYS_INLINE static uint16_t AggregateEqualEach(const BitMatrix<num_elems, num_elems> &bool_res,
+                                                 const size_t src1_len, const size_t src2_len) {
 
   uint16_t int_res_1 = 0;
   uint16_t bit = 1;
@@ -746,9 +725,8 @@ AggregateEqualEach(const BitMatrix<num_elems, num_elems> &bool_res,
 
 // This is really `strstr`, i.e. searching for `src1` in `src2`.
 template <size_t num_elems>
-ALWAYS_INLINE static uint16_t
-AggregateEqualOrdered(const BitMatrix<num_elems, num_elems> &bool_res,
-                      const size_t src1_len, const size_t src2_len) {
+ALWAYS_INLINE static uint16_t AggregateEqualOrdered(const BitMatrix<num_elems, num_elems> &bool_res,
+                                                    const size_t src1_len, const size_t src2_len) {
 
   if (src1_len > src2_len) {
     return 0;
@@ -759,8 +737,7 @@ AggregateEqualOrdered(const BitMatrix<num_elems, num_elems> &bool_res,
 
   for (size_t j = 0; j < num_elems; ++j, bit <<= 1) {
 
-    _Pragma("unroll") for (size_t i = 0, k = j;
-                           i < (num_elems - j) && k < num_elems; ++i, ++k) {
+    _Pragma("unroll") for (size_t i = 0, k = j; i < (num_elems - j) && k < num_elems; ++i, ++k) {
       auto needle_valid = i < src1_len;
       auto haystack_valid = k < src2_len;
 
@@ -777,18 +754,15 @@ AggregateEqualOrdered(const BitMatrix<num_elems, num_elems> &bool_res,
 }
 
 template <typename V, size_t num_elems>
-DEF_SEM(DoPCMPISTRI, const V &src1, const V &src2,
-        StringCompareControl control) {
+DEF_SEM(DoPCMPISTRI, const V &src1, const V &src2, StringCompareControl control) {
   BitMatrix<num_elems, num_elems> bool_res;
   size_t src1_len = num_elems;
   size_t src2_len = num_elems;
 
-  const auto agg_operation =
-      static_cast<AggregationOperation>(control.agg_operation);
+  const auto agg_operation = static_cast<AggregationOperation>(control.agg_operation);
 
   const auto polarity = static_cast<Polarity>(control.polarity);
-  const auto output_selection =
-      static_cast<OutputSelection>(control.output_selection);
+  const auto output_selection = static_cast<OutputSelection>(control.output_selection);
 
   _Pragma("unroll") for (size_t i = 0; i < num_elems; ++i) {
     if (!src1.elems[i]) {
@@ -825,27 +799,18 @@ DEF_SEM(DoPCMPISTRI, const V &src1, const V &src2,
   uint16_t int_res_1 = 0;
 
   switch (agg_operation) {
-    case kEqualAny:
-      int_res_1 = AggregateEqualAny<num_elems>(bool_res, src1_len, src2_len);
-      break;
-    case kRanges:
-      int_res_1 = AggregateRanges<num_elems>(bool_res, src1_len, src2_len);
-      break;
-    case kEqualEach:
-      int_res_1 = AggregateEqualEach<num_elems>(bool_res, src1_len, src2_len);
-      break;
+    case kEqualAny: int_res_1 = AggregateEqualAny<num_elems>(bool_res, src1_len, src2_len); break;
+    case kRanges: int_res_1 = AggregateRanges<num_elems>(bool_res, src1_len, src2_len); break;
+    case kEqualEach: int_res_1 = AggregateEqualEach<num_elems>(bool_res, src1_len, src2_len); break;
     case kEqualOrdered:
-      int_res_1 =
-          AggregateEqualOrdered<num_elems>(bool_res, src1_len, src2_len);
+      int_res_1 = AggregateEqualOrdered<num_elems>(bool_res, src1_len, src2_len);
       break;
   }
 
   uint16_t int_res_2 = 0;
   switch (polarity) {
     case kPositive: int_res_2 = int_res_1; break;
-    case kNegative:
-      int_res_2 = (0xFFFF_u16 >> (16 - num_elems)) ^ int_res_1;
-      break;
+    case kNegative: int_res_2 = (0xFFFF_u16 >> (16 - num_elems)) ^ int_res_1; break;
     case kMaskedPositive: int_res_2 = int_res_1; break;
     case kMaskedNegative:
       int_res_2 = int_res_1;
@@ -888,17 +853,13 @@ DEF_SEM(PCMPISTRI, V128 src1, S2 src2, I8 src3) {
   const StringCompareControl control = {.flat = Read(src3)};
   switch (static_cast<InputFormat>(control.input_format)) {
     case kUInt8:
-      return DoPCMPISTRI<uint8v16_t, 16>(memory, state, UReadV8(src1),
-                                         UReadV8(src2), control);
+      return DoPCMPISTRI<uint8v16_t, 16>(memory, state, UReadV8(src1), UReadV8(src2), control);
     case kUInt16:
-      return DoPCMPISTRI<uint16v8_t, 8>(memory, state, UReadV16(src1),
-                                        UReadV16(src2), control);
+      return DoPCMPISTRI<uint16v8_t, 8>(memory, state, UReadV16(src1), UReadV16(src2), control);
     case kInt8:
-      return DoPCMPISTRI<int8v16_t, 16>(memory, state, SReadV8(src1),
-                                        SReadV8(src2), control);
+      return DoPCMPISTRI<int8v16_t, 16>(memory, state, SReadV8(src1), SReadV8(src2), control);
     case kInt16:
-      return DoPCMPISTRI<int16v8_t, 8>(memory, state, SReadV16(src1),
-                                       SReadV16(src2), control);
+      return DoPCMPISTRI<int16v8_t, 8>(memory, state, SReadV16(src1), SReadV16(src2), control);
   }
   return memory;
 }
@@ -1393,11 +1354,11 @@ DEF_SEM(MINPS, D dst, S1 src1, S2 src2) {
     if (__builtin_isunordered(v1, v2)) {
       min = v2;
 
-    // or if both floats are 0.0:
+      // or if both floats are 0.0:
     } else if ((v1 == 0.0) && (v2 == 0.0)) {
       min = v2;
 
-    // or if src2 is less than src1:
+      // or if src2 is less than src1:
     } else if (__builtin_isless(v2, v1)) {
       min = v2;
     }
@@ -1424,11 +1385,11 @@ DEF_SEM(MAXPS, D dst, S1 src1, S2 src2) {
     if (__builtin_isunordered(v1, v2)) {
       max = v2;
 
-    // or if both floats are 0.0:
+      // or if both floats are 0.0:
     } else if ((v1 == 0.0) && (v2 == 0.0)) {
       max = v2;
 
-    // or if src2 is greater than src1:
+      // or if src2 is greater than src1:
     } else if (__builtin_isgreater(v2, v1)) {
       max = v2;
     }
@@ -1558,10 +1519,8 @@ DEF_SEM(UNPCKHPD, D dst, S1 src1, S2 src2) {
 
   // Treating src1 as another vector of 64-bit QWORDs:
   auto src1_vec = FReadV64(src1);
-  auto src1_high_qword =
-      FExtractV64(src1_vec, 1);  // "unpack" high QWORD of src1
-  temp_vec =
-      FInsertV64(temp_vec, 0, src1_high_qword);  //   into low QWORD of temp
+  auto src1_high_qword = FExtractV64(src1_vec, 1);  // "unpack" high QWORD of src1
+  temp_vec = FInsertV64(temp_vec, 0, src1_high_qword);  //   into low QWORD of temp
 
   FWriteV64(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
   return memory;
@@ -1601,8 +1560,7 @@ DEF_SEM(MOVDDUP, D dst, S1 src) {
   // "Move and duplicate" QWORD src[63:0] into dest[63:0] and into dest[127:64]:
   auto src_float = FExtractV64(src_vec, 0);
 
-  float64v2_t temp_vec =
-      {};  // length of src and dest may differ, so manually create.
+  float64v2_t temp_vec = {};  // length of src and dest may differ, so manually create.
   temp_vec = FInsertV64(temp_vec, 0, src_float);
   temp_vec = FInsertV64(temp_vec, 1, src_float);
 
@@ -1727,11 +1685,10 @@ DEF_HELPER(SquareRoot64, float64_t src_float)->float64_t {
     // If src is SNaN, return the SNaN converted to a QNaN:
     if (IsSignalingNaN(src_float)) {
       nan64_t temp_nan = {src_float};
-      temp_nan.is_quiet_nan =
-          1;  // equivalent to a bitwise OR with 0x0008000000000000
+      temp_nan.is_quiet_nan = 1;  // equivalent to a bitwise OR with 0x0008000000000000
       square_root = temp_nan.d;
 
-    // Else, src is a QNaN. Pass it directly to the result:
+      // Else, src is a QNaN. Pass it directly to the result:
     } else {
       square_root = src_float;
     }
@@ -1850,8 +1807,7 @@ DEF_SEM(PACKUSWB_AVX, D dst, S1 src1, S2 src2) {
 
     auto val4 = SExtractV16(src2_vec, quarter_num_elems + i);
     auto sat4 = std::max<int16_t>(std::min<int16_t>(val4, 255), 0);
-    packed.elems[half_num_elems + quarter_num_elems + i] =
-        static_cast<uint8_t>(sat4);
+    packed.elems[half_num_elems + quarter_num_elems + i] = static_cast<uint8_t>(sat4);
   }
 
   UWriteV8(dst, packed);
@@ -1866,14 +1822,10 @@ DEF_ISEL(PACKUSWB_MMXq_MEMq) = PACKUSWB<V64W, V64, MV64, uint8v8_t>;
 DEF_ISEL(PACKUSWB_MMXq_MMXq) = PACKUSWB<V64W, V64, V64, uint8v8_t>;
 DEF_ISEL(PACKUSWB_XMMdq_MEMdq) = PACKUSWB<V128W, V128, MV128, uint8v16_t>;
 DEF_ISEL(PACKUSWB_XMMdq_XMMdq) = PACKUSWB<V128W, V128, V128, uint8v16_t>;
-IF_AVX(DEF_ISEL(VPACKUSWB_XMMdq_XMMdq_MEMdq) =
-           PACKUSWB<VV256W, V128, MV128, uint8v16_t>;)
-IF_AVX(DEF_ISEL(VPACKUSWB_XMMdq_XMMdq_XMMdq) =
-           PACKUSWB<VV256W, V128, V128, uint8v16_t>;)
-IF_AVX(DEF_ISEL(VPACKUSWB_YMMqq_YMMqq_MEMqq) =
-           PACKUSWB_AVX<VV256W, V256, MV256, uint8v32_t>;)
-IF_AVX(DEF_ISEL(VPACKUSWB_YMMqq_YMMqq_YMMqq) =
-           PACKUSWB_AVX<VV256W, V256, V256, uint8v32_t>;)
+IF_AVX(DEF_ISEL(VPACKUSWB_XMMdq_XMMdq_MEMdq) = PACKUSWB<VV256W, V128, MV128, uint8v16_t>;)
+IF_AVX(DEF_ISEL(VPACKUSWB_XMMdq_XMMdq_XMMdq) = PACKUSWB<VV256W, V128, V128, uint8v16_t>;)
+IF_AVX(DEF_ISEL(VPACKUSWB_YMMqq_YMMqq_MEMqq) = PACKUSWB_AVX<VV256W, V256, MV256, uint8v32_t>;)
+IF_AVX(DEF_ISEL(VPACKUSWB_YMMqq_YMMqq_YMMqq) = PACKUSWB_AVX<VV256W, V256, V256, uint8v32_t>;)
 
 namespace {
 
@@ -1891,8 +1843,7 @@ DEF_SEM(HADDPS, D dst, S1 src1, S2 src2) {
     auto i = UDiv(UInt32(index), UInt32(2));
     dst_vec = FInsertV32(dst_vec, i, FAdd(v1, v2));
   }
-  _Pragma("unroll") for (size_t index = 0; index < NumVectorElems(rhs_vec);
-                         index += 2) {
+  _Pragma("unroll") for (size_t index = 0; index < NumVectorElems(rhs_vec); index += 2) {
     auto v1 = FExtractV32(rhs_vec, index);
     auto v2 = FExtractV32(rhs_vec, index + 1);
     auto i = UDiv(UAdd(UInt32(index), UInt32(vec_count)), UInt32(2));
@@ -1916,8 +1867,7 @@ DEF_SEM(HADDPD, D dst, S1 src1, S2 src2) {
     auto i = UDiv(UInt32(index), UInt32(2));
     dst_vec = FInsertV64(dst_vec, i, FAdd(v1, v2));
   }
-  _Pragma("unroll") for (size_t index = 0; index < NumVectorElems(rhs_vec);
-                         index += 2) {
+  _Pragma("unroll") for (size_t index = 0; index < NumVectorElems(rhs_vec); index += 2) {
     auto v1 = FExtractV64(rhs_vec, index);
     auto v2 = FExtractV64(rhs_vec, index + 1);
     auto i = UDiv(UAdd(UInt32(index), UInt32(vec_count)), UInt32(2));

@@ -21,8 +21,7 @@
   DEF_SEM(Do##name) { \
     const addr_t addr = Read(REG_XDI); \
     const addr_t num_bytes = sizeof(type); \
-    Write(WritePtr<type>(addr _IF_32BIT(REG_ES_BASE)), \
-          Read(state.gpr.rax.read_sel)); \
+    Write(WritePtr<type>(addr _IF_32BIT(REG_ES_BASE)), Read(state.gpr.rax.read_sel)); \
     addr_t next_addr = 0; \
     if (BNot(FLAG_DF)) { \
       next_addr = UAdd(addr, num_bytes); \
@@ -79,8 +78,7 @@ IF_64BIT(MAKE_SCAS(SCASQ, uint64_t, qword))
   DEF_SEM(Do##name) { \
     const addr_t addr = Read(REG_XSI); \
     const addr_t num_bytes = sizeof(type); \
-    WriteZExt(state.gpr.rax.write_sel, \
-              Read(ReadPtr<type>(addr _IF_32BIT(REG_DS_BASE)))); \
+    WriteZExt(state.gpr.rax.write_sel, Read(ReadPtr<type>(addr _IF_32BIT(REG_DS_BASE)))); \
     addr_t next_addr = 0; \
     if (BNot(FLAG_DF)) { \
       next_addr = UAdd(addr, num_bytes); \

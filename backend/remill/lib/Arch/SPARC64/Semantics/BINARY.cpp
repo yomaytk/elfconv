@@ -32,31 +32,29 @@ ALWAYS_INLINE static void WriteFlagsAddSub(State &state, T lhs, T rhs, T res) {
 }
 
 template <typename Tag, typename T>
-ALWAYS_INLINE static void WriteXCCFlagsIncDec(State &state, T lhs, T rhs,
-                                              T res) {
+ALWAYS_INLINE static void WriteXCCFlagsIncDec(State &state, T lhs, T rhs, T res) {
   FLAG_XCC_ZF = ZeroFlag(res, lhs, rhs);
   FLAG_XCC_NF = SignFlag(res, lhs, rhs);
   FLAG_XCC_VF = Overflow<Tag>::Flag(lhs, rhs, res);
 }
 
 template <typename Tag, typename T>
-ALWAYS_INLINE static void WriteICCFlagsIncDec(State &state, T lhs, T rhs,
-                                              T res) {
+ALWAYS_INLINE static void WriteICCFlagsIncDec(State &state, T lhs, T rhs, T res) {
   FLAG_ICC_ZF = ZeroFlag(res, lhs, rhs);
   FLAG_ICC_NF = SignFlag(res, lhs, rhs);
   FLAG_ICC_VF = Overflow<Tag>::Flag(lhs, rhs, res);
 }
 
 template <typename Tag>
-ALWAYS_INLINE static void WriteICCFlagsAddSub(State &state, uint32_t lhs,
-                                              uint32_t rhs, uint32_t res) {
+ALWAYS_INLINE static void WriteICCFlagsAddSub(State &state, uint32_t lhs, uint32_t rhs,
+                                              uint32_t res) {
   FLAG_ICC_CF = Carry<Tag>::Flag(lhs, rhs, res);
   WriteICCFlagsIncDec<Tag>(state, lhs, rhs, res);
 }
 
 template <typename Tag>
-ALWAYS_INLINE static void WriteXCCFlagsAddSub(State &state, uint64_t lhs,
-                                              uint64_t rhs, uint64_t res) {
+ALWAYS_INLINE static void WriteXCCFlagsAddSub(State &state, uint64_t lhs, uint64_t rhs,
+                                              uint64_t res) {
   FLAG_XCC_CF = Carry<Tag>::Flag(lhs, rhs, res);
   WriteXCCFlagsIncDec<Tag>(state, lhs, rhs, res);
 }
@@ -84,8 +82,8 @@ DEF_SEM(ADDCC, S1 src1, S2 src2, D dst) {
   auto rhs = Read(src2);
   auto res = UAdd(lhs, rhs);
   Write(dst, res);
-  WriteICCFlagsAddSub<tag_add>(state, Literal<uint32_t>(lhs),
-                               Literal<uint32_t>(rhs), Literal<uint32_t>(res));
+  WriteICCFlagsAddSub<tag_add>(state, Literal<uint32_t>(lhs), Literal<uint32_t>(rhs),
+                               Literal<uint32_t>(res));
   WriteXCCFlagsAddSub<tag_add>(state, lhs, rhs, res);
   return memory;
 }
@@ -98,8 +96,7 @@ DEF_SEM(ADDCCC, S1 src1, S2 src2, D dst) {
   auto sum = UAdd(lhs, rhs);
   auto res = UAdd(sum, carry);
   Write(dst, res);
-  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs),
-                               static_cast<uint32_t>(rhs),
+  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs),
                                static_cast<uint32_t>(sum));
   WriteXCCFlagsAddSub<tag_add>(state, lhs, rhs, res);
   return memory;
@@ -131,8 +128,7 @@ DEF_SEM(ADDXCC, S1 src1, S2 src2, D dst) {
   auto rhs = Read(src2);
   auto sum = UAdd(lhs, rhs);
   Write(dst, sum);
-  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs),
-                               static_cast<uint32_t>(rhs),
+  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs),
                                static_cast<uint32_t>(sum));
   WriteXCCFlagsAddSub<tag_add>(state, lhs, rhs, sum);
   return memory;
@@ -146,8 +142,7 @@ DEF_SEM(ADDXCCC, S1 src1, S2 src2, D dst) {
   auto sum = UAdd(lhs, rhs);
   auto res = UAdd(sum, carry);
   Write(dst, res);
-  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs),
-                               static_cast<uint32_t>(rhs),
+  WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs),
                                static_cast<uint32_t>(res));
   WriteXCCFlagsAddSub<tag_add>(state, lhs, rhs, res);
   return memory;
@@ -166,8 +161,7 @@ DEF_SEM(SUBCC, S1 src1, S2 src2, D dst) {
   auto rhs = Read(src2);
   auto res = USub(lhs, rhs);
   Write(dst, res);
-  WriteICCFlagsAddSub<tag_sub>(state, static_cast<uint32_t>(lhs),
-                               static_cast<uint32_t>(rhs),
+  WriteICCFlagsAddSub<tag_sub>(state, static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs),
                                static_cast<uint32_t>(res));
   WriteXCCFlagsAddSub<tag_sub>(state, lhs, rhs, res);
   return memory;
@@ -192,8 +186,7 @@ DEF_SEM(SUBCCC, S1 src1, S2 src2, D dst) {
   auto sub = USub(lhs, rhs);
   auto res = USub(sub, carry);
   WriteZExt(dst, res);
-  WriteICCFlagsAddSub<tag_sub>(state, static_cast<uint32_t>(lhs),
-                               static_cast<uint32_t>(rhs),
+  WriteICCFlagsAddSub<tag_sub>(state, static_cast<uint32_t>(lhs), static_cast<uint32_t>(rhs),
                                static_cast<uint32_t>(res));
   WriteXCCFlagsAddSub<tag_sub>(state, lhs, rhs, res);
   return memory;
@@ -211,8 +204,7 @@ DEF_SEM(TADDCC, S1 src1, S2 src2, D dst) {
   auto tag_ov = UCmpNeq(UOr(tag_rs1, tag_rs2), 0);
   auto sum = UAdd(rs1, rs2);
   FLAG_ICC_VF = tag_ov;  //|| Overflow<tag_add>::Flag(rs1, rs2, sum));
-  FLAG_ICC_CF = Carry<tag_add>::Flag(static_cast<uint32_t>(rs1),
-                                     static_cast<uint32_t>(rs2),
+  FLAG_ICC_CF = Carry<tag_add>::Flag(static_cast<uint32_t>(rs1), static_cast<uint32_t>(rs2),
                                      static_cast<uint32_t>(sum));
   FLAG_ICC_ZF = ZeroFlag(static_cast<uint32_t>(sum), src1, src2);
   FLAG_ICC_NF = SignFlag(static_cast<uint32_t>(sum), src1, src2);
@@ -241,8 +233,8 @@ DEF_SEM(TADDCCTV, R8W cond, S1 src1, S2 src2, D dst) {
   auto sum = UAdd(rs1, rs2);
   Write(dst, sum);
   FLAG_ICC_VF = tag_ov;
-  FLAG_ICC_CF = Carry<tag_add>::Flag(
-      Literal<uint32_t>(rs1), Literal<uint32_t>(rs2), Literal<uint32_t>(sum));
+  FLAG_ICC_CF =
+      Carry<tag_add>::Flag(Literal<uint32_t>(rs1), Literal<uint32_t>(rs2), Literal<uint32_t>(sum));
   FLAG_ICC_ZF = ZeroFlag(static_cast<uint32_t>(sum), src1, src2);
   FLAG_ICC_NF = SignFlag(static_cast<uint32_t>(sum), src1, src2);
   WriteXCCFlagsAddSub<tag_add>(state, rs1, rs2, sum);
@@ -260,8 +252,7 @@ DEF_SEM(TSUBCC, S1 src1, S2 src2, D dst) {
   auto tag_ov = UCmpNeq(UOr(tag_rs1, tag_rs2), 0);
   auto res = USub(rs1, rs2);
   FLAG_ICC_VF = tag_ov;  //|| Overflow<tag_add>::Flag(rs1, rs2, sum));
-  FLAG_ICC_CF = Carry<tag_sub>::Flag(static_cast<uint32_t>(rs1),
-                                     static_cast<uint32_t>(rs2),
+  FLAG_ICC_CF = Carry<tag_sub>::Flag(static_cast<uint32_t>(rs1), static_cast<uint32_t>(rs2),
                                      static_cast<uint32_t>(res));
   FLAG_ICC_ZF = ZeroFlag(static_cast<uint32_t>(res), src1, src2);
   FLAG_ICC_NF = SignFlag(static_cast<uint32_t>(res), src1, src2);
@@ -290,8 +281,8 @@ DEF_SEM(TSUBCCTV, R8W cond, S1 src1, S2 src2, D dst) {
   auto res = USub(rs1, rs2);
   Write(dst, res);
   FLAG_ICC_VF = tag_ov;
-  FLAG_ICC_CF = Carry<tag_sub>::Flag(
-      Literal<uint32_t>(rs1), Literal<uint32_t>(rs2), Literal<uint32_t>(res));
+  FLAG_ICC_CF =
+      Carry<tag_sub>::Flag(Literal<uint32_t>(rs1), Literal<uint32_t>(rs2), Literal<uint32_t>(res));
   FLAG_ICC_ZF = ZeroFlag(Literal<uint32_t>(res), src1, src2);
   FLAG_ICC_NF = SignFlag(Literal<uint32_t>(res), src1, src2);
   WriteXCCFlagsAddSub<tag_sub>(state, rs1, rs2, res);
@@ -410,8 +401,7 @@ DEF_SEM(SDIV, S1 src1, S2 src2, D dst) {
   auto lhs = Read(src1);
   auto lhs_wide = ZExt(lhs);
   auto y = Read(REG_Y);
-  auto y_lhs_wide = Signed(
-      UOr(decltype(lhs_wide)(UShl(y, Literal<decltype(y)>(32))), lhs_wide));
+  auto y_lhs_wide = Signed(UOr(decltype(lhs_wide)(UShl(y, Literal<decltype(y)>(32))), lhs_wide));
   auto rhs = Signed(Read(src2));
   auto rhs_wide = SExt(rhs);
   auto quot = SDiv(y_lhs_wide, rhs_wide);
@@ -424,8 +414,7 @@ DEF_SEM(SDIVCC, S1 src1, S2 src2, D dst) {
   auto lhs = Read(src1);
   auto lhs_wide = ZExt(lhs);
   auto y = Read(REG_Y);
-  auto y_lhs_wide = Signed(
-      UOr(decltype(lhs_wide)(UShl(y, Literal<decltype(y)>(32))), lhs_wide));
+  auto y_lhs_wide = Signed(UOr(decltype(lhs_wide)(UShl(y, Literal<decltype(y)>(32))), lhs_wide));
   auto rhs = Read(src2);
   auto rhs_wide = SExt(rhs);
   auto quot = SDiv(y_lhs_wide, rhs_wide);
@@ -524,8 +513,7 @@ DEF_SEM(MULSCC_R32, R32 src1, R32 src2, R32W dest) {
   auto lsb_y = UAnd(y, Literal<decltype(y)>(0x1));
   auto masked_rs1 = UAnd(rs1, Literal<decltype(rs1)>(0xffffffff));
   auto masked_rs2 = UAnd(rs2, Literal<decltype(rs2)>(0xffffffff));
-  auto new_rs2 =
-      Select(UCmpEq(lsb_y, 0), Literal<decltype(rs2)>(0), masked_rs2);
+  auto new_rs2 = Select(UCmpEq(lsb_y, 0), Literal<decltype(rs2)>(0), masked_rs2);
 
   auto flag_nf = Literal<uint32_t>(Read(FLAG_ICC_NF));
   auto flag_vf = Literal<uint32_t>(Read(FLAG_ICC_VF));
@@ -539,14 +527,12 @@ DEF_SEM(MULSCC_R32, R32 src1, R32 src2, R32W dest) {
   // r[rs1] replacing the MSB of Y
   auto shifted_y = UShr(y, Literal<decltype(y)>(1));
   auto lsb_rs1 = UAnd(rs1, Literal<decltype(rs1)>(0x1));
-  auto new_y = UOr(shifted_y,
-                   decltype(y)(UShl(lsb_rs1, Literal<decltype(lsb_rs1)>(31))));
+  auto new_y = UOr(shifted_y, decltype(y)(UShl(lsb_rs1, Literal<decltype(lsb_rs1)>(31))));
   Write(REG_Y, new_y);
   Write(dest, res);
 
   WriteICCFlagsAddSub<tag_add>(state, static_cast<uint32_t>(new_rs1),
-                               static_cast<uint32_t>(new_rs2),
-                               static_cast<uint32_t>(res));
+                               static_cast<uint32_t>(new_rs2), static_cast<uint32_t>(res));
 
   // All undefined.
   FLAG_XCC_CF = 0;

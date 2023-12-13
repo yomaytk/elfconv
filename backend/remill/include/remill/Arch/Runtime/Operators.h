@@ -19,18 +19,16 @@
 struct Memory;
 struct State;
 
-#include <limits>
-
 #include "Float.h"
+
+#include <limits>
 
 namespace {
 
 #if !defined(REMILL_DISABLE_INT128)
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(Memory *mem,
-                                                        addr_t addr);
+ALWAYS_INLINE static uint128_t __remill_read_memory_128(Memory *mem, addr_t addr);
 
-ALWAYS_INLINE static Memory *__remill_write_memory_128(Memory *mem, addr_t addr,
-                                                       uint128_t val);
+ALWAYS_INLINE static Memory *__remill_write_memory_128(Memory *mem, addr_t addr, uint128_t val);
 #endif
 
 #define MAKE_UNDEF(n) \
@@ -60,15 +58,13 @@ MAKE_UNDEF(64)
 #define READBIT(A, B) ((A >> B) & 1)
 
 #define MAKE_SIGNED_MEM_ACCESS(size) \
-  ALWAYS_INLINE static int##size##_t __remill_read_memory_s##size( \
-      Memory *mem, addr_t addr) { \
+  ALWAYS_INLINE static int##size##_t __remill_read_memory_s##size(Memory *mem, addr_t addr) { \
     return static_cast<int##size##_t>(__remill_read_memory_##size(mem, addr)); \
   } \
 \
-  ALWAYS_INLINE static Memory *__remill_write_memory_s##size( \
-      Memory *mem, addr_t addr, int##size##_t val) { \
-    return __remill_write_memory_##size(mem, addr, \
-                                        static_cast<uint##size##_t>(val)); \
+  ALWAYS_INLINE static Memory *__remill_write_memory_s##size(Memory *mem, addr_t addr, \
+                                                             int##size##_t val) { \
+    return __remill_write_memory_##size(mem, addr, static_cast<uint##size##_t>(val)); \
   }
 
 MAKE_SIGNED_MEM_ACCESS(8)
@@ -148,13 +144,13 @@ ALWAYS_INLINE static T _Read(Memory *, RnW<T> reg) {
 
 // Make read operators for reading integral values from memory.
 #define MAKE_MREAD(size, ret_size, type_prefix, access_suffix) \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read( \
-      Memory *&memory, Mn<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(Memory *&memory, \
+                                                       Mn<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(memory, op.addr); \
   } \
 \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read( \
-      Memory *&memory, MnW<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(Memory *&memory, \
+                                                       MnW<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(memory, op.addr); \
   }
 
@@ -193,8 +189,7 @@ ALWAYS_INLINE static Memory *_Write(Memory *memory, T &dst, T src) {
 
 // Make write operators for writing values to registers.
 #define MAKE_RWRITE(type) \
-  ALWAYS_INLINE static Memory *_Write(Memory *memory, RnW<type> reg, \
-                                      type val) { \
+  ALWAYS_INLINE static Memory *_Write(Memory *memory, RnW<type> reg, type val) { \
     *(reg.val_ref) = val; \
     return memory; \
   }
@@ -211,8 +206,7 @@ MAKE_RWRITE(float80_t)
 
 // Make write operators for writing values to memory.
 #define MAKE_MWRITE(size, write_size, mem_prefix, type_prefix, access_suffix) \
-  ALWAYS_INLINE static Memory *_Write(Memory *memory, \
-                                      MnW<mem_prefix##size##_t> op, \
+  ALWAYS_INLINE static Memory *_Write(Memory *memory, MnW<mem_prefix##size##_t> op, \
                                       type_prefix##write_size##_t val) { \
     return __remill_write_memory_##access_suffix(memory, op.addr, val); \
   }
@@ -240,8 +234,7 @@ MAKE_MWRITE(80, 80, float, float, f80)
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec) \
-      ->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec)->decltype(T().accessor) { \
     return reinterpret_cast<const T *>(&vec.val)->accessor; \
   }
 
@@ -263,14 +256,12 @@ MAKE_READRV(F, 80, tdoubles, float80_t)
 
 #define MAKE_READV(prefix, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec) \
-      ->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec)->decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec) \
-      ->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec)->decltype(T().accessor) { \
     return reinterpret_cast<const T *>(vec.val)->accessor; \
   }
 
@@ -306,21 +297,18 @@ MAKE_READV(F, 80, tdouble)
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-      vec.elems[i] = __remill_read_memory_##mem_accessor( \
-          memory, mem.addr + (i * el_size)); \
+      vec.elems[i] = __remill_read_memory_##mem_accessor(memory, mem.addr + (i * el_size)); \
     } \
     return vec; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, \
-                                                   MVnW<T> mem) \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVnW<T> mem) \
       ->decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-      vec.elems[i] = __remill_read_memory_##mem_accessor( \
-          memory, mem.addr + (i * el_size)); \
+      vec.elems[i] = __remill_read_memory_##mem_accessor(memory, mem.addr + (i * el_size)); \
     } \
     return vec; \
   }
@@ -374,8 +362,7 @@ MAKE_MREADV(F, 80, tdoubles, f80)
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
       sub_vec.elems[i] = val.elems[i]; \
     } \
-    _Pragma("unroll") for (addr_t i = NumVectorElems(val); \
-                           i < NumVectorElems(sub_vec); ++i) { \
+    _Pragma("unroll") for (addr_t i = NumVectorElems(val); i < NumVectorElems(sub_vec); ++i) { \
       sub_vec.elems[i] = 0; \
     } \
     return memory; \
@@ -422,22 +409,21 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
 // MAKE_MWRITEV(U, 128, dqwords, 128, uint128_t)
 #define MAKE_MWRITEV(prefix, size, vec_accessor, mem_accessor, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static Memory *_##prefix##WriteV##size( \
-      Memory *memory, MVnW<T> mem, base_type val) { \
+  ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
+                                                       base_type val) { \
     T vec{}; \
     const addr_t el_size = sizeof(base_type); \
     vec.vec_accessor.elems[0] = val; \
-    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec.vec_accessor); \
-                           ++i) { \
-      memory = __remill_write_memory_##mem_accessor( \
-          memory, mem.addr + (i * el_size), vec.vec_accessor.elems[i]); \
+    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec.vec_accessor); ++i) { \
+      memory = __remill_write_memory_##mem_accessor(memory, mem.addr + (i * el_size), \
+                                                    vec.vec_accessor.elems[i]); \
     } \
     return memory; \
   } \
 \
   template <typename T, typename V> \
-  ALWAYS_INLINE static Memory *_##prefix##WriteV##size( \
-      Memory *memory, MVnW<T> mem, const V &val) { \
+  ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
+                                                       const V &val) { \
     static_assert(sizeof(T) == sizeof(V), "Invalid value size for MVnW."); \
     typedef decltype(T().vec_accessor) BT; \
     typedef decltype(V()) VT; \
@@ -445,8 +431,8 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
                   "Incompatible types to a write to a vector register"); \
     const addr_t el_size = sizeof(base_type); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
-      memory = __remill_write_memory_##mem_accessor( \
-          memory, mem.addr + (i * el_size), val.elems[i]); \
+      memory = \
+          __remill_write_memory_##mem_accessor(memory, mem.addr + (i * el_size), val.elems[i]); \
     } \
     return memory; \
   }
@@ -499,8 +485,7 @@ MAKE_WRITE_REF(float80_t)
 
 #define MAKE_CMPXCHG(size, type_prefix, access_suffix) \
   template <typename T> \
-  ALWAYS_INLINE static bool _CmpXchg(Memory *&memory, RnW<T> op, \
-                                     type_prefix##size##_t &expected, \
+  ALWAYS_INLINE static bool _CmpXchg(Memory *&memory, RnW<T> op, type_prefix##size##_t &expected, \
                                      type_prefix##size##_t desired) { \
     if (decltype(expected)(*op.val_ref) == expected) { \
       *op.val_ref = desired; \
@@ -512,12 +497,10 @@ MAKE_WRITE_REF(float80_t)
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static bool _CmpXchg(Memory *&memory, MnW<T> op, \
-                                     type_prefix##size##_t &expected, \
+  ALWAYS_INLINE static bool _CmpXchg(Memory *&memory, MnW<T> op, type_prefix##size##_t &expected, \
                                      type_prefix##size##_t desired) { \
     auto prev_val = expected; \
-    memory = __remill_compare_exchange_memory_##access_suffix( \
-        memory, op.addr, expected, desired); \
+    memory = __remill_compare_exchange_memory_##access_suffix(memory, op.addr, expected, desired); \
     return prev_val == expected; \
   }
 
@@ -544,8 +527,7 @@ MAKE_CMPXCHG(128, uint, 128)
   template <typename T> \
   ALWAYS_INLINE type_prefix##size##_t _U##name(Memory *&memory, RnW<T> addr, \
                                                type_prefix##size##_t value) { \
-    auto prev_value = \
-        *reinterpret_cast<type_prefix##size##_t *>(addr.val_ref); \
+    auto prev_value = *reinterpret_cast<type_prefix##size##_t *>(addr.val_ref); \
     *addr.val_ref = prev_value op value; \
     return prev_value; \
   }
@@ -582,8 +564,7 @@ MAKE_ATOMIC(FetchXor, fetch_and_xor, ^)
   template <typename T> \
   ALWAYS_INLINE type_prefix##size##_t _U##name(Memory *&memory, RnW<T> addr, \
                                                type_prefix##size##_t value) { \
-    auto prev_value = \
-        *reinterpret_cast<type_prefix##size##_t *>(addr.val_ref); \
+    auto prev_value = *reinterpret_cast<type_prefix##size##_t *>(addr.val_ref); \
     *addr.val_ref = value; \
     return prev_value op value; \
   }
@@ -618,8 +599,7 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 // values must match.
 #define Write(op, val) \
   do { \
-    static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), \
-                  "Bad write!"); \
+    static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
     memory = _Write(memory, op, (val)); \
   } while (false)
 
@@ -641,14 +621,14 @@ ALWAYS_INLINE bool issignaling(float64_t x) {
 }
 
 ALWAYS_INLINE bool issignaling(float80_t x) {
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
-// On non-x86 architectures, native_float80_t is defined as a double,
-// which is identical to the float64_t definition above
+#  if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
+  // On non-x86 architectures, native_float80_t is defined as a double,
+  // which is identical to the float64_t definition above
   const nan80_t x_nan = {x};
   return x_nan.exponent == 0x7FFFU && !x_nan.is_quiet_nan && x_nan.payload && x_nan.interger_bit;
-#else
+#  else
   return issignaling(static_cast<native_float80_t>(x));
-#endif
+#  endif
 }
 
 #endif  // !defined(issignaling)
@@ -732,8 +712,8 @@ ALWAYS_INLINE static bool IsSignalingNaN(float64_t x) {
 
 ALWAYS_INLINE static bool IsSignalingNaN(float80_t x) {
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
-// On non-x86 architectures, native_float80_t is defined as a double,
-// which is identical to the float64_t definition above
+  // On non-x86 architectures, native_float80_t is defined as a double,
+  // which is identical to the float64_t definition above
   const nan80_t x_nan = {x};
   return x_nan.exponent == 0x7FFFU && !x_nan.is_quiet_nan && x_nan.payload && x_nan.interger_bit;
 #else
@@ -862,8 +842,7 @@ ALWAYS_INLINE static auto ZExt(T val) -> typename IntegerType<T>::WUT {
 template <typename DT, typename T>
 ALWAYS_INLINE static auto ZExtTo(T val) -> typename IntegerType<DT>::UT {
   typedef typename IntegerType<DT>::UT UT;
-  static_assert(sizeof(T) <= sizeof(typename IntegerType<DT>::BT),
-                "Bad extension.");
+  static_assert(sizeof(T) <= sizeof(typename IntegerType<DT>::BT), "Bad extension.");
   return static_cast<UT>(Unsigned(val));
 }
 
@@ -876,15 +855,13 @@ ALWAYS_INLINE static auto SExt(T val) -> typename IntegerType<T>::WST {
 // Zero-extend an integer type explicitly specified by `DT`.
 template <typename DT, typename T>
 ALWAYS_INLINE static auto SExtTo(T val) -> typename IntegerType<DT>::ST {
-  static_assert(sizeof(T) <= sizeof(typename IntegerType<DT>::BT),
-                "Bad extension.");
+  static_assert(sizeof(T) <= sizeof(typename IntegerType<DT>::BT), "Bad extension.");
   return static_cast<typename IntegerType<DT>::ST>(Signed(val));
 }
 
 // Truncate an integer to half of its current width.
 template <typename T>
-ALWAYS_INLINE static auto Trunc(T val) ->
-    typename NextSmallerIntegerType<T>::BT {
+ALWAYS_INLINE static auto Trunc(T val) -> typename NextSmallerIntegerType<T>::BT {
   return static_cast<typename NextSmallerIntegerType<T>::BT>(val);
 }
 
@@ -892,8 +869,7 @@ ALWAYS_INLINE static auto Trunc(T val) ->
 // by `DT`.
 template <typename DT, typename T>
 ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
-  static_assert(sizeof(T) >= sizeof(typename IntegerType<DT>::BT),
-                "Bad truncation.");
+  static_assert(sizeof(T) >= sizeof(typename IntegerType<DT>::BT), "Bad truncation.");
   return static_cast<typename IntegerType<DT>::BT>(val);
 }
 
@@ -958,15 +934,15 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
   } while (false)
 
 #if !defined(REMILL_DISABLE_INT128)
-#define SWriteV128(op, val) \
-  do { \
-    memory = _SWriteV128(memory, op, (val)); \
-  } while (false)
+#  define SWriteV128(op, val) \
+    do { \
+      memory = _SWriteV128(memory, op, (val)); \
+    } while (false)
 
-#define UWriteV128(op, val) \
-  do { \
-    memory = _UWriteV128(memory, op, (val)); \
-  } while (false)
+#  define UWriteV128(op, val) \
+    do { \
+      memory = _UWriteV128(memory, op, (val)); \
+    } while (false)
 #endif
 
 #define FWriteV32(op, val) \
@@ -993,8 +969,8 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 #define UReadV64(op) _UReadV64(memory, op)
 
 #if !defined(REMILL_DISABLE_INT128)
-#define SReadV128(op) _SReadV128(memory, op)
-#define UReadV128(op) _UReadV128(memory, op)
+#  define SReadV128(op) _SReadV128(memory, op)
+#  define UReadV128(op) _UReadV128(memory, op)
 #endif
 
 #define FReadV32(op) _FReadV32(memory, op)
@@ -1012,8 +988,7 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 // Binary operator.
 #define MAKE_BINOP(name, type, widen_type, op) \
   ALWAYS_INLINE static type name(type L, type R) { \
-    return static_cast<type>(static_cast<widen_type>(L) \
-                                 op static_cast<widen_type>(R)); \
+    return static_cast<type>(static_cast<widen_type>(L) op static_cast<widen_type>(R)); \
   }
 
 #define MAKE_BOOLBINOP(name, type, widen_type, op) \
@@ -1025,49 +1000,41 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 // the types of the inputs to their "natural" machine size, so we'll just
 // make that explicit, where `addr_t` encodes the natural machine word.
 #define MAKE_OPS(name, op, make_int_op, make_float_op) \
-  make_int_op(U##name, uint8_t, addr_t, op) \
-  make_int_op(U##name##8, uint8_t, addr_t, op) \
-  make_int_op(U##name, uint16_t, addr_t, op) \
-  make_int_op(U##name##16, uint16_t, addr_t, op) \
-  make_int_op(U##name, uint32_t, addr_t, op) \
-  make_int_op(U##name##32, uint32_t, addr_t, op) \
-  make_int_op(U##name, uint64_t, uint64_t, op) \
-  make_int_op(U##name##64, uint64_t, uint64_t, op) \
-  make_int_op(S##name, int8_t, addr_diff_t, op) \
-  make_int_op(S##name##8, int8_t, addr_diff_t, op) \
-  make_int_op(S##name, int16_t, addr_diff_t, op) \
-  make_int_op(S##name##16, int16_t, addr_diff_t, op) \
-  make_int_op(S##name, int32_t, addr_diff_t, op) \
-  make_int_op(S##name##32, int32_t, addr_diff_t, op) \
-  make_int_op(S##name, int64_t, int64_t, op) \
-  make_int_op(S##name##64, int64_t, int64_t, op) \
-  make_float_op(F##name, float32_t, float32_t, op) \
-  make_float_op(F##name##32, float32_t, float32_t, op) \
-  make_float_op(F##name, float64_t, float64_t, op) \
-  make_float_op(F##name##64, float64_t, float64_t, op) \
-  make_float_op(F##name, float80_t, float80_t, op) \
-  make_float_op(F##name##80, float80_t, float80_t, op)
+  make_int_op(U##name, uint8_t, addr_t, op) make_int_op(U##name##8, uint8_t, addr_t, op) \
+      make_int_op(U##name, uint16_t, addr_t, op) make_int_op(U##name##16, uint16_t, addr_t, op) \
+          make_int_op(U##name, uint32_t, addr_t, op) make_int_op( \
+              U##name##32, uint32_t, addr_t, op) make_int_op(U##name, uint64_t, uint64_t, op) \
+              make_int_op(U##name##64, uint64_t, uint64_t, \
+                          op) make_int_op(S##name, int8_t, addr_diff_t, \
+                                          op) make_int_op(S##name##8, int8_t, addr_diff_t, op) \
+                  make_int_op(S##name, int16_t, addr_diff_t, \
+                              op) make_int_op(S##name##16, int16_t, addr_diff_t, \
+                                              op) make_int_op(S##name, int32_t, addr_diff_t, op) \
+                      make_int_op(S##name##32, int32_t, addr_diff_t, op) \
+                          make_int_op(S##name, int64_t, int64_t, op) \
+                              make_int_op(S##name##64, int64_t, int64_t, op) \
+                                  make_float_op(F##name, float32_t, float32_t, op) \
+                                      make_float_op(F##name##32, float32_t, float32_t, op) \
+                                          make_float_op(F##name, float64_t, float64_t, op) \
+                                              make_float_op(F##name##64, float64_t, float64_t, op) \
+                                                  make_float_op(F##name, float80_t, float80_t, op) \
+                                                      make_float_op(F##name##80, float80_t, \
+                                                                    float80_t, op)
 
 #define MAKE_INT128OPS(name, op, make_int_op, make_float_op) \
   make_int_op(U##name, uint128_t, uint128_t, op) \
-  make_int_op(U##name##128, uint128_t, uint128_t, op) \
-  make_int_op(S##name, int128_t, int128_t, op) \
-  make_int_op(S##name##128, int128_t, int128_t, op)
+      make_int_op(U##name##128, uint128_t, uint128_t, op) \
+          make_int_op(S##name, int128_t, int128_t, op) \
+              make_int_op(S##name##128, int128_t, int128_t, op)
 
 #define DO_MAKE_OPS(make_ops) \
-  make_ops(Add, +, MAKE_BINOP, MAKE_BINOP) \
-  make_ops(Sub, -, MAKE_BINOP, MAKE_BINOP) \
-  make_ops(Mul, *, MAKE_BINOP, MAKE_BINOP) \
-  make_ops(Div, /, MAKE_BINOP, MAKE_BINOP) \
-  make_ops(Rem, %, MAKE_BINOP, MAKE_NOP) \
-  make_ops(And, &, MAKE_BINOP, MAKE_NOP) \
-  make_ops(AndN, &~, MAKE_BINOP, MAKE_NOP) \
-  make_ops(Or, |, MAKE_BINOP, MAKE_NOP) \
-  make_ops(Xor, ^, MAKE_BINOP, MAKE_NOP) \
-  make_ops(Shr, >>, MAKE_BINOP, MAKE_NOP) \
-  make_ops(Shl, <<, MAKE_BINOP, MAKE_NOP) \
-  make_ops(Neg, -, MAKE_UOP, MAKE_UOP) \
-  make_ops(Not, ~, MAKE_UOP, MAKE_NOP)
+  make_ops(Add, +, MAKE_BINOP, MAKE_BINOP) make_ops(Sub, -, MAKE_BINOP, MAKE_BINOP) \
+      make_ops(Mul, *, MAKE_BINOP, MAKE_BINOP) make_ops(Div, /, MAKE_BINOP, MAKE_BINOP) \
+          make_ops(Rem, %, MAKE_BINOP, MAKE_NOP) make_ops(And, &, MAKE_BINOP, MAKE_NOP) \
+              make_ops(AndN, &~, MAKE_BINOP, MAKE_NOP) make_ops(Or, |, MAKE_BINOP, MAKE_NOP) \
+                  make_ops(Xor, ^, MAKE_BINOP, MAKE_NOP) make_ops(Shr, >>, MAKE_BINOP, MAKE_NOP) \
+                      make_ops(Shl, <<, MAKE_BINOP, MAKE_NOP) make_ops(Neg, -, MAKE_UOP, MAKE_UOP) \
+                          make_ops(Not, ~, MAKE_UOP, MAKE_NOP)
 
 // clang-format on
 
@@ -1173,14 +1140,10 @@ ALWAYS_INLINE static bool BNot(bool a) {
 
 #define MAKE_BROADCASTS(op, make_int_broadcast, make_float_broadcast) \
   make_int_broadcast(U##op, 8, bytes) make_int_broadcast(U##op, 16, words) \
-      make_int_broadcast(U##op, 32, dwords) \
-          make_int_broadcast(U##op, 64, qwords) \
-              make_int_broadcast(S##op, 8, sbytes) \
-                  make_int_broadcast(S##op, 16, swords) \
-                      make_int_broadcast(S##op, 32, sdwords) \
-                          make_int_broadcast(S##op, 64, sqwords) \
-                              make_float_broadcast(F##op, 32, floats) \
-                                  make_float_broadcast(F##op, 64, doubles)
+      make_int_broadcast(U##op, 32, dwords) make_int_broadcast(U##op, 64, qwords) \
+          make_int_broadcast(S##op, 8, sbytes) make_int_broadcast(S##op, 16, swords) \
+              make_int_broadcast(S##op, 32, sdwords) make_int_broadcast(S##op, 64, sqwords) \
+                  make_float_broadcast(F##op, 32, floats) make_float_broadcast(F##op, 64, doubles)
 
 MAKE_BROADCASTS(Add, MAKE_BIN_BROADCAST, MAKE_BIN_BROADCAST)
 MAKE_BROADCASTS(Sub, MAKE_BIN_BROADCAST, MAKE_BIN_BROADCAST)
@@ -1202,8 +1165,7 @@ MAKE_BROADCASTS(Not, MAKE_UN_BROADCAST, MAKE_NOP)
 // Binary broadcast operator.
 #define MAKE_ACCUMULATE(op, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto Accumulate##op##V##size(T R)->decltype( \
-      R.elems[0] | R.elems[1]) { \
+  ALWAYS_INLINE static auto Accumulate##op##V##size(T R)->decltype(R.elems[0] | R.elems[1]) { \
     auto L = R.elems[0]; \
     _Pragma("unroll") for (auto i = 1UL; i < NumVectorElems(R); ++i) { \
       L = op(L, R.elems[i]); \
@@ -1231,10 +1193,8 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 // Access the Nth element of an aggregate vector.
 #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
   template <typename T> \
-  ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, \
-                                                        size_t n) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), \
-                  "Invalid extract"); \
+  ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
+    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
     return out(vec.elems[n]); \
   }
 
@@ -1279,24 +1239,20 @@ ALWAYS_INLINE static int64_t SAbs(int64_t val) {
 }
 
 template <typename T>
-ALWAYS_INLINE static auto SAbs(typename IntegerType<T>::ST val) ->
-    typename IntegerType<T>::ST {
+ALWAYS_INLINE static auto SAbs(typename IntegerType<T>::ST val) -> typename IntegerType<T>::ST {
   return Select(SLt(val, 0), SNeg(val), val);
 }
 
 template <typename T>
-ALWAYS_INLINE static auto UAbs(typename IntegerType<T>::UT val) ->
-    typename IntegerType<T>::UT {
+ALWAYS_INLINE static auto UAbs(typename IntegerType<T>::UT val) -> typename IntegerType<T>::UT {
   return val;
 }
 
 // Access the Nth element of an aggregate vector.
 #define MAKE_INSERTV(prefix, size, base_type, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, \
-                                               base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), \
-                  "Invalid extract"); \
+  ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, base_type val) { \
+    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
     vec.elems[n] = val; \
     return vec; \
   }
@@ -1328,10 +1284,8 @@ MAKE_INSERTV(F, 80, float80_t, tdoubles)
 // Update the Nth element of an aggregate vector.
 #define MAKE_UPDATEV(prefix, size, base_type, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, \
-                                                  base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), \
-                  "Invalid update"); \
+  ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, base_type val) { \
+    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid update"); \
     vec.elems[n] = val; \
   }
 
@@ -1374,7 +1328,7 @@ ALWAYS_INLINE static constexpr T _ZeroVec(void) {
 #define UClearV64(...) _ZeroVec<uint64_t, decltype(__VA_ARGS__)>()
 
 #if !defined(REMILL_DISABLE_INT128)
-#define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
+#  define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
 #endif
 
 #define SClearV8(...) _ZeroVec<int8_t, decltype(__VA_ARGS__)>()
@@ -1383,7 +1337,7 @@ ALWAYS_INLINE static constexpr T _ZeroVec(void) {
 #define SClearV64(...) _ZeroVec<int64_t, decltype(__VA_ARGS__)>()
 
 #if !defined(REMILL_DISABLE_INT128)
-#define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
+#  define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
 #endif
 
 #define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
@@ -1527,20 +1481,17 @@ ALWAYS_INLINE static auto ReadPtr(addr_t addr) -> Mn<typename BaseType<T>::BT> {
 }
 
 template <typename T>
-ALWAYS_INLINE static auto ReadPtr(addr_t addr, addr_t seg_base)
-    -> Mn<typename BaseType<T>::BT> {
+ALWAYS_INLINE static auto ReadPtr(addr_t addr, addr_t seg_base) -> Mn<typename BaseType<T>::BT> {
   return {addr + seg_base};
 }
 
 template <typename T>
-ALWAYS_INLINE static auto WritePtr(addr_t addr)
-    -> MnW<typename BaseType<T>::BT> {
+ALWAYS_INLINE static auto WritePtr(addr_t addr) -> MnW<typename BaseType<T>::BT> {
   return {addr};
 }
 
 template <typename T>
-ALWAYS_INLINE static auto WritePtr(addr_t addr, addr_t seg_base)
-    -> MnW<typename BaseType<T>::BT> {
+ALWAYS_INLINE static auto WritePtr(addr_t addr, addr_t seg_base) -> MnW<typename BaseType<T>::BT> {
   return {addr + seg_base};
 }
 
@@ -1618,16 +1569,14 @@ ALWAYS_INLINE static T Select(bool cond, T if_true, T if_false) {
 
 #if !defined(REMILL_DISABLE_INT128)
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(Memory *mem,
-                                                        addr_t addr) {
+ALWAYS_INLINE static uint128_t __remill_read_memory_128(Memory *mem, addr_t addr) {
   uint128_t low_qword = ZExt(__remill_read_memory_64(mem, addr));
   uint128_t high_qword = ZExt(__remill_read_memory_64(mem, addr + 8));
   return UOr(UShl(high_qword, 64), low_qword);
 }
 
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static Memory *__remill_write_memory_128(Memory *mem, addr_t addr,
-                                                       uint128_t val) {
+ALWAYS_INLINE static Memory *__remill_write_memory_128(Memory *mem, addr_t addr, uint128_t val) {
   uint64_t low_qword = Trunc(val);
   uint64_t high_qword = Trunc(UShr(val, 64));
   mem = __remill_write_memory_64(mem, addr, low_qword);
@@ -1670,25 +1619,25 @@ MAKE_BUILTIN(CountTrailingZeros, 64, 64, __builtin_ctzll, 0)
   }
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
-#define MAKE_BUILTIN(name, intrinsic_name) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##f, 32, float32_t) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 64, float64_t) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##l, 80, float80_t)
+#  define MAKE_BUILTIN(name, intrinsic_name) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##f, 32, float32_t) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 64, float64_t) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##l, 80, float80_t)
 #else
-#define MAKE_BUILTIN(name, intrinsic_name) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##f, 32, float32_t) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 64, float64_t) \
-  MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 80, float80_t)
+#  define MAKE_BUILTIN(name, intrinsic_name) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name##f, 32, float32_t) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 64, float64_t) \
+    MAKE_BUILTIN_INTRINSIC(name, intrinsic_name, 80, float80_t)
 #endif
 
 MAKE_BUILTIN(FAbs, __builtin_fabs);
 MAKE_BUILTIN(FCos, __builtin_cos)
 MAKE_BUILTIN(FSin, __builtin_sin)
 MAKE_BUILTIN(FTan, __builtin_tan)
-MAKE_BUILTIN(FAtan,__builtin_atan)
-MAKE_BUILTIN(FSqrt,__builtin_sqrt)
-MAKE_BUILTIN(Exp2,__builtin_exp2)
-MAKE_BUILTIN(Log2,__builtin_log2)
+MAKE_BUILTIN(FAtan, __builtin_atan)
+MAKE_BUILTIN(FSqrt, __builtin_sqrt)
+MAKE_BUILTIN(Exp2, __builtin_exp2)
+MAKE_BUILTIN(Log2, __builtin_log2)
 
 MAKE_BUILTIN(FRoundUsingMode, __builtin_nearbyint);
 MAKE_BUILTIN(FTruncTowardZero, __builtin_trunc);
@@ -1706,19 +1655,17 @@ ALWAYS_INLINE static int16_t Float64ToInt16(float64_t val) {
 
 ALWAYS_INLINE static int32_t Float64ToInt32(float64_t val) {
   auto max_int = Float64(Maximize(Int32(0)));
-  return Select<int32_t>(FCmpLt(max_int, FAbs(val)), Int32(0x80000000),
-                         Int32(val));
+  return Select<int32_t>(FCmpLt(max_int, FAbs(val)), Int32(0x80000000), Int32(val));
 }
 
 ALWAYS_INLINE static int16_t Float80ToInt16(float80_t val) {
-	auto max_int = Float80(Float64(Maximize(Int16(0))));
+  auto max_int = Float80(Float64(Maximize(Int16(0))));
   return Select<int16_t>(FCmpLt80(max_int, FAbs80(val)), Int16(0x8000), Int16(val));
 }
 
 ALWAYS_INLINE static int32_t Float80ToInt32(float80_t val) {
   auto max_int = Float80(Float64(Maximize(Int32(0))));
-  return Select<int32_t>(FCmpLt80(max_int, FAbs80(val)), Int32(0x80000000),
-                         Int32(val));
+  return Select<int32_t>(FCmpLt80(max_int, FAbs80(val)), Int32(0x80000000), Int32(val));
 }
 
 ALWAYS_INLINE static int16_t Float32ToInt16(float32_t val) {
@@ -1728,8 +1675,7 @@ ALWAYS_INLINE static int16_t Float32ToInt16(float32_t val) {
 
 ALWAYS_INLINE static int32_t Float32ToInt32(float32_t val) {
   auto max_int = Float32(Maximize(Int32(0)));
-  return Select<int32_t>(FCmpLt(max_int, FAbs(val)), Int32(0x80000000),
-                         Int32(val));
+  return Select<int32_t>(FCmpLt(max_int, FAbs(val)), Int32(0x80000000), Int32(val));
 }
 
 ALWAYS_INLINE static int64_t Float32ToInt64(float32_t val) {
@@ -1738,14 +1684,12 @@ ALWAYS_INLINE static int64_t Float32ToInt64(float32_t val) {
 
 ALWAYS_INLINE static int64_t Float64ToInt64(float64_t val) {
   auto max_int = Float64(Maximize(Int64(0)));
-  return Select<int64_t>(FCmpLt(max_int, FAbs(val)),
-                         Int64(0x8000000000000000LL), Int64(val));
+  return Select<int64_t>(FCmpLt(max_int, FAbs(val)), Int64(0x8000000000000000LL), Int64(val));
 }
 
 ALWAYS_INLINE static int64_t Float80ToInt64(float80_t val) {
   auto max_int = Float80(Float64(Maximize(Int64(0))));
-  return Select<int64_t>(FCmpLt80(max_int, FAbs80(val)),
-                         Int64(0x8000000000000000LL), Int64(val));
+  return Select<int64_t>(FCmpLt80(max_int, FAbs80(val)), Int64(0x8000000000000000LL), Int64(val));
 }
 
 ALWAYS_INLINE static float32_t FRoundToNearestEven32(float32_t val) {

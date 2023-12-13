@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <bitset>
-#include <cmath>
-
 #include "remill/Arch/Runtime/Float.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/Runtime/Operators.h"
 #include "remill/Arch/SPARC32/Runtime/State.h"
 #include "remill/Arch/SPARC32/Runtime/Types.h"
+
+#include <algorithm>
+#include <bitset>
+#include <cmath>
 
 // A definition is required to ensure that LLVM doesn't optimize the `State` type out of the bytecode
 // See https://github.com/lifting-bits/remill/pull/631#issuecomment-1279989004
@@ -141,8 +141,7 @@ namespace {
 DEF_SEM(HandleUnsupported) {
   return __remill_sync_hyper_call(
       state, memory,
-      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction,
-                                   kSPARC64EmulateInstruction));
+      SyncHyperCall::IF_32BIT_ELSE(kSPARC32EmulateInstruction, kSPARC64EmulateInstruction));
 }
 
 // Takes the place of an invalid instruction.
@@ -151,8 +150,7 @@ DEF_SEM(HandleInvalidInstruction) {
   return memory;
 }
 
-DEF_HELPER(SAVE_WINDOW, RegisterWindow *window, RegisterWindow *&prev_window)
-    ->void {
+DEF_HELPER(SAVE_WINDOW, RegisterWindow *window, RegisterWindow *&prev_window)->void {
 
   // TODO(pag): These two lines should be uncommented for correctness, but then
   //            they don't result in as nice bitcode in McSema :-(
@@ -194,8 +192,7 @@ DEF_HELPER(RESTORE_WINDOW, RegisterWindow *&prev_window)->void {
 
   const auto window = prev_window ? prev_window : state.window;
   if (!window) {
-    memory = __remill_sync_hyper_call(state, memory,
-                                      SyncHyperCall::kSPARCWindowUnderflow);
+    memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCWindowUnderflow);
     return;
   }
 
@@ -238,12 +235,11 @@ DEF_HELPER(RESTORE_WINDOW, RegisterWindow *&prev_window)->void {
 DEF_ISEL(UNSUPPORTED_INSTRUCTION) = HandleUnsupported;
 DEF_ISEL(INVALID_INSTRUCTION) = HandleInvalidInstruction;
 
-#include "lib/Arch/SPARC32/Semantics/FLAGS.cpp"
-#include "lib/Arch/SPARC32/Semantics/COND.cpp"
-
 #include "lib/Arch/SPARC32/Semantics/BINARY.cpp"
 #include "lib/Arch/SPARC32/Semantics/BRANCH.cpp"
+#include "lib/Arch/SPARC32/Semantics/COND.cpp"
 #include "lib/Arch/SPARC32/Semantics/DATAXFER.cpp"
+#include "lib/Arch/SPARC32/Semantics/FLAGS.cpp"
 #include "lib/Arch/SPARC32/Semantics/FOP.cpp"
 #include "lib/Arch/SPARC32/Semantics/LOGICAL.cpp"
 #include "lib/Arch/SPARC32/Semantics/MISC.cpp"

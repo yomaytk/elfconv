@@ -35,8 +35,7 @@ DEF_SEM(RET_IMM, I16 bytes, IF_32BIT_ELSE(R32W, R64W) pc_dst) {
   const auto new_pc = Read(ReadPtr<addr_t>(REG_XSP _IF_32BIT(REG_SS_BASE)));
   Write(REG_PC, new_pc);
   Write(pc_dst, new_pc);
-  Write(REG_XSP,
-        UAdd(UAdd(REG_XSP, ZExtTo<addr_t>(Read(bytes))), ADDRESS_SIZE_BYTES));
+  Write(REG_XSP, UAdd(UAdd(REG_XSP, ZExtTo<addr_t>(Read(bytes))), ADDRESS_SIZE_BYTES));
   return memory;
 }
 

@@ -2336,8 +2336,7 @@ struct InstData {
   uint8_t o2;  // FRINTN_asimdmisc_R, ...
   uint8_t o3;  // LDCLRLB_32_memop, ...
   uint8_t sf;  // ORN_64_log_shift, ...
-  uint8_t pattern; // CNTB_X64_bitcount, ...
-
+  uint8_t pattern;  // CNTB_X64_bitcount, ...
 };
 
 // FRECPX  <Hd>, <Hn>
@@ -2527,8 +2526,7 @@ bool TryDecodeFMIN_D_FLOATDP2(const InstData &data, Instruction &inst);
 bool TryDecodeUMLSL_ASIMDELEM_L(const InstData &data, Instruction &inst);
 
 // FMAXNM  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFMAXNM_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFMAXNM_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FMAXNM  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMAXNM_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);
@@ -3212,8 +3210,7 @@ bool TryDecodeSTEORH_32S_MEMOP(const InstData &data, Instruction &inst);
 bool TryDecodeSTEORLH_32S_MEMOP(const InstData &data, Instruction &inst);
 
 // FMINNMP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFMINNMP_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeFMINNMP_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FMINNMP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMINNMP_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);
@@ -3354,8 +3351,7 @@ bool TryDecodeASR_ASRV_32_DP_2SRC(const InstData &data, Instruction &inst);
 bool TryDecodeASR_ASRV_64_DP_2SRC(const InstData &data, Instruction &inst);
 
 // UMULL  <Xd>, <Wn>, <Wm>
-bool TryDecodeUMULL_UMADDL_64WA_DP_3SRC(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeUMULL_UMADDL_64WA_DP_3SRC(const InstData &data, Instruction &inst);
 
 // FCMGT  <Hd>, <Hn>, <Hm>
 bool TryDecodeFCMGT_ASISDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
@@ -4126,8 +4122,7 @@ bool TryDecodeADD_64_ADDSUB_EXT(const InstData &data, Instruction &inst);
 bool TryDecodeFMAXNMP_ASISDPAIR_ONLY_H(const InstData &data, Instruction &inst);
 
 // FMAXNMP  <V><d>, <Vn>.<T>
-bool TryDecodeFMAXNMP_ASISDPAIR_ONLY_SD(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFMAXNMP_ASISDPAIR_ONLY_SD(const InstData &data, Instruction &inst);
 
 // BICS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
 bool TryDecodeBICS_32_LOG_SHIFT(const InstData &data, Instruction &inst);
@@ -4184,12 +4179,10 @@ bool TryDecodeFMSUB_S_FLOATDP3(const InstData &data, Instruction &inst);
 bool TryDecodeFMSUB_D_FLOATDP3(const InstData &data, Instruction &inst);
 
 // NGCS  <Wd>, <Wm>
-bool TryDecodeNGCS_SBCS_32_ADDSUB_CARRY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeNGCS_SBCS_32_ADDSUB_CARRY(const InstData &data, Instruction &inst);
 
 // NGCS  <Xd>, <Xm>
-bool TryDecodeNGCS_SBCS_64_ADDSUB_CARRY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeNGCS_SBCS_64_ADDSUB_CARRY(const InstData &data, Instruction &inst);
 
 // STR  <Wt>, [<Xn|SP>], #<simm>
 bool TryDecodeSTR_32_LDST_IMMPOST(const InstData &data, Instruction &inst);
@@ -4282,15 +4275,13 @@ bool TryDecodeRBIT_32_DP_1SRC(const InstData &data, Instruction &inst);
 bool TryDecodeRBIT_64_DP_1SRC(const InstData &data, Instruction &inst);
 
 // SMNEGL  <Xd>, <Wn>, <Wm>
-bool TryDecodeSMNEGL_SMSUBL_64WA_DP_3SRC(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeSMNEGL_SMSUBL_64WA_DP_3SRC(const InstData &data, Instruction &inst);
 
 // MOV  <V><d>, <Vn>.<T>[<index>]
 bool TryDecodeMOV_DUP_ASISDONE_ONLY(const InstData &data, Instruction &inst);
 
 // SMULL  <Xd>, <Wn>, <Wm>
-bool TryDecodeSMULL_SMADDL_64WA_DP_3SRC(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeSMULL_SMADDL_64WA_DP_3SRC(const InstData &data, Instruction &inst);
 
 // ZIP2  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeZIP2_ASIMDPERM_ONLY(const InstData &data, Instruction &inst);
@@ -4353,8 +4344,7 @@ bool TryDecodeFCVTMU_ASIMDMISCFP16_R(const InstData &data, Instruction &inst);
 bool TryDecodeFCVTMU_ASIMDMISC_R(const InstData &data, Instruction &inst);
 
 // FMAXNMP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFMAXNMP_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeFMAXNMP_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FMAXNMP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMAXNMP_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);
@@ -4429,15 +4419,13 @@ bool TryDecodeLDSET_64_MEMOP(const InstData &data, Instruction &inst);
 bool TryDecodeLDSETL_64_MEMOP(const InstData &data, Instruction &inst);
 
 // FRECPS  <Hd>, <Hn>, <Hm>
-bool TryDecodeFRECPS_ASISDSAMEFP16_ONLY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFRECPS_ASISDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FRECPS  <V><d>, <V><n>, <V><m>
 bool TryDecodeFRECPS_ASISDSAME_ONLY(const InstData &data, Instruction &inst);
 
 // FRECPS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFRECPS_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFRECPS_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FRECPS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFRECPS_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);
@@ -4584,15 +4572,13 @@ bool TryDecodeFCMPE_D_FLOATCMP(const InstData &data, Instruction &inst);
 bool TryDecodeFCMPE_DZ_FLOATCMP(const InstData &data, Instruction &inst);
 
 // FRSQRTS  <Hd>, <Hn>, <Hm>
-bool TryDecodeFRSQRTS_ASISDSAMEFP16_ONLY(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeFRSQRTS_ASISDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FRSQRTS  <V><d>, <V><n>, <V><m>
 bool TryDecodeFRSQRTS_ASISDSAME_ONLY(const InstData &data, Instruction &inst);
 
 // FRSQRTS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFRSQRTS_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeFRSQRTS_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FRSQRTS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFRSQRTS_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);
@@ -5234,8 +5220,7 @@ bool TryDecodeSADDW_ASIMDDIFF_W(const InstData &data, Instruction &inst);
 bool TryDecodeSADDLP_ASIMDMISC_P(const InstData &data, Instruction &inst);
 
 // UMNEGL  <Xd>, <Wn>, <Wm>
-bool TryDecodeUMNEGL_UMSUBL_64WA_DP_3SRC(const InstData &data,
-                                         Instruction &inst);
+bool TryDecodeUMNEGL_UMSUBL_64WA_DP_3SRC(const InstData &data, Instruction &inst);
 
 // ST2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 bool TryDecodeST2_ASISDLSE_R2(const InstData &data, Instruction &inst);
@@ -5448,12 +5433,10 @@ bool TryDecodeCASB_C32_LDSTEXCL(const InstData &data, Instruction &inst);
 bool TryDecodeCASLB_C32_LDSTEXCL(const InstData &data, Instruction &inst);
 
 // NEGS  <Wd>, <Wm>{, <shift> #<amount>}
-bool TryDecodeNEGS_SUBS_32_ADDSUB_SHIFT(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeNEGS_SUBS_32_ADDSUB_SHIFT(const InstData &data, Instruction &inst);
 
 // NEGS  <Xd>, <Xm>{, <shift> #<amount>}
-bool TryDecodeNEGS_SUBS_64_ADDSUB_SHIFT(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeNEGS_SUBS_64_ADDSUB_SHIFT(const InstData &data, Instruction &inst);
 
 // LDSMAXAH  <Ws>, <Wt>, [<Xn|SP>]
 bool TryDecodeLDSMAXAH_32_MEMOP(const InstData &data, Instruction &inst);
@@ -6239,8 +6222,7 @@ bool TryDecodeUQSHL_ASIMDSHF_R(const InstData &data, Instruction &inst);
 bool TryDecodeFMINNMP_ASISDPAIR_ONLY_H(const InstData &data, Instruction &inst);
 
 // FMINNMP  <V><d>, <Vn>.<T>
-bool TryDecodeFMINNMP_ASISDPAIR_ONLY_SD(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFMINNMP_ASISDPAIR_ONLY_SD(const InstData &data, Instruction &inst);
 
 // UMADDL  <Xd>, <Wn>, <Wm>, <Xa>
 bool TryDecodeUMADDL_64WA_DP_3SRC(const InstData &data, Instruction &inst);
@@ -6729,8 +6711,7 @@ bool TryDecodeCMN_ADDS_32S_ADDSUB_EXT(const InstData &data, Instruction &inst);
 bool TryDecodeCMN_ADDS_64S_ADDSUB_EXT(const InstData &data, Instruction &inst);
 
 // FMINNM  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeFMINNM_ASIMDSAMEFP16_ONLY(const InstData &data,
-                                        Instruction &inst);
+bool TryDecodeFMINNM_ASIMDSAMEFP16_ONLY(const InstData &data, Instruction &inst);
 
 // FMINNM  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMINNM_ASIMDSAME_ONLY(const InstData &data, Instruction &inst);

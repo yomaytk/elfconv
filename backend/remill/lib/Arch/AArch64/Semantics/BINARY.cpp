@@ -53,8 +53,8 @@ T AddWithCarryNZCV(State &state, T lhs, T rhs, T actual_rhs, T carry) {
   FLAG_N = SignFlag(result, lhs, actual_rhs);
   FLAG_Z = ZeroFlag(result, lhs, actual_rhs);
   FLAG_C = UCmpNeq(ZExt(result), unsigned_result);
-  FLAG_V = __remill_flag_computation_overflow(
-      SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result);
+  FLAG_V = __remill_flag_computation_overflow(SCmpNeq(SExt(result), signed_result), lhs, actual_rhs,
+                                              result);
   return result;
 }
 
@@ -201,8 +201,7 @@ DEF_SEM(SBC, D dst, S src1, S src2) {
 template <typename D, typename S>
 DEF_SEM(SBCS, D dst, S src1, S src2) {
   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
-  auto res =
-      AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2), carry);
+  auto res = AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2), carry);
   WriteZExt(dst, res);
   return memory;
 }
@@ -306,8 +305,7 @@ DEF_SEM(FMADD_S, V128W dst, V32 src1, V32 src2, V32 src3) {
   BarrierReorder();
   auto res = FAdd32(prod, add);
   BarrierReorder();
-  auto except_add =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
+  auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
   SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
@@ -336,8 +334,7 @@ DEF_SEM(FMADD_D, V128W dst, V64 src1, V64 src2, V64 src3) {
   BarrierReorder();
   auto res = FAdd64(prod, add);
   BarrierReorder();
-  auto except_add =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
+  auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
   SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.

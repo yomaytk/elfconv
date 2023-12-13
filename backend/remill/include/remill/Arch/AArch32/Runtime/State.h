@@ -44,12 +44,10 @@ struct NeonReg final {
   };
 } __attribute__((packed));
 
-static_assert(sizeof(uint128_t) == sizeof(NeonReg),
-              "Invalid packing of NeonReg");
+static_assert(sizeof(uint128_t) == sizeof(NeonReg), "Invalid packing of NeonReg");
 
 static_assert(sizeof(uint32_t) == sizeof(Reg), "Invalid packing of `Reg`.");
-static_assert(0 == __builtin_offsetof(Reg, dword),
-              "Invalid packing of `Reg::dword`.");
+static_assert(0 == __builtin_offsetof(Reg, dword), "Invalid packing of `Reg::dword`.");
 
 struct alignas(8) GPR final {
 
@@ -155,8 +153,7 @@ struct alignas(16) NeonBank {
   NeonReg q15;
 } __attribute__((packed));
 
-static_assert(sizeof(uint128_t) * 16 == sizeof(NeonBank),
-              "Invalid packing of NeonBank");
+static_assert(sizeof(uint128_t) * 16 == sizeof(NeonBank), "Invalid packing of NeonBank");
 
 
 struct alignas(16) AArch32State : public ArchState {

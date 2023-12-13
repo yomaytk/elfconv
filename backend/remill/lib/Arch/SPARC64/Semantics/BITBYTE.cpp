@@ -41,11 +41,9 @@ DEF_SEM(BSHUFFLE, V64 src1, V64 src2, V64W dst) {
     auto e = UShr(mask, decltype(mask)(28 - i * 4));
     auto index = UXor(e, Literal<decltype(e)>(0xff));
     if (index >= num_elems) {
-      dst_vec = UInsertV8(dst_vec, num_elems - i,
-                          UExtractV8(rs2_vec, (2 * num_elems - 1) - index));
+      dst_vec = UInsertV8(dst_vec, num_elems - i, UExtractV8(rs2_vec, (2 * num_elems - 1) - index));
     } else {
-      dst_vec = UInsertV8(dst_vec, num_elems - i,
-                          UExtractV8(rs2_vec, (num_elems - 1) - index));
+      dst_vec = UInsertV8(dst_vec, num_elems - i, UExtractV8(rs2_vec, (num_elems - 1) - index));
     }
   }
   UWriteV8(dst, dst_vec);

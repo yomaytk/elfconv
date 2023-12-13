@@ -28,8 +28,7 @@
     state.st.elems[2].val = state.st.elems[1].val; \
     state.st.elems[1].val = state.st.elems[0].val; \
     state.st.elems[0].val = __x; \
-    state.x87.fxsave.swd.top = \
-        static_cast<uint16_t>((state.x87.fxsave.swd.top + 7) % 8); \
+    state.x87.fxsave.swd.top = static_cast<uint16_t>((state.x87.fxsave.swd.top + 7) % 8); \
   } while (false)
 
 
@@ -46,8 +45,7 @@
     state.st.elems[5].val = state.st.elems[6].val; \
     state.st.elems[6].val = state.st.elems[7].val; \
     state.st.elems[7].val = __x; \
-    state.x87.fxsave.swd.top = \
-        static_cast<uint16_t>((state.x87.fxsave.swd.top + 9) % 8); \
+    state.x87.fxsave.swd.top = static_cast<uint16_t>((state.x87.fxsave.swd.top + 9) % 8); \
     __x; \
   })
 
@@ -127,9 +125,9 @@ DEF_FPU_SEM(FLD, RF80W, T src1) {
   if (state.sw.ie) {
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
-// On non-x86 architectures, native_float80_t is defined as a double (float64_t)
-// On x86, it is a long double (80-bit of native representation).
-// Handle these separate cases.
+    // On non-x86 architectures, native_float80_t is defined as a double (float64_t)
+    // On x86, it is a long double (80-bit of native representation).
+    // Handle these separate cases.
     static_assert(sizeof(native_float80_t) >= sizeof(nan80_t), "Float/NaN size mismatch");
     // It is resonable to have >= in the above test because
     // on x86/amd64 a native_float80_t is a float80 + padding
@@ -226,11 +224,11 @@ DEF_FPU_SEM(DoFCHS) {
 }
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
-#define __builtin_fmod_f80 __builtin_fmodl
-#define __builtin_remainder_f80 __builtin_remainderl
+#  define __builtin_fmod_f80 __builtin_fmodl
+#  define __builtin_remainder_f80 __builtin_remainderl
 #else
-#define __builtin_fmod_f80 __builtin_fmod
-#define __builtin_remainder_f80 __builtin_remainder
+#  define __builtin_fmod_f80 __builtin_fmod
+#  define __builtin_remainder_f80 __builtin_remainder
 #endif
 
 // NOTE(pag): This only sort of, but doesn't really make sense. That is, it's
@@ -485,8 +483,7 @@ template <typename T>
 DEF_FPU_SEM(FISUB, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   SetFPUDp(src2);
-  Write(dst, CheckedFloatBinOp(state, FSub80, Read(src1),
-                               Float80(Signed(Read(src2)))));
+  Write(dst, CheckedFloatBinOp(state, FSub80, Read(src1), Float80(Signed(Read(src2)))));
   return memory;
 }
 
@@ -515,8 +512,7 @@ template <typename T>
 DEF_FPU_SEM(FISUBR, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   SetFPUDp(src2);
-  Write(dst, CheckedFloatBinOp(state, FSub80, Float80(Signed(Read(src2))),
-                               Read(src1)));
+  Write(dst, CheckedFloatBinOp(state, FSub80, Float80(Signed(Read(src2))), Read(src1)));
   return memory;
 }
 }  // namespace
@@ -787,8 +783,7 @@ DEF_FPU_SEM(FSTPmem, T dst, RF80W src) {
 }
 
 template <typename C1, typename C2>
-DEF_HELPER(ConvertToInt, C1 cast, C2 convert, native_float80_t input)
-    ->decltype(cast(input)) {
+DEF_HELPER(ConvertToInt, C1 cast, C2 convert, native_float80_t input)->decltype(cast(input)) {
   auto rounded = FRoundUsingMode80(input);
   auto casted = CheckedFloatUnaryOp(state, cast, rounded);
   auto converted = convert(rounded);
@@ -815,16 +810,14 @@ DEF_HELPER(ConvertToInt, C1 cast, C2 convert, native_float80_t input)
 DEF_FPU_SEM(FISTm16, M16W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res =
-      ConvertToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
+  auto res = ConvertToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
   Write(dst, Unsigned(res));
   return memory;
 }
 
 DEF_FPU_SEM(FISTm32, M32W dst, RF80W src) {
   SetFPUIpOp();
-  auto res =
-      ConvertToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
+  auto res = ConvertToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
   Write(dst, Unsigned(res));
   return memory;
 }
@@ -844,8 +837,7 @@ DEF_FPU_SEM(FISTPm32, M32W dst, RF80W src) {
 DEF_FPU_SEM(FISTPm64, M64W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res =
-      ConvertToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
+  auto res = ConvertToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
   return memory;
@@ -887,8 +879,7 @@ DEF_ISEL(FINCSTP) = DoFINCSTP;
 IF_32BIT(DEF_ISEL(FSTPNCE_X87_ST0) = FSTP<RF80W>;)
 
 template <typename C1, typename C2>
-DEF_HELPER(TruncateToInt, C1 cast, C2 convert, float80_t input)
-    ->decltype(cast(input)) {
+DEF_HELPER(TruncateToInt, C1 cast, C2 convert, float80_t input)->decltype(cast(input)) {
   auto truncated = FTruncTowardZero80(input);
   auto casted = CheckedFloatUnaryOp(state, cast, truncated);
   auto converted = convert(truncated);
@@ -916,8 +907,7 @@ namespace {
 DEF_FPU_SEM(FISTTPm16, M16W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res =
-      TruncateToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
+  auto res = TruncateToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
   return memory;
@@ -926,8 +916,7 @@ DEF_FPU_SEM(FISTTPm16, M16W dst, RF80W src) {
 DEF_FPU_SEM(FISTTPm32, M32W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res =
-      TruncateToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
+  auto res = TruncateToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
   return memory;
@@ -936,8 +925,7 @@ DEF_FPU_SEM(FISTTPm32, M32W dst, RF80W src) {
 DEF_FPU_SEM(FISTTPm64, M64W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res =
-      TruncateToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
+  auto res = TruncateToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
   return memory;
@@ -973,8 +961,7 @@ DEF_FPU_SEM(DoFXAM) {
   auto st0 = static_cast<native_float80_t>(Read(X87_ST0));
 
   uint8_t sign = __builtin_signbit(st0) == 0 ? 0_u8 : 1_u8;
-  auto c = __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL,
-                                FP_ZERO, st0);
+  auto c = __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, st0);
   switch (c) {
     case FP_NAN:
       state.sw.c0 = 1;
@@ -1493,8 +1480,7 @@ DEF_SEM(DoFNINIT) {
   // 32-bit or 64-bit, but regardless, they are set to 0.
   state.x87.fsave.cwd.flat = 0x037F;  // FPUControlWord
   state.x87.fsave.swd.flat = 0x0000;  // FPUStatusWord
-  state.x87.fsave.ftw.flat =
-      0x0000;  // FPUTagWord (0xFFFF in the manual, 0x0000 in testing)
+  state.x87.fsave.ftw.flat = 0x0000;  // FPUTagWord (0xFFFF in the manual, 0x0000 in testing)
   state.x87.fsave.dp = 0x0;  // FPUDataPointer
   state.x87.fsave.ip = 0x0;  // FPUInstructionPointer
   state.x87.fsave.fop = 0x0;  // FPULastInstructionOpcode

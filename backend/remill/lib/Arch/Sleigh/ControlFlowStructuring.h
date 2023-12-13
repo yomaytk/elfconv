@@ -2,10 +2,9 @@
 
 #include <remill/Arch/Instruction.h>
 #include <remill/BC/SleighLifter.h>
-#include <stdint.h>
-
 #include <sleigh/libsleigh.hh>
 #include <sleigh/pcoderaw.hh>
+#include <stdint.h>
 #include <unordered_map>
 
 namespace remill::sleigh {
@@ -27,9 +26,8 @@ class ContextUpdater {
   Sleigh &engine;
 
  public:
-  ContextUpdater(
-      const std::unordered_map<std::string, std::string> &context_reg_mapping,
-      DecodingContext initial_context, Sleigh &engine_);
+  ContextUpdater(const std::unordered_map<std::string, std::string> &context_reg_mapping,
+                 DecodingContext initial_context, Sleigh &engine_);
 
   // Applies a pcode op to the held context, this may produce a complete context
   void ApplyPcodeOp(const RemillPcodeOp &op);
@@ -51,16 +49,14 @@ class ControlFlowStructureAnalysis {
   ContextUpdater BuildContextUpdater(DecodingContext initial_context);
 
  public:
-  using SleighDecodingResult = std::optional<
-      std::pair<Instruction::InstructionFlowCategory, MaybeBranchTakenVar>>;
+  using SleighDecodingResult =
+      std::optional<std::pair<Instruction::InstructionFlowCategory, MaybeBranchTakenVar>>;
   ControlFlowStructureAnalysis(
-      const std::unordered_map<std::string, std::string> &context_reg_mapping,
-      Sleigh &engine);
+      const std::unordered_map<std::string, std::string> &context_reg_mapping, Sleigh &engine);
 
   static bool isControlFlowPcodeOp(OpCode opc);
 
   SleighDecodingResult ComputeCategory(const std::vector<RemillPcodeOp> &ops,
-                                       uint64_t fallthrough_addr,
-                                       DecodingContext entry_context);
+                                       uint64_t fallthrough_addr, DecodingContext entry_context);
 };
 }  // namespace remill::sleigh

@@ -24,16 +24,15 @@ uint64_t AArch64ArchBase::MinInstructionSize(const DecodingContext &) const {
 }
 
 // Maximum number of bytes in an instruction for this particular architecture.
-uint64_t AArch64ArchBase::MaxInstructionSize(const DecodingContext &,
-                                             bool) const {
+uint64_t AArch64ArchBase::MaxInstructionSize(const DecodingContext &, bool) const {
   return 4;
 }
 
 
 // Populate a just-initialized lifted function function with architecture-
 // specific variables.
-void AArch64ArchBase::FinishLiftedFunctionInitialization(
-    llvm::Module *module, llvm::Function *bb_func) const {
+void AArch64ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
+                                                         llvm::Function *bb_func) const {
 
   auto &context = module->getContext();
   auto u32 = llvm::Type::getInt32Ty(context);
@@ -48,8 +47,7 @@ void AArch64ArchBase::FinishLiftedFunctionInitialization(
 
   const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
-  llvm::StringRef next_pc_name(kNextPCVariableName.data(),
-                               kNextPCVariableName.size());
+  llvm::StringRef next_pc_name(kNextPCVariableName.data(), kNextPCVariableName.size());
   ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, next_pc_name));
 
   ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "WZR"));
@@ -68,8 +66,7 @@ llvm::Triple AArch64ArchBase::Triple(void) const {
     case kArchAArch64LittleEndian: triple.setArch(llvm::Triple::aarch64); break;
 
     default:
-      LOG(FATAL) << "Cannot get triple for non-AArch64 architecture "
-                 << GetArchName(arch_name);
+      LOG(FATAL) << "Cannot get triple for non-AArch64 architecture " << GetArchName(arch_name);
       break;
   }
   return triple;
@@ -102,11 +99,10 @@ void AArch64ArchBase::PopulateRegisterTable(void) const {
   reg_by_offset.resize(sizeof(AArch64State));
 
 #define OFFSET_OF(type, access) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<const volatile char &>( \
-      static_cast<type *>(nullptr)->access)))
+  (reinterpret_cast<uintptr_t>( \
+      &reinterpret_cast<const volatile char &>(static_cast<type *>(nullptr)->access)))
 
-#define REG(name, access, type) \
-  AddRegister(#name, type, OFFSET_OF(AArch64State, access), nullptr)
+#define REG(name, access, type) AddRegister(#name, type, OFFSET_OF(AArch64State, access), nullptr)
 
 #define SUB_REG(name, access, type, parent_reg_name) \
   AddRegister(#name, type, OFFSET_OF(AArch64State, access), #parent_reg_name)

@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-#include <stdio.h>
-#include "remill/Arch/Instruction.h"
 #include "Decode.h"
+
+#include "remill/Arch/Instruction.h"
+
+#include <stdio.h>
 
 namespace remill {
 namespace aarch64 {
@@ -42529,7 +42531,8 @@ bool TryDecode(const InstData &data, Instruction &inst) {
   if (iform_num - 1 < sizeof(kDecoder) / sizeof(kDecoder[0])) {
     return kDecoder[iform_num - 1](data, inst);
   } else {
-    printf("[ERROR] inst function \"%s\" is not registerd to kDecoder table.\n", inst.function.c_str());
+    printf("[ERROR] inst function \"%s\" is not registerd to kDecoder table.\n",
+           inst.function.c_str());
     abort();
   }
   return false;

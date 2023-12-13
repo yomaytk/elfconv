@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <functional>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <iostream>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
@@ -28,6 +33,8 @@
 #include <llvm/IR/Verifier.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/Support/raw_ostream.h>
+#include <map>
+#include <memory>
 #include <remill/Arch/Arch.h>
 #include <remill/Arch/Instruction.h>
 #include <remill/Arch/Name.h>
@@ -39,14 +46,6 @@
 #include <remill/BC/Version.h>
 #include <remill/OS/OS.h>
 #include <remill/Version/Version.h>
-
-#include <algorithm>
-#include <cstdint>
-#include <fstream>
-#include <functional>
-#include <iostream>
-#include <map>
-#include <memory>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -75,10 +74,8 @@ DEFINE_string(bc_out, "",
               "Path to file where the LLVM bitcode should be "
               "saved.");
 
-DEFINE_string(slice_inputs, "",
-              "Comma-separated list of registers to treat as inputs.");
-DEFINE_string(slice_outputs, "",
-              "Comma-separated list of registers to treat as outputs.");
+DEFINE_string(slice_inputs, "", "Comma-separated list of registers to treat as inputs.");
+DEFINE_string(slice_outputs, "", "Comma-separated list of registers to treat as outputs.");
 
 using Memory = std::map<uint64_t, uint8_t>;
 
@@ -93,8 +90,7 @@ static Memory UnhexlifyInputBytes(uint64_t addr_mask) {
     auto byte_val = strtol(nibbles, &parsed_to, 16);
 
     if (parsed_to != &(nibbles[2])) {
-      std::cerr << "Invalid hex byte value '" << nibbles
-                << "' specified in --bytes." << std::endl;
+      std::cerr << "Invalid hex byte value '" << nibbles << "' specified in --bytes." << std::endl;
       exit(EXIT_FAILURE);
     }
 
@@ -130,8 +126,7 @@ class SimpleTraceManager : public remill::TraceManager {
  protected:
   // Called when we have lifted, i.e. defined the contents, of a new trace.
   // The derived class is expected to do something useful with this.
-  void SetLiftedTraceDefinition(uint64_t addr,
-                                llvm::Function *lifted_func) override {
+  void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) override {
     traces[addr] = lifted_func;
   }
 
@@ -226,14 +221,12 @@ int main(int argc, char *argv[]) {
 
 
   if (FLAGS_bytes.empty()) {
-    std::cerr << "Please specify a sequence of hex bytes to --bytes."
-              << std::endl;
+    std::cerr << "Please specify a sequence of hex bytes to --bytes." << std::endl;
     return EXIT_FAILURE;
   }
 
   if (FLAGS_bytes.size() % 2) {
-    std::cerr << "Please specify an even number of nibbles to --bytes."
-              << std::endl;
+    std::cerr << "Please specify an even number of nibbles to --bytes." << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -254,10 +247,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (FLAGS_entry_address != (FLAGS_entry_address & addr_mask)) {
-    std::cerr
-        << "Value " << std::hex << FLAGS_entry_address
-        << " passed to --entry_address does not fit into 32-bits. Did mean"
-        << " to specify a 64-bit architecture to --arch?" << std::endl;
+    std::cerr << "Value " << std::hex << FLAGS_entry_address
+              << " passed to --entry_address does not fit into 32-bits. Did mean"
+              << " to specify a 64-bit architecture to --arch?" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -290,8 +282,7 @@ int main(int argc, char *argv[]) {
   arch->PrepareModuleDataLayout(&dest_module);
 
   llvm::Function *entry_trace = nullptr;
-  const auto make_slice =
-      !FLAGS_slice_inputs.empty() || !FLAGS_slice_outputs.empty();
+  const auto make_slice = !FLAGS_slice_inputs.empty() || !FLAGS_slice_outputs.empty();
 
   // Move the lifted code into a new module. This module will be much smaller
   // because it won't be bogged down with all of the semantics definitions.
@@ -319,10 +310,8 @@ int main(int argc, char *argv[]) {
 
     llvm::SmallVector<llvm::StringRef, 4> input_reg_names;
     llvm::SmallVector<llvm::StringRef, 4> output_reg_names;
-    llvm::StringRef(FLAGS_slice_inputs)
-        .split(input_reg_names, ',', -1, false /* KeepEmpty */);
-    llvm::StringRef(FLAGS_slice_outputs)
-        .split(output_reg_names, ',', -1, false /* KeepEmpty */);
+    llvm::StringRef(FLAGS_slice_inputs).split(input_reg_names, ',', -1, false /* KeepEmpty */);
+    llvm::StringRef(FLAGS_slice_outputs).split(output_reg_names, ',', -1, false /* KeepEmpty */);
 
     CHECK(!(input_reg_names.empty() && output_reg_names.empty()))
         << "Empty lists passed to both --slice_inputs and --slice_outputs";
@@ -333,9 +322,8 @@ int main(int argc, char *argv[]) {
 
     for (auto &reg_name : input_reg_names) {
       const auto reg = arch->RegisterByName(reg_name.str());
-      CHECK(reg != nullptr)
-          << "Invalid register name '" << reg_name.str()
-          << "' used in input slice list '" << FLAGS_slice_inputs << "'";
+      CHECK(reg != nullptr) << "Invalid register name '" << reg_name.str()
+                            << "' used in input slice list '" << FLAGS_slice_inputs << "'";
 
       arg_types.push_back(reg->type);
     }
@@ -345,18 +333,16 @@ int main(int argc, char *argv[]) {
     // Outputs are "returned" by pointer through arguments.
     for (auto &reg_name : output_reg_names) {
       const auto reg = arch->RegisterByName(reg_name.str());
-      CHECK(reg != nullptr)
-          << "Invalid register name '" << reg_name.str()
-          << "' used in output slice list '" << FLAGS_slice_outputs << "'";
+      CHECK(reg != nullptr) << "Invalid register name '" << reg_name.str()
+                            << "' used in output slice list '" << FLAGS_slice_outputs << "'";
 
       arg_types.push_back(llvm::PointerType::get(context, 0));
     }
 
     const auto state_type = llvm::PointerType::get(context, 0);
-    const auto func_type =
-        llvm::FunctionType::get(mem_ptr_type, arg_types, false);
-    const auto func = llvm::Function::Create(
-        func_type, llvm::GlobalValue::ExternalLinkage, "slice", &dest_module);
+    const auto func_type = llvm::FunctionType::get(mem_ptr_type, arg_types, false);
+    const auto func = llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, "slice",
+                                             &dest_module);
 
     // Store all of the function arguments (corresponding with specific registers)
     // into the stack-allocated `State` structure.
@@ -365,17 +351,14 @@ int main(int argc, char *argv[]) {
 
     const auto state_ptr = ir.CreateAlloca(state_type);
 
-    const remill::Register *pc_reg =
-        arch->RegisterByName(arch->ProgramCounterRegisterName());
+    const remill::Register *pc_reg = arch->RegisterByName(arch->ProgramCounterRegisterName());
 
-    CHECK(pc_reg != nullptr)
-        << "Could not find the register in the state structure "
-        << "associated with the program counter.";
+    CHECK(pc_reg != nullptr) << "Could not find the register in the state structure "
+                             << "associated with the program counter.";
 
     // Store the program counter into the state.
     const auto pc_reg_ptr = pc_reg->AddressOf(state_ptr, entry);
-    const auto trace_pc =
-        llvm::ConstantInt::get(pc_reg->type, FLAGS_entry_address, false);
+    const auto trace_pc = llvm::ConstantInt::get(pc_reg->type, FLAGS_entry_address, false);
     ir.SetInsertPoint(entry);
     ir.CreateStore(trace_pc, pc_reg_ptr);
 
@@ -396,8 +379,7 @@ int main(int argc, char *argv[]) {
     trace_args[remill::kStatePointerArgNum] = state_ptr;
     trace_args[remill::kMemoryPointerArgNum] = mem_ptr;
     trace_args[remill::kPCArgNum] = llvm::ConstantInt::get(
-        llvm::IntegerType::get(context, arch->address_size),
-        FLAGS_entry_address, false);
+        llvm::IntegerType::get(context, arch->address_size), FLAGS_entry_address, false);
 
     mem_ptr = ir.CreateCall(entry_trace, trace_args);
 

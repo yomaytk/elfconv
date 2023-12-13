@@ -28,8 +28,7 @@ template <typename S, typename D>
 DEF_SEM(STA, R8 asi, S src, D dst) {
   WriteZExt(dst, Read(src));
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(STF, RF32 src, MF32W dst) {
@@ -48,16 +47,14 @@ DEF_SEM(STFA, R8 asi, RF32 src, MF32W dst) {
   auto lhs = Read(src);
   Write(dst, lhs);
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(STDFA, R8 asi, RF64 src, MF64W dst) {
   auto lhs = Read(src);
   Write(dst, lhs);
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(STTW_R32, R32 src1, R32 src2, MV64W dst) {
@@ -153,8 +150,7 @@ template <typename S, typename D>
 DEF_SEM(LDUA, R8 asi, S src, D dst) {
   WriteZExt(dst, Read(src));
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 template <typename S, typename D>
@@ -167,8 +163,7 @@ template <typename S, typename D>
 DEF_SEM(LDSA, R8 asi, S src, D dst) {
   WriteSExt(dst, Signed(Read(src)));
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(LDF, MV64 src, R32W dst) {
@@ -187,16 +182,14 @@ DEF_SEM(LDFA, R8 asi, MV64 src, R32W dst) {
   auto vec = UReadV32(src);
   WriteZExt(dst, UExtractV32(vec, 0));
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(LDDFA, R8 asi, MV64 src, R64W dst) {
   auto vec = UReadV64(src);
   WriteZExt(dst, UExtractV64(vec, 0));
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(LDTW_IMMEXC, MV64 src_mem, R32W dst1, R32W dst2) {
@@ -261,8 +254,7 @@ DEF_SEM(LDSTUBA, R8 asi, M8W src_mem, R dst) {
   auto mem_val = Read(src_mem);
   WriteZExt(dst, mem_val);
   Write(src_mem, static_cast<uint8_t>(0xffu));
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 DEF_SEM(CASA, R32 src1, R32 src2, R32W dst) {
@@ -291,8 +283,7 @@ DEF_SEM(SWAPA, R8 asi, M32W src, R64W dst) {
   WriteZExt(dst, old_src);
   WriteTrunc(src, old_dst);
   HYPER_CALL_VECTOR = Read(asi);
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCSetAsiRegister);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCSetAsiRegister);
 }
 
 }  // namespace
@@ -339,8 +330,7 @@ DEF_ISEL(MOVN_xcc) = MOVN_xcc<R64, R64W>;
     auto new_value = Read(src); \
     auto old_value = Read(dst); \
     auto branch_taken = Cond##cond##_##cc(state); \
-    auto value = \
-        Select(branch_taken, new_value, decltype(new_value)(old_value)); \
+    auto value = Select(branch_taken, new_value, decltype(new_value)(old_value)); \
     WriteZExt(dst, value); \
     return memory; \
   } \
@@ -400,8 +390,7 @@ MAKE_SEMANTICS_FCC(MOVF, O)
     auto old_value = Read(dst); \
     auto cc = Read(reg_cc); \
     auto cond_taken = CondR##cond(state, cc); \
-    auto value = \
-        Select(cond_taken, new_value, decltype(new_value)(old_value)); \
+    auto value = Select(cond_taken, new_value, decltype(new_value)(old_value)); \
     WriteZExt(dst, value); \
     return memory; \
   } \

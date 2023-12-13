@@ -31,7 +31,7 @@ struct is_signed;
 template <typename T>
 struct is_unsigned;
 
-#define MAKE_SIGNED(type, val) \
+#  define MAKE_SIGNED(type, val) \
     template <> \
     struct is_signed<type> { \
       static constexpr bool value = val; \
@@ -47,9 +47,9 @@ MAKE_SIGNED(uint16_t, false);
 MAKE_SIGNED(uint32_t, false);
 MAKE_SIGNED(uint64_t, false);
 
-#undef MAKE_SIGNED
+#  undef MAKE_SIGNED
 
-#define MAKE_UNSIGNED(type, val) \
+#  define MAKE_UNSIGNED(type, val) \
     template <> \
     struct is_unsigned<type> { \
       static constexpr bool value = val; \
@@ -65,7 +65,7 @@ MAKE_UNSIGNED(uint16_t, true);
 MAKE_UNSIGNED(uint32_t, true);
 MAKE_UNSIGNED(uint64_t, true);
 
-#undef MAKE_UNSIGNED
+#  undef MAKE_UNSIGNED
 
 template <typename A, typename B>
 struct is_same {

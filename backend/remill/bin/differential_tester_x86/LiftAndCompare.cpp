@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include "Whitelist.h"
+
+#include "gtest/gtest.h"
+#include <functional>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -29,6 +33,7 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <random>
 #include <remill/Arch/Arch.h>
 #include <remill/Arch/Name.h>
 #include <remill/Arch/X86/Runtime/State.h>
@@ -39,12 +44,6 @@
 #include <remill/BC/Version.h>
 #include <remill/OS/OS.h>
 #include <test_runner/TestRunner.h>
-
-#include <functional>
-#include <random>
-
-#include "Whitelist.h"
-#include "gtest/gtest.h"
 
 
 DEFINE_string(target_insn_file, "", "Path to input test cases");
@@ -67,9 +66,8 @@ class DiffModule {
   std::tuple<InstructionFunction, InstructionFunction> functions_to_compare;
 
  public:
-  DiffModule(std::unique_ptr<llvm::Module> mod_, llvm::Function *f1_,
-             llvm::Function *f2_, std::string f1_insn_name_,
-             std::string f2_insn_name_)
+  DiffModule(std::unique_ptr<llvm::Module> mod_, llvm::Function *f1_, llvm::Function *f2_,
+             std::string f1_insn_name_, std::string f2_insn_name_)
       : mod(std::move(mod_)),
         functions_to_compare({{f1_, f1_insn_name_}, {f2_, f2_insn_name_}}) {}
 
@@ -93,36 +91,28 @@ class DifferentialModuleBuilder {
   DifferentialModuleBuilder(std::unique_ptr<llvm::LLVMContext> context_,
                             std::shared_ptr<llvm::Module> semantics_module_,
 
-                            test_runner::LiftingTester l1_,
-                            test_runner::LiftingTester l2_)
+                            test_runner::LiftingTester l1_, test_runner::LiftingTester l2_)
       : context(std::move(context_)),
         semantics_module(std::move(semantics_module_)),
         l1(std::move(l1_)),
         l2(std::move(l2_)) {}
 
  public:
-  static DifferentialModuleBuilder
-  Create(remill::OSName os_name_1, remill::ArchName arch_name_1,
-         remill::OSName os_name_2, remill::ArchName arch_name_2) {
+  static DifferentialModuleBuilder Create(remill::OSName os_name_1, remill::ArchName arch_name_1,
+                                          remill::OSName os_name_2, remill::ArchName arch_name_2) {
     // it is expected that compatible arches share a semantics module.
-    std::unique_ptr<llvm::LLVMContext> context =
-        std::make_unique<llvm::LLVMContext>();
+    std::unique_ptr<llvm::LLVMContext> context = std::make_unique<llvm::LLVMContext>();
     auto tmp_arch = remill::Arch::Build(context.get(), os_name_1, arch_name_1);
-    std::shared_ptr<llvm::Module> semantics_module =
-        remill::LoadArchSemantics(tmp_arch.get());
+    std::shared_ptr<llvm::Module> semantics_module = remill::LoadArchSemantics(tmp_arch.get());
     tmp_arch->PrepareModule(semantics_module.get());
-    auto l1 =
-        test_runner::LiftingTester(semantics_module, os_name_1, arch_name_1);
-    auto l2 =
-        test_runner::LiftingTester(semantics_module, os_name_2, arch_name_2);
-    return DifferentialModuleBuilder(std::move(context),
-                                     std::move(semantics_module), std::move(l1),
+    auto l1 = test_runner::LiftingTester(semantics_module, os_name_1, arch_name_1);
+    auto l2 = test_runner::LiftingTester(semantics_module, os_name_2, arch_name_2);
+    return DifferentialModuleBuilder(std::move(context), std::move(semantics_module), std::move(l1),
                                      std::move(l2));
   }
 
  public:
-  std::optional<DiffModule> build(std::string_view fname_f1,
-                                  std::string_view fname_f2,
+  std::optional<DiffModule> build(std::string_view fname_f1, std::string_view fname_f2,
                                   std::string_view bytes, uint64_t address) {
     auto module = std::make_unique<llvm::Module>("", *this->context);
     auto maybe_f1 = this->l1.LiftInstructionFunction(fname_f1, bytes, address);
@@ -155,14 +145,12 @@ class DifferentialModuleBuilder {
 
     remill::OptimizeBareModule(cloned);
 
-    auto new_f1 =
-        test_runner::CopyFunctionIntoNewModule(module.get(), f1, cloned);
-    auto new_f2 =
-        test_runner::CopyFunctionIntoNewModule(module.get(), f2, cloned);
+    auto new_f1 = test_runner::CopyFunctionIntoNewModule(module.get(), f1, cloned);
+    auto new_f2 = test_runner::CopyFunctionIntoNewModule(module.get(), f2, cloned);
 
 
-    return DiffModule(std::move(module), new_f1, new_f2,
-                      f1_and_name.second.function, f2_and_name.second.function);
+    return DiffModule(std::move(module), new_f1, new_f2, f1_and_name.second.function,
+                      f2_and_name.second.function);
   }
 };
 
@@ -233,10 +221,9 @@ class ComparisonRunner {
   }
 
  public:
-  DiffTestResult
-  SingleCmpRun(size_t insn_length, llvm::Function *f1, llvm::Function *f2,
-               const std::vector<WhiteListInstruction> &whitelist,
-               std::string_view isel_name) {
+  DiffTestResult SingleCmpRun(size_t insn_length, llvm::Function *f1, llvm::Function *f2,
+                              const std::vector<WhiteListInstruction> &whitelist,
+                              std::string_view isel_name) {
 
     X86State func1_state{};
     test_runner::RandomizeState(func1_state, this->rbe);
@@ -263,19 +250,17 @@ class ComparisonRunner {
 
     std::memcpy(&func2_state, &func1_state, sizeof(X86State));
 
-    auto mem_handler =
-        std::make_unique<test_runner::MemoryHandler>(this->endian);
+    auto mem_handler = std::make_unique<test_runner::MemoryHandler>(this->endian);
     auto pc_fetch = [](X86State *st) { return st->gpr.rip.qword; };
-    test_runner::ExecuteLiftedFunction<X86State, uint64_t>(
-        f1, insn_length, &func1_state, mem_handler.get(), pc_fetch);
+    test_runner::ExecuteLiftedFunction<X86State, uint64_t>(f1, insn_length, &func1_state,
+                                                           mem_handler.get(), pc_fetch);
     auto second_handler = std::make_unique<test_runner::MemoryHandler>(
         this->endian, mem_handler->GetUninitializedReads());
-    test_runner::ExecuteLiftedFunction<X86State, uint64_t>(
-        f2, insn_length, &func2_state, second_handler.get(), pc_fetch);
+    test_runner::ExecuteLiftedFunction<X86State, uint64_t>(f2, insn_length, &func2_state,
+                                                           second_handler.get(), pc_fetch);
 
 
-    auto memory_state_eq =
-        mem_handler->GetMemory() == second_handler->GetMemory();
+    auto memory_state_eq = mem_handler->GetMemory() == second_handler->GetMemory();
 
     // NOTE(Ian): Here we log differences in instructions that arise from a different memory interaction.
     if (!memory_state_eq) {
@@ -290,12 +275,10 @@ class ComparisonRunner {
     }
 
     auto are_equal =
-        std::memcmp(&func1_state, &func2_state, sizeof(X86State)) == 0 &&
-        memory_state_eq;
+        std::memcmp(&func1_state, &func2_state, sizeof(X86State)) == 0 && memory_state_eq;
 
 
-    return {init_state, this->DumpState(&func1_state),
-            this->DumpState(&func2_state), are_equal};
+    return {init_state, this->DumpState(&func1_state), this->DumpState(&func2_state), are_equal};
   }
 };
 
@@ -330,15 +313,13 @@ std::string test_case_name(std::string_view prefix, uint64_t test_cast_ctr) {
 
 // Returns true when test case succeeds
 bool runTestCase(const TestCase &tc, DifferentialModuleBuilder &diffbuilder,
-                 const std::vector<WhiteListInstruction> &whitelist,
-                 uint64_t ctr) {
+                 const std::vector<WhiteListInstruction> &whitelist, uint64_t ctr) {
   LOG(INFO) << "Starting testcase: " << llvm::toHex(tc.bytes);
-  auto diff_mod = diffbuilder.build(
-      test_case_name("f1", ctr), test_case_name("f2", ctr), tc.bytes, tc.addr);
+  auto diff_mod =
+      diffbuilder.build(test_case_name("f1", ctr), test_case_name("f2", ctr), tc.bytes, tc.addr);
 
   if (!diff_mod.has_value()) {
-    LOG(ERROR) << "Failed to lift " << std::hex << tc.addr << ": "
-               << llvm::toHex(tc.bytes);
+    LOG(ERROR) << "Failed to lift " << std::hex << tc.addr << ": " << llvm::toHex(tc.bytes);
 
     if (FLAGS_stop_on_fail) {
       LOG(FATAL) << "Failed to lift an insn";
@@ -357,10 +338,9 @@ bool runTestCase(const TestCase &tc, DifferentialModuleBuilder &diffbuilder,
   }
 
   for (uint64_t i = 0; i < FLAGS_num_iterations; i++) {
-    auto tc_result = comp_runner.SingleCmpRun(
-        tc.bytes.size(), diff_mod->GetF<0>().llvm_function,
-        diff_mod->GetF<1>().llvm_function, whitelist,
-        diff_mod->GetF<0>().isel_name);
+    auto tc_result = comp_runner.SingleCmpRun(tc.bytes.size(), diff_mod->GetF<0>().llvm_function,
+                                              diff_mod->GetF<1>().llvm_function, whitelist,
+                                              diff_mod->GetF<0>().isel_name);
 
     if (!tc_result.are_equal) {
       LOG(ERROR) << "Difference in instruction" << std::hex << tc.addr << ": "
@@ -388,8 +368,7 @@ int main(int argc, char **argv) {
   auto maybe_buff = llvm::MemoryBuffer::getFileOrSTDIN(FLAGS_target_insn_file);
 
   if (maybe_buff.getError()) {
-    LOG(FATAL) << "Failed to read file with: "
-               << maybe_buff.getError().message();
+    LOG(FATAL) << "Failed to read file with: " << maybe_buff.getError().message();
   }
 
   auto maybe_json = llvm::json::parse(maybe_buff.get()->getBuffer());
@@ -410,19 +389,16 @@ int main(int argc, char **argv) {
 
   if (!FLAGS_whitelist.empty()) {
     LOG(INFO) << "Reading whitelist";
-    auto maybe_whitelist_buff =
-        llvm::MemoryBuffer::getFileOrSTDIN(FLAGS_whitelist);
+    auto maybe_whitelist_buff = llvm::MemoryBuffer::getFileOrSTDIN(FLAGS_whitelist);
     if (maybe_whitelist_buff.getError()) {
       LOG(FATAL) << "Failed to read whitelist file with: "
                  << maybe_whitelist_buff.getError().message();
     }
 
-    auto maybe_whitelist_json =
-        llvm::json::parse<std::vector<WhiteListInstruction>>(
-            maybe_whitelist_buff.get()->getBuffer());
+    auto maybe_whitelist_json = llvm::json::parse<std::vector<WhiteListInstruction>>(
+        maybe_whitelist_buff.get()->getBuffer());
     if (auto E = maybe_whitelist_json.takeError()) {
-      LOG(FATAL) << "Failed to parse whitelist json: "
-                 << llvm::toString(std::move(E));
+      LOG(FATAL) << "Failed to parse whitelist json: " << llvm::toString(std::move(E));
     }
 
     whitelist = maybe_whitelist_json.get();
@@ -431,8 +407,8 @@ int main(int argc, char **argv) {
   }
 
   DifferentialModuleBuilder diffbuilder = DifferentialModuleBuilder::Create(
-      remill::OSName::kOSLinux, remill::ArchName::kArchX86,
-      remill::OSName::kOSLinux, remill::ArchName::kArchX86_SLEIGH);
+      remill::OSName::kOSLinux, remill::ArchName::kArchX86, remill::OSName::kOSLinux,
+      remill::ArchName::kArchX86_SLEIGH);
   uint64_t ctr = 0;
 
   std::vector<TestCase> failed_testcases;

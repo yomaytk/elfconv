@@ -14,22 +14,6 @@
  * limitations under the License.
  */
 
-#include <glog/logging.h>
-#include <llvm/ADT/Triple.h>
-#include <llvm/IR/Attributes.h>
-#include <llvm/IR/DataLayout.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/Module.h>
-#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchImpl`.
-#include <remill/Arch/X86/X86Base.h>
-
-#include <iomanip>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <string>
-
 #include "XED.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
@@ -38,18 +22,30 @@
 #include "remill/BC/Version.h"
 #include "remill/OS/OS.h"
 
+#include <glog/logging.h>
+#include <iomanip>
+#include <llvm/ADT/Triple.h>
+#include <llvm/IR/Attributes.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Module.h>
+#include <map>
+#include <memory>
+#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchImpl`.
+#include <remill/Arch/X86/X86Base.h>
+#include <sstream>
+#include <string>
+
 namespace remill {
 namespace {
 
-static const xed_state_t kXEDState32 = {XED_MACHINE_MODE_LONG_COMPAT_32,
-                                        XED_ADDRESS_WIDTH_32b};
+static const xed_state_t kXEDState32 = {XED_MACHINE_MODE_LONG_COMPAT_32, XED_ADDRESS_WIDTH_32b};
 
-static const xed_state_t kXEDState64 = {XED_MACHINE_MODE_LONG_64,
-                                        XED_ADDRESS_WIDTH_64b};
+static const xed_state_t kXEDState64 = {XED_MACHINE_MODE_LONG_64, XED_ADDRESS_WIDTH_64b};
 
 static bool Is64Bit(ArchName arch_name) {
-  return kArchAMD64 == arch_name || kArchAMD64_AVX == arch_name ||
-         kArchAMD64_AVX512 == arch_name;
+  return kArchAMD64 == arch_name || kArchAMD64_AVX == arch_name || kArchAMD64_AVX512 == arch_name;
 }
 
 static bool IsFunctionReturn(const xed_decoded_inst_t *xedd) {
@@ -72,8 +68,7 @@ static bool IsSystemReturn(const xed_decoded_inst_t *xedd) {
 
 static bool IsInterruptCall(const xed_decoded_inst_t *xedd) {
   auto iclass = xed_decoded_inst_get_iclass(xedd);
-  return XED_ICLASS_INT == iclass || XED_ICLASS_INT1 == iclass ||
-         XED_ICLASS_INT3 == iclass;
+  return XED_ICLASS_INT == iclass || XED_ICLASS_INT1 == iclass || XED_ICLASS_INT3 == iclass;
 }
 
 static bool IsConditionalInterruptCall(const xed_decoded_inst_t *xedd) {
@@ -144,8 +139,8 @@ static bool IsIndirectJump(const xed_decoded_inst_t *xedd) {
   auto xedo = xed_inst_operand(xedi, 0);
   auto op_name = xed_operand_name(xedo);
   auto iclass = xed_decoded_inst_get_iclass(xedd);
-  return (XED_ICLASS_JMP == iclass && XED_OPERAND_RELBR != op_name) ||
-         XED_ICLASS_XEND == iclass || XED_ICLASS_XABORT == iclass;
+  return (XED_ICLASS_JMP == iclass && XED_OPERAND_RELBR != op_name) || XED_ICLASS_XEND == iclass ||
+         XED_ICLASS_XABORT == iclass;
 }
 
 static bool IsIndirectJumpFar(const xed_decoded_inst_t *xedd) {
@@ -234,8 +229,8 @@ static Instruction::Category CreateCategory(const xed_decoded_inst_t *xedd) {
   } else if (IsInterruptReturn(xedd)) {
     return Instruction::kCategoryAsyncHyperCall;
 
-  } else if (IsDirectJumpFar(xedd) || IsIndirectJumpFar(xedd) ||
-             IsDirectFunctionCallFar(xedd) || IsIndirectFunctionCallFar(xedd)) {
+  } else if (IsDirectJumpFar(xedd) || IsIndirectJumpFar(xedd) || IsDirectFunctionCallFar(xedd) ||
+             IsIndirectFunctionCallFar(xedd)) {
     return Instruction::kCategoryAsyncHyperCall;
 
   } else if (IsNoOp(xedd)) {
@@ -344,8 +339,7 @@ static std::string InstructionFunctionName(const xed_decoded_inst_t *xedd) {
   // as a runtime may need to perform complex actions that are specific to
   // the register used.
   if (XED_IFORM_MOV_SEG_MEMw == iform || XED_IFORM_MOV_SEG_GPR16 == iform ||
-      XED_IFORM_MOV_CR_CR_GPR32 == iform ||
-      XED_IFORM_MOV_CR_CR_GPR64 == iform) {
+      XED_IFORM_MOV_CR_CR_GPR32 == iform || XED_IFORM_MOV_CR_CR_GPR64 == iform) {
     ss << "_";
     ss << xed_reg_enum_t2str(xed_decoded_inst_get_reg(xedd, XED_OPERAND_REG0));
   }
@@ -368,9 +362,8 @@ static bool DecodeXED(xed_decoded_inst_t *xedd, const xed_state_t *mode,
       ss << ' ' << std::hex << std::setw(2) << std::setfill('0')
          << (static_cast<unsigned>(b) & 0xFFu);
     }
-    DLOG(WARNING) << "Unable to decode instruction at " << std::hex << address
-                  << " with bytes" << ss.str()
-                  << " and error: " << xed_error_enum_t2str(err) << std::dec;
+    DLOG(WARNING) << "Unable to decode instruction at " << std::hex << address << " with bytes"
+                  << ss.str() << " and error: " << xed_error_enum_t2str(err) << std::dec;
     return false;
   }
 
@@ -443,8 +436,7 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   };
   auto ignore_segment = [&](auto segment_reg) {
     // On AMD64, only the `FS` and `GS` segments are non-zero.
-    if (Is64Bit(inst.arch_name) && XED_REG_FS != segment_reg &&
-        XED_REG_GS != segment_reg) {
+    if (Is64Bit(inst.arch_name) && XED_REG_FS != segment_reg && XED_REG_GS != segment_reg) {
       return XED_REG_INVALID;
     }
 
@@ -469,8 +461,7 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   op.size = size;
 
   op.type = Operand::kTypeAddress;
-  op.addr.address_size =
-      xed_decoded_inst_get_memop_address_width(xedd, mem_index);
+  op.addr.address_size = xed_decoded_inst_get_memop_address_width(xedd, mem_index);
 
   op.addr.segment_base_reg = SegBaseRegOp(segment_reg, op.addr.address_size);
   op.addr.base_reg = RegOp(base);
@@ -517,35 +508,29 @@ static void DecodeImmediate(Instruction &inst, const xed_decoded_inst_t *xedd,
   if (XED_OPERAND_PTR == op_name) {
     auto ptr_size = xed_decoded_inst_get_branch_displacement_width_bits(xedd);
     CHECK(ptr_size <= operand_size)
-        << "Pointer size is greater than effective operand size at " << std::hex
-        << inst.pc << ".";
+        << "Pointer size is greater than effective operand size at " << std::hex << inst.pc << ".";
     op.size = ptr_size;
 
     val = static_cast<uint64_t>(xed_decoded_inst_get_branch_displacement(xedd));
   } else {
     auto imm_size = xed_decoded_inst_get_immediate_width_bits(xedd);
-    CHECK(imm_size <= operand_size)
-        << "Immediate size is greater than effective operand size at "
-        << std::hex << inst.pc << ".";
+    CHECK(imm_size <= operand_size) << "Immediate size is greater than effective operand size at "
+                                    << std::hex << inst.pc << ".";
     op.size = imm_size;
 
-    if (XED_OPERAND_IMM0SIGNED == op_name ||
-        xed_operand_values_get_immediate_is_signed(xedd)) {
-      val = static_cast<uint64_t>(
-          static_cast<int64_t>(xed_decoded_inst_get_signed_immediate(xedd)));
+    if (XED_OPERAND_IMM0SIGNED == op_name || xed_operand_values_get_immediate_is_signed(xedd)) {
+      val =
+          static_cast<uint64_t>(static_cast<int64_t>(xed_decoded_inst_get_signed_immediate(xedd)));
       is_signed = true;
 
     } else if (XED_OPERAND_IMM0 == op_name) {
-      val =
-          static_cast<uint64_t>(xed_decoded_inst_get_unsigned_immediate(xedd));
+      val = static_cast<uint64_t>(xed_decoded_inst_get_unsigned_immediate(xedd));
 
-    } else if (XED_OPERAND_IMM1_BYTES == op_name ||
-               XED_OPERAND_IMM1 == op_name) {
+    } else if (XED_OPERAND_IMM1_BYTES == op_name || XED_OPERAND_IMM1 == op_name) {
       val = static_cast<uint64_t>(xed_decoded_inst_get_second_immediate(xedd));
 
     } else {
-      CHECK(false) << "Unexpected immediate type "
-                   << xed_operand_enum_t2str(op_name) << ".";
+      CHECK(false) << "Unexpected immediate type " << xed_operand_enum_t2str(op_name) << ".";
     }
   }
 
@@ -556,8 +541,7 @@ static void DecodeImmediate(Instruction &inst, const xed_decoded_inst_t *xedd,
 
 // Decode a register operand.
 static void DecodeRegister(Instruction &inst, const xed_decoded_inst_t *xedd,
-                           const xed_operand_t *xedo,
-                           xed_operand_enum_t op_name) {
+                           const xed_operand_t *xedo, xed_operand_enum_t op_name) {
   auto reg = xed_decoded_inst_get_reg(xedd, op_name);
   CHECK(XED_REG_INVALID != reg) << "Cannot get name of invalid register.";
 
@@ -611,8 +595,7 @@ static void DecodeConditionalInterrupt(Instruction &inst) {
 
 // Operand representing the fall-through PC, which is the not-taken branch of
 // a conditional jump, or the return address for a function call.
-static void DecodeFallThroughPC(Instruction &inst,
-                                const xed_decoded_inst_t *xedd) {
+static void DecodeFallThroughPC(Instruction &inst, const xed_decoded_inst_t *xedd) {
   auto pc_reg = Is64Bit(inst.arch_name) ? XED_REG_RIP : XED_REG_EIP;
   auto pc_width = xed_get_register_width_bits64(pc_reg);
 
@@ -631,12 +614,10 @@ static void DecodeFallThroughPC(Instruction &inst,
 }
 
 // Decode a relative branch target.
-static void DecodeConditionalBranch(Instruction &inst,
-                                    const xed_decoded_inst_t *xedd) {
+static void DecodeConditionalBranch(Instruction &inst, const xed_decoded_inst_t *xedd) {
   auto pc_reg = Is64Bit(inst.arch_name) ? XED_REG_RIP : XED_REG_EIP;
   auto pc_width = xed_get_register_width_bits64(pc_reg);
-  auto disp =
-      static_cast<int64_t>(xed_decoded_inst_get_branch_displacement(xedd));
+  auto disp = static_cast<int64_t>(xed_decoded_inst_get_branch_displacement(xedd));
 
   // Condition variable.
   Operand cond_op = {};
@@ -660,19 +641,16 @@ static void DecodeConditionalBranch(Instruction &inst,
   inst.operands.push_back(taken_op);
 
   inst.branch_taken_arch_name = inst.arch_name;
-  inst.branch_taken_pc =
-      static_cast<uint64_t>(static_cast<int64_t>(inst.next_pc) + disp);
+  inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.next_pc) + disp);
 
   DecodeFallThroughPC(inst, xedd);
 }
 
 // Decode a relative branch target.
-static void DecodeRelativeBranch(Instruction &inst,
-                                 const xed_decoded_inst_t *xedd) {
+static void DecodeRelativeBranch(Instruction &inst, const xed_decoded_inst_t *xedd) {
   auto pc_reg = Is64Bit(inst.arch_name) ? XED_REG_RIP : XED_REG_EIP;
   auto pc_width = xed_get_register_width_bits64(pc_reg);
-  auto disp =
-      static_cast<int64_t>(xed_decoded_inst_get_branch_displacement(xedd));
+  auto disp = static_cast<int64_t>(xed_decoded_inst_get_branch_displacement(xedd));
 
   // Taken branch.
   Operand taken_op = {};
@@ -687,8 +665,7 @@ static void DecodeRelativeBranch(Instruction &inst,
   inst.operands.push_back(taken_op);
 
   inst.branch_taken_arch_name = inst.arch_name;
-  inst.branch_taken_pc =
-      static_cast<uint64_t>(static_cast<int64_t>(inst.next_pc) + disp);
+  inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.next_pc) + disp);
   inst.branch_not_taken_pc = inst.next_pc;
 }
 
@@ -708,8 +685,7 @@ static uint16_t DecodeFpuOpcode(Instruction &inst) {
     }
   }
 
-  CHECK(i >= 2) << "Failed to find FPU opcode byte for instruction "
-                << inst.Serialize();
+  CHECK(i >= 2) << "Failed to find FPU opcode byte for instruction " << inst.Serialize();
 
   uint16_t opcode = 0;
   opcode |= static_cast<uint16_t>(bytes[0] & 3) << 8;
@@ -774,8 +750,7 @@ static void DecodeOperand(Instruction &inst, const xed_decoded_inst_t *xedd,
       break;
 
     default:
-      LOG(FATAL) << "Unexpected operand type "
-                 << xed_operand_enum_t2str(op_name) << ".";
+      LOG(FATAL) << "Unexpected operand type " << xed_operand_enum_t2str(op_name) << ".";
       return;
   }
 }
@@ -795,8 +770,7 @@ class X86Arch final : public X86ArchBase, public DefaultContextAndLifter {
   X86Arch(void) = delete;
 };
 
-X86Arch::X86Arch(llvm::LLVMContext *context_, OSName os_name_,
-                 ArchName arch_name_)
+X86Arch::X86Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
     : ArchBase(context_, os_name_, arch_name_),
       X86ArchBase(context_, os_name_, arch_name_),
       DefaultContextAndLifter(context_, os_name_, arch_name_) {
@@ -948,9 +922,8 @@ static const char *FusablePopReg64(char byte) {
 // instruction. Downstream users like McSema and Anvill benefit from seeing this
 // as a MOV-variant because of how they identify cross-references related to
 // uses of the program counter (`PC`) register.
-static void
-FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size,
-                            const char *dest_reg_name, unsigned call_inst_len) {
+static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size,
+                                        const char *dest_reg_name, unsigned call_inst_len) {
   inst.operands.resize(2);
   auto &dest = inst.operands[0];
   auto &src = inst.operands[1];
@@ -992,8 +965,7 @@ FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size,
 }
 
 // Decode an instuction.
-bool X86Arch::ArchDecodeInstruction(uint64_t address,
-                                    std::string_view inst_bytes,
+bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                     Instruction &inst) const {
 
   inst.pc = address;
@@ -1022,13 +994,11 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
 
   // Re-classify this instruction to its sub-architecture.
   if (IsAVX512(isa_set, category)) {
-    inst.sub_arch_name =
-        32 == address_size ? kArchX86_AVX512 : kArchAMD64_AVX512;
+    inst.sub_arch_name = 32 == address_size ? kArchX86_AVX512 : kArchAMD64_AVX512;
   } else if (IsAVX(isa_set, category)) {
     inst.sub_arch_name = 32 == address_size ? kArchX86_AVX : kArchAMD64_AVX;
   } else if (xed_classify_avx512(xedd) || xed_classify_avx512_maskop(xedd)) {
-    inst.sub_arch_name =
-        32 == address_size ? kArchX86_AVX512 : kArchAMD64_AVX512;
+    inst.sub_arch_name = 32 == address_size ? kArchX86_AVX512 : kArchAMD64_AVX512;
   } else if (xed_classify_avx(xedd)) {
     inst.sub_arch_name = 32 == address_size ? kArchX86_AVX : kArchAMD64_AVX;
   } else {
@@ -1036,10 +1006,9 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
   }
 
   // Make sure we know about
-  if (static_cast<unsigned>(inst.arch_name) <
-      static_cast<unsigned>(inst.sub_arch_name)) {
-    LOG(ERROR) << "Instruction decode of " << xed_iform_enum_t2str(iform)
-               << " requires the " << GetArchName(inst.sub_arch_name)
+  if (static_cast<unsigned>(inst.arch_name) < static_cast<unsigned>(inst.sub_arch_name)) {
+    LOG(ERROR) << "Instruction decode of " << xed_iform_enum_t2str(iform) << " requires the "
+               << GetArchName(inst.sub_arch_name)
                << " architecture semantics to lift but was decoded using the "
                << GetArchName(inst.arch_name) << " architecture";
 
@@ -1053,8 +1022,7 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
   // Look for instruction fusing opportunities. For now, just `call; pop`.
   const char *is_fused_call_pop = nullptr;
   if (len < inst_bytes.size() &&
-      (iform == XED_IFORM_CALL_NEAR_RELBRd ||
-       iform == XED_IFORM_CALL_NEAR_RELBRz) &&
+      (iform == XED_IFORM_CALL_NEAR_RELBRd || iform == XED_IFORM_CALL_NEAR_RELBRz) &&
       !xed_decoded_inst_get_branch_displacement(xedd)) {
     is_fused_call_pop = FusablePopReg32(inst_bytes[len]);
 
@@ -1066,8 +1034,7 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
       inst.category = Instruction::kCategoryNormal;
 
       // Look for `pop r8` et al.
-    } else if (64 == address_size && (2 + len) <= inst_bytes.size() &&
-               inst_bytes[len] == 0x41) {
+    } else if (64 == address_size && (2 + len) <= inst_bytes.size() && inst_bytes[len] == 0x41) {
       is_fused_call_pop = FusablePopReg64(inst_bytes[len + 1]);
       if (is_fused_call_pop) {
         extra_len = 2u;
@@ -1088,8 +1055,7 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
 
   // Wrap an instruction in atomic begin/end if it accesses memory with RMW
   // semantics or with a LOCK prefix.
-  if (xed_operand_values_get_atomic(xedd) ||
-      xed_operand_values_has_lock_prefix(xedd) ||
+  if (xed_operand_values_get_atomic(xedd) || xed_operand_values_has_lock_prefix(xedd) ||
       XED_CATEGORY_SEMAPHORE == xed_decoded_inst_get_category(xedd)) {
     inst.is_atomic_read_modify_write = true;
   }
@@ -1185,10 +1151,8 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
     }
   }
 
-  if (xed_decoded_inst_is_xacquire(xedd) ||
-      xed_decoded_inst_is_xrelease(xedd)) {
-    LOG(WARNING) << "Ignoring XACQUIRE/XRELEASE prefix at " << std::hex
-                 << inst.pc << std::dec;
+  if (xed_decoded_inst_is_xacquire(xedd) || xed_decoded_inst_is_xrelease(xedd)) {
+    LOG(WARNING) << "Ignoring XACQUIRE/XRELEASE prefix at " << std::hex << inst.pc << std::dec;
   }
 
   return true;
@@ -1196,8 +1160,7 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address,
 }  // namespace
 
 // TODO(pag): We pretend that these are singletons, but they aren't really!
-Arch::ArchPtr Arch::GetX86(llvm::LLVMContext *context_, OSName os_name_,
-                           ArchName arch_name_) {
+Arch::ArchPtr Arch::GetX86(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_) {
   return std::make_unique<X86Arch>(context_, os_name_, arch_name_);
 }
 

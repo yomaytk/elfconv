@@ -165,8 +165,7 @@ DEF_SEM(FADDS, RF32 src1, RF32 src2, RF32W dst) {
   BarrierReorder();
   auto sum = FAdd(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, sum);
   return memory;
@@ -182,8 +181,7 @@ DEF_SEM(FADDD, RF64 src1, RF64 src2, RF64W dst) {
   BarrierReorder();
   auto sum = FAdd64(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, sum);
   return memory;
@@ -199,8 +197,7 @@ DEF_SEM(FSUBS, RF32 src1, RF32 src2, RF32W dst) {
   BarrierReorder();
   auto sub = FSub32(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, sub);
   return memory;
@@ -216,8 +213,7 @@ DEF_SEM(FSUBD, RF64 src1, RF64 src2, RF64W dst) {
   BarrierReorder();
   auto sub = FSub64(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, sub);
   return memory;
@@ -233,8 +229,7 @@ DEF_SEM(FMULS, RF32 src1, RF32 src2, RF32W dst) {
   BarrierReorder();
   auto mul = FMul32(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, mul);
   return memory;
@@ -250,8 +245,7 @@ DEF_SEM(FMULD, RF64 src1, RF64 src2, RF64W dst) {
   BarrierReorder();
   auto mul = FMul64(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, mul);
   return memory;
@@ -267,8 +261,7 @@ DEF_SEM(FsMULD, RF32 src1, RF32 src2, RF64W dst) {
   BarrierReorder();
   auto mul = FMul64(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, mul);
   return memory;
@@ -284,8 +277,7 @@ DEF_SEM(FDIVS, RF32 src1, RF32 src2, RF32W dst) {
   BarrierReorder();
   auto div = FDiv32(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, div);
   return memory;
@@ -301,8 +293,7 @@ DEF_SEM(FDIVD, RF64 src1, RF64 src2, RF64W dst) {
   BarrierReorder();
   auto div = FDiv64(lhs, rhs);
   BarrierReorder();
-  auto new_except =
-      __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
+  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except);
   SetFPSRStatusFlags(state, new_except);
   Write(dst, div);
   return memory;
@@ -470,8 +461,7 @@ DEF_ISEL(FNADDD) = FNADDD;
 
 #define MAKE_COMPARE(fcc) \
   template <typename S> \
-  void FCompare_##fcc(State &state, Memory *memory, S val1, S val2, \
-                      bool signal) { \
+  void FCompare_##fcc(State &state, Memory *memory, S val1, S val2, bool signal) { \
     if (std::isnan(val1) || std::isnan(val2)) { \
       Write(state.fsr.fcc, Literal<R8>(3)); \
     } else { \

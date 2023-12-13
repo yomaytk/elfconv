@@ -14,8 +14,7 @@ namespace remill {
 
 class AArch64ArchBase : public virtual ArchBase {
  public:
-  AArch64ArchBase(llvm::LLVMContext *context_, OSName os_name_,
-                  ArchName arch_name_)
+  AArch64ArchBase(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
       : ArchBase(context_, os_name_, arch_name_) {}
 
   virtual std::string_view StackPointerRegisterName(void) const override;
@@ -33,16 +32,14 @@ class AArch64ArchBase : public virtual ArchBase {
   // Align/Minimum/Maximum number of bytes in an instruction.
   uint64_t MinInstructionAlign(const DecodingContext &) const override;
   uint64_t MinInstructionSize(const DecodingContext &) const override;
-  uint64_t MaxInstructionSize(const DecodingContext &,
-                              bool permit_fuse_idioms) const override;
+  uint64_t MaxInstructionSize(const DecodingContext &, bool permit_fuse_idioms) const override;
 
 
   void PopulateRegisterTable(void) const override;
   // Populate a just-initialized lifted function function with architecture-
   // specific variables.
-  void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const override;
+  void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                          llvm::Function *bb_func) const override;
   virtual ~AArch64ArchBase(void) = default;
 };
 }  // namespace remill

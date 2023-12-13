@@ -27,10 +27,9 @@
 #include <llvm/Support/JSON.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include <random>
 #include <remill/Arch/Arch.h>
 #include <remill/BC/Util.h>
-
-#include <random>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -92,19 +91,16 @@ void MemoryHandler::WriteMemory(uint64_t addr, T value) {
 }
 
 
-void StubOutFlagComputationInstrinsics(llvm::Module *mod,
-                                       llvm::ExecutionEngine &exec_engine);
-llvm::Function *
-CopyFunctionIntoNewModule(llvm::Module *target, const llvm::Function *old_func,
-                          const std::unique_ptr<llvm::Module> &old_module);
+void StubOutFlagComputationInstrinsics(llvm::Module *mod, llvm::ExecutionEngine &exec_engine);
+llvm::Function *CopyFunctionIntoNewModule(llvm::Module *target, const llvm::Function *old_func,
+                                          const std::unique_ptr<llvm::Module> &old_module);
 
 void *MissingFunctionStub(const std::string &name);
 
 template <typename T, typename P>
-void ExecuteLiftedFunction(
-    llvm::Function *func, size_t insn_length, T *state,
-    test_runner::MemoryHandler *handler,
-    const std::function<uint64_t(T *)> &program_counter_fetch) {
+void ExecuteLiftedFunction(llvm::Function *func, size_t insn_length, T *state,
+                           test_runner::MemoryHandler *handler,
+                           const std::function<uint64_t(T *)> &program_counter_fetch) {
   std::string load_error = "";
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr, &load_error);
   if (!load_error.empty()) {
@@ -129,8 +125,7 @@ void ExecuteLiftedFunction(
 
 
   std::string estr;
-  auto eptr =
-      builder.setEngineKind(llvm::EngineKind::JIT).setErrorStr(&estr).create();
+  auto eptr = builder.setEngineKind(llvm::EngineKind::JIT).setErrorStr(&estr).create();
 
   if (eptr == nullptr) {
     LOG(FATAL) << estr;
@@ -148,8 +143,7 @@ void ExecuteLiftedFunction(
   assert(func->arg_size() == 3);
 
   auto returned =
-      (void *(*) (T *, uint32_t, void *) ) engine->getFunctionAddress(
-          target->getName().str());
+      (void *(*) (T *, uint32_t, void *) ) engine->getFunctionAddress(target->getName().str());
 
   assert(returned != nullptr);
   auto orig_pc = program_counter_fetch(state);
@@ -182,21 +176,19 @@ class LiftingTester {
 
  public:
   // Produces a tester lifter that lifts into a target prepared semantics module
-  LiftingTester(std::shared_ptr<llvm::Module> semantics_module_,
-                remill::OSName os_name, remill::ArchName arch_name);
+  LiftingTester(std::shared_ptr<llvm::Module> semantics_module_, remill::OSName os_name,
+                remill::ArchName arch_name);
 
   // Builds a new semantics module to lift into
-  LiftingTester(llvm::LLVMContext &context, remill::OSName os_name,
-                remill::ArchName arch_name);
+  LiftingTester(llvm::LLVMContext &context, remill::OSName os_name, remill::ArchName arch_name);
   std::unordered_map<TypeId, llvm::Type *> GetTypeMapping();
 
   std::optional<std::pair<llvm::Function *, remill::Instruction>>
-  LiftInstructionFunction(std::string_view fname, std::string_view bytes,
-                          uint64_t address);
+  LiftInstructionFunction(std::string_view fname, std::string_view bytes, uint64_t address);
 
   std::optional<std::pair<llvm::Function *, remill::Instruction>>
-  LiftInstructionFunction(std::string_view fname, std::string_view bytes,
-                          uint64_t address, const remill::DecodingContext &ctx);
+  LiftInstructionFunction(std::string_view fname, std::string_view bytes, uint64_t address,
+                          const remill::DecodingContext &ctx);
 
   const remill::Arch::ArchPtr &GetArch() const;
 };

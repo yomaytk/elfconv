@@ -39,8 +39,7 @@ class InstructionFunctionSetter : public AssemblyEmit {
 
 class AssemblyLogger : public AssemblyEmit {
   void dump(const Address &addr, const string &mnem, const string &body) {
-    LOG(INFO) << "Decoded " << std::hex << addr.getOffset() << ": " << mnem
-              << " " << body;
+    LOG(INFO) << "Decoded " << std::hex << addr.getOffset() << ": " << mnem << " " << body;
   }
 };
 }  // namespace
@@ -53,15 +52,14 @@ void PcodeDecoder::print_vardata(std::stringstream &s, VarnodeData &data) {
   data.space->printOffset(s, data.offset);
   s << ',' << dec << data.size << ')';
 
-  auto maybe_name =
-      this->engine.getRegisterName(data.space, data.offset, data.size);
+  auto maybe_name = this->engine.getRegisterName(data.space, data.offset, data.size);
   if (!maybe_name.empty()) {
     s << ":" << maybe_name;
   }
 }
 
-void PcodeDecoder::dump(const Address &, OpCode op, VarnodeData *outvar,
-                        VarnodeData *vars, int32_t isize) {
+void PcodeDecoder::dump(const Address &, OpCode op, VarnodeData *outvar, VarnodeData *vars,
+                        int32_t isize) {
   RemillPcodeOp new_op;
   new_op.op = op;
   if (outvar) {
@@ -83,14 +81,13 @@ std::vector<std::string> SingleInstructionSleighContext::getUserOpNames() {
   return res;
 }
 
-SingleInstructionSleighContext::SingleInstructionSleighContext(
-    std::string sla_name, std::string pspec_name)
+SingleInstructionSleighContext::SingleInstructionSleighContext(std::string sla_name,
+                                                               std::string pspec_name)
     : engine(&image, &ctx) {
 
   auto guard = Arch::Lock(ArchName::kArchX86_SLEIGH);
 
-  const std::optional<std::filesystem::path> sla_path =
-      ::sleigh::FindSpecFile(sla_name.c_str());
+  const std::optional<std::filesystem::path> sla_path = ::sleigh::FindSpecFile(sla_name.c_str());
   if (!sla_path) {
     LOG(FATAL) << "Couldn't find required spec file: " << sla_name << '\n';
   }
@@ -145,14 +142,12 @@ Address SingleInstructionSleighContext::GetAddressFromOffset(uint64_t off) {
 
 CustomLoadImage::CustomLoadImage(void) : LoadImage("nofile") {}
 
-void CustomLoadImage::SetInstruction(uint64_t new_offset,
-                                     std::string_view instr_bytes) {
+void CustomLoadImage::SetInstruction(uint64_t new_offset, std::string_view instr_bytes) {
   this->current_bytes = instr_bytes;
   this->current_offset = new_offset;
 }
 
-void CustomLoadImage::loadFill(unsigned char *ptr, int size,
-                               const Address &addr) {
+void CustomLoadImage::loadFill(unsigned char *ptr, int size, const Address &addr) {
   uint64_t start = addr.getOffset();
   LOG(INFO) << "Fill at: " << start << " of size: " << size;
 
@@ -160,8 +155,7 @@ void CustomLoadImage::loadFill(unsigned char *ptr, int size,
     uint64_t offset = start + i;
     uint64_t index = offset - this->current_offset;
 
-    if (offset < this->current_offset ||
-        index >= this->current_bytes.length()) {
+    if (offset < this->current_offset || index >= this->current_bytes.length()) {
       ptr[i] = 0;
       continue;
     }
@@ -186,46 +180,39 @@ std::shared_ptr<remill::SleighLifter> SleighDecoder::GetLifter() const {
   }
 
   if (!this->arch.GetInstrinsicTable()) {
-    LOG(FATAL)
-        << "Architecture was not initialized before asking for a lifting";
+    LOG(FATAL) << "Architecture was not initialized before asking for a lifting";
   }
 
   auto tab = this->arch.GetInstrinsicTable();
 
-  this->lifter =
-      std::make_shared<remill::SleighLifter>(this->arch, *this, *tab);
+  this->lifter = std::make_shared<remill::SleighLifter>(this->arch, *this, *tab);
 
   return this->lifter;
 }
 
-bool SleighDecoder::DecodeInstruction(uint64_t address,
-                                      std::string_view instr_bytes,
-                                      Instruction &inst,
-                                      DecodingContext context) const {
+bool SleighDecoder::DecodeInstruction(uint64_t address, std::string_view instr_bytes,
+                                      Instruction &inst, DecodingContext context) const {
 
 
   auto context_values = context.GetContextValues();
-  auto res_cat = const_cast<SleighDecoder *>(this)->DecodeInstructionImpl(
-      address, instr_bytes, inst, std::move(context));
+  auto res_cat = const_cast<SleighDecoder *>(this)->DecodeInstructionImpl(address, instr_bytes,
+                                                                          inst, std::move(context));
 
   if (!res_cat->second &&
-      std::holds_alternative<remill::Instruction::ConditionalInstruction>(
-          res_cat->first)) {
-    LOG(FATAL)
-        << "Should always emit branch taken var for conditional instruction";
+      std::holds_alternative<remill::Instruction::ConditionalInstruction>(res_cat->first)) {
+    LOG(FATAL) << "Should always emit branch taken var for conditional instruction";
   }
 
-  inst.SetLifter(std::make_shared<SleighLifterWithState>(
-      res_cat->second, std::move(context_values), this->GetLifter()));
+  inst.SetLifter(std::make_shared<SleighLifterWithState>(res_cat->second, std::move(context_values),
+                                                         this->GetLifter()));
   CHECK(inst.GetLifter() != nullptr);
   return res_cat.has_value();
 }
 
 
-SleighDecoder::SleighDecoder(
-    const remill::Arch &arch_, std::string sla_name, std::string pspec_name,
-    ContextRegMappings context_reg_map_,
-    std::unordered_map<std::string, std::string> state_reg_map_)
+SleighDecoder::SleighDecoder(const remill::Arch &arch_, std::string sla_name,
+                             std::string pspec_name, ContextRegMappings context_reg_map_,
+                             std::unordered_map<std::string, std::string> state_reg_map_)
     : sleigh_ctx(sla_name, pspec_name),
       sla_name(std::move(sla_name)),
       pspec_name(std::move(pspec_name)),
@@ -239,25 +226,20 @@ const ContextRegMappings &SleighDecoder::GetContextRegisterMapping() const {
   return this->context_reg_mapping;
 }
 
-const std::unordered_map<std::string, std::string> &
-SleighDecoder::GetStateRegRemappings() const {
+const std::unordered_map<std::string, std::string> &SleighDecoder::GetStateRegRemappings() const {
   return this->state_reg_remappings;
 }
 
-std::optional<
-    std::pair<Instruction::InstructionFlowCategory, MaybeBranchTakenVar>>
-SleighDecoder::DecodeInstructionImpl(uint64_t address,
-                                     std::string_view instr_bytes,
-                                     Instruction &inst,
-                                     DecodingContext curr_context) {
+std::optional<std::pair<Instruction::InstructionFlowCategory, MaybeBranchTakenVar>>
+SleighDecoder::DecodeInstructionImpl(uint64_t address, std::string_view instr_bytes,
+                                     Instruction &inst, DecodingContext curr_context) {
 
   // The SLEIGH engine will query this image when we try to decode an instruction. Append the bytes so SLEIGH has data to read.
 
 
   // Now decode the instruction.
   this->sleigh_ctx.resetContext();
-  this->InitializeSleighContext(address, this->sleigh_ctx,
-                                curr_context.GetContextValues());
+  this->InitializeSleighContext(address, this->sleigh_ctx, curr_context.GetContextValues());
   PcodeDecoder pcode_handler(this->sleigh_ctx.GetEngine());
 
 
@@ -269,8 +251,7 @@ SleighDecoder::DecodeInstructionImpl(uint64_t address,
   inst.pc = address;
   inst.category = Instruction::kCategoryInvalid;
 
-  auto instr_len =
-      this->sleigh_ctx.oneInstruction(address, pcode_handler, inst.bytes);
+  auto instr_len = this->sleigh_ctx.oneInstruction(address, pcode_handler, inst.bytes);
 
   if (!instr_len || instr_len > instr_bytes.size()) {
     return std::nullopt;
@@ -285,16 +266,13 @@ SleighDecoder::DecodeInstructionImpl(uint64_t address,
   uint64_t fallthrough = address + *instr_len;
   inst.next_pc = fallthrough;
 
-  ControlFlowStructureAnalysis analysis(
-      this->context_reg_mapping.GetInternalRegMapping(),
-      this->sleigh_ctx.GetEngine());
+  ControlFlowStructureAnalysis analysis(this->context_reg_mapping.GetInternalRegMapping(),
+                                        this->sleigh_ctx.GetEngine());
 
 
-  auto cat =
-      analysis.ComputeCategory(pcode_handler.ops, fallthrough, curr_context);
+  auto cat = analysis.ComputeCategory(pcode_handler.ops, fallthrough, curr_context);
   if (!cat) {
-    LOG(ERROR) << "Failed to compute category for inst at " << std::hex
-               << inst.pc;
+    LOG(ERROR) << "Failed to compute category for inst at " << std::hex << inst.pc;
     inst.flows = Instruction::InvalidInsn();
     inst.category = Instruction::Category::kCategoryInvalid;
     return std::nullopt;
@@ -340,12 +318,10 @@ std::optional<int32_t> SingleInstructionSleighContext::oneInstruction(
   try {
     const int32_t instr_len = decode_func(this->GetAddressFromOffset(address));
 
-    if (instr_len > 0 &&
-        static_cast<size_t>(instr_len) <= instr_bytes.length()) {
+    if (instr_len > 0 && static_cast<size_t>(instr_len) <= instr_bytes.length()) {
       return instr_len;
     } else {
-      LOG(ERROR) << "Instr too long " << instr_len << " vs "
-                 << instr_bytes.length();
+      LOG(ERROR) << "Instr too long " << instr_len << " vs " << instr_bytes.length();
       return std::nullopt;
     }
   } catch (BadDataError e) {
@@ -366,23 +342,20 @@ std::optional<int32_t> SingleInstructionSleighContext::oneInstruction(
 }
 
 // TODO(Ian): do with templates?.
-std::optional<int32_t> SingleInstructionSleighContext::oneInstruction(
-    uint64_t address, PcodeEmit &handler, std::string_view instr_bytes) {
+std::optional<int32_t>
+SingleInstructionSleighContext::oneInstruction(uint64_t address, PcodeEmit &handler,
+                                               std::string_view instr_bytes) {
   return this->oneInstruction(
       address,
-      [this, &handler](Address addr) {
-        return this->engine.oneInstruction(handler, addr);
-      },
+      [this, &handler](Address addr) { return this->engine.oneInstruction(handler, addr); },
       instr_bytes);
 }
 
-std::optional<int32_t> SingleInstructionSleighContext::oneInstruction(
-    uint64_t address, AssemblyEmit &handler, std::string_view instr_bytes) {
+std::optional<int32_t>
+SingleInstructionSleighContext::oneInstruction(uint64_t address, AssemblyEmit &handler,
+                                               std::string_view instr_bytes) {
   return this->oneInstruction(
-      address,
-      [this, &handler](Address addr) {
-        return this->engine.printAssembly(handler, addr);
-      },
+      address, [this, &handler](Address addr) { return this->engine.printAssembly(handler, addr); },
       instr_bytes);
 }
 
@@ -399,8 +372,7 @@ Overload(Ts...) -> Overload<Ts...>;
 }  // namespace
 
 
-const std::unordered_map<std::string, size_t> &
-ContextRegMappings::GetSizeMapping() const {
+const std::unordered_map<std::string, size_t> &ContextRegMappings::GetSizeMapping() const {
   return this->vnode_size_mapping;
 }
 
@@ -436,13 +408,11 @@ void SleighDecoder::ApplyFlowToInstruction(remill::Instruction &inst) const {
         // TODO(Ian) maybe add a return_to_flow for function call flows
         inst.branch_not_taken_pc = inst.next_pc;
         inst.branch_taken_pc = cat.taken_flow.known_target;
-        inst.category =
-            remill::Instruction::Category::kCategoryDirectFunctionCall;
+        inst.category = remill::Instruction::Category::kCategoryDirectFunctionCall;
       },
       [&inst](const remill::Instruction::IndirectFunctionCall &cat) {
         inst.branch_not_taken_pc = inst.next_pc;
-        inst.category =
-            remill::Instruction::Category::kCategoryIndirectFunctionCall;
+        inst.category = remill::Instruction::Category::kCategoryIndirectFunctionCall;
       },
       [&inst](const remill::Instruction::FunctionReturn &cat) {
         inst.category = remill::Instruction::Category::kCategoryFunctionReturn;
@@ -455,36 +425,30 @@ void SleighDecoder::ApplyFlowToInstruction(remill::Instruction &inst) const {
         inst.branch_not_taken_pc = inst.next_pc;
 
         auto conditional_applyer = Overload{
-            [&inst](
-                const remill::Instruction::DirectFunctionCall &cat) -> void {
+            [&inst](const remill::Instruction::DirectFunctionCall &cat) -> void {
               inst.branch_not_taken_pc = inst.next_pc;
               inst.branch_taken_pc = cat.taken_flow.known_target;
-              inst.category = remill::Instruction::Category::
-                  kCategoryConditionalDirectFunctionCall;
+              inst.category = remill::Instruction::Category::kCategoryConditionalDirectFunctionCall;
             },
             [&inst](const remill::Instruction::IndirectFunctionCall &cat) {
-              inst.category = remill::Instruction::Category::
-                  kCategoryConditionalIndirectFunctionCall;
+              inst.category =
+                  remill::Instruction::Category::kCategoryConditionalIndirectFunctionCall;
               inst.branch_not_taken_pc = inst.next_pc;
             },
             [&inst](const remill::Instruction::FunctionReturn &cat) {
-              inst.category = remill::Instruction::Category::
-                  kCategoryConditionalFunctionReturn;
+              inst.category = remill::Instruction::Category::kCategoryConditionalFunctionReturn;
               inst.branch_not_taken_pc = inst.next_pc;
             },
             [&inst](const remill::Instruction::AsyncHyperCall &cat) {
-              inst.category = remill::Instruction::Category::
-                  kCategoryConditionalAsyncHyperCall;
+              inst.category = remill::Instruction::Category::kCategoryConditionalAsyncHyperCall;
               inst.branch_not_taken_pc = inst.next_pc;
             },
             [&inst](const remill::Instruction::IndirectJump &cat) {
-              inst.category = remill::Instruction::Category::
-                  kCategoryConditionalIndirectJump;
+              inst.category = remill::Instruction::Category::kCategoryConditionalIndirectJump;
               inst.branch_not_taken_pc = inst.next_pc;
             },
             [&inst](const remill::Instruction::DirectJump &cat) {
-              inst.category =
-                  remill::Instruction::Category::kCategoryConditionalBranch;
+              inst.category = remill::Instruction::Category::kCategoryConditionalBranch;
               inst.branch_taken_pc = cat.taken_flow.known_target;
               inst.branch_not_taken_pc = inst.next_pc;
             }};
@@ -496,8 +460,7 @@ void SleighDecoder::ApplyFlowToInstruction(remill::Instruction &inst) const {
   std::visit(applyer, inst.flows);
 }
 
-uint64_t GetContextRegisterValue(const char *remill_reg_name,
-                                 uint64_t default_value,
+uint64_t GetContextRegisterValue(const char *remill_reg_name, uint64_t default_value,
                                  const ContextValues &context_values) {
   const auto iter = context_values.find(remill_reg_name);
   if (iter != context_values.end()) {
@@ -507,14 +470,12 @@ uint64_t GetContextRegisterValue(const char *remill_reg_name,
 }
 
 
-void SetContextRegisterValueInSleigh(
-    uint64_t addr, const char *remill_reg_name, const char *sleigh_reg_name,
-    uint64_t default_value, sleigh::SingleInstructionSleighContext &ctxt,
-    const ContextValues &context_values) {
-  auto value =
-      GetContextRegisterValue(remill_reg_name, default_value, context_values);
-  ctxt.GetContext().setVariable(sleigh_reg_name,
-                                ctxt.GetAddressFromOffset(addr), value);
+void SetContextRegisterValueInSleigh(uint64_t addr, const char *remill_reg_name,
+                                     const char *sleigh_reg_name, uint64_t default_value,
+                                     sleigh::SingleInstructionSleighContext &ctxt,
+                                     const ContextValues &context_values) {
+  auto value = GetContextRegisterValue(remill_reg_name, default_value, context_values);
+  ctxt.GetContext().setVariable(sleigh_reg_name, ctxt.GetAddressFromOffset(addr), value);
 }
 
 

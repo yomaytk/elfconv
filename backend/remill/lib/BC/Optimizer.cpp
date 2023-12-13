@@ -16,6 +16,10 @@
 
 #include "remill/BC/Optimizer.h"
 
+#include "remill/Arch/Arch.h"
+#include "remill/BC/Util.h"
+#include "remill/BC/Version.h"
+
 #include <glog/logging.h>
 #include <llvm/ADT/Triple.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
@@ -37,21 +41,15 @@
 #include <llvm/Transforms/Utils/Local.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
 
-#include "remill/Arch/Arch.h"
-#include "remill/BC/Util.h"
-#include "remill/BC/Version.h"
-
 namespace remill {
 
 void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
-                    std::function<llvm::Function *(void)> generator,
-                    OptimizationGuide guide) {
+                    std::function<llvm::Function *(void)> generator, OptimizationGuide guide) {
 
   llvm::legacy::FunctionPassManager func_manager(module);
   llvm::legacy::PassManager module_manager;
 
-  auto TLI =
-      new llvm::TargetLibraryInfoImpl(llvm::Triple(module->getTargetTriple()));
+  auto TLI = new llvm::TargetLibraryInfoImpl(llvm::Triple(module->getTargetTriple()));
 
   TLI->disableAllFunctions();  // `-fno-builtin`.
 
@@ -90,8 +88,7 @@ void OptimizeBareModule(llvm::Module *module, OptimizationGuide guide) {
   llvm::legacy::FunctionPassManager func_manager(module);
   llvm::legacy::PassManager module_manager;
 
-  auto TLI =
-      new llvm::TargetLibraryInfoImpl(llvm::Triple(module->getTargetTriple()));
+  auto TLI = new llvm::TargetLibraryInfoImpl(llvm::Triple(module->getTargetTriple()));
 
   TLI->disableAllFunctions();  // `-fno-builtin`.
 

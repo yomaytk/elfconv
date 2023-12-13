@@ -65,9 +65,7 @@ llvm::Triple X86ArchBase::Triple(void) const {
     case kArchX86_AVX:
     case kArchX86_AVX512:
     case kArchX86_SLEIGH: triple.setArch(llvm::Triple::x86); break;
-    default:
-      LOG(FATAL) << "Cannot get triple for non-x86 architecture "
-                 << GetArchName(arch_name);
+    default: LOG(FATAL) << "Cannot get triple for non-x86 architecture " << GetArchName(arch_name);
   }
 
   return triple;
@@ -76,9 +74,7 @@ llvm::Triple X86ArchBase::Triple(void) const {
 llvm::DataLayout X86ArchBase::DataLayout(void) const {
   std::string dl;
   switch (os_name) {
-    case kOSInvalid:
-      LOG(FATAL) << "Cannot convert module for an unrecognized OS.";
-      break;
+    case kOSInvalid: LOG(FATAL) << "Cannot convert module for an unrecognized OS."; break;
 
     case kOSLinux:
     case kOSSolaris:  // Probably.
@@ -86,18 +82,13 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH:
-          dl = "e-m:e-i64:64-f80:128-n8:16:32:64-S128";
-          break;
+        case kArchAMD64_SLEIGH: dl = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH:
-          dl = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
-          break;
+        case kArchX86_SLEIGH: dl = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"; break;
         default:
-          LOG(FATAL) << "Cannot get data layout non-x86 architecture "
-                     << GetArchName(arch_name);
+          LOG(FATAL) << "Cannot get data layout non-x86 architecture " << GetArchName(arch_name);
           break;
       }
       break;
@@ -107,15 +98,11 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH:
-          dl = "e-m:o-i64:64-f80:128-n8:16:32:64-S128";
-          break;
+        case kArchAMD64_SLEIGH: dl = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH:
-          dl = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128";
-          break;
+        case kArchX86_SLEIGH: dl = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128"; break;
         default:
           LOG(FATAL) << "Cannot get data layout for non-x86 architecture "
                      << GetArchName(arch_name);
@@ -127,15 +114,11 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH:
-          dl = "e-m:w-i64:64-f80:128-n8:16:32:64-S128";
-          break;
+        case kArchAMD64_SLEIGH: dl = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH:
-          dl = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32";
-          break;
+        case kArchX86_SLEIGH: dl = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"; break;
         default:
           LOG(FATAL) << "Cannot get data layout for non-x86 architecture "
                      << GetArchName(arch_name);
@@ -176,11 +159,10 @@ void X86ArchBase::PopulateRegisterTable(void) const {
   auto addr = llvm::Type::getIntNTy(*context, address_size);
 
 #define OFFSET_OF(type, access) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<const volatile char &>( \
-      static_cast<type *>(nullptr)->access)))
+  (reinterpret_cast<uintptr_t>( \
+      &reinterpret_cast<const volatile char &>(static_cast<type *>(nullptr)->access)))
 
-#define REG(name, access, type) \
-  AddRegister(#name, type, OFFSET_OF(X86State, access), nullptr)
+#define REG(name, access, type) AddRegister(#name, type, OFFSET_OF(X86State, access), nullptr)
 
 #define SUB_REG(name, access, type, parent_reg_name) \
   AddRegister(#name, type, OFFSET_OF(X86State, access), #parent_reg_name)
@@ -513,8 +495,8 @@ void X86ArchBase::PopulateRegisterTable(void) const {
 
 // Populate a just-initialized lifted function function with architecture-
 // specific variables.
-void X86ArchBase::FinishLiftedFunctionInitialization(
-    llvm::Module *module, llvm::Function *bb_func) const {
+void X86ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
+                                                     llvm::Function *bb_func) const {
   const auto &dl = module->getDataLayout();
   CHECK_EQ(sizeof(State), dl.getTypeAllocSize(StateStructType()))
       << "Mismatch between size of State type for x86/amd64 and what is in "

@@ -114,12 +114,10 @@ MAKE_CONDITIONS(icc)
     return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1); \
   } \
   static inline bool CondLGU_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || \
-           (state.fsr.fcc == 0x1); \
+    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1); \
   } \
   static inline bool CondNE_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || \
-           (state.fsr.fcc == 0x1); \
+    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1); \
   } \
   static inline bool CondE_##fcc(const State &state) { \
     return (state.fsr.fcc == 0x0); \
@@ -131,23 +129,19 @@ MAKE_CONDITIONS(icc)
     return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x0); \
   } \
   static inline bool CondUGE_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || \
-           (state.fsr.fcc == 0x0); \
+    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x0); \
   } \
   static inline bool CondLE_##fcc(const State &state) { \
     return (state.fsr.fcc == 0x1) || (state.fsr.fcc == 0x0); \
   } \
   static inline bool CondULE_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x1) || \
-           (state.fsr.fcc == 0x0); \
+    return (state.fsr.fcc == 0x3) || (state.fsr.fcc == 0x1) || (state.fsr.fcc == 0x0); \
   } \
   static inline bool CondGLE_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1) || \
-           (state.fsr.fcc == 0x0); \
+    return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1) || (state.fsr.fcc == 0x0); \
   } \
   static inline bool CondO_##fcc(const State &state) { \
-    return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1) || \
-           (state.fsr.fcc == 0x0); \
+    return (state.fsr.fcc == 0x2) || (state.fsr.fcc == 0x1) || (state.fsr.fcc == 0x0); \
   }
 
 MAKE_CONDITIONS(fcc0)

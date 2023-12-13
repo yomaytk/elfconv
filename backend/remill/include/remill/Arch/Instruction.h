@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include <optional>
 #include <remill/Arch/Context.h>
 #include <remill/BC/InstructionLifter.h>
-
-#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -44,8 +43,8 @@ struct LLVMOpExpr {
 };
 
 
-class OperandExpression : public std::variant<LLVMOpExpr, const Register *,
-                                              llvm::Constant *, std::string> {
+class OperandExpression
+    : public std::variant<LLVMOpExpr, const Register *, llvm::Constant *, std::string> {
  public:
   std::string Serialize(void) const;
   llvm::Type *type{nullptr};
@@ -124,13 +123,7 @@ class Operand {
 
   // kTypeAddress.
   struct Address {
-    enum Kind {
-      kInvalid,
-      kMemoryRead,
-      kMemoryWrite,
-      kAddressCalculation,
-      kControlFlowTarget
-    };
+    enum Kind { kInvalid, kMemoryRead, kMemoryWrite, kAddressCalculation, kControlFlowTarget };
 
     Address(void);
     ~Address(void) = default;
@@ -372,15 +365,13 @@ class Instruction {
     bool operator==(const AsyncHyperCall &rhs) const;
   };
 
-  using AbnormalFlow =
-      std::variant<DirectFunctionCall, IndirectFunctionCall, FunctionReturn,
-                   AsyncHyperCall, IndirectJump, DirectJump>;
+  using AbnormalFlow = std::variant<DirectFunctionCall, IndirectFunctionCall, FunctionReturn,
+                                    AsyncHyperCall, IndirectJump, DirectJump>;
 
   struct ConditionalInstruction {
    public:
     ConditionalInstruction() = delete;
-    ConditionalInstruction(AbnormalFlow taken_branch,
-                           FallthroughFlow fall_through);
+    ConditionalInstruction(AbnormalFlow taken_branch, FallthroughFlow fall_through);
 
     AbnormalFlow taken_branch;
     FallthroughFlow fall_through;
@@ -390,9 +381,9 @@ class Instruction {
 
 
   using InstructionFlowCategory =
-      std::variant<NormalInsn, NoOp, InvalidInsn, ErrorInsn, DirectJump,
-                   IndirectJump, IndirectFunctionCall, DirectFunctionCall,
-                   FunctionReturn, AsyncHyperCall, ConditionalInstruction>;
+      std::variant<NormalInsn, NoOp, InvalidInsn, ErrorInsn, DirectJump, IndirectJump,
+                   IndirectFunctionCall, DirectFunctionCall, FunctionReturn, AsyncHyperCall,
+                   ConditionalInstruction>;
 
   InstructionFlowCategory flows;
 
@@ -454,8 +445,7 @@ class Instruction {
   }
 
   inline bool IsFunctionReturn(void) const {
-    return kCategoryFunctionReturn == category ||
-           kCategoryConditionalFunctionReturn == category;
+    return kCategoryFunctionReturn == category || kCategoryConditionalFunctionReturn == category;
   }
 
   inline bool IsValid(void) const {
@@ -485,8 +475,7 @@ class Instruction {
   OperandExpression *EmplaceVariable(std::string_view, llvm::Type *);
   OperandExpression *EmplaceBinaryOp(unsigned opcode, OperandExpression *op1,
                                      OperandExpression *op2);
-  OperandExpression *EmplaceUnaryOp(unsigned opcode, OperandExpression *op1,
-                                    llvm::Type *);
+  OperandExpression *EmplaceUnaryOp(unsigned opcode, OperandExpression *op1, llvm::Type *);
 
   Operand &EmplaceOperand(const Operand::Register &op);
   Operand &EmplaceOperand(const Operand::Immediate &op);

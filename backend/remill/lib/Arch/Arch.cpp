@@ -16,6 +16,13 @@
 
 #include "remill/Arch/Arch.h"
 
+#include "remill/Arch/Name.h"
+#include "remill/BC/ABI.h"
+#include "remill/BC/Util.h"
+#include "remill/BC/Version.h"
+#include "remill/OS/OS.h"
+
+#include <algorithm>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <llvm/ADT/APInt.h>
@@ -28,27 +35,17 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Metadata.h>
 #include <llvm/IR/Module.h>
-#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchBase`.
-
-#include <algorithm>
 #include <memory>
+#include <remill/Arch/ArchBase.h>  // For `Arch` and `ArchBase`.
 #include <unordered_map>
 #include <unordered_set>
-
-#include "remill/Arch/Name.h"
-#include "remill/BC/ABI.h"
-#include "remill/BC/Util.h"
-#include "remill/BC/Version.h"
-#include "remill/OS/OS.h"
 
 namespace remill {
 namespace {
 
 static unsigned AddressSize(ArchName arch_name) {
   switch (arch_name) {
-    case kArchInvalid:
-      LOG(FATAL) << "Cannot get address size for invalid arch.";
-      return 0;
+    case kArchInvalid: LOG(FATAL) << "Cannot get address size for invalid arch."; return 0;
     case kArchX86:
     case kArchX86_AVX:
     case kArchX86_AVX512:
@@ -76,8 +73,7 @@ Arch::Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
       address_size(AddressSize(arch_name_)),
       context(context_) {}
 
-ArchBase::ArchBase(llvm::LLVMContext *context_, OSName os_name_,
-                   ArchName arch_name_)
+ArchBase::ArchBase(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
     : Arch(context_, os_name_, arch_name_) {}
 
 Arch::~Arch(void) {}
@@ -93,8 +89,7 @@ bool Arch::MayHaveDelaySlot(const Instruction &) const {
 }
 
 // Returns `true` if a given instruction might have a delay slot.
-bool Arch::NextInstructionIsDelayed(const Instruction &, const Instruction &,
-                                    bool) const {
+bool Arch::NextInstructionIsDelayed(const Instruction &, const Instruction &, bool) const {
   return false;
 }
 
@@ -155,16 +150,13 @@ llvm::Triple Arch::BasicTriple(void) const {
 }
 
 
-auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
-                         ArchName arch_name_) -> ArchPtr {
+auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
   switch (arch_name_) {
-    case kArchInvalid:
-      LOG(FATAL) << "Unrecognized architecture.";
-      return nullptr;
+    case kArchInvalid: LOG(FATAL) << "Unrecognized architecture."; return nullptr;
 
     case kArchAArch64LittleEndian_SLEIGH: {
-      DLOG(INFO)
-          << "Using architecture: AArch64 Sleigh, feature set: Little Endian";
+      DLOG(INFO) << "Using architecture: AArch64 Sleigh, feature set: Little Endian";
       return GetAArch64Sleigh(context_, os_name_, arch_name_);
     }
 
@@ -245,8 +237,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
   }
 }
 
-auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_,
-                 ArchName arch_name_) -> ArchPtr {
+auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_) -> ArchPtr {
   ArchPtr ret = Arch::GetArchByName(context_, os_name_, arch_name_);
   if (ret) {
     ret->PopulateRegisterTable();
@@ -255,13 +246,12 @@ auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_,
   return ret;
 }
 
-auto Arch::Get(llvm::LLVMContext &context, std::string_view os,
-               std::string_view arch_name) -> ArchPtr {
+auto Arch::Get(llvm::LLVMContext &context, std::string_view os, std::string_view arch_name)
+    -> ArchPtr {
   return Arch::Build(&context, GetOSName(os), GetArchName(arch_name));
 }
 
-auto Arch::Get(llvm::LLVMContext &context, OSName os, ArchName arch_name)
-    -> ArchPtr {
+auto Arch::Get(llvm::LLVMContext &context, OSName os, ArchName arch_name) -> ArchPtr {
   return Arch::Build(&context, os, arch_name);
 }
 
@@ -277,8 +267,7 @@ llvm::StructType *ArchBase::StateStructType(void) const {
 
 // Pointer to a state structure type.
 llvm::PointerType *ArchBase::StatePointerType(void) const {
-  CHECK(this->state_type)
-      << "Have you not run `PrepareModule` on a loaded semantics module?";
+  CHECK(this->state_type) << "Have you not run `PrepareModule` on a loaded semantics module?";
   return llvm::PointerType::get(*context, 0);
 }
 
@@ -344,13 +333,11 @@ namespace {
 //              be removed in favor of Arch::Build/Get* but some old code may
 //              depend on this caching behaviour.
 struct AvailableArchs {
-  using ArchMap =
-      std::unordered_map<llvm::LLVMContext *, std::unique_ptr<const Arch>>;
+  using ArchMap = std::unordered_map<llvm::LLVMContext *, std::unique_ptr<const Arch>>;
 
   static ArchMap cached;
 
-  static const Arch *GetOrCreate(llvm::LLVMContext *ctx, OSName os,
-                                 ArchName name) {
+  static const Arch *GetOrCreate(llvm::LLVMContext *ctx, OSName os, ArchName name) {
     auto &arch = cached[ctx];
     if (!arch) {
       arch = Create(ctx, os, name);
@@ -364,8 +351,7 @@ struct AvailableArchs {
     return nullptr;
   }
 
-  static Arch::ArchPtr Create(llvm::LLVMContext *ctx, OSName os,
-                              ArchName name) {
+  static Arch::ArchPtr Create(llvm::LLVMContext *ctx, OSName os, ArchName name) {
     return Arch::Build(ctx, os, name);
   }
 };
@@ -376,8 +362,7 @@ AvailableArchs::ArchMap AvailableArchs::cached = {};
 
 remill::Arch::ArchPtr Arch::GetModuleArch(const llvm::Module &module) {
   const llvm::Triple triple = llvm::Triple(module.getTargetTriple());
-  return remill::Arch::Build(&module.getContext(), GetOSName(triple),
-                             GetArchName(triple));
+  return remill::Arch::Build(&module.getContext(), GetOSName(triple), GetArchName(triple));
 }
 
 bool Arch::IsX86(void) const {
@@ -454,15 +439,13 @@ static void AddNoAliasToArgument(llvm::Argument *arg) {
 
 }  // namespace
 
-Register::Register(const std::string &name_, uint64_t offset_,
-                   llvm::Type *type_, const Register *parent_,
-                   const Arch *arch_)
+Register::Register(const std::string &name_, uint64_t offset_, llvm::Type *type_,
+                   const Register *parent_, const Arch *arch_)
     : name(name_),
       offset(offset_),
       size(arch_->DataLayout().getTypeAllocSize(type_)),
       type(type_),
-      constant_name(
-          llvm::ConstantDataArray::getString(type->getContext(), name_)),
+      constant_name(llvm::ConstantDataArray::getString(type->getContext(), name_)),
       parent(parent_),
       arch(arch_) {
 
@@ -535,10 +518,9 @@ static uint64_t TotalOffset(const llvm::DataLayout &dl, llvm::Value *base,
   return total_offset;
 }
 
-static llvm::Value *
-FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
-                llvm::StructType *state_type, size_t state_size,
-                const Register *reg, unsigned addr_space, llvm::Value *gep) {
+static llvm::Value *FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
+                                    llvm::StructType *state_type, size_t state_size,
+                                    const Register *reg, unsigned addr_space, llvm::Value *gep) {
 
 
   auto gep_offset = TotalOffset(dl, gep, state_type);
@@ -546,8 +528,7 @@ FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
   CHECK_LT(gep_offset, state_size);
 
   const auto index_type = reg->gep_index_list[0]->getType();
-  const auto goal_ptr_type =
-      llvm::PointerType::get(ir.getContext(), addr_space);
+  const auto goal_ptr_type = llvm::PointerType::get(ir.getContext(), addr_space);
 
   // Best case: we've found a value field in the structure that
   // is located at the correct byte offset.
@@ -566,13 +547,11 @@ FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
   // is a multiple of the size of the register, so we can cast to the
   // `goal_ptr_type` and index.
   if (((diff / reg->size) * reg->size) == diff) {
-    llvm::Value *elem_indexes[] = {
-        llvm::ConstantInt::get(index_type, diff / reg->size, false)};
+    llvm::Value *elem_indexes[] = {llvm::ConstantInt::get(index_type, diff / reg->size, false)};
 
     if (auto const_gep = llvm::dyn_cast<llvm::Constant>(gep); const_gep) {
       const_gep = llvm::ConstantExpr::getBitCast(const_gep, goal_ptr_type);
-      return llvm::ConstantExpr::getGetElementPtr(reg->type, const_gep,
-                                                  elem_indexes);
+      return llvm::ConstantExpr::getGetElementPtr(reg->type, const_gep, elem_indexes);
 
     } else {
       const auto arr = ir.CreateBitCast(gep, goal_ptr_type);
@@ -582,21 +561,17 @@ FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
 
   // Worst case is that we have to fall down to byte-granularity
   // pointer arithmetic.
-  const auto byte_type =
-      llvm::IntegerType::getInt8Ty(goal_ptr_type->getContext());
-  llvm::Value *elem_indexes[] = {
-      llvm::ConstantInt::get(index_type, diff, false)};
+  const auto byte_type = llvm::IntegerType::getInt8Ty(goal_ptr_type->getContext());
+  llvm::Value *elem_indexes[] = {llvm::ConstantInt::get(index_type, diff, false)};
 
   if (auto const_gep = llvm::dyn_cast<llvm::Constant>(gep); const_gep) {
-    const_gep = llvm::ConstantExpr::getBitCast(
-        const_gep, llvm::PointerType::get(ir.getContext(), addr_space));
-    const_gep = llvm::ConstantExpr::getGetElementPtr(byte_type, const_gep,
-                                                     elem_indexes);
+    const_gep = llvm::ConstantExpr::getBitCast(const_gep,
+                                               llvm::PointerType::get(ir.getContext(), addr_space));
+    const_gep = llvm::ConstantExpr::getGetElementPtr(byte_type, const_gep, elem_indexes);
     return llvm::ConstantExpr::getBitCast(const_gep, goal_ptr_type);
 
   } else {
-    gep = ir.CreateBitCast(gep,
-                           llvm::PointerType::get(ir.getContext(), addr_space));
+    gep = ir.CreateBitCast(gep, llvm::PointerType::get(ir.getContext(), addr_space));
     gep = ir.CreateGEP(byte_type, gep, elem_indexes);
     return ir.CreateBitCast(gep, goal_ptr_type);
   }
@@ -604,8 +579,7 @@ FinishAddressOf(llvm::IRBuilder<> &ir, const llvm::DataLayout &dl,
 
 }  // namespace
 
-void Register::ComputeGEPAccessors(const llvm::DataLayout &dl,
-                                   llvm::StructType *state_type) {
+void Register::ComputeGEPAccessors(const llvm::DataLayout &dl, llvm::StructType *state_type) {
   if (!state_type) {
     state_type = arch->StateStructType();
   }
@@ -616,8 +590,7 @@ void Register::ComputeGEPAccessors(const llvm::DataLayout &dl,
 
   auto &context = state_type->getContext();
 
-  gep_index_list.push_back(
-      llvm::Constant::getNullValue(llvm::Type::getInt32Ty(context)));
+  gep_index_list.push_back(llvm::Constant::getNullValue(llvm::Type::getInt32Ty(context)));
 
   std::tie(gep_offset, gep_type_at_offset) =
       BuildIndexes(dl, state_type, 0, offset, gep_index_list);
@@ -625,18 +598,15 @@ void Register::ComputeGEPAccessors(const llvm::DataLayout &dl,
 
 // Generate a GEP that will let us load/store to this register, given
 // a `State *`.
-llvm::Value *Register::AddressOf(llvm::Value *state_ptr,
-                                 llvm::BasicBlock *add_to_end) const {
+llvm::Value *Register::AddressOf(llvm::Value *state_ptr, llvm::BasicBlock *add_to_end) const {
   llvm::IRBuilder<> ir(add_to_end);
   return AddressOf(state_ptr, ir);
 }
 
-llvm::Value *Register::AddressOf(llvm::Value *state_ptr,
-                                 llvm::IRBuilder<> &ir) const {
+llvm::Value *Register::AddressOf(llvm::Value *state_ptr, llvm::IRBuilder<> &ir) const {
   auto &context = type->getContext();
   CHECK_EQ(&context, &(state_ptr->getContext()));
-  const auto state_ptr_type =
-      llvm::dyn_cast<llvm::PointerType>(state_ptr->getType());
+  const auto state_ptr_type = llvm::dyn_cast<llvm::PointerType>(state_ptr->getType());
   CHECK_NOTNULL(state_ptr_type);
   const auto addr_space = state_ptr_type->getAddressSpace();
 
@@ -650,17 +620,14 @@ llvm::Value *Register::AddressOf(llvm::Value *state_ptr,
   }
 
   llvm::Value *gep = nullptr;
-  if (auto const_state_ptr = llvm::dyn_cast<llvm::Constant>(state_ptr);
-      const_state_ptr) {
-    gep = llvm::ConstantExpr::getInBoundsGetElementPtr(
-        state_type, const_state_ptr, gep_index_list);
+  if (auto const_state_ptr = llvm::dyn_cast<llvm::Constant>(state_ptr); const_state_ptr) {
+    gep = llvm::ConstantExpr::getInBoundsGetElementPtr(state_type, const_state_ptr, gep_index_list);
   } else {
     gep = ir.CreateInBoundsGEP(state_type, state_ptr, gep_index_list);
   }
 
   auto state_size = dl.getTypeAllocSize(state_type);
-  auto ret =
-      FinishAddressOf(ir, dl, state_type, state_size, this, addr_space, gep);
+  auto ret = FinishAddressOf(ir, dl, state_type, state_size, this, addr_space, gep);
 
   // Add the metadata to `inst`.
   if (auto inst = llvm::dyn_cast<llvm::Instruction>(ret); inst) {
@@ -696,8 +663,7 @@ void Arch::PrepareModuleDataLayout(llvm::Module *mod) const {
 
   for (llvm::Function &func : *mod) {
     auto attribs = func.getAttributes();
-    attribs = attribs.removeFnAttributes(context,
-                                         llvm::AttributeMask(target_attribs));
+    attribs = attribs.removeFnAttributes(context, llvm::AttributeMask(target_attribs));
     func.setAttributes(attribs);
   }
 }
@@ -706,14 +672,13 @@ void Arch::PrepareModuleDataLayout(llvm::Module *mod) const {
 //
 // NOTE(pag): This should be called after `PrepareModule` and after the
 //            semantics have been loaded.
-llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_,
-                                            llvm::Module *module) const {
+llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_, llvm::Module *module) const {
   auto &context = module->getContext();
-  auto func_type = llvm::dyn_cast<llvm::FunctionType>(
-      RecontextualizeType(LiftedFunctionType(), context));
+  auto func_type =
+      llvm::dyn_cast<llvm::FunctionType>(RecontextualizeType(LiftedFunctionType(), context));
   llvm::StringRef name(name_.data(), name_.size());
-  auto func = llvm::Function::Create(
-      func_type, llvm::GlobalValue::ExternalLinkage, 0u, name, module);
+  auto func =
+      llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, 0u, name, module);
 
   auto memory = remill::NthArgument(func, kMemoryPointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
@@ -732,8 +697,7 @@ llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_,
 //
 // NOTE(pag): This should be called after `PrepareModule` and after the
 //            semantics have been loaded.
-llvm::Function *Arch::DefineLiftedFunction(std::string_view name_,
-                                           llvm::Module *module) const {
+llvm::Function *Arch::DefineLiftedFunction(std::string_view name_, llvm::Module *module) const {
   auto func = DeclareLiftedFunction(name_, module);
   InitializeEmptyLiftedFunction(func);
   InitFunctionAttributes(func);
@@ -776,8 +740,7 @@ void Arch::PrepareModule(llvm::Module *mod) const {
   PrepareModuleDataLayout(mod);
 }
 
-const Register *ArchBase::AddRegister(const char *reg_name_,
-                                      llvm::Type *val_type, size_t offset,
+const Register *ArchBase::AddRegister(const char *reg_name_, llvm::Type *val_type, size_t offset,
                                       const char *parent_reg_name) const {
 
   CHECK_NOTNULL(val_type);
@@ -822,8 +785,7 @@ const Register *ArchBase::AddRegister(const char *reg_name_,
     if (!reg_at_offset) {
       reg_at_offset = reg_impl;
     } else if (reg_at_offset) {
-      CHECK_EQ(reg_at_offset->EnclosingRegister(),
-               reg_impl->EnclosingRegister())
+      CHECK_EQ(reg_at_offset->EnclosingRegister(), reg_impl->EnclosingRegister())
           << maybe_get_reg_name(reg_at_offset->EnclosingRegister())
           << " != " << maybe_get_reg_name(reg_impl->EnclosingRegister());
       ;
@@ -846,15 +808,13 @@ void ArchBase::InitFromSemanticsModule(llvm::Module *module) const {
 
   const auto *state_global = module->getGlobalVariable("__remill_state");
   CHECK_NOTNULL(state_global);
-  auto *state_type =
-      llvm::dyn_cast<llvm::StructType>(state_global->getValueType());
+  auto *state_type = llvm::dyn_cast<llvm::StructType>(state_global->getValueType());
   CHECK_NOTNULL(state_type);
 
-  const auto *register_window_global =
-      module->getGlobalVariable("__remill_register_window");
+  const auto *register_window_global = module->getGlobalVariable("__remill_register_window");
   if (register_window_global) {
-    auto *register_window_type = llvm::dyn_cast<llvm::StructType>(
-        register_window_global->getValueType());
+    auto *register_window_type =
+        llvm::dyn_cast<llvm::StructType>(register_window_global->getValueType());
     CHECK_NOTNULL(register_window_type);
     this->register_window_type = register_window_type;
   }
@@ -864,8 +824,8 @@ void ArchBase::InitFromSemanticsModule(llvm::Module *module) const {
   this->state_type = state_type;
 
   reg_by_offset.resize(dl.getTypeAllocSize(state_type));
-  memory_type = llvm::dyn_cast<llvm::PointerType>(
-      NthArgument(basic_block, kMemoryPointerArgNum)->getType());
+  memory_type =
+      llvm::dyn_cast<llvm::PointerType>(NthArgument(basic_block, kMemoryPointerArgNum)->getType());
   lifted_function_type = basic_block->getFunctionType();
   reg_md_id = context->getMDKindID("remill_register");
 
@@ -888,8 +848,7 @@ Instruction::FallthroughFlow DefaultContextAndLifter::GetFallthrough() const {
   return Instruction::FallthroughFlow(this->CreateInitialContext());
 }
 
-Instruction::DirectFlow
-DefaultContextAndLifter::GetDirectFlow(uint64_t target) const {
+Instruction::DirectFlow DefaultContextAndLifter::GetDirectFlow(uint64_t target) const {
   return Instruction::DirectFlow(target, this->CreateInitialContext());
 }
 
@@ -903,8 +862,7 @@ DefaultContextAndLifter::FillInFlowFromCategoryAndDefaultContext(
   switch (inst.category) {
     case Instruction::Category::kCategoryNormal:
       return Instruction::NormalInsn(this->GetFallthrough());
-    case Instruction::Category::kCategoryAsyncHyperCall:
-      return Instruction::AsyncHyperCall();
+    case Instruction::Category::kCategoryAsyncHyperCall: return Instruction::AsyncHyperCall();
     case Instruction::Category::kCategoryConditionalAsyncHyperCall:
       return Instruction::ConditionalInstruction(Instruction::AsyncHyperCall(),
                                                  this->GetFallthrough());
@@ -917,43 +875,33 @@ DefaultContextAndLifter::FillInFlowFromCategoryAndDefaultContext(
     case Instruction::Category::kCategoryIndirectJump:
       return Instruction::IndirectJump(this->GetIndirectFlow());
     case Instruction::Category::kCategoryConditionalIndirectJump:
-      return Instruction::ConditionalInstruction(
-          Instruction::IndirectJump(this->GetIndirectFlow()),
-          this->GetFallthrough());
+      return Instruction::ConditionalInstruction(Instruction::IndirectJump(this->GetIndirectFlow()),
+                                                 this->GetFallthrough());
     case Instruction::Category::kCategoryError: return Instruction::ErrorInsn();
     case Instruction::Category::kCategoryFunctionReturn:
       return Instruction::FunctionReturn(this->GetIndirectFlow());
     case Instruction::Category::kCategoryConditionalFunctionReturn:
       return Instruction::ConditionalInstruction(
-          Instruction::FunctionReturn(this->GetIndirectFlow()),
-          this->GetFallthrough());
+          Instruction::FunctionReturn(this->GetIndirectFlow()), this->GetFallthrough());
     case Instruction::Category::kCategoryConditionalDirectFunctionCall:
       return Instruction::ConditionalInstruction(
-          Instruction::DirectFunctionCall(
-              this->GetDirectFlow(inst.branch_taken_pc)),
+          Instruction::DirectFunctionCall(this->GetDirectFlow(inst.branch_taken_pc)),
           this->GetFallthrough());
     case Instruction::Category::kCategoryDirectFunctionCall:
-      return Instruction::DirectFunctionCall(
-          this->GetDirectFlow(inst.branch_taken_pc));
+      return Instruction::DirectFunctionCall(this->GetDirectFlow(inst.branch_taken_pc));
     case Instruction::Category::kCategoryIndirectFunctionCall:
       return Instruction::IndirectFunctionCall(this->GetIndirectFlow());
     case Instruction::Category::kCategoryConditionalIndirectFunctionCall:
       return Instruction::ConditionalInstruction(
-          Instruction::IndirectFunctionCall(this->GetIndirectFlow()),
-          this->GetFallthrough());
-    case Instruction::Category::kCategoryInvalid:
-      return Instruction::InvalidInsn();
-    case Instruction::Category::kCategoryNoOp:
-      return Instruction::NoOp(this->GetFallthrough());
+          Instruction::IndirectFunctionCall(this->GetIndirectFlow()), this->GetFallthrough());
+    case Instruction::Category::kCategoryInvalid: return Instruction::InvalidInsn();
+    case Instruction::Category::kCategoryNoOp: return Instruction::NoOp(this->GetFallthrough());
   }
 }
 
-bool DefaultContextAndLifter::DecodeInstruction(uint64_t address,
-                                                std::string_view instr_bytes,
-                                                Instruction &inst,
-                                                DecodingContext context) const {
-  inst.SetLifter(std::make_unique<remill::InstructionLifter>(
-      this, this->GetInstrinsicTable()));
+bool DefaultContextAndLifter::DecodeInstruction(uint64_t address, std::string_view instr_bytes,
+                                                Instruction &inst, DecodingContext context) const {
+  inst.SetLifter(std::make_unique<remill::InstructionLifter>(this, this->GetInstrinsicTable()));
 
   auto res = this->ArchDecodeInstruction(address, instr_bytes, inst);
   if (res) {
@@ -964,14 +912,13 @@ bool DefaultContextAndLifter::DecodeInstruction(uint64_t address,
 }
 
 
-OperandLifter::OpLifterPtr DefaultContextAndLifter::DefaultLifter(
-    const remill::IntrinsicTable &intrinsics) const {
+OperandLifter::OpLifterPtr
+DefaultContextAndLifter::DefaultLifter(const remill::IntrinsicTable &intrinsics) const {
   return std::make_shared<InstructionLifter>(this, intrinsics);
 }
 
 
-DefaultContextAndLifter::DefaultContextAndLifter(llvm::LLVMContext *context_,
-                                                 OSName os_name_,
+DefaultContextAndLifter::DefaultContextAndLifter(llvm::LLVMContext *context_, OSName os_name_,
                                                  ArchName arch_name_)
     : ArchBase(context_, os_name_, arch_name_) {}
 

@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "remill/BC/Lifter.h"
 #include "remill/Arch/Arch.h"
+#include "remill/BC/Lifter.h"
+
 #include <functional>
 #include <unordered_map>
 
@@ -48,8 +49,7 @@ class TraceManager {
 
   // Called when we have lifted, i.e. defined the contents, of a new trace.
   // The derived class is expected to do something useful with this.
-  virtual void SetLiftedTraceDefinition(uint64_t addr,
-                                        llvm::Function *lifted_func) = 0;
+  virtual void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
 
   // Get a declaration for a lifted trace. The idea here is that a derived
   // class might have additional global info available to them that lets
@@ -83,9 +83,9 @@ class TraceManager {
   // lifter to support devirtualization, e.g. handling jump tables as
   // `switch` statements, or handling indirect calls through the PLT as
   // direct jumps.
-  virtual void ForEachDevirtualizedTarget(
-      const Instruction &inst,
-      std::function<void(uint64_t, DevirtualizedTargetKind)> func);
+  virtual void
+  ForEachDevirtualizedTarget(const Instruction &inst,
+                             std::function<void(uint64_t, DevirtualizedTargetKind)> func);
 
   // Try to read an executable byte of memory. Returns `true` of the byte
   // at address `addr` is executable and readable, and updates the byte
@@ -99,10 +99,10 @@ class TraceManager {
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 
   /* global array of block address various data */
-  std::vector<llvm::Constant*> g_block_address_ptrs_array;
-  std::vector<llvm::Constant*> g_block_address_vmas_array;
-  std::vector<llvm::Constant*> g_block_address_size_array;
-  std::vector<llvm::Constant*> g_block_address_fn_vma_array;
+  std::vector<llvm::Constant *> g_block_address_ptrs_array;
+  std::vector<llvm::Constant *> g_block_address_vmas_array;
+  std::vector<llvm::Constant *> g_block_address_size_array;
+  std::vector<llvm::Constant *> g_block_address_fn_vma_array;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -114,11 +114,10 @@ class TraceLifter {
  public:
   ~TraceLifter(void);
 
-  inline TraceLifter(const Arch *arch_, TraceManager &manager_)
-    : TraceLifter(arch_, &manager_) {}
-    
+  inline TraceLifter(const Arch *arch_, TraceManager &manager_) : TraceLifter(arch_, &manager_) {}
+
   TraceLifter(const Arch *arch_, TraceManager *manager_);
-  
+
   /* called derived class */
   TraceLifter(Impl *impl_) : impl(impl_) {}
 
@@ -126,43 +125,40 @@ class TraceLifter {
 
   // Lift one or more traces starting from `addr`. Calls `callback` with each
   // lifted trace.
-  bool
-  Lift(uint64_t addr, const char *fun_name = "",
-       std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
+  bool Lift(uint64_t addr, const char *fun_name = "",
+            std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
 
 
  private:
   TraceLifter(void) = delete;
-
 };
 
 class TraceLifter::Impl {
  public:
   Impl(const Arch *arch_, TraceManager *manager_)
-    : arch(arch_),
-      intrinsics(arch->GetInstrinsicTable()),
-      word_type(arch->AddressType()),
-      context(word_type->getContext()),
-      module(intrinsics->async_hyper_call->getParent()),
-      addr_mask(arch->address_size >= 64 ? ~0ULL
-                                         : (~0ULL >> arch->address_size)),
-      manager(*manager_),
-      func(nullptr),
-      block(nullptr),
-      switch_inst(nullptr),
-      // TODO(Ian): The trace lfiter is not supporting contexts
-      max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
-      indirectbr_block_name("L_indirectbr"),
-      g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
-      debug_insn_name("debug_insn"),
-      debug_pc_name("debug_pc"),
-      debug_call_stack_name("debug_call_stack") {
+      : arch(arch_),
+        intrinsics(arch->GetInstrinsicTable()),
+        word_type(arch->AddressType()),
+        context(word_type->getContext()),
+        module(intrinsics->async_hyper_call->getParent()),
+        addr_mask(arch->address_size >= 64 ? ~0ULL : (~0ULL >> arch->address_size)),
+        manager(*manager_),
+        func(nullptr),
+        block(nullptr),
+        switch_inst(nullptr),
+        // TODO(Ian): The trace lfiter is not supporting contexts
+        max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+        indirectbr_block_name("L_indirectbr"),
+        g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
+        debug_insn_name("debug_insn"),
+        debug_pc_name("debug_pc"),
+        debug_call_stack_name("debug_call_stack") {
     inst_bytes.reserve(max_inst_bytes);
   }
-  
+
   // Lift one or more traces starting from `addr`. Calls `callback` with each
   // lifted trace.
-  bool Lift(uint64_t addr, const char* fn_name = "",
+  bool Lift(uint64_t addr, const char *fn_name = "",
             std::function<void(uint64_t, llvm::Function *)> callback = NullCallback);
 
   // Reads the bytes of an instruction at `addr` into `state.inst_bytes`.
@@ -198,12 +194,9 @@ class TraceLifter::Impl {
 
   /* Global variable array definition helper */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(
-    llvm::Type *elem_type,
-    std::vector<llvm::Constant*> &constant_array, 
-    const llvm::Twine &Name = "",
-    bool isConstant = true, 
-    llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage
-  );
+      llvm::Type *elem_type, std::vector<llvm::Constant *> &constant_array,
+      const llvm::Twine &Name = "", bool isConstant = true,
+      llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage);
 
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
@@ -220,7 +213,7 @@ class TraceLifter::Impl {
   llvm::BasicBlock *indirectbr_block;
   llvm::SwitchInst *switch_inst;
   std::string indirectbr_block_name;
-  std::map<uint64_t, llvm::BasicBlock*> lifted_block_map;
+  std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
   bool lift_all_insn;
   const size_t max_inst_bytes;
   std::string inst_bytes;

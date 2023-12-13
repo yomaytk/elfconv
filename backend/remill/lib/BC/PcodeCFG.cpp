@@ -1,15 +1,14 @@
-#include <remill/BC/PCodeCFG.h>
+#include "lib/Arch/Sleigh/ControlFlowStructuring.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <map>
+#include <remill/BC/PCodeCFG.h>
 #include <sleigh/op.hh>
 #include <sleigh/opcodes.hh>
 #include <sleigh/pcoderaw.hh>
 #include <variant>
 #include <vector>
-
-#include "lib/Arch/Sleigh/ControlFlowStructuring.h"
 
 namespace remill {
 namespace sleigh {
@@ -29,15 +28,13 @@ std::vector<size_t> PcodeCFGBuilder::GetBlockStarts() const {
   return res;
 }
 
-PcodeBlock PcodeCFGBuilder::BuildBlock(size_t start_ind,
-                                       size_t next_start) const {
+PcodeBlock PcodeCFGBuilder::BuildBlock(size_t start_ind, size_t next_start) const {
   std::vector<RemillPcodeOp> ops;
 
   std::copy(linear_ops.begin() + start_ind, linear_ops.begin() + next_start,
             std::back_inserter(ops));
 
-  return PcodeBlock(start_ind, std::move(ops),
-                    GetBlockExitsForIndex(next_start - 1));
+  return PcodeBlock(start_ind, std::move(ops), GetBlockExitsForIndex(next_start - 1));
 }
 
 
@@ -81,8 +78,7 @@ BlockExit PcodeCFGBuilder::GetBlockExitsForIndex(size_t index) const {
   CHECK(index < linear_ops.size());
   const auto &curr_op = linear_ops[index];
 
-  auto build_direct_target_exit = [](VarnodeData target,
-                                     size_t curr_ind) -> Exit {
+  auto build_direct_target_exit = [](VarnodeData target, size_t curr_ind) -> Exit {
     if (isVarnodeInConstantSpace(target)) {
       // need to treat as signed?
       return IntrainstructionIndex{curr_ind + target.offset};
@@ -143,8 +139,7 @@ PcodeCFG PcodeCFGBuilder::Build() const {
   }
 
   for (size_t i = 0; i < starts.size(); i++) {
-    auto next_start =
-        (i + 1) < starts.size() ? starts[i + 1] : linear_ops.size();
+    auto next_start = (i + 1) < starts.size() ? starts[i + 1] : linear_ops.size();
     blocks.emplace(starts[i], BuildBlock(starts[i], next_start));
   }
 
@@ -155,11 +150,9 @@ PcodeCFG PcodeCFGBuilder::Build() const {
 PcodeCFGBuilder::PcodeCFGBuilder(const std::vector<RemillPcodeOp> &linear_ops)
     : linear_ops(linear_ops) {}
 
-PcodeCFG::PcodeCFG(std::map<size_t, PcodeBlock> blocks)
-    : blocks(std::move(blocks)) {}
+PcodeCFG::PcodeCFG(std::map<size_t, PcodeBlock> blocks) : blocks(std::move(blocks)) {}
 
-PcodeBlock::PcodeBlock(size_t base_index, std::vector<RemillPcodeOp> ops,
-                       BlockExit block_exit)
+PcodeBlock::PcodeBlock(size_t base_index, std::vector<RemillPcodeOp> ops, BlockExit block_exit)
     : base_index(base_index),
       ops(std::move(ops)),
       block_exit(std::move(block_exit)) {}

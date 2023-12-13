@@ -15,8 +15,9 @@
  */
 
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/Arch/Runtime/Types.h"
+
 #include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Types.h"
 
 #define USED(sym) __remill_mark_as_used(reinterpret_cast<const void *>(&sym))
 

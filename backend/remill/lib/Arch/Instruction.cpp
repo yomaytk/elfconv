@@ -16,16 +16,15 @@
 
 #include "remill/Arch/Instruction.h"
 
-#include <glog/logging.h>
-#include <llvm/IR/Instruction.h>
-#include <llvm/IR/Instructions.h>
-
-#include <iomanip>
-#include <sstream>
-
 #include "remill/Arch/Arch.h"
 #include "remill/Arch/Name.h"
 #include "remill/BC/Util.h"
+
+#include <glog/logging.h>
+#include <iomanip>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <sstream>
 
 namespace remill {
 
@@ -61,11 +60,7 @@ Operand::ShiftRegister::ShiftRegister(void)
 
 Operand::Immediate::Immediate(void) : val(0), is_signed(false) {}
 
-Operand::Address::Address(void)
-    : scale(0),
-      displacement(0),
-      address_size(0),
-      kind(kInvalid) {}
+Operand::Address::Address(void) : scale(0), displacement(0), address_size(0), kind(kInvalid) {}
 
 Operand::Operand(void)
     : type(Operand::kTypeInvalid),
@@ -94,24 +89,18 @@ std::string Operand::Serialize(void) const {
   switch (type) {
     case Operand::kTypeInvalid: ss << "(INVALID)"; break;
 
-    case Operand::kTypeRegister:
-      ss << "(REG_" << reg.size << " " << reg.name << ")";
-      break;
+    case Operand::kTypeRegister: ss << "(REG_" << reg.size << " " << reg.name << ")"; break;
 
     case Operand::kTypeShiftRegister: {
       auto shift_begin = [&](void) {
         switch (shift_reg.shift_op) {
           case Operand::ShiftRegister::kShiftInvalid: break;
 
-          case Operand::ShiftRegister::kShiftLeftWithZeroes:
-            ss << "(LSL ";
-            break;
+          case Operand::ShiftRegister::kShiftLeftWithZeroes: ss << "(LSL "; break;
 
           case Operand::ShiftRegister::kShiftLeftWithOnes: ss << "(MSL "; break;
 
-          case Operand::ShiftRegister::kShiftUnsignedRight:
-            ss << "(LSR ";
-            break;
+          case Operand::ShiftRegister::kShiftUnsignedRight: ss << "(LSR "; break;
 
           case Operand::ShiftRegister::kShiftSignedRight: ss << "(ASR "; break;
 
@@ -131,13 +120,9 @@ std::string Operand::Serialize(void) const {
         switch (shift_reg.extend_op) {
           case Operand::ShiftRegister::kExtendInvalid: break;
 
-          case Operand::ShiftRegister::kExtendSigned:
-            ss << "(SEXT (TRUNC ";
-            break;
+          case Operand::ShiftRegister::kExtendSigned: ss << "(SEXT (TRUNC "; break;
 
-          case Operand::ShiftRegister::kExtendUnsigned:
-            ss << "(ZEXT (TRUNC ";
-            break;
+          case Operand::ShiftRegister::kExtendUnsigned: ss << "(ZEXT (TRUNC "; break;
         }
       };
 
@@ -204,9 +189,8 @@ std::string Operand::Serialize(void) const {
         case 256: ss << "DOWORD"; break;
         case 512: ss << "QOWORD"; break;
         default:
-          CHECK(!(size & 7))
-              << "Memory operand size must be divisible by 8; got " << size
-              << " bits.";
+          CHECK(!(size & 7)) << "Memory operand size must be divisible by 8; got " << size
+                             << " bits.";
           ss << std::dec << (size / 8) << "_BYTES";
           break;
       }
@@ -232,13 +216,11 @@ std::string Operand::Serialize(void) const {
       }
 
       if (!addr.segment_base_reg.name.empty()) {
-        ss << " (REG_" << addr.segment_base_reg.size << " "
-           << addr.segment_base_reg.name << ")";
+        ss << " (REG_" << addr.segment_base_reg.size << " " << addr.segment_base_reg.name << ")";
       }
 
       if (!addr.base_reg.name.empty()) {
-        ss << " (REG_" << addr.base_reg.size << " " << addr.base_reg.name
-           << ")";
+        ss << " (REG_" << addr.base_reg.size << " " << addr.base_reg.name << ")";
       }
 
       if (addr.scale) {
@@ -247,13 +229,11 @@ std::string Operand::Serialize(void) const {
       }
 
       if (!addr.index_reg.name.empty()) {
-        ss << " (REG_" << addr.index_reg.size << " " << addr.index_reg.name
-           << ")";
+        ss << " (REG_" << addr.index_reg.size << " " << addr.index_reg.name << ")";
       }
 
       if (addr.scale) {
-        ss << " (IMM_" << addr.index_reg.size << " 0x" << std::hex << addr.scale
-           << std::dec << ")";
+        ss << " (IMM_" << addr.index_reg.size << " 0x" << std::hex << addr.scale << std::dec << ")";
         ss << ")";  // End of `(MUL`.
       }
 
@@ -287,8 +267,8 @@ std::string Condition::Serialize(void) const {
   ss << "(";
   switch (kind) {
     case Condition::kTypeIsEqual:
-      ss << "(REG_" << lhs_reg.size << " " << lhs_reg.name << ") = (REG_"
-         << rhs_reg.size << " " << rhs_reg.name << ")";
+      ss << "(REG_" << lhs_reg.size << " " << lhs_reg.name << ") = (REG_" << rhs_reg.size << " "
+         << rhs_reg.name << ")";
       break;
     case Condition::kTypeIsOne:
       ss << "(REG_" << lhs_reg.size << " " << lhs_reg.name << ") = 1";
@@ -363,16 +343,14 @@ OperandExpression *Instruction::EmplaceConstant(llvm::Constant *val) {
   return expr;
 }
 
-OperandExpression *Instruction::EmplaceVariable(std::string_view var_name,
-                                                llvm::Type *type) {
+OperandExpression *Instruction::EmplaceVariable(std::string_view var_name, llvm::Type *type) {
   auto expr = AllocateExpression();
   expr->emplace<std::string>(var_name.data(), var_name.size());
   expr->type = type;
   return expr;
 }
 
-OperandExpression *Instruction::EmplaceBinaryOp(unsigned opcode,
-                                                OperandExpression *op1,
+OperandExpression *Instruction::EmplaceBinaryOp(unsigned opcode, OperandExpression *op1,
                                                 OperandExpression *op2) {
   auto expr = AllocateExpression();
   expr->emplace<LLVMOpExpr>(LLVMOpExpr{opcode, op1, op2});
@@ -380,8 +358,7 @@ OperandExpression *Instruction::EmplaceBinaryOp(unsigned opcode,
   return expr;
 }
 
-OperandExpression *Instruction::EmplaceUnaryOp(unsigned opcode,
-                                               OperandExpression *op1,
+OperandExpression *Instruction::EmplaceUnaryOp(unsigned opcode, OperandExpression *op1,
                                                llvm::Type *type) {
   auto expr = AllocateExpression();
   expr->emplace<LLVMOpExpr>(LLVMOpExpr{opcode, op1, nullptr});
@@ -411,8 +388,7 @@ Operand &Instruction::EmplaceOperand(const Operand::Immediate &imm_op) {
   auto &context = *arch->context;
 
   auto ty = llvm::Type::getIntNTy(context, arch->address_size);
-  op.expr =
-      EmplaceConstant(llvm::ConstantInt::get(ty, imm_op.val, imm_op.is_signed));
+  op.expr = EmplaceConstant(llvm::ConstantInt::get(ty, imm_op.val, imm_op.is_signed));
   op.size = arch->address_size;
   op.type = Operand::kTypeImmediateExpression;
   return op;
@@ -452,10 +428,9 @@ Operand &Instruction::EmplaceOperand(const Operand::ShiftRegister &shift_op) {
 
       } else {
         CHECK(reg_size == shift_op.extract_size)
-            << "Invalid extraction size. Can't extract "
-            << shift_op.extract_size << " bits from a " << reg_size
-            << "-bit value in operand " << op.Serialize()
-            << " of instruction at " << std::hex << pc;
+            << "Invalid extraction size. Can't extract " << shift_op.extract_size << " bits from a "
+            << reg_size << "-bit value in operand " << op.Serialize() << " of instruction at "
+            << std::hex << pc;
       }
 
       if (op.size > shift_op.extract_size) {
@@ -469,8 +444,7 @@ Operand &Instruction::EmplaceOperand(const Operand::ShiftRegister &shift_op) {
             curr_size = op.size;
             break;
           default:
-            LOG(FATAL) << "Invalid extend operation type for instruction at "
-                       << std::hex << pc;
+            LOG(FATAL) << "Invalid extend operation type for instruction at " << std::hex << pc;
             break;
         }
       }
@@ -494,48 +468,39 @@ Operand &Instruction::EmplaceOperand(const Operand::ShiftRegister &shift_op) {
             (shift_size <= op.size && arch_name == kArchAArch32LittleEndian &&
              shift_op.can_shift_op_size))
           << "Shift of size " << shift_size
-          << " is wider than the base register size in shift register in "
-          << Serialize();
+          << " is wider than the base register size in shift register in " << Serialize();
 
       switch (shift_op.shift_op) {
 
         // Left shift.
         case Operand::ShiftRegister::kShiftLeftWithZeroes:
-          expr = EmplaceBinaryOp(llvm::Instruction::Shl, expr,
-                                 EmplaceConstant(shift_val));
+          expr = EmplaceBinaryOp(llvm::Instruction::Shl, expr, EmplaceConstant(shift_val));
           break;
 
         // Masking shift left.
         case Operand::ShiftRegister::kShiftLeftWithOnes: {
-          const auto mask_val =
-              llvm::ConstantInt::get(reg_type, ~((~zero) << shift_size));
-          expr = EmplaceBinaryOp(llvm::Instruction::Shl, expr,
-                                 EmplaceConstant(shift_val));
-          expr = EmplaceBinaryOp(llvm::Instruction::Or, expr,
-                                 EmplaceConstant(mask_val));
+          const auto mask_val = llvm::ConstantInt::get(reg_type, ~((~zero) << shift_size));
+          expr = EmplaceBinaryOp(llvm::Instruction::Shl, expr, EmplaceConstant(shift_val));
+          expr = EmplaceBinaryOp(llvm::Instruction::Or, expr, EmplaceConstant(mask_val));
           break;
         }
 
         // Logical right shift.
         case Operand::ShiftRegister::kShiftUnsignedRight:
-          expr = EmplaceBinaryOp(llvm::Instruction::LShr, expr,
-                                 EmplaceConstant(shift_val));
+          expr = EmplaceBinaryOp(llvm::Instruction::LShr, expr, EmplaceConstant(shift_val));
           break;
 
         // Arithmetic right shift.
         case Operand::ShiftRegister::kShiftSignedRight:
-          expr = EmplaceBinaryOp(llvm::Instruction::AShr, expr,
-                                 EmplaceConstant(shift_val));
+          expr = EmplaceBinaryOp(llvm::Instruction::AShr, expr, EmplaceConstant(shift_val));
           break;
 
         // Rotate left.
         case Operand::ShiftRegister::kShiftLeftAround: {
           const uint64_t shr_amount = (~shift_size + one) & (op.size - one);
           const auto shr_val = llvm::ConstantInt::get(op_type, shr_amount);
-          auto expr1 = EmplaceBinaryOp(llvm::Instruction::LShr, expr,
-                                       EmplaceConstant(shr_val));
-          auto expr2 = EmplaceBinaryOp(llvm::Instruction::Shl, expr,
-                                       EmplaceConstant(shift_val));
+          auto expr1 = EmplaceBinaryOp(llvm::Instruction::LShr, expr, EmplaceConstant(shr_val));
+          auto expr2 = EmplaceBinaryOp(llvm::Instruction::Shl, expr, EmplaceConstant(shift_val));
           expr = EmplaceBinaryOp(llvm::Instruction::Or, expr1, expr2);
           break;
         }
@@ -544,10 +509,8 @@ Operand &Instruction::EmplaceOperand(const Operand::ShiftRegister &shift_op) {
         case Operand::ShiftRegister::kShiftRightAround: {
           const uint64_t shl_amount = (~shift_size + one) & (op.size - one);
           const auto shl_val = llvm::ConstantInt::get(op_type, shl_amount);
-          auto expr1 = EmplaceBinaryOp(llvm::Instruction::LShr, expr,
-                                       EmplaceConstant(shift_val));
-          auto expr2 = EmplaceBinaryOp(llvm::Instruction::Shl, expr,
-                                       EmplaceConstant(shl_val));
+          auto expr1 = EmplaceBinaryOp(llvm::Instruction::LShr, expr, EmplaceConstant(shift_val));
+          auto expr2 = EmplaceBinaryOp(llvm::Instruction::Shl, expr, EmplaceConstant(shl_val));
           expr = EmplaceBinaryOp(llvm::Instruction::Or, expr1, expr2);
           break;
         }
@@ -581,22 +544,19 @@ Operand &Instruction::EmplaceOperand(const Operand::Address &addr_op) {
   const auto word_size = arch->address_size;
 
   CHECK(word_size >= addr_op.base_reg.size)
-      << "Memory base register " << addr_op.base_reg.name
-      << "for instruction at " << std::hex << pc
+      << "Memory base register " << addr_op.base_reg.name << "for instruction at " << std::hex << pc
       << " is wider than the machine word size.";
 
   CHECK(word_size >= addr_op.index_reg.size)
-      << "Memory index register " << addr_op.base_reg.name
-      << "for instruction at " << std::hex << pc
-      << " is wider than the machine word size.";
+      << "Memory index register " << addr_op.base_reg.name << "for instruction at " << std::hex
+      << pc << " is wider than the machine word size.";
 
   auto reg_or_zero = [=](const Operand::Register &reg) {
     if (!reg.name.empty()) {
       if (auto reg_pointer = arch->RegisterByName(reg.name)) {
         return EmplaceRegister(reg_pointer);
       } else {
-        return EmplaceVariable(reg.name,
-                               llvm::Type::getIntNTy(*arch->context, reg.size));
+        return EmplaceVariable(reg.name, llvm::Type::getIntNTy(*arch->context, reg.size));
       }
     } else {
       return EmplaceConstant(zero);
@@ -608,25 +568,19 @@ Operand &Instruction::EmplaceOperand(const Operand::Address &addr_op) {
   if (!addr_op.index_reg.name.empty() && addr_op.scale) {
     auto index = reg_or_zero(addr_op.index_reg);
     if (addr_op.scale != 1) {
-      auto scale = llvm::ConstantInt::get(
-          word_type, static_cast<uint64_t>(addr_op.scale), true);
-      index = EmplaceBinaryOp(llvm::Instruction::Mul, index,
-                              EmplaceConstant(scale));
+      auto scale = llvm::ConstantInt::get(word_type, static_cast<uint64_t>(addr_op.scale), true);
+      index = EmplaceBinaryOp(llvm::Instruction::Mul, index, EmplaceConstant(scale));
     }
     addr = EmplaceBinaryOp(llvm::Instruction::Add, addr, index);
   }
 
   if (addr_op.displacement) {
     if (0 < addr_op.displacement) {
-      auto disp = llvm::ConstantInt::get(
-          word_type, static_cast<uint64_t>(addr_op.displacement));
-      addr =
-          EmplaceBinaryOp(llvm::Instruction::Add, addr, EmplaceConstant(disp));
+      auto disp = llvm::ConstantInt::get(word_type, static_cast<uint64_t>(addr_op.displacement));
+      addr = EmplaceBinaryOp(llvm::Instruction::Add, addr, EmplaceConstant(disp));
     } else {
-      auto disp = llvm::ConstantInt::get(
-          word_type, static_cast<uint64_t>(-addr_op.displacement));
-      addr =
-          EmplaceBinaryOp(llvm::Instruction::Sub, addr, EmplaceConstant(disp));
+      auto disp = llvm::ConstantInt::get(word_type, static_cast<uint64_t>(-addr_op.displacement));
+      addr = EmplaceBinaryOp(llvm::Instruction::Sub, addr, EmplaceConstant(disp));
     }
   }
 
@@ -639,8 +593,8 @@ Operand &Instruction::EmplaceOperand(const Operand::Address &addr_op) {
   // Memory address is smaller than the machine word size (e.g. 32-bit address
   // used in 64-bit).
   if (addr_op.address_size < word_size) {
-    auto addr_type = llvm::Type::getIntNTy(
-        *arch->context, static_cast<unsigned>(addr_op.address_size));
+    auto addr_type =
+        llvm::Type::getIntNTy(*arch->context, static_cast<unsigned>(addr_op.address_size));
 
     addr = EmplaceUnaryOp(llvm::Instruction::Trunc, addr, addr_type);
     addr = EmplaceUnaryOp(llvm::Instruction::ZExt, addr, word_type);
@@ -786,8 +740,7 @@ std::string Instruction::Serialize(void) const {
       ss << " (COND_BRANCH (TAKEN <unknown>";
       maybe_stream_branch_taken_arch();
       ss << ")"
-         << " (NOT_TAKEN " << std::hex << branch_not_taken_pc << std::dec
-         << "))";
+         << " (NOT_TAKEN " << std::hex << branch_not_taken_pc << std::dec << "))";
       break;
     default: break;
   }
@@ -804,32 +757,28 @@ void Instruction::SetLifter(InstructionLifter::LifterPtr lifter_) {
   lifter.swap(lifter_);
 }
 
-Instruction::DirectFlow::DirectFlow(uint64_t known_target_,
-                                    DecodingContext static_context_)
+Instruction::DirectFlow::DirectFlow(uint64_t known_target_, DecodingContext static_context_)
     : known_target(known_target_),
       static_context(std::move(static_context_)) {}
 
-Instruction::IndirectFlow::IndirectFlow(
-    std::optional<DecodingContext> maybe_context_)
+Instruction::IndirectFlow::IndirectFlow(std::optional<DecodingContext> maybe_context_)
     : maybe_context(std::move(maybe_context_)) {}
 
 
-Instruction::FallthroughFlow::FallthroughFlow(
-    DecodingContext fallthrough_context_)
+Instruction::FallthroughFlow::FallthroughFlow(DecodingContext fallthrough_context_)
     : fallthrough_context(std::move(fallthrough_context_)) {}
 
 
 Instruction::NormalInsn::NormalInsn(FallthroughFlow fallthrough_)
     : fallthrough(std::move(fallthrough_)) {}
 
-Instruction::DirectJump::DirectJump(DirectFlow taken_flow_)
-    : taken_flow(std::move(taken_flow_)) {}
+Instruction::DirectJump::DirectJump(DirectFlow taken_flow_) : taken_flow(std::move(taken_flow_)) {}
 
 Instruction::IndirectJump::IndirectJump(IndirectFlow taken_flow_)
     : taken_flow(std::move(taken_flow_)) {}
 
-Instruction::ConditionalInstruction::ConditionalInstruction(
-    AbnormalFlow taken_branch_, FallthroughFlow fall_through_)
+Instruction::ConditionalInstruction::ConditionalInstruction(AbnormalFlow taken_branch_,
+                                                            FallthroughFlow fall_through_)
     : taken_branch(std::move(taken_branch_)),
       fall_through(std::move(fall_through_)) {}
 
@@ -838,34 +787,27 @@ bool Instruction::DirectJump::operator==(const DirectJump &rhs) const {
   return this->taken_flow == rhs.taken_flow;
 }
 
-bool Instruction::DirectFlow::operator==(
-    remill::Instruction::DirectFlow const &rhs) const {
-  return this->known_target == rhs.known_target &&
-         this->static_context == rhs.static_context;
+bool Instruction::DirectFlow::operator==(remill::Instruction::DirectFlow const &rhs) const {
+  return this->known_target == rhs.known_target && this->static_context == rhs.static_context;
 }
 
-bool Instruction::NormalInsn::operator==(
-    remill::Instruction::NormalInsn const &rhs) const {
+bool Instruction::NormalInsn::operator==(remill::Instruction::NormalInsn const &rhs) const {
   return this->fallthrough == rhs.fallthrough;
 }
 
-bool Instruction::InvalidInsn::operator==(
-    remill::Instruction::InvalidInsn const &invalid) const {
+bool Instruction::InvalidInsn::operator==(remill::Instruction::InvalidInsn const &invalid) const {
   return true;
 }
 
-bool Instruction::IndirectJump::operator==(
-    remill::Instruction::IndirectJump const &rhs) const {
+bool Instruction::IndirectJump::operator==(remill::Instruction::IndirectJump const &rhs) const {
   return this->taken_flow == rhs.taken_flow;
 }
 
-bool Instruction::AsyncHyperCall::operator==(
-    remill::Instruction::AsyncHyperCall const &rhs) const {
+bool Instruction::AsyncHyperCall::operator==(remill::Instruction::AsyncHyperCall const &rhs) const {
   return true;
 }
 
-bool Instruction::FunctionReturn::operator==(
-    remill::Instruction::FunctionReturn const &rhs) const {
+bool Instruction::FunctionReturn::operator==(remill::Instruction::FunctionReturn const &rhs) const {
   return Instruction::IndirectJump::operator==(rhs);
 }
 
@@ -881,12 +823,10 @@ bool Instruction::DirectFunctionCall::operator==(
 
 bool Instruction::ConditionalInstruction::operator==(
     remill::Instruction::ConditionalInstruction const &rhs) const {
-  return this->fall_through == rhs.fall_through &&
-         this->taken_branch == rhs.taken_branch;
+  return this->fall_through == rhs.fall_through && this->taken_branch == rhs.taken_branch;
 }
 
-bool Instruction::IndirectFlow::operator==(
-    remill::Instruction::IndirectFlow const &rhs) const {
+bool Instruction::IndirectFlow::operator==(remill::Instruction::IndirectFlow const &rhs) const {
   return this->maybe_context == rhs.maybe_context;
 }
 
@@ -895,8 +835,7 @@ bool Instruction::IndirectFunctionCall::operator==(
   return Instruction::IndirectJump::operator==(rhs);
 }
 
-bool Instruction::ErrorInsn::operator==(
-    remill::Instruction::ErrorInsn const &) const {
+bool Instruction::ErrorInsn::operator==(remill::Instruction::ErrorInsn const &) const {
   return true;
 }
 

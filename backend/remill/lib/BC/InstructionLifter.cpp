@@ -15,14 +15,14 @@
  */
 
 #include "InstructionLifter.h"
+
 #include "remill/BC/Debug.h"
 
 namespace remill {
 namespace {
 
 // Try to find the function that implements this semantics.
-llvm::Function *GetInstructionFunction(llvm::Module *module,
-                                       std::string_view function) {
+llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view function) {
   std::stringstream ss;
   ss << "ISEL_" << function;
   auto isel_name = ss.str();
@@ -34,8 +34,7 @@ llvm::Function *GetInstructionFunction(llvm::Module *module,
 
   if (!isel->isConstant() || !isel->hasInitializer()) {
     LOG(FATAL) << "Expected a `constexpr` variable as the function pointer for "
-               << "instruction semantic function " << function << ": "
-               << LLVMThingToString(isel);
+               << "instruction semantic function " << function << ": " << LLVMThingToString(isel);
   }
 
   auto sem = isel->getInitializer()->stripPointerCasts();
@@ -44,50 +43,38 @@ llvm::Function *GetInstructionFunction(llvm::Module *module,
 
 }  // namespace
 
-InstructionLifter::Impl::Impl(const Arch *arch_,
-                              const IntrinsicTable *intrinsics_)
+InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
-      word_type(
-          remill::NthArgument(intrinsics->async_hyper_call, remill::kPCArgNum)
+      word_type(remill::NthArgument(intrinsics->async_hyper_call, remill::kPCArgNum)->getType()),
+      memory_ptr_type(
+          remill::NthArgument(intrinsics->async_hyper_call, remill::kMemoryPointerArgNum)
               ->getType()),
-      memory_ptr_type(remill::NthArgument(intrinsics->async_hyper_call,
-                                          remill::kMemoryPointerArgNum)
-                          ->getType()),
       module(intrinsics->async_hyper_call->getParent()),
-      invalid_instruction(
-          GetInstructionFunction(module, kInvalidInstructionISelName)),
-      unsupported_instruction(
-          GetInstructionFunction(module, kUnsupportedInstructionISelName)) {
+      invalid_instruction(GetInstructionFunction(module, kInvalidInstructionISelName)),
+      unsupported_instruction(GetInstructionFunction(module, kUnsupportedInstructionISelName)) {
 
-  CHECK(invalid_instruction != nullptr)
-      << kInvalidInstructionISelName << " doesn't exist";
+  CHECK(invalid_instruction != nullptr) << kInvalidInstructionISelName << " doesn't exist";
 
-  CHECK(unsupported_instruction != nullptr)
-      << kUnsupportedInstructionISelName << " doesn't exist";
+  CHECK(unsupported_instruction != nullptr) << kUnsupportedInstructionISelName << " doesn't exist";
 }
 
 InstructionLifter::~InstructionLifter(void) {}
 
-InstructionLifter::InstructionLifter(const Arch *arch_,
-                                     const IntrinsicTable *intrinsics_)
+InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : impl(new Impl(arch_, intrinsics_)) {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
-LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst,
-                                                llvm::BasicBlock *block,
+LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                                 bool is_delayed) {
-  return LiftIntoBlock(inst, block,
-                       NthArgument(block->getParent(), kStatePointerArgNum),
+  return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
                        is_delayed);
 }
 
 // Lift a single instruction into a basic block.
-LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
-                                            llvm::BasicBlock *block,
-                                            llvm::Value *state_ptr,
-                                            bool is_delayed) {
+LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
+                                            llvm::Value *state_ptr, bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
   llvm::Function *isel_func = nullptr;
@@ -98,8 +85,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
     impl->reg_ptr_cache.clear();
     impl->last_func = func;
 
-    CHECK_EQ(impl->module, module)
-        << "InstructionLifter isn't using the correct module!";
+    CHECK_EQ(impl->module, module) << "InstructionLifter isn't using the correct module!";
   }
 
   if (arch_inst.IsValid()) {
@@ -119,8 +105,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
   llvm::IRBuilder<> ir(block);
   const auto [mem_ptr_ref, mem_ptr_ref_type] =
       LoadRegAddress(block, state_ptr, kMemoryVariableName);
-  const auto [pc_ref, pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kPCVariableName);
+  const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
   const auto [next_pc_ref, next_pc_ref_type] =
       LoadRegAddress(block, state_ptr, kNextPCVariableName);
   const auto next_pc = ir.CreateLoad(impl->word_type, next_pc_ref);
@@ -133,10 +118,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
   // TODO(pag): An alternate approach may be to call some kind of `DELAY_SLOT`
   //            semantics function.
   if (is_delayed) {
-    llvm::Value *temp_args[] = {
-        ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args),
-                   mem_ptr_ref);
+    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
 
     // Leave `PC` and `NEXT_PC` alone; we assume that the semantics have done
     // the right thing initializing `PC` and `NEXT_PC` for the delay slots.
@@ -147,11 +130,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
     // the program counter in the semantics code.
     ir.CreateStore(next_pc, pc_ref);
     ir.CreateStore(
-        ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type,
-                                                     arch_inst.bytes.size())),
+        ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type, arch_inst.bytes.size())),
         next_pc_ref);
   }
-  
+
 #if defined(LIFT_INSN_DEBUG)
   do {
     std::vector<uint64_t> target_addrs = {};
@@ -171,10 +153,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
 
   // Begin an atomic block.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {
-        ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args),
-                   mem_ptr_ref);
+    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
   }
 
   std::vector<llvm::Value *> args;
@@ -199,11 +179,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
     auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
     arg_num += 1;
     auto op_type = operand->getType();
-    CHECK_EQ(op_type, arg_type)
-        << "Lifted operand " << op.Serialize() << " to " << arch_inst.function
-        << " does not have the correct type. Expected "
-        << LLVMThingToString(arg_type) << " but got "
-        << LLVMThingToString(op_type) << ".";
+    CHECK_EQ(op_type, arg_type) << "Lifted operand " << op.Serialize() << " to "
+                                << arch_inst.function
+                                << " does not have the correct type. Expected "
+                                << LLVMThingToString(arg_type) << " but got "
+                                << LLVMThingToString(op_type) << ".";
 
     args.push_back(operand);
   }
@@ -216,10 +196,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
 
   // End an atomic block.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {
-        ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args),
-                   mem_ptr_ref);
+    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
   }
 
   // Restore the true target of the delayed branch.
@@ -234,10 +212,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
     // are lifted, we do the `PC = NEXT_PC + size`, so this is fine.
     ir.CreateStore(next_pc, next_pc_ref);
 
-    llvm::Value *temp_args[] = {
-        ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args),
-                   mem_ptr_ref);
+    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
   }
 
   return status;
@@ -245,8 +221,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst,
 
 // Load the address of a register.
 std::pair<llvm::Value *, llvm::Type *>
-InstructionLifter::LoadRegAddress(llvm::BasicBlock *block,
-                                  llvm::Value *state_ptr,
+InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                   std::string_view reg_name_) const {
   const auto func = block->getParent();
   const auto module = func->getParent();
@@ -261,8 +236,7 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block,
 
   std::string reg_name(reg_name_.data(), reg_name_.size());
   auto [reg_ptr_it, added] = impl->reg_ptr_cache.emplace(
-      std::move(reg_name),
-      std::pair<llvm::Value *, llvm::Type *>{nullptr, nullptr});
+      std::move(reg_name), std::pair<llvm::Value *, llvm::Type *>{nullptr, nullptr});
 
   if (reg_ptr_it->second.first) {
     (void) added;
@@ -299,14 +273,12 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block,
       reg_ptr = reg->AddressOf(state_ptr, ir);
 
       // The state pointer is an instruction, likely an `AllocaInst`.
-    } else if (auto state_inst = llvm::dyn_cast<llvm::Instruction>(state_ptr);
-               state_inst) {
+    } else if (auto state_inst = llvm::dyn_cast<llvm::Instruction>(state_ptr); state_inst) {
       llvm::IRBuilder<> ir(state_inst);
       reg_ptr = reg->AddressOf(state_ptr, ir);
 
       // The state pointer is a constant, likely an `llvm::GlobalVariable`.
-    } else if (auto state_const = llvm::dyn_cast<llvm::Constant>(state_ptr);
-               state_const) {
+    } else if (auto state_const = llvm::dyn_cast<llvm::Constant>(state_ptr); state_const) {
       auto &target_block = block->getParent()->getEntryBlock();
       llvm::IRBuilder<> ir(&target_block, target_block.getFirstInsertionPt());
       reg_ptr = reg->AddressOf(state_ptr, ir);
@@ -338,11 +310,10 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block,
   //            a hyper call to read an unknown register, or a lifting failure,
   //            with a more elaborate status value returned.
   LOG(ERROR) << "Could not locate variable or register " << reg_name_;
-  
+
   return {new llvm::GlobalVariable(*module, impl->word_type, false,
                                    llvm::GlobalValue::ExternalLinkage,
-                                   llvm::UndefValue::get(impl->word_type),
-                                   unk_var_name),
+                                   llvm::UndefValue::get(impl->word_type), unk_var_name),
           impl->word_type};
 }
 
@@ -353,8 +324,7 @@ void InstructionLifter::ClearCache(void) const {
 }
 
 // Load the value of a register.
-llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block,
-                                             llvm::Value *state_ptr,
+llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                              std::string_view reg_name) const {
   auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
   CHECK_NOTNULL(ptr);
@@ -362,10 +332,9 @@ llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block,
 }
 
 // Return a register value, or zero.
-llvm::Value *InstructionLifter::LoadWordRegValOrZero(llvm::BasicBlock *block,
-                                                     llvm::Value *state_ptr,
-                                                     std::string_view reg_name,
-                                                     llvm::ConstantInt *zero) {
+llvm::Value *
+InstructionLifter::LoadWordRegValOrZero(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                        std::string_view reg_name, llvm::ConstantInt *zero) {
 
   if (reg_name.empty()) {
     return zero;
@@ -379,9 +348,8 @@ llvm::Value *InstructionLifter::LoadWordRegValOrZero(llvm::BasicBlock *block,
 
   auto val_size = val_type->getBitWidth();
   auto word_size = word_type->getBitWidth();
-  CHECK_LE(val_size, word_size)
-      << "Register " << reg_name << " expected to be no larger than the "
-      << "machine word size (" << word_type->getBitWidth() << " bits).";
+  CHECK_LE(val_size, word_size) << "Register " << reg_name << " expected to be no larger than the "
+                                << "machine word size (" << word_type->getBitWidth() << " bits).";
 
   if (val_size < word_size) {
     val = new llvm::ZExtInst(val, word_type, llvm::Twine::createNull(), block);
@@ -390,9 +358,9 @@ llvm::Value *InstructionLifter::LoadWordRegValOrZero(llvm::BasicBlock *block,
   return val;
 }
 
-llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
-    Instruction &inst, llvm::BasicBlock *block, llvm::Value *state_ptr,
-    llvm::Argument *arg, Operand &op) {
+llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm::BasicBlock *block,
+                                                         llvm::Value *state_ptr,
+                                                         llvm::Argument *arg, Operand &op) {
 
   llvm::Function *func = block->getParent();
   llvm::Module *module = func->getParent();
@@ -400,9 +368,8 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
   auto &arch_reg = op.shift_reg.reg;
 
   auto arg_type = arg->getType();
-  CHECK(arg_type->isIntegerTy())
-      << "Expected " << arch_reg.name << " to be an integral type "
-      << "for instruction at " << std::hex << inst.pc;
+  CHECK(arg_type->isIntegerTy()) << "Expected " << arch_reg.name << " to be an integral type "
+                                 << "for instruction at " << std::hex << inst.pc;
 
   const llvm::DataLayout data_layout(module);
   auto reg = LoadRegValue(block, state_ptr, arch_reg.name);
@@ -422,8 +389,7 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
   auto curr_size = reg_size;
   if (Operand::ShiftRegister::kExtendInvalid != op.shift_reg.extend_op) {
 
-    auto extract_type =
-        llvm::Type::getIntNTy(context, op.shift_reg.extract_size);
+    auto extract_type = llvm::Type::getIntNTy(context, op.shift_reg.extract_size);
 
     if (reg_size > op.shift_reg.extract_size) {
       curr_size = op.shift_reg.extract_size;
@@ -431,10 +397,9 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
 
     } else {
       CHECK_EQ(reg_size, op.shift_reg.extract_size)
-          << "Invalid extraction size. Can't extract "
-          << op.shift_reg.extract_size << " bits from a " << reg_size
-          << "-bit value in operand " << op.Serialize() << " of instruction at "
-          << std::hex << inst.pc;
+          << "Invalid extraction size. Can't extract " << op.shift_reg.extract_size
+          << " bits from a " << reg_size << "-bit value in operand " << op.Serialize()
+          << " of instruction at " << std::hex << inst.pc;
     }
 
     if (op.size > op.shift_reg.extract_size) {
@@ -448,8 +413,7 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
           curr_size = op.size;
           break;
         default:
-          LOG(FATAL) << "Invalid extend operation type for instruction at "
-                     << std::hex << inst.pc;
+          LOG(FATAL) << "Invalid extend operation type for instruction at " << std::hex << inst.pc;
           break;
       }
     }
@@ -464,35 +428,27 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
 
   if (Operand::ShiftRegister::kShiftInvalid != op.shift_reg.shift_op) {
 
-    CHECK_LT(shift_size, op.size)
-        << "Shift of size " << shift_size
-        << " is wider than the base register size in shift register in "
-        << inst.Serialize();
+    CHECK_LT(shift_size, op.size) << "Shift of size " << shift_size
+                                  << " is wider than the base register size in shift register in "
+                                  << inst.Serialize();
 
     switch (op.shift_reg.shift_op) {
 
       // Left shift.
-      case Operand::ShiftRegister::kShiftLeftWithZeroes:
-        reg = ir.CreateShl(reg, shift_val);
-        break;
+      case Operand::ShiftRegister::kShiftLeftWithZeroes: reg = ir.CreateShl(reg, shift_val); break;
 
       // Masking shift left.
       case Operand::ShiftRegister::kShiftLeftWithOnes: {
-        const auto mask_val =
-            llvm::ConstantInt::get(reg_type, ~((~zero) << shift_size));
+        const auto mask_val = llvm::ConstantInt::get(reg_type, ~((~zero) << shift_size));
         reg = ir.CreateOr(ir.CreateShl(reg, shift_val), mask_val);
         break;
       }
 
       // Logical right shift.
-      case Operand::ShiftRegister::kShiftUnsignedRight:
-        reg = ir.CreateLShr(reg, shift_val);
-        break;
+      case Operand::ShiftRegister::kShiftUnsignedRight: reg = ir.CreateLShr(reg, shift_val); break;
 
       // Arithmetic right shift.
-      case Operand::ShiftRegister::kShiftSignedRight:
-        reg = ir.CreateAShr(reg, shift_val);
-        break;
+      case Operand::ShiftRegister::kShiftSignedRight: reg = ir.CreateAShr(reg, shift_val); break;
 
       // Rotate left.
       case Operand::ShiftRegister::kShiftLeftAround: {
@@ -521,9 +477,8 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(
   if (word_size > op.size) {
     reg = ir.CreateZExt(reg, impl->word_type);
   } else {
-    CHECK_EQ(word_size, op.size)
-        << "Final size of operand " << op.Serialize() << " is " << op.size
-        << " bits, but address size is " << word_size;
+    CHECK_EQ(word_size, op.size) << "Final size of operand " << op.Serialize() << " is " << op.size
+                                 << " bits, but address size is " << word_size;
   }
 
   return reg;
@@ -540,9 +495,8 @@ static llvm::Type *IntendedArgumentType(llvm::Argument *arg) {
   return arg->getType();
 }
 
-static llvm::Value *
-ConvertToIntendedType(Instruction &inst, Operand &op, llvm::BasicBlock *block,
-                      llvm::Value *val, llvm::Type *intended_type) {
+static llvm::Value *ConvertToIntendedType(Instruction &inst, Operand &op, llvm::BasicBlock *block,
+                                          llvm::Value *val, llvm::Type *intended_type) {
   auto val_type = val->getType();
   if (val->getType() == intended_type) {
     return val;
@@ -559,8 +513,7 @@ ConvertToIntendedType(Instruction &inst, Operand &op, llvm::BasicBlock *block,
   }
 
   LOG(FATAL) << "Unable to convert value " << LLVMThingToString(val)
-             << " to intended argument type "
-             << LLVMThingToString(intended_type) << " for operand "
+             << " to intended argument type " << LLVMThingToString(intended_type) << " for operand "
              << op.Serialize() << " of instruction " << inst.Serialize();
 
   return nullptr;
@@ -572,10 +525,8 @@ ConvertToIntendedType(Instruction &inst, Operand &op, llvm::BasicBlock *block,
 // for registers. In the case of write operands, the argument type is always
 // a pointer. In the case of read operands, the argument type is sometimes
 // a pointer (e.g. when passing a vector to an instruction semantics function).
-llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst,
-                                                    llvm::BasicBlock *block,
-                                                    llvm::Value *state_ptr,
-                                                    llvm::Argument *arg,
+llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::BasicBlock *block,
+                                                    llvm::Value *state_ptr, llvm::Argument *arg,
                                                     Operand &op) {
 
   llvm::Function *func = block->getParent();
@@ -607,38 +558,32 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst,
 
     if (val_size < arg_size) {
       if (arg_type->isIntegerTy()) {
-        CHECK(val_type->isIntegerTy())
-            << "Expected " << arch_reg.name << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+        CHECK(val_type->isIntegerTy()) << "Expected " << arch_reg.name << " to be an integral type "
+                                       << "for instruction at " << std::hex << inst.pc;
 
-        val =
-            new llvm::ZExtInst(val, arg_type, llvm::Twine::createNull(), block);
+        val = new llvm::ZExtInst(val, arg_type, llvm::Twine::createNull(), block);
 
       } else if (arg_type->isFloatingPointTy()) {
         CHECK(val_type->isFloatingPointTy())
             << "Expected " << arch_reg.name << " to be a floating point type "
             << "for instruction at " << std::hex << inst.pc;
 
-        val = new llvm::FPExtInst(val, arg_type, llvm::Twine::createNull(),
-                                  block);
+        val = new llvm::FPExtInst(val, arg_type, llvm::Twine::createNull(), block);
       }
 
     } else if (val_size > arg_size) {
       if (arg_type->isIntegerTy()) {
-        CHECK(val_type->isIntegerTy())
-            << "Expected " << arch_reg.name << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+        CHECK(val_type->isIntegerTy()) << "Expected " << arch_reg.name << " to be an integral type "
+                                       << "for instruction at " << std::hex << inst.pc;
 
-        val = new llvm::TruncInst(val, arg_type, llvm::Twine::createNull(),
-                                  block);
+        val = new llvm::TruncInst(val, arg_type, llvm::Twine::createNull(), block);
 
       } else if (arg_type->isFloatingPointTy()) {
         CHECK(val_type->isFloatingPointTy())
             << "Expected " << arch_reg.name << " to be a floating point type "
             << "for instruction at " << std::hex << inst.pc;
 
-        val = new llvm::FPTruncInst(val, arg_type, llvm::Twine::createNull(),
-                                    block);
+        val = new llvm::FPTruncInst(val, arg_type, llvm::Twine::createNull(), block);
       }
     }
 
@@ -647,42 +592,36 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst,
 }
 
 // Lift an immediate operand.
-llvm::Value *
-InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::BasicBlock *,
-                                        llvm::Argument *arg, Operand &arch_op) {
+llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::BasicBlock *,
+                                                     llvm::Argument *arg, Operand &arch_op) {
   auto arg_type = arg->getType();
   if (arch_op.size > impl->arch->address_size) {
     CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
-        << "Argument to semantics function for instruction at " << std::hex
-        << inst.pc << " is not an integer. This may not be surprising because "
+        << "Argument to semantics function for instruction at " << std::hex << inst.pc
+        << " is not an integer. This may not be surprising because "
         << "the immediate operand is " << arch_op.size << " bits, but the "
         << "machine word size is " << impl->arch->address_size << " bits.";
 
-    CHECK(arch_op.size <= 64)
-        << "Decode error! Immediate operands can be at most 64 bits! "
-        << "Operand structure encodes a truncated " << arch_op.size << " bit "
-        << "value for instruction at " << std::hex << inst.pc;
+    CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
+                              << "Operand structure encodes a truncated " << arch_op.size << " bit "
+                              << "value for instruction at " << std::hex << inst.pc;
 
-    return llvm::ConstantInt::get(arg_type, arch_op.imm.val,
-                                  arch_op.imm.is_signed);
+    return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
 
   } else {
     CHECK(arg_type->isIntegerTy(impl->arch->address_size))
-        << "Bad semantics function implementation for instruction at "
-        << std::hex << inst.pc << ". Integer constants that are "
+        << "Bad semantics function implementation for instruction at " << std::hex << inst.pc
+        << ". Integer constants that are "
         << "smaller than the machine word size should be represented as "
         << "machine word sized arguments to semantics functions.";
 
-    return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val,
-                                  arch_op.imm.is_signed);
+    return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
   }
 }
 
 // Lift an expression operand.
-llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst,
-                                                      llvm::BasicBlock *block,
-                                                      llvm::Value *state_ptr,
-                                                      llvm::Argument *arg,
+llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::BasicBlock *block,
+                                                      llvm::Value *state_ptr, llvm::Argument *arg,
                                                       Operand &op) {
   auto val = LiftExpressionOperandRec(inst, block, state_ptr, arg, op.expr);
   llvm::Function *func = block->getParent();
@@ -714,10 +653,9 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst,
             << "Expected " << op.Serialize() << " to be an integral type "
             << "for instruction at " << std::hex << inst.pc;
 
-        CHECK(word_size == arg_size)
-            << "Expected integer argument to be machine word size ("
-            << word_size << " bits) but is is " << arg_size << " instead "
-            << "in instruction at " << std::hex << inst.pc;
+        CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
+                                     << word_size << " bits) but is is " << arg_size << " instead "
+                                     << "in instruction at " << std::hex << inst.pc;
 
         val = new llvm::ZExtInst(val, impl->word_type, "", block);
 
@@ -735,10 +673,9 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst,
             << "Expected " << op.Serialize() << " to be an integral type "
             << "for instruction at " << std::hex << inst.pc;
 
-        CHECK(word_size == arg_size)
-            << "Expected integer argument to be machine word size ("
-            << word_size << " bits) but is is " << arg_size << " instead "
-            << "in instruction at " << std::hex << inst.pc;
+        CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
+                                     << word_size << " bits) but is is " << arg_size << " instead "
+                                     << "in instruction at " << std::hex << inst.pc;
 
         val = new llvm::TruncInst(val, arg_type, "", block);
 
@@ -756,16 +693,15 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst,
 }
 
 // Lift an expression operand.
-llvm::Value *InstructionLifter::LiftExpressionOperandRec(
-    Instruction &inst, llvm::BasicBlock *block, llvm::Value *state_ptr,
-    llvm::Argument *arg, const OperandExpression *op) {
+llvm::Value *InstructionLifter::LiftExpressionOperandRec(Instruction &inst, llvm::BasicBlock *block,
+                                                         llvm::Value *state_ptr,
+                                                         llvm::Argument *arg,
+                                                         const OperandExpression *op) {
   if (auto llvm_op = std::get_if<LLVMOpExpr>(op)) {
-    auto lhs =
-        LiftExpressionOperandRec(inst, block, state_ptr, nullptr, llvm_op->op1);
+    auto lhs = LiftExpressionOperandRec(inst, block, state_ptr, nullptr, llvm_op->op1);
     llvm::Value *rhs = nullptr;
     if (llvm_op->op2) {
-      rhs = LiftExpressionOperandRec(inst, block, state_ptr, nullptr,
-                                     llvm_op->op2);
+      rhs = LiftExpressionOperandRec(inst, block, state_ptr, nullptr, llvm_op->op2);
     }
     llvm::IRBuilder<> ir(block);
     switch (llvm_op->llvm_opcode) {
@@ -810,10 +746,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperandRec(
 }
 
 // Zero-extend a value to be the machine word size.
-llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst,
-                                                   llvm::BasicBlock *block,
-                                                   llvm::Value *state_ptr,
-                                                   llvm::Argument *,
+llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::BasicBlock *block,
+                                                   llvm::Value *state_ptr, llvm::Argument *,
                                                    Operand &op) {
   auto &arch_addr = op.addr;
   const auto word_type = llvm::dyn_cast<llvm::IntegerType>(impl->word_type);
@@ -821,23 +755,17 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst,
   const auto word_size = impl->arch->address_size;
 
   CHECK(word_size >= arch_addr.base_reg.size)
-      << "Memory base register " << arch_addr.base_reg.name
-      << "for instruction at " << std::hex << inst.pc
-      << " is wider than the machine word size.";
+      << "Memory base register " << arch_addr.base_reg.name << "for instruction at " << std::hex
+      << inst.pc << " is wider than the machine word size.";
 
   CHECK(word_size >= arch_addr.index_reg.size)
-      << "Memory index register " << arch_addr.base_reg.name
-      << "for instruction at " << std::hex << inst.pc
-      << " is wider than the machine word size.";
+      << "Memory index register " << arch_addr.base_reg.name << "for instruction at " << std::hex
+      << inst.pc << " is wider than the machine word size.";
 
-  auto addr =
-      LoadWordRegValOrZero(block, state_ptr, arch_addr.base_reg.name, zero);
-  auto index =
-      LoadWordRegValOrZero(block, state_ptr, arch_addr.index_reg.name, zero);
-  auto scale = llvm::ConstantInt::get(
-      word_type, static_cast<uint64_t>(arch_addr.scale), true);
-  auto segment = LoadWordRegValOrZero(block, state_ptr,
-                                      arch_addr.segment_base_reg.name, zero);
+  auto addr = LoadWordRegValOrZero(block, state_ptr, arch_addr.base_reg.name, zero);
+  auto index = LoadWordRegValOrZero(block, state_ptr, arch_addr.index_reg.name, zero);
+  auto scale = llvm::ConstantInt::get(word_type, static_cast<uint64_t>(arch_addr.scale), true);
+  auto segment = LoadWordRegValOrZero(block, state_ptr, arch_addr.segment_base_reg.name, zero);
 
   llvm::IRBuilder<> ir(block);
 
@@ -848,12 +776,10 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst,
   if (arch_addr.displacement) {
     if (0 < arch_addr.displacement) {
       addr = ir.CreateAdd(
-          addr, llvm::ConstantInt::get(
-                    word_type, static_cast<uint64_t>(arch_addr.displacement)));
+          addr, llvm::ConstantInt::get(word_type, static_cast<uint64_t>(arch_addr.displacement)));
     } else {
       addr = ir.CreateSub(
-          addr, llvm::ConstantInt::get(
-                    word_type, static_cast<uint64_t>(-arch_addr.displacement)));
+          addr, llvm::ConstantInt::get(word_type, static_cast<uint64_t>(-arch_addr.displacement)));
     }
   }
 
@@ -865,8 +791,8 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst,
   // Memory address is smaller than the machine word size (e.g. 32-bit address
   // used in 64-bit).
   if (arch_addr.address_size < word_size) {
-    auto addr_type = llvm::Type::getIntNTy(
-        block->getContext(), static_cast<unsigned>(arch_addr.address_size));
+    auto addr_type =
+        llvm::Type::getIntNTy(block->getContext(), static_cast<unsigned>(arch_addr.address_size));
 
     addr = ir.CreateZExt(ir.CreateTrunc(addr, addr_type), word_type);
   }
@@ -875,10 +801,9 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst,
 }
 
 // Lift an operand for use by the instruction.
-llvm::Value *
-InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock *block,
-                               llvm::Value *state_ptr, llvm::Argument *arg,
-                               Operand &arch_op) {
+llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock *block,
+                                            llvm::Value *state_ptr, llvm::Argument *arg,
+                                            Operand &arch_op) {
   auto arg_type = arg->getType();
   switch (arch_op.type) {
     case Operand::kTypeInvalid:
@@ -886,29 +811,25 @@ InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock *block,
       return nullptr;
 
     case Operand::kTypeShiftRegister:
-      CHECK(Operand::kActionRead == arch_op.action)
-          << "Can't write to a shift register operand "
-          << "for instruction at " << std::hex << inst.pc;
+      CHECK(Operand::kActionRead == arch_op.action) << "Can't write to a shift register operand "
+                                                    << "for instruction at " << std::hex << inst.pc;
 
       return LiftShiftRegisterOperand(inst, block, state_ptr, arg, arch_op);
 
     case Operand::kTypeRegister:
       if (arch_op.size != arch_op.reg.size) {
-        LOG(FATAL) << "Operand size and register size must match for register "
-                   << arch_op.reg.name << " in instruction "
-                   << inst.Serialize();
+        LOG(FATAL) << "Operand size and register size must match for register " << arch_op.reg.name
+                   << " in instruction " << inst.Serialize();
       }
       return LiftRegisterOperand(inst, block, state_ptr, arg, arch_op);
 
-    case Operand::kTypeImmediate:
-      return LiftImmediateOperand(inst, block, arg, arch_op);
+    case Operand::kTypeImmediate: return LiftImmediateOperand(inst, block, arg, arch_op);
 
     case Operand::kTypeAddress:
       if (arg_type != impl->word_type) {
         LOG(FATAL) << "Expected that a memory operand should be represented by "
-                   << "machine word type. Argument type is "
-                   << LLVMThingToString(arg_type) << " and word type is "
-                   << LLVMThingToString(impl->word_type)
+                   << "machine word type. Argument type is " << LLVMThingToString(arg_type)
+                   << " and word type is " << LLVMThingToString(impl->word_type)
                    << " in instruction at " << std::hex << inst.pc;
       }
 
@@ -921,9 +842,8 @@ InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock *block,
       return LiftExpressionOperand(inst, block, state_ptr, arg, arch_op);
   }
 
-  LOG(FATAL) << "Got a unknown operand type of "
-             << static_cast<int>(arch_op.type) << " in instruction at "
-             << std::hex << inst.pc;
+  LOG(FATAL) << "Got a unknown operand type of " << static_cast<int>(arch_op.type)
+             << " in instruction at " << std::hex << inst.pc;
 
   return nullptr;
 }

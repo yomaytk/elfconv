@@ -28,8 +28,7 @@ State __remill_state;
 namespace {
 
 DEF_SEM(HandleUnsupported) {
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kPPCEmulateInstruction);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kPPCEmulateInstruction);
 }
 
 DEF_SEM(HandleInvalidInstruction) {

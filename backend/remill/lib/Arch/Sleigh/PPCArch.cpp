@@ -27,35 +27,29 @@ namespace sleighppc {
 static constexpr auto kPPCVLERegName = "VLEReg";
 
 SleighPPCDecoder::SleighPPCDecoder(const remill::Arch &arch)
-    : SleighDecoder(
-          arch, "ppc_32_e200_be.sla", "ppc_32.pspec",
-          sleigh::ContextRegMappings({{"vle", kPPCVLERegName}}, {{"vle", 1}}),
-          {}) {}
+    : SleighDecoder(arch, "ppc_32_e200_be.sla", "ppc_32.pspec",
+                    sleigh::ContextRegMappings({{"vle", kPPCVLERegName}}, {{"vle", 1}}), {}) {}
 
-llvm::Value *SleighPPCDecoder::LiftPcFromCurrPc(llvm::IRBuilder<> &bldr,
-                                                llvm::Value *curr_pc,
+llvm::Value *SleighPPCDecoder::LiftPcFromCurrPc(llvm::IRBuilder<> &bldr, llvm::Value *curr_pc,
                                                 size_t curr_insn_size,
                                                 const DecodingContext &) const {
   // PC on thumb points to the next instructions next.
-  return bldr.CreateAdd(
-      curr_pc, llvm::ConstantInt::get(curr_pc->getType(), curr_insn_size));
+  return bldr.CreateAdd(curr_pc, llvm::ConstantInt::get(curr_pc->getType(), curr_insn_size));
 }
 
-void SleighPPCDecoder::InitializeSleighContext(
-    uint64_t addr, remill::sleigh::SingleInstructionSleighContext &ctxt,
-    const ContextValues &context_values) const {
+void SleighPPCDecoder::InitializeSleighContext(uint64_t addr,
+                                               remill::sleigh::SingleInstructionSleighContext &ctxt,
+                                               const ContextValues &context_values) const {
   // If the context value mappings specify a value for the VLE register, let's pass that into
   // Sleigh.
   //
   // Otherwise, default to VLE off.
-  sleigh::SetContextRegisterValueInSleigh(addr, kPPCVLERegName, "vle", 0, ctxt,
-                                          context_values);
+  sleigh::SetContextRegisterValueInSleigh(addr, kPPCVLERegName, "vle", 0, ctxt, context_values);
 }
 
 class SleighPPCArch : public ArchBase {
  public:
-  SleighPPCArch(llvm::LLVMContext *context_, OSName os_name_,
-                ArchName arch_name_)
+  SleighPPCArch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
       : ArchBase(context_, os_name_, arch_name_),
         decoder(*this) {}
   virtual ~SleighPPCArch() = default;
@@ -77,8 +71,7 @@ class SleighPPCArch : public ArchBase {
     return decoder.GetOpLifter();
   }
 
-  bool DecodeInstruction(uint64_t address, std::string_view instr_bytes,
-                         Instruction &inst,
+  bool DecodeInstruction(uint64_t address, std::string_view instr_bytes, Instruction &inst,
                          DecodingContext context) const override {
     return decoder.DecodeInstruction(address, instr_bytes, inst, context);
   }
@@ -121,11 +114,10 @@ class SleighPPCArch : public ArchBase {
     auto f64 = llvm::Type::getDoubleTy(*context);
 
 #define OFFSET_OF(type, access) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<const volatile char &>( \
-      static_cast<type *>(nullptr)->access)))
+  (reinterpret_cast<uintptr_t>( \
+      &reinterpret_cast<const volatile char &>(static_cast<type *>(nullptr)->access)))
 
-#define REG(name, access, type) \
-  AddRegister(#name, type, OFFSET_OF(PPCState, access), nullptr)
+#define REG(name, access, type) AddRegister(#name, type, OFFSET_OF(PPCState, access), nullptr)
 
 #define SUB_REG(name, access, type, parent_reg_name) \
   AddRegister(#name, type, OFFSET_OF(PPCState, access), #parent_reg_name)
@@ -271,9 +263,8 @@ class SleighPPCArch : public ArchBase {
     REG(TEA, signals.tea.qword, u64);
   }
 
-  void
-  FinishLiftedFunctionInitialization(llvm::Module *module,
-                                     llvm::Function *bb_func) const override {
+  void FinishLiftedFunctionInitialization(llvm::Module *module,
+                                          llvm::Function *bb_func) const override {
     auto &context = module->getContext();
     const auto addr = llvm::Type::getInt64Ty(context);
 
@@ -283,9 +274,7 @@ class SleighPPCArch : public ArchBase {
     const auto pc_arg = NthArgument(bb_func, kPCArgNum);
     const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
 
-    auto mk_alloca = [&](auto &from) {
-      return ir.CreateAlloca(addr, nullptr, from.data());
-    };
+    auto mk_alloca = [&](auto &from) { return ir.CreateAlloca(addr, nullptr, from.data()); };
     ir.CreateStore(pc_arg, mk_alloca(kNextPCVariableName));
     ir.CreateStore(pc_arg, mk_alloca(kIgnoreNextPCVariableName));
 
@@ -298,11 +287,9 @@ class SleighPPCArch : public ArchBase {
 
 }  // namespace sleighppc
 
-Arch::ArchPtr Arch::GetSleighPPC(llvm::LLVMContext *context_,
-                                 remill::OSName os_name_,
+Arch::ArchPtr Arch::GetSleighPPC(llvm::LLVMContext *context_, remill::OSName os_name_,
                                  remill::ArchName arch_name_) {
-  return std::make_unique<sleighppc::SleighPPCArch>(context_, os_name_,
-                                                    arch_name_);
+  return std::make_unique<sleighppc::SleighPPCArch>(context_, os_name_, arch_name_);
 }
 
 }  // namespace remill

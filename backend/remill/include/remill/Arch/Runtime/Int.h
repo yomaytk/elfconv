@@ -19,13 +19,13 @@
 #include "Builtin.h"
 
 #if __has_include(<cstdint>)
-#  include <cstdint>
 #  include <cstddef>
+#  include <cstdint>
 #elif __has_include(<cinttypes>)
 #  include <cinttypes>
 #else
 
-#define REMILL_CUSTOM_INT_TYPES 1
+#  define REMILL_CUSTOM_INT_TYPES 1
 
 using size_t = decltype(sizeof(int));
 
@@ -37,7 +37,7 @@ struct TypeSelectorImpl;
 
 template <size_t kDesiredSize, size_t kXorSize, typename T, typename... Ts>
 struct TypeSelectorImpl<kDesiredSize, kXorSize, T, Ts...>
-  : public TypeSelector<kDesiredSize, Ts...> {};
+    : public TypeSelector<kDesiredSize, Ts...> {};
 
 template <size_t kDesiredSize, typename T, typename... Ts>
 struct TypeSelectorImpl<kDesiredSize, 0, T, Ts...> {
@@ -65,27 +65,28 @@ using uint64_t = TypeSelector<8, unsigned, unsigned long, unsigned long long>::T
 #endif  // cstint, cinttypes
 
 #if !defined(REMILL_DISABLE_INT128)
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_X86) || defined (__arm__) || defined(__PPC__)
+#  if defined(__x86_64__) || defined(__i386__) || defined(_M_X86) || defined(__arm__) || \
+      defined(__PPC__)
 typedef unsigned uint128_t __attribute__((mode(TI)));
 typedef int int128_t __attribute__((mode(TI)));
-#elif defined(__aarch64__)
+#  elif defined(__aarch64__)
 typedef __uint128_t uint128_t;
 typedef __int128_t int128_t;
-#elif defined(__EMSCRIPTEN__)
+#  elif defined(__EMSCRIPTEN__)
 typedef __uint128_t uint128_t;
 typedef __int128_t int128_t;
-#elif defined(__sparc__)
+#  elif defined(__sparc__)
 typedef __uint128_t uint128_t;
 typedef __int128_t int128_t;
-#elif defined(__is_identifier) && __is_identifier(_BitInt)
+#  elif defined(__is_identifier) && __is_identifier(_BitInt)
 typedef unsigned _BitInt(128) uint128_t;
 typedef signed _BitInt(128) int128_t;
-#elif defined(__is_identifier) && __is_identifier(_ExtInt)
+#  elif defined(__is_identifier) && __is_identifier(_ExtInt)
 typedef unsigned _ExtInt(128) uint128_t;
 typedef signed _ExtInt(128) int128_t;
-#else
-#error "Unable to identify u/int128 type."
-#endif
+#  else
+#    error "Unable to identify u/int128 type."
+#  endif
 
 static_assert(sizeof(int128_t) == 16, "Invalid size for `int128_t`.");
 static_assert(sizeof(uint128_t) == 16, "Invalid size for `uint128_t`.");

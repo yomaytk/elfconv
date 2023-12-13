@@ -16,16 +16,15 @@
 
 #include "remill/BC/IntrinsicTable.h"
 
+#include "remill/BC/Util.h"
+#include "remill/BC/Version.h"
+
 #include <glog/logging.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Module.h>
-
 #include <vector>
-
-#include "remill/BC/Util.h"
-#include "remill/BC/Version.h"
 
 namespace remill {
 namespace {
@@ -52,8 +51,7 @@ static llvm::Function *FindIntrinsic(llvm::Module *module, const char *name) {
 }
 
 // Find a specific function.
-static llvm::Function *FindPureIntrinsic(llvm::Module *module,
-                                         const char *name) {
+static llvm::Function *FindPureIntrinsic(llvm::Module *module, const char *name) {
   auto function = FindIntrinsic(module, name);
 
   // We want memory intrinsics to be marked as not accessing memory so that
@@ -108,18 +106,13 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       write_memory_f32(FindPureIntrinsic(module, "__remill_write_memory_f32")),
       write_memory_f64(FindPureIntrinsic(module, "__remill_write_memory_f64")),
       write_memory_f80(FindPureIntrinsic(module, "__remill_write_memory_f80")),
-      write_memory_f128(
-          FindPureIntrinsic(module, "__remill_write_memory_f128")),
+      write_memory_f128(FindPureIntrinsic(module, "__remill_write_memory_f128")),
 
       // Memory barriers.
-      barrier_load_load(
-          FindPureIntrinsic(module, "__remill_barrier_load_load")),
-      barrier_load_store(
-          FindPureIntrinsic(module, "__remill_barrier_load_store")),
-      barrier_store_load(
-          FindPureIntrinsic(module, "__remill_barrier_store_load")),
-      barrier_store_store(
-          FindPureIntrinsic(module, "__remill_barrier_store_store")),
+      barrier_load_load(FindPureIntrinsic(module, "__remill_barrier_load_load")),
+      barrier_load_store(FindPureIntrinsic(module, "__remill_barrier_load_store")),
+      barrier_store_load(FindPureIntrinsic(module, "__remill_barrier_store_load")),
+      barrier_store_store(FindPureIntrinsic(module, "__remill_barrier_store_store")),
       atomic_begin(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_atomic_begin"))),
       atomic_end(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_atomic_end"))),
       delay_slot_begin(FindPureIntrinsic(module, "__remill_delay_slot_begin")),
@@ -141,14 +134,10 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       undefined_f80(FindPureIntrinsic(module, "__remill_undefined_f80")),
 
       // Flag computations
-      flag_computation_zero(
-          FindPureIntrinsic(module, "__remill_flag_computation_zero")),
-      flag_computation_sign(
-          FindPureIntrinsic(module, "__remill_flag_computation_sign")),
-      flag_computation_overflow(
-          FindPureIntrinsic(module, "__remill_flag_computation_overflow")),
-      flag_computation_carry(
-          FindPureIntrinsic(module, "__remill_flag_computation_carry")),
+      flag_computation_zero(FindPureIntrinsic(module, "__remill_flag_computation_zero")),
+      flag_computation_sign(FindPureIntrinsic(module, "__remill_flag_computation_sign")),
+      flag_computation_overflow(FindPureIntrinsic(module, "__remill_flag_computation_overflow")),
+      flag_computation_carry(FindPureIntrinsic(module, "__remill_flag_computation_carry")),
       // compares
       compare_sle(FindPureIntrinsic(module, "__remill_compare_sle")),
       compare_sgt(FindPureIntrinsic(module, "__remill_compare_sgt")),
@@ -158,8 +147,7 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       lifted_function_type(error->getFunctionType()),
       state_ptr_type(llvm::dyn_cast<llvm::PointerType>(
           lifted_function_type->getParamType(kStatePointerArgNum))),
-      pc_type(llvm::dyn_cast<llvm::IntegerType>(
-          lifted_function_type->getParamType(kPCArgNum))),
+      pc_type(llvm::dyn_cast<llvm::IntegerType>(lifted_function_type->getParamType(kPCArgNum))),
       mem_ptr_type(llvm::dyn_cast<llvm::PointerType>(
           lifted_function_type->getParamType(kMemoryPointerArgNum))) {
 

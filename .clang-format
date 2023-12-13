@@ -1,5 +1,5 @@
 ---
-BasedOnStyle: Google
+BasedOnStyle: LLVM
 AccessModifierOffset: '-1'
 AlignAfterOpenBracket: Align
 AlignConsecutiveMacros: 'false'
@@ -25,7 +25,7 @@ BreakBeforeBraces: Custom
 BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
 BreakStringLiterals: 'false'
-ColumnLimit: '80'
+ColumnLimit: '100'
 CompactNamespaces: 'false'
 ConstructorInitializerAllOnOneLineOrOnePerLine: 'true'
 ConstructorInitializerIndentWidth: '4'

@@ -42,17 +42,12 @@
 
 #define IF_LLVM_LT(major, minor, ...) IF_LLVM_LT_##major##minor##0(__VA_ARGS__)
 
-#define IF_LLVM_LT_(major, minor, ...) \
-  IF_LLVM_LT_##major##minor##0##_(__VA_ARGS__)
+#define IF_LLVM_LT_(major, minor, ...) IF_LLVM_LT_##major##minor##0##_(__VA_ARGS__)
 
-#define _IF_LLVM_LT(major, minor, ...) \
-  _IF_LLVM_LT_##major##minor##0(__VA_ARGS__)
+#define _IF_LLVM_LT(major, minor, ...) _IF_LLVM_LT_##major##minor##0(__VA_ARGS__)
 
-#define IF_LLVM_GTE(major, minor, ...) \
-  IF_LLVM_GTE_##major##minor##0(__VA_ARGS__)
+#define IF_LLVM_GTE(major, minor, ...) IF_LLVM_GTE_##major##minor##0(__VA_ARGS__)
 
-#define IF_LLVM_GTE_(major, minor, ...) \
-  IF_LLVM_GTE_##major##minor##0##_(__VA_ARGS__)
+#define IF_LLVM_GTE_(major, minor, ...) IF_LLVM_GTE_##major##minor##0##_(__VA_ARGS__)
 
-#define _IF_LLVM_GTE(major, minor, ...) \
-  _IF_LLVM_GTE_##major##minor##0(__VA_ARGS__)
+#define _IF_LLVM_GTE(major, minor, ...) _IF_LLVM_GTE_##major##minor##0(__VA_ARGS__)

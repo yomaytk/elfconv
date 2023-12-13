@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <array>
+#include <cassert>
 #include <glog/logging.h>
 #include <lib/Arch/Sleigh/Arch.h>
 #include <lib/Arch/Sleigh/ControlFlowStructuring.h>
@@ -25,6 +27,7 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Verifier.h>
+#include <optional>
 #include <remill/Arch/Context.h>
 #include <remill/Arch/Name.h>
 #include <remill/Arch/Runtime/HyperCall.h>
@@ -34,10 +37,6 @@
 #include <remill/BC/PCodeCFG.h>
 #include <remill/BC/SleighLifter.h>
 #include <remill/BC/Util.h>
-
-#include <array>
-#include <cassert>
-#include <optional>
 #include <sleigh/pcoderaw.hh>
 #include <sleigh/sleigh.hh>
 #include <sleigh/space.hh>
@@ -90,9 +89,9 @@ static bool isVarnodeInConstantSpace(VarnodeData vnode) {
   return spc->getType() == IPTR_CONSTANT;
 }
 
-static llvm::Value *ExtractOverflowBitFromCallToIntrinsic(
-    llvm::Intrinsic::IndependentIntrinsics intrinsic, llvm::Value *lhs,
-    llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+static llvm::Value *
+ExtractOverflowBitFromCallToIntrinsic(llvm::Intrinsic::IndependentIntrinsics intrinsic,
+                                      llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
   llvm::Type *overloaded_types[1] = {lhs->getType()};
   llvm::Function *target_instrinsic = llvm::Intrinsic::getDeclaration(
       bldr.GetInsertBlock()->getModule(), intrinsic, overloaded_types);
@@ -102,19 +101,17 @@ static llvm::Value *ExtractOverflowBitFromCallToIntrinsic(
   return bldr.CreateExtractValue(res_val, {1});
 }
 
-using BitShiftFunction = std::function<llvm::Value *(
-    llvm::Value *, llvm::Value *, llvm::IRBuilder<> &)>;
+using BitShiftFunction =
+    std::function<llvm::Value *(llvm::Value *, llvm::Value *, llvm::IRBuilder<> &)>;
 
-llvm::Value *CreatePcodeBitShift(llvm::Value *lhs, llvm::Value *rhs,
-                                 llvm::IRBuilder<> &bldr,
+llvm::Value *CreatePcodeBitShift(llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr,
                                  const BitShiftFunction &bitshift_func) {
   if (lhs->getType() != rhs->getType()) {
     rhs = bldr.CreateZExtOrTrunc(rhs, lhs->getType());
   }
   // If the number of bits we're shifting exceeds the bit width of the
   // other operand, the result should be zero.
-  auto max_shift = llvm::ConstantInt::get(lhs->getType(),
-                                          lhs->getType()->getIntegerBitWidth());
+  auto max_shift = llvm::ConstantInt::get(lhs->getType(), lhs->getType()->getIntegerBitWidth());
   return bldr.CreateSelect(bldr.CreateICmpSGE(rhs, max_shift),
                            llvm::ConstantInt::get(lhs->getType(), 0),
                            bitshift_func(lhs, rhs, bldr));
@@ -128,11 +125,9 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
    public:
     virtual ~Parameter(void) = default;
 
-    virtual std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr,
-                                                       llvm::Type *ty) = 0;
+    virtual std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr, llvm::Type *ty) = 0;
 
-    virtual LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr,
-                                      llvm::Value *inner_lifted) = 0;
+    virtual LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr, llvm::Value *inner_lifted) = 0;
   };
 
 
@@ -156,11 +151,9 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         regptrs.emplace(k, reg_ptr);
 
 
-        auto maybe_reg =
-            this->sleigh_to_remill_reg.GetInternalRegMapping().find(k);
+        auto maybe_reg = this->sleigh_to_remill_reg.GetInternalRegMapping().find(k);
 
-        if (maybe_reg ==
-            this->sleigh_to_remill_reg.GetInternalRegMapping().end()) {
+        if (maybe_reg == this->sleigh_to_remill_reg.GetInternalRegMapping().end()) {
           continue;
         }
 
@@ -169,16 +162,14 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
           continue;
         }
 
-        builder.CreateStore(llvm::ConstantInt::get(ity, maybe_value->second),
-                            reg_ptr);
+        builder.CreateStore(llvm::ConstantInt::get(ity, maybe_value->second), reg_ptr);
       }
     }
 
    public:
-    DecodingContextConstants(
-        const sleigh::ContextRegMappings &sleigh_to_remill_reg,
-        llvm::LLVMContext &context, const ContextValues &context_values,
-        llvm::BasicBlock *target_block)
+    DecodingContextConstants(const sleigh::ContextRegMappings &sleigh_to_remill_reg,
+                             llvm::LLVMContext &context, const ContextValues &context_values,
+                             llvm::BasicBlock *target_block)
         : sleigh_to_remill_reg(sleigh_to_remill_reg),
           context(context),
           context_values(context_values) {
@@ -186,9 +177,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     }
 
 
-    std::optional<ParamPtr>
-    LiftRegisterFromDecodingContext(std::string target_reg,
-                                    VarnodeData target_vnode) {
+    std::optional<ParamPtr> LiftRegisterFromDecodingContext(std::string target_reg,
+                                                            VarnodeData target_vnode) {
       auto maybe_reg = this->regptrs.find(target_reg);
       if (maybe_reg == this->regptrs.end()) {
         return std::nullopt;
@@ -206,20 +196,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
    public:
     // TODO(Ian): allow this to be fallible and have better error handling
-    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr,
-                                               llvm::Type *ty) override {
+    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr, llvm::Type *ty) override {
       return bldr.CreateLoad(ty, register_pointer);
     }
 
-    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr,
-                              llvm::Value *inner_lifted) override {
+    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr, llvm::Value *inner_lifted) override {
       bldr.CreateStore(inner_lifted, register_pointer);
       return LiftStatus::kLiftedInstruction;
     }
 
    public:
-    RegisterValue(llvm::Value *register_pointer)
-        : register_pointer(register_pointer) {}
+    RegisterValue(llvm::Value *register_pointer) : register_pointer(register_pointer) {}
 
     static ParamPtr CreateRegister(llvm::Value *register_pointer) {
       return std::make_shared<RegisterValue>(register_pointer);
@@ -232,19 +219,16 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   class Memory : public Parameter {
    public:
     virtual ~Memory() {}
-    Memory(llvm::Value *memory_ref_ptr, llvm::Value *index,
-           const IntrinsicTable *intrinsics, llvm::Type *memory_ptr_type)
+    Memory(llvm::Value *memory_ref_ptr, llvm::Value *index, const IntrinsicTable *intrinsics,
+           llvm::Type *memory_ptr_type)
         : memory_ref_ptr(memory_ref_ptr),
           index(index),
           intrinsics(intrinsics),
           memory_ptr_type(memory_ptr_type) {}
 
-    static ParamPtr CreateMemory(llvm::Value *memory_ref_ptr,
-                                 llvm::Value *index,
-                                 const IntrinsicTable *intrinsics,
-                                 llvm::Type *memory_ptr_type) {
-      return std::make_shared<Memory>(memory_ref_ptr, index, intrinsics,
-                                      memory_ptr_type);
+    static ParamPtr CreateMemory(llvm::Value *memory_ref_ptr, llvm::Value *index,
+                                 const IntrinsicTable *intrinsics, llvm::Type *memory_ptr_type) {
+      return std::make_shared<Memory>(memory_ref_ptr, index, intrinsics, memory_ptr_type);
     }
 
    private:
@@ -253,11 +237,10 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     const IntrinsicTable *intrinsics;
     llvm::Type *memory_ptr_type;
 
-    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr,
-                                               llvm::Type *ty) override {
+    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr, llvm::Type *ty) override {
       auto mem = bldr.CreateLoad(this->memory_ptr_type, this->memory_ref_ptr);
-      auto res = remill::LoadFromMemory(
-          *this->intrinsics, bldr.GetInsertBlock(), ty, mem, this->index);
+      auto res =
+          remill::LoadFromMemory(*this->intrinsics, bldr.GetInsertBlock(), ty, mem, this->index);
       if (res) {
         return res;
       } else {
@@ -265,12 +248,10 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       }
     }
 
-    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr,
-                              llvm::Value *inner_lifted) override {
+    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr, llvm::Value *inner_lifted) override {
       auto mem = bldr.CreateLoad(this->memory_ptr_type, this->memory_ref_ptr);
-      auto new_mem =
-          remill::StoreToMemory(*this->intrinsics, bldr.GetInsertBlock(),
-                                inner_lifted, mem, this->index);
+      auto new_mem = remill::StoreToMemory(*this->intrinsics, bldr.GetInsertBlock(), inner_lifted,
+                                           mem, this->index);
       if (new_mem) {
         bldr.CreateStore(new_mem, this->memory_ref_ptr);
         return LiftStatus::kLiftedInstruction;
@@ -285,16 +266,14 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     llvm::Value *cst;
 
    public:
-    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr,
-                                               llvm::Type *ty) override {
+    std::optional<llvm::Value *> LiftAsInParam(llvm::IRBuilder<> &bldr, llvm::Type *ty) override {
       if (ty != cst->getType()) {
         return std::nullopt;
       }
       return this->cst;
     }
 
-    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr,
-                              llvm::Value *inner_lifted) override {
+    LiftStatus StoreIntoParam(llvm::IRBuilder<> &bldr, llvm::Value *inner_lifted) override {
       return LiftStatus::kLiftedUnsupportedInstruction;
     }
 
@@ -324,18 +303,15 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
    public:
     UniqueRegSpace(llvm::LLVMContext &context) : context(context) {}
 
-    llvm::Value *GetUniquePtr(uint64_t offset, uint64_t size,
-                              llvm::IRBuilder<> &bldr) {
-      if (this->cached_unique_ptrs.find(offset) !=
-          this->cached_unique_ptrs.end()) {
+    llvm::Value *GetUniquePtr(uint64_t offset, uint64_t size, llvm::IRBuilder<> &bldr) {
+      if (this->cached_unique_ptrs.find(offset) != this->cached_unique_ptrs.end()) {
         return this->cached_unique_ptrs.find(offset)->second;
       }
 
       std::stringstream ss;
       ss << "unique_" << std::hex << offset << ":" << std::dec << size;
       auto ptr =
-          bldr.CreateAlloca(llvm::IntegerType::get(this->context, 8 * size), 0,
-                            nullptr, ss.str());
+          bldr.CreateAlloca(llvm::IntegerType::get(this->context, 8 * size), 0, nullptr, ss.str());
       this->cached_unique_ptrs.insert({offset, ptr});
       return ptr;
     }
@@ -347,10 +323,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     std::set<uint64_t> used_values;
 
    public:
-    void ApplyEqualityClaim(llvm::IRBuilder<> &bldr,
-                            SleighLifter::PcodeToLLVMEmitIntoBlock &lifter,
-                            VarnodeData lhs_constant,
-                            VarnodeData rhs_unfolded_value) {
+    void ApplyEqualityClaim(llvm::IRBuilder<> &bldr, SleighLifter::PcodeToLLVMEmitIntoBlock &lifter,
+                            VarnodeData lhs_constant, VarnodeData rhs_unfolded_value) {
       CHECK(isVarnodeInConstantSpace(lhs_constant));
       DLOG(INFO) << "Adding (" << lhs_constant.offset << ") to map";
       this->current_replacements.insert(
@@ -367,22 +341,18 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     // if the claim_eq happens to be used on constant values that are used elsewhere
     // In practice, we don't expect this to happen since the program will be mapped
     // to a higher address space so collisions should be rare
-    llvm::Value *LiftOffsetOrReplace(llvm::IRBuilder<> &bldr,
-                                     VarnodeData target,
+    llvm::Value *LiftOffsetOrReplace(llvm::IRBuilder<> &bldr, VarnodeData target,
                                      llvm::Type *target_type) {
       DLOG(INFO) << "Fetching (" << target.offset << ") from map";
-      if (this->current_replacements.find(target.offset) !=
-          this->current_replacements.end()) {
+      if (this->current_replacements.find(target.offset) != this->current_replacements.end()) {
 
         if (this->used_values.find(target.offset) != this->used_values.end()) {
-          DLOG(ERROR) << "Ambigous value substitution via claim eq: "
-                      << target.offset;
+          DLOG(ERROR) << "Ambigous value substitution via claim eq: " << target.offset;
         }
         auto replacement = this->current_replacements.find(target.offset)
                                ->second->LiftAsInParam(bldr, target_type);
         if (!replacement.has_value()) {
-          LOG(FATAL) << "Failure to lift replacement value for: "
-                     << target.offset << " as "
+          LOG(FATAL) << "Failure to lift replacement value for: " << target.offset << " as "
                      << remill::LLVMThingToString(target_type);
         }
         this->used_values.insert(target.offset);
@@ -423,8 +393,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     if (new_status != LiftStatus::kLiftedInstruction) {
       this->status = new_status;
       DLOG(ERROR) << "Failed to lift insn with opcode: " << get_opname(opc)
-                  << " in insn: " << std::hex << this->insn.pc
-                  << llvm::toHex(this->insn.bytes);
+                  << " in insn: " << std::hex << this->insn.pc << llvm::toHex(this->insn.bytes);
     }
   }
 
@@ -442,19 +411,18 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       return blk;
     }
 
-    auto newblk = llvm::BasicBlock::Create(this->exit_block->getContext(), "",
-                                           this->exit_block->getParent());
+    auto newblk =
+        llvm::BasicBlock::Create(this->exit_block->getContext(), "", this->exit_block->getParent());
 
     this->start_index_to_block[target] = newblk;
     return newblk;
   }
 
-  PcodeToLLVMEmitIntoBlock(
-      llvm::BasicBlock *target_block, llvm::Value *state_pointer,
-      const Instruction &insn, SleighLifter &insn_lifter_parent,
-      std::vector<std::string> user_op_names_, llvm::BasicBlock *exit_block_,
-      const sleigh::MaybeBranchTakenVar &to_lift_btaken_,
-      PcodeToLLVMEmitIntoBlock::DecodingContextConstants context_reg_lifter)
+  PcodeToLLVMEmitIntoBlock(llvm::BasicBlock *target_block, llvm::Value *state_pointer,
+                           const Instruction &insn, SleighLifter &insn_lifter_parent,
+                           std::vector<std::string> user_op_names_, llvm::BasicBlock *exit_block_,
+                           const sleigh::MaybeBranchTakenVar &to_lift_btaken_,
+                           PcodeToLLVMEmitIntoBlock::DecodingContextConstants context_reg_lifter)
       : target_block(target_block),
         state_pointer(state_pointer),
         context(target_block->getContext()),
@@ -482,13 +450,11 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
                                 this->insn_lifter_parent.GetMemoryType());
   }
 
-  std::optional<ParamPtr> LiftNormalRegister(llvm::IRBuilder<> &bldr,
-                                             std::string reg_name) {
+  std::optional<ParamPtr> LiftNormalRegister(llvm::IRBuilder<> &bldr, std::string reg_name) {
     for (auto &c : reg_name) {
       c = toupper(c);
     }
-    const auto &remappings =
-        this->insn_lifter_parent.decoder.GetStateRegRemappings();
+    const auto &remappings = this->insn_lifter_parent.decoder.GetStateRegRemappings();
 
     if (auto el = remappings.find(reg_name); el != remappings.end()) {
       DLOG(INFO) << "Remapping to " << el->second;
@@ -497,23 +463,22 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
     if (this->insn_lifter_parent.ArchHasRegByName(reg_name)) {
       // TODO(Ian): will probably need to adjust the pointer here in certain circumstances
-      auto reg_ptr = this->insn_lifter_parent.LoadRegAddress(
-          bldr.GetInsertBlock(), this->state_pointer, reg_name);
+      auto reg_ptr = this->insn_lifter_parent.LoadRegAddress(bldr.GetInsertBlock(),
+                                                             this->state_pointer, reg_name);
       return RegisterValue::CreateRegister(reg_ptr.first);
     } else {
       return std::nullopt;
     }
   }
 
-  ParamPtr LiftNormalRegisterOrCreateUnique(llvm::IRBuilder<> &bldr,
-                                            std::string reg_name,
+  ParamPtr LiftNormalRegisterOrCreateUnique(llvm::IRBuilder<> &bldr, std::string reg_name,
                                             VarnodeData target_vnode) {
     if (auto res = this->LiftNormalRegister(bldr, reg_name)) {
       return *res;
     }
 
-    if (auto res = this->context_reg_lifter.LiftRegisterFromDecodingContext(
-            reg_name, target_vnode)) {
+    if (auto res =
+            this->context_reg_lifter.LiftRegisterFromDecodingContext(reg_name, target_vnode)) {
       return *res;
     }
 
@@ -522,8 +487,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
     std::stringstream ss;
 
-    auto reg_ptr = this->unknown_regs.GetUniquePtr(
-        target_vnode.offset, target_vnode.size, entry_bldr);
+    auto reg_ptr =
+        this->unknown_regs.GetUniquePtr(target_vnode.offset, target_vnode.size, entry_bldr);
     print_vardata(this->insn_lifter_parent.GetEngine(), ss, target_vnode);
     DLOG(ERROR) << "Creating unique for unknown register: " << ss.str() << " "
                 << reg_ptr->getName().str();
@@ -549,8 +514,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       auto reg_name = this->insn_lifter_parent.GetEngine().getRegisterName(
           vnode.space, vnode.offset, vnode.size);
 
-      DLOG(INFO) << "Looking for reg name " << reg_name << " from offset "
-                 << vnode.offset;
+      DLOG(INFO) << "Looking for reg name " << reg_name << " from offset " << vnode.offset;
       return this->LiftNormalRegisterOrCreateUnique(bldr, reg_name, vnode);
     } else if (space_name == "const") {
 
@@ -562,8 +526,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       // Uniques must be allocated in the entry block
       llvm::IRBuilder<> entry_bldr(entry_block);
 
-      auto reg_ptr =
-          this->uniques.GetUniquePtr(vnode.offset, vnode.size, entry_bldr);
+      auto reg_ptr = this->uniques.GetUniquePtr(vnode.offset, vnode.size, entry_bldr);
       return RegisterValue::CreateRegister(reg_ptr);
     } else {
       LOG(FATAL) << "Unhandled memory space: " << space_name;
@@ -571,8 +534,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
 
-  llvm::Value *FixResultForOutVarnode(llvm::IRBuilder<> &bldr,
-                                      llvm::Value *orig, VarnodeData outvnode) {
+  llvm::Value *FixResultForOutVarnode(llvm::IRBuilder<> &bldr, llvm::Value *orig,
+                                      VarnodeData outvnode) {
     CHECK(orig->getType()->isIntegerTy());
     auto out_bits = outvnode.size * 8;
     if (out_bits == orig->getType()->getIntegerBitWidth()) {
@@ -584,20 +547,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     return bldr.CreateZExtOrTrunc(orig, target_ty);
   }
 
-  std::optional<llvm::Value *> LiftInParam(llvm::IRBuilder<> &bldr,
-                                           VarnodeData vnode, llvm::Type *ty) {
+  std::optional<llvm::Value *> LiftInParam(llvm::IRBuilder<> &bldr, VarnodeData vnode,
+                                           llvm::Type *ty) {
     return this->LiftParamPtr(bldr, vnode)->LiftAsInParam(bldr, ty);
   }
 
-  std::optional<llvm::Value *> LiftIntegerInParam(llvm::IRBuilder<> &bldr,
-                                                  VarnodeData vnode) {
-    return this->LiftInParam(
-        bldr, vnode, llvm::IntegerType::get(this->context, vnode.size * 8));
+  std::optional<llvm::Value *> LiftIntegerInParam(llvm::IRBuilder<> &bldr, VarnodeData vnode) {
+    return this->LiftInParam(bldr, vnode, llvm::IntegerType::get(this->context, vnode.size * 8));
   }
 
-  LiftStatus
-  LiftRequireOutParam(std::function<LiftStatus(VarnodeData)> inner_lift,
-                      std::optional<VarnodeData> outvar) {
+  LiftStatus LiftRequireOutParam(std::function<LiftStatus(VarnodeData)> inner_lift,
+                                 std::optional<VarnodeData> outvar) {
     if (outvar) {
       return inner_lift(*outvar);
     } else {
@@ -606,8 +566,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
 
-  LiftStatus LiftStoreIntoOutParam(llvm::IRBuilder<> &bldr,
-                                   llvm::Value *inner_lifted,
+  LiftStatus LiftStoreIntoOutParam(llvm::IRBuilder<> &bldr, llvm::Value *inner_lifted,
                                    std::optional<VarnodeData> outvar) {
     return this->LiftRequireOutParam(
         [&bldr, this, inner_lifted](VarnodeData out_param_data) {
@@ -617,10 +576,10 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         outvar);
   }
 
-  LiftStatus LiftUnaryOpWithFloatIntrinsic(
-      llvm::IRBuilder<> &bldr,
-      llvm::Intrinsic::IndependentIntrinsics intrinsic_id,
-      std::optional<VarnodeData> outvar, VarnodeData input_var) {
+  LiftStatus LiftUnaryOpWithFloatIntrinsic(llvm::IRBuilder<> &bldr,
+                                           llvm::Intrinsic::IndependentIntrinsics intrinsic_id,
+                                           std::optional<VarnodeData> outvar,
+                                           VarnodeData input_var) {
     auto inval = this->LiftFloatInParam(bldr, input_var);
 
     if (!inval) {
@@ -628,64 +587,53 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     }
 
     llvm::Value *intrinsic_args[] = {*inval};
-    llvm::Function *intrinsic =
-        llvm::Intrinsic::getDeclaration(bldr.GetInsertBlock()->getModule(),
-                                        intrinsic_id, {(*inval)->getType()});
+    llvm::Function *intrinsic = llvm::Intrinsic::getDeclaration(
+        bldr.GetInsertBlock()->getModule(), intrinsic_id, {(*inval)->getType()});
     return this->LiftStoreIntoOutParam(
-        bldr,
-        this->CastFloatResult(bldr, *outvar,
-                              bldr.CreateCall(intrinsic, intrinsic_args)),
+        bldr, this->CastFloatResult(bldr, *outvar, bldr.CreateCall(intrinsic, intrinsic_args)),
         outvar);
   }
 
 
-  LiftStatus RedirectControlFlow(llvm::IRBuilder<> &bldr,
-                                 llvm::Value *target_addr) {
+  LiftStatus RedirectControlFlow(llvm::IRBuilder<> &bldr, llvm::Value *target_addr) {
 
     bldr.CreateStore(target_addr, this->GetNextPcRef());
     this->TerminateBlock();
     return LiftStatus::kLiftedInstruction;
   }
 
-  LiftStatus LiftFloatUnop(llvm::IRBuilder<> &bldr, OpCode opc,
-                           std::optional<VarnodeData> outvar,
+  LiftStatus LiftFloatUnop(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
                            VarnodeData input_var) {
     switch (opc) {
       case OpCode::CPUI_FLOAT_NEG: {
         auto negate_inval = this->LiftFloatInParam(bldr, input_var);
         if (negate_inval.has_value()) {
-          return this->LiftStoreIntoOutParam(
-              bldr, bldr.CreateFNeg(*negate_inval), outvar);
+          return this->LiftStoreIntoOutParam(bldr, bldr.CreateFNeg(*negate_inval), outvar);
         }
         break;
       }
       case OpCode::CPUI_FLOAT_ABS: {
-        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::fabs,
-                                                   outvar, input_var);
+        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::fabs, outvar, input_var);
       }
       case OpCode::CPUI_FLOAT_SQRT: {
-        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::sqrt,
-                                                   outvar, input_var);
+        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::sqrt, outvar, input_var);
       }
       case OpCode::CPUI_FLOAT_CEIL: {
-        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::ceil,
-                                                   outvar, input_var);
+        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::ceil, outvar, input_var);
       }
       case OpCode::CPUI_FLOAT_FLOOR: {
-        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::floor,
-                                                   outvar, input_var);
+        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::floor, outvar, input_var);
       }
       case OpCode::CPUI_FLOAT_ROUND: {
-        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::round,
-                                                   outvar, input_var);
+        return this->LiftUnaryOpWithFloatIntrinsic(bldr, llvm::Intrinsic::round, outvar, input_var);
       }
       case OpCode::CPUI_FLOAT_NAN: {
         auto nan_inval = this->LiftFloatInParam(bldr, input_var);
         if (nan_inval.has_value()) {
           // LLVM trunk has an `isnan` intrinsic but to support older versions, I think we need to do this.
-          auto isnan_check = bldr.CreateZExt(
-              bldr.CreateNot(bldr.CreateFCmpORD(*nan_inval, *nan_inval)),
-              llvm::IntegerType::get(this->context, outvar->size * 8));
+          auto isnan_check =
+              bldr.CreateZExt(bldr.CreateNot(bldr.CreateFCmpORD(*nan_inval, *nan_inval)),
+                              llvm::IntegerType::get(this->context, outvar->size * 8));
           return this->LiftStoreIntoOutParam(bldr, isnan_check, outvar);
         }
         break;
@@ -695,8 +643,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         auto new_float_type = this->GetFloatTypeOfByteSize(outvar->size);
         if (int2float_inval.has_value() && new_float_type) {
           auto converted = bldr.CreateSIToFP(*int2float_inval, *new_float_type);
-          return this->LiftStoreIntoOutParam(
-              bldr, this->CastFloatResult(bldr, *outvar, converted), outvar);
+          return this->LiftStoreIntoOutParam(bldr, this->CastFloatResult(bldr, *outvar, converted),
+                                             outvar);
         }
         break;
       }
@@ -707,9 +655,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
           // This is a no-op until we make a helper to select an appropriate float type for a given node size.
           return this->LiftStoreIntoOutParam(
               bldr,
-              this->CastFloatResult(
-                  bldr, *outvar,
-                  bldr.CreateFPCast(*float2float_inval, *new_float_type)),
+              this->CastFloatResult(bldr, *outvar,
+                                    bldr.CreateFPCast(*float2float_inval, *new_float_type)),
               outvar);
         }
         break;
@@ -719,8 +666,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         if (trunc_inval.has_value()) {
           // Should this be UI?
           auto converted = bldr.CreateFPToSI(
-              *trunc_inval,
-              llvm::IntegerType::get(this->context, outvar->size * 8));
+              *trunc_inval, llvm::IntegerType::get(this->context, outvar->size * 8));
           return this->LiftStoreIntoOutParam(bldr, converted, outvar);
         }
         break;
@@ -732,8 +678,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     return LiftStatus::kLiftedUnsupportedInstruction;
   }
 
-  LiftStatus LiftUnaryOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                         std::optional<VarnodeData> outvar,
+  LiftStatus LiftUnaryOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
                          VarnodeData input_var) {
 
     auto res = this->LiftFloatUnop(bldr, opc, outvar, input_var);
@@ -750,10 +695,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
           // TODO(Ian): is there a more optimization friendly way to get logical not on a byte?
           return this->LiftStoreIntoOutParam(
               bldr,
-              bldr.CreateZExt(
-                  bldr.CreateICmpEQ(*bneg_inval,
-                                    llvm::ConstantInt::get(byte_type, 0)),
-                  byte_type),
+              bldr.CreateZExt(bldr.CreateICmpEQ(*bneg_inval, llvm::ConstantInt::get(byte_type, 0)),
+                              byte_type),
               outvar);
         }
         break;
@@ -761,8 +704,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       case OpCode::CPUI_COPY:
       case OpCode::CPUI_CAST: {
         auto copy_inval = this->LiftInParam(
-            bldr, input_var,
-            llvm::IntegerType::get(this->context, input_var.size * 8));
+            bldr, input_var, llvm::IntegerType::get(this->context, input_var.size * 8));
         if (copy_inval.has_value()) {
           return this->LiftStoreIntoOutParam(bldr, *copy_inval, outvar);
         }
@@ -779,8 +721,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         }
 
         auto input_val = this->replacement_cont.LiftOffsetOrReplace(
-            bldr, input_var,
-            llvm::IntegerType::get(this->context, input_var.size * 8));
+            bldr, input_var, llvm::IntegerType::get(this->context, input_var.size * 8));
 
         return this->RedirectControlFlow(bldr, input_val);
       }
@@ -788,8 +729,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       case OpCode::CPUI_BRANCHIND:
       case OpCode::CPUI_CALLIND: {
         auto copy_inval = this->LiftInParam(
-            bldr, input_var,
-            llvm::IntegerType::get(this->context, input_var.size * 8));
+            bldr, input_var, llvm::IntegerType::get(this->context, input_var.size * 8));
         if (!copy_inval) {
           return LiftStatus::kLiftedUnsupportedInstruction;
         }
@@ -801,11 +741,9 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       case OpCode::CPUI_INT_SEXT: {
         auto zext_inval = this->LiftIntegerInParam(bldr, input_var);
         if (zext_inval.has_value()) {
-          auto zext_type =
-              llvm::IntegerType::get(this->context, outvar->size * 8);
-          auto zext_op = (opc == OpCode::CPUI_INT_ZEXT)
-                             ? bldr.CreateZExt(*zext_inval, zext_type)
-                             : bldr.CreateSExt(*zext_inval, zext_type);
+          auto zext_type = llvm::IntegerType::get(this->context, outvar->size * 8);
+          auto zext_op = (opc == OpCode::CPUI_INT_ZEXT) ? bldr.CreateZExt(*zext_inval, zext_type)
+                                                        : bldr.CreateSExt(*zext_inval, zext_type);
           return this->LiftStoreIntoOutParam(bldr, zext_op, outvar);
         }
         break;
@@ -813,16 +751,14 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       case OpCode::CPUI_INT_2COMP: {
         auto two_comp_inval = this->LiftIntegerInParam(bldr, input_var);
         if (two_comp_inval.has_value()) {
-          return this->LiftStoreIntoOutParam(
-              bldr, bldr.CreateNeg(*two_comp_inval), outvar);
+          return this->LiftStoreIntoOutParam(bldr, bldr.CreateNeg(*two_comp_inval), outvar);
         }
         break;
       }
       case OpCode::CPUI_INT_NEGATE: {
         auto negate_inval = this->LiftIntegerInParam(bldr, input_var);
         if (negate_inval.has_value()) {
-          return this->LiftStoreIntoOutParam(
-              bldr, bldr.CreateNot(*negate_inval), outvar);
+          return this->LiftStoreIntoOutParam(bldr, bldr.CreateNot(*negate_inval), outvar);
         }
         break;
       }
@@ -831,8 +767,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         if (ctpop_inval.has_value()) {
           llvm::Type *overloaded_types[1] = {(*ctpop_inval)->getType()};
           llvm::Function *ctpop_intrinsic = llvm::Intrinsic::getDeclaration(
-              bldr.GetInsertBlock()->getModule(), llvm::Intrinsic::ctpop,
-              overloaded_types);
+              bldr.GetInsertBlock()->getModule(), llvm::Intrinsic::ctpop, overloaded_types);
 
           std::array<llvm::Value *, 1> ctpop_args = {*ctpop_inval};
           llvm::Value *ctpop_val = this->FixResultForOutVarnode(
@@ -847,8 +782,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     }
     return LiftStatus::kLiftedUnsupportedInstruction;
   }
-  using BinaryOperator = std::function<llvm::Value *(
-      llvm::Value *, llvm::Value *, llvm::IRBuilder<> &)>;
+  using BinaryOperator =
+      std::function<llvm::Value *(llvm::Value *, llvm::Value *, llvm::IRBuilder<> &)>;
   static std::map<OpCode, BinaryOperator> INTEGER_BINARY_OPS;
   static std::map<OpCode, BinaryOperator> BOOL_BINARY_OPS;
   static std::unordered_set<OpCode> INTEGER_COMP_OPS;
@@ -890,8 +825,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
   llvm::BasicBlock *GetFalseOut() {
-    return std::visit(VisitBlockExitFalse{*this},
-                      this->pcode_block->block_exit);
+    return std::visit(VisitBlockExitFalse{*this}, this->pcode_block->block_exit);
   }
 
   LiftStatus TerminateBlockWithCondition(llvm::Value *condition) {
@@ -911,11 +845,10 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
 
-  LiftStatus LiftCBranch(llvm::IRBuilder<> &bldr,
-                         std::optional<VarnodeData> outvar, VarnodeData lhs,
-                         VarnodeData rhs) {
-    auto should_branch = this->LiftInParam(
-        bldr, rhs, llvm::IntegerType::get(this->context, rhs.size * 8));
+  LiftStatus LiftCBranch(llvm::IRBuilder<> &bldr, std::optional<VarnodeData> outvar,
+                         VarnodeData lhs, VarnodeData rhs) {
+    auto should_branch =
+        this->LiftInParam(bldr, rhs, llvm::IntegerType::get(this->context, rhs.size * 8));
 
 
     if (!should_branch) {
@@ -924,8 +857,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
 
     // TODO(Ian): this should probably technically be != 0
-    auto trunc_should_branch = bldr.CreateTrunc(
-        *should_branch, llvm::IntegerType::get(this->context, 1));
+    auto trunc_should_branch =
+        bldr.CreateTrunc(*should_branch, llvm::IntegerType::get(this->context, 1));
     if (!isVarnodeInConstantSpace(lhs)) {
       // directs dont read the address of the variable, the offset is the jump
       // TODO(Ian): handle other address spaces
@@ -934,8 +867,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
       auto orig_pc_value = this->GetNextPc(bldr);
       //CHECK(pc_reg_param.has_value());
-      auto next_pc_value =
-          bldr.CreateSelect(trunc_should_branch, jump_addr, orig_pc_value);
+      auto next_pc_value = bldr.CreateSelect(trunc_should_branch, jump_addr, orig_pc_value);
 
       bldr.CreateStore(next_pc_value, this->GetNextPcRef());
     }
@@ -945,8 +877,7 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
   LiftStatus LiftIntegerBinOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                              std::optional<VarnodeData> outvar,
-                              VarnodeData lhs, VarnodeData rhs) {
+                              std::optional<VarnodeData> outvar, VarnodeData lhs, VarnodeData rhs) {
 
 
     if (INTEGER_BINARY_OPS.find(opc) != INTEGER_BINARY_OPS.end()) {
@@ -955,21 +886,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       auto lifted_rhs = this->LiftIntegerInParam(bldr, rhs);
       if (lifted_lhs.has_value() && lifted_rhs.has_value()) {
         DLOG(INFO) << "Binop op: " << get_opname(opc);
-        DLOG(INFO) << "Binop with lhs: "
-                   << remill::LLVMThingToString(*lifted_lhs);
-        DLOG(INFO) << "Binop with rhs: "
-                   << remill::LLVMThingToString(*lifted_rhs);
+        DLOG(INFO) << "Binop with lhs: " << remill::LLVMThingToString(*lifted_lhs);
+        DLOG(INFO) << "Binop with rhs: " << remill::LLVMThingToString(*lifted_rhs);
         auto orig_res = op_func(*lifted_lhs, *lifted_rhs, bldr);
         if (INTEGER_COMP_OPS.find(opc) != INTEGER_COMP_OPS.end()) {
           // Comparison operators always return a byte
           if (orig_res->getType()->getIntegerBitWidth() != 8) {
-            orig_res = bldr.CreateZExt(
-                orig_res, llvm::IntegerType::get(bldr.getContext(), 8));
+            orig_res = bldr.CreateZExt(orig_res, llvm::IntegerType::get(bldr.getContext(), 8));
           }
         }
         DLOG(INFO) << "Res: " << remill::LLVMThingToString(orig_res);
-        DLOG(INFO) << "Res ty: "
-                   << remill::LLVMThingToString(orig_res->getType());
+        DLOG(INFO) << "Res ty: " << remill::LLVMThingToString(orig_res->getType());
         return this->LiftStoreIntoOutParam(bldr, orig_res, outvar);
       }
     }
@@ -977,9 +904,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
 
-  LiftStatus LiftBoolBinOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                           std::optional<VarnodeData> outvar, VarnodeData lhs,
-                           VarnodeData rhs) {
+  LiftStatus LiftBoolBinOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
+                           VarnodeData lhs, VarnodeData rhs) {
 
     // We make sure to only attempt to lift params for operands where we know they are booleans
     // Otherwise lifting a value as a byte could be an incorrect size for something like a unique.
@@ -987,16 +913,13 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       return LiftStatus::kLiftedUnsupportedInstruction;
     }
 
-    auto lifted_lhs =
-        this->LiftInParam(bldr, lhs, llvm::IntegerType::get(this->context, 8));
-    auto lifted_rhs =
-        this->LiftInParam(bldr, rhs, llvm::IntegerType::get(this->context, 8));
+    auto lifted_lhs = this->LiftInParam(bldr, lhs, llvm::IntegerType::get(this->context, 8));
+    auto lifted_rhs = this->LiftInParam(bldr, rhs, llvm::IntegerType::get(this->context, 8));
     if (!lifted_lhs.has_value() || !lifted_rhs.has_value()) {
       return LiftStatus::kLiftedUnsupportedInstruction;
     }
 
-    auto computed_value =
-        this->BOOL_BINARY_OPS.find(opc)->second(*lifted_lhs, *lifted_rhs, bldr);
+    auto computed_value = this->BOOL_BINARY_OPS.find(opc)->second(*lifted_lhs, *lifted_rhs, bldr);
 
     return this->LiftStoreIntoOutParam(bldr, computed_value, outvar);
   }
@@ -1063,23 +986,20 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
 
-  llvm::Value *CastFloatResult(llvm::IRBuilder<> &bldr,
-                               VarnodeData output_varnode,
+  llvm::Value *CastFloatResult(llvm::IRBuilder<> &bldr, VarnodeData output_varnode,
                                llvm::Value *maybe_float) {
 
     if (maybe_float->getType()->isFloatingPointTy()) {
       auto num_bits = maybe_float->getType()->getPrimitiveSizeInBits();
-      maybe_float = bldr.CreateBitCast(
-          maybe_float, llvm::IntegerType::get(this->context, num_bits));
+      maybe_float =
+          bldr.CreateBitCast(maybe_float, llvm::IntegerType::get(this->context, num_bits));
     }
 
-    return bldr.CreateZExtOrTrunc(
-        maybe_float,
-        llvm::IntegerType::get(this->context, output_varnode.size * 8));
+    return bldr.CreateZExtOrTrunc(maybe_float,
+                                  llvm::IntegerType::get(this->context, output_varnode.size * 8));
   }
 
-  std::optional<llvm::Value *> LiftFloatInParam(llvm::IRBuilder<> &bldr,
-                                                VarnodeData vnode) {
+  std::optional<llvm::Value *> LiftFloatInParam(llvm::IRBuilder<> &bldr, VarnodeData vnode) {
     auto float_ty = this->GetFloatTypeOfByteSize(vnode.size);
     if (!float_ty) {
       DLOG(ERROR) << "Could not create llvm float type of size " << vnode.size;
@@ -1097,9 +1017,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     return bldr.CreateBitCast(*int_in_param, *float_ty);
   }
 
-  LiftStatus LiftFloatBinOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                            std::optional<VarnodeData> outvar, VarnodeData lhs,
-                            VarnodeData rhs) {
+  LiftStatus LiftFloatBinOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
+                            VarnodeData lhs, VarnodeData rhs) {
     std::optional<BinaryOperator> op_func = this->FindFloatBinOpFunc(opc);
     if (!op_func) {
       return LiftStatus::kLiftedUnsupportedInstruction;
@@ -1119,14 +1038,12 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     }
 
     auto res = (*op_func)(*lifted_lhs, *lifted_rhs, bldr);
-    return this->LiftStoreIntoOutParam(
-        bldr, this->CastFloatResult(bldr, *outvar, res), outvar);
+    return this->LiftStoreIntoOutParam(bldr, this->CastFloatResult(bldr, *outvar, res), outvar);
   }
 
 
-  LiftStatus LiftBinOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                       std::optional<VarnodeData> outvar, VarnodeData lhs,
-                       VarnodeData rhs) {
+  LiftStatus LiftBinOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
+                       VarnodeData lhs, VarnodeData rhs) {
 
     if (opc == OpCode::CPUI_CBRANCH) {
       return this->LiftCBranch(bldr, outvar, lhs, rhs);
@@ -1150,8 +1067,8 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     if (opc == OpCode::CPUI_LOAD && outvar) {
       auto out_op = *outvar;
       auto addr_operand = rhs;
-      auto lifted_addr_offset = this->LiftInParam(
-          bldr, addr_operand, this->insn_lifter_parent.GetWordType());
+      auto lifted_addr_offset =
+          this->LiftInParam(bldr, addr_operand, this->insn_lifter_parent.GetWordType());
 
       if (!lifted_addr_offset) {
         return LiftStatus::kLiftedUnsupportedInstruction;
@@ -1174,18 +1091,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       CHECK(rhs.size + lhs.size == outvar->size);
 
       // Treat them as integers
-      auto lifted_lhs = this->LiftInParam(
-          bldr, lhs, llvm::IntegerType::get(this->context, lhs.size * 8));
-      auto lifted_rhs = this->LiftInParam(
-          bldr, rhs, llvm::IntegerType::get(this->context, rhs.size * 8));
+      auto lifted_lhs =
+          this->LiftInParam(bldr, lhs, llvm::IntegerType::get(this->context, lhs.size * 8));
+      auto lifted_rhs =
+          this->LiftInParam(bldr, rhs, llvm::IntegerType::get(this->context, rhs.size * 8));
 
       if (lifted_lhs.has_value() && lifted_rhs.has_value()) {
         // Widen the most significant operand and then left shift it to make room for the least significant operand.
-        auto ms_operand = bldr.CreateZExt(
-            *lifted_lhs, llvm::IntegerType::get(this->context, outvar->size));
+        auto ms_operand =
+            bldr.CreateZExt(*lifted_lhs, llvm::IntegerType::get(this->context, outvar->size));
         auto shifted_ms_operand = bldr.CreateShl(
-            ms_operand, llvm::ConstantInt::get(
-                            llvm::Type::getInt8Ty(this->context), rhs.size));
+            ms_operand, llvm::ConstantInt::get(llvm::Type::getInt8Ty(this->context), rhs.size));
 
         // Now concatenate them with an OR.
         auto concat = bldr.CreateOr(shifted_ms_operand, *lifted_rhs);
@@ -1194,21 +1110,19 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     }
 
     if (opc == OpCode::CPUI_SUBPIECE && outvar) {
-      auto lifted_lhs = this->LiftInParam(
-          bldr, lhs, llvm::IntegerType::get(this->context, lhs.size * 8));
+      auto lifted_lhs =
+          this->LiftInParam(bldr, lhs, llvm::IntegerType::get(this->context, lhs.size * 8));
 
       if (lifted_lhs.has_value()) {
         DLOG(INFO) << "SUBPIECE: " << remill::LLVMThingToString(*lifted_lhs);
         auto subpiece_lhs = bldr.CreateLShr(*lifted_lhs, rhs.offset * 8);
 
         if (lhs.size < outvar->size) {
-          subpiece_lhs = bldr.CreateZExt(
-              subpiece_lhs,
-              llvm::IntegerType::get(this->context, 8 * outvar->size));
+          subpiece_lhs = bldr.CreateZExt(subpiece_lhs,
+                                         llvm::IntegerType::get(this->context, 8 * outvar->size));
         } else if (lhs.size > outvar->size) {
-          subpiece_lhs = bldr.CreateTrunc(
-              subpiece_lhs,
-              llvm::IntegerType::get(this->context, 8 * outvar->size));
+          subpiece_lhs = bldr.CreateTrunc(subpiece_lhs,
+                                          llvm::IntegerType::get(this->context, 8 * outvar->size));
         }
 
         return this->LiftStoreIntoOutParam(bldr, subpiece_lhs, outvar);
@@ -1231,19 +1145,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
   LiftStatus LiftThreeOperandOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                                std::optional<VarnodeData> outvar,
-                                VarnodeData param0, VarnodeData param1,
-                                VarnodeData param2) {
+                                std::optional<VarnodeData> outvar, VarnodeData param0,
+                                VarnodeData param1, VarnodeData param2) {
     switch (opc) {
       case OpCode::CPUI_STORE: {
         auto addr_operand = param1;
-        auto lifted_addr_offset = this->LiftInParam(
-            bldr, addr_operand, this->insn_lifter_parent.GetWordType());
+        auto lifted_addr_offset =
+            this->LiftInParam(bldr, addr_operand, this->insn_lifter_parent.GetWordType());
 
         if (lifted_addr_offset) {
           auto store_param = this->LiftInParam(
-              bldr, param2,
-              llvm::IntegerType::get(this->context, param2.size * 8));
+              bldr, param2, llvm::IntegerType::get(this->context, param2.size * 8));
 
           if (store_param.has_value()) {
             auto lifted_addr = this->CreateMemoryAddress(*lifted_addr_offset);
@@ -1253,12 +1165,10 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         break;
       }
       case OpCode::CPUI_PTRADD: {
-        auto lifted_addr = this->LiftInParam(
-                 bldr, param0, this->insn_lifter_parent.GetWordType()),
+        auto lifted_addr = this->LiftInParam(bldr, param0, this->insn_lifter_parent.GetWordType()),
              lifted_index = this->LiftIntegerInParam(bldr, param1);
         auto elem_size = llvm::ConstantInt::get(
-            llvm::IntegerType::get(this->context, param2.size * 8),
-            param2.offset);
+            llvm::IntegerType::get(this->context, param2.size * 8), param2.offset);
         if (lifted_addr.has_value() && lifted_index.has_value()) {
           auto *offset = bldr.CreateMul(*lifted_index, elem_size),
                *ptr_add = bldr.CreateAdd(*lifted_addr, offset);
@@ -1267,12 +1177,11 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         break;
       }
       case OpCode::CPUI_PTRSUB: {
-        auto lifted_addr = this->LiftInParam(
-                 bldr, param0, this->insn_lifter_parent.GetWordType()),
+        auto lifted_addr = this->LiftInParam(bldr, param0, this->insn_lifter_parent.GetWordType()),
              lifted_offset = this->LiftIntegerInParam(bldr, param1);
         if (lifted_addr.has_value() && lifted_offset.has_value()) {
-          return this->LiftStoreIntoOutParam(
-              bldr, bldr.CreateAdd(*lifted_addr, *lifted_offset), outvar);
+          return this->LiftStoreIntoOutParam(bldr, bldr.CreateAdd(*lifted_addr, *lifted_offset),
+                                             outvar);
         }
         break;
       }
@@ -1282,19 +1191,17 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
     return LiftStatus::kLiftedUnsupportedInstruction;
   }
 
-  LiftStatus LiftVariadicOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                            std::optional<VarnodeData> outvar,
+  LiftStatus LiftVariadicOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
                             VarnodeData *vars, int4 isize) {
     switch (opc) {
       // We shouldnt encounter this afaik MULTIEQUAL is a decompiler concept?
       case OpCode::CPUI_MULTIEQUAL: {
-        llvm::Type *phi_type =
-            llvm::IntegerType::get(this->context, vars[0].size * 8);
+        llvm::Type *phi_type = llvm::IntegerType::get(this->context, vars[0].size * 8);
         llvm::PHINode *phi_node = bldr.CreatePHI(phi_type, isize);
         for (int4 i = 0; i < isize; ++i) {
           VarnodeData &var = vars[i];
-          auto inval = this->LiftInParam(
-              bldr, var, llvm::IntegerType::get(this->context, var.size * 8));
+          auto inval =
+              this->LiftInParam(bldr, var, llvm::IntegerType::get(this->context, var.size * 8));
           if (!inval.has_value()) {
             return LiftStatus::kLiftedUnsupportedInstruction;
           }
@@ -1325,34 +1232,27 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
   static const size_t kEqualityClaimArity = 3;
-  LiftStatus HandleCallOther(llvm::IRBuilder<> &bldr,
-                             std::optional<VarnodeData> outvar,
+  LiftStatus HandleCallOther(llvm::IRBuilder<> &bldr, std::optional<VarnodeData> outvar,
                              VarnodeData *vars, int4 isize) {
     auto other_func_name = this->GetOtherFuncName(vars, isize);
     if (other_func_name.has_value()) {
-      if (other_func_name == kEqualityClaimName &&
-          isize == kEqualityClaimArity) {
+      if (other_func_name == kEqualityClaimName && isize == kEqualityClaimArity) {
         DLOG(INFO) << "Applying eq claim";
-        this->replacement_cont.ApplyEqualityClaim(bldr, *this, vars[1],
-                                                  vars[2]);
+        this->replacement_cont.ApplyEqualityClaim(bldr, *this, vars[1], vars[2]);
         return kLiftedInstruction;
       }
-      if (other_func_name == kSysCallName &&
-          insn.arch_name == ArchName::kArchPPC) {
+      if (other_func_name == kSysCallName && insn.arch_name == ArchName::kArchPPC) {
         DLOG(INFO) << "Invoking syscall";
 
         const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
 
         // Get a LLVM value for the sync hyper call enumeration.
-        auto hyper_call_int =
-            static_cast<uint32_t>(SyncHyperCall::Name::kPPCSysCall);
-        auto hyper_call = llvm::ConstantInt::get(
-            llvm::IntegerType::get(this->context, 32), hyper_call_int);
-        std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr_ref,
-                                             hyper_call};
+        auto hyper_call_int = static_cast<uint32_t>(SyncHyperCall::Name::kPPCSysCall);
+        auto hyper_call =
+            llvm::ConstantInt::get(llvm::IntegerType::get(this->context, 32), hyper_call_int);
+        std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr_ref, hyper_call};
 
-        bldr.CreateCall(insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call,
-                        args);
+        bldr.CreateCall(insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
 
         return kLiftedInstruction;
       }
@@ -1370,23 +1270,20 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 
   llvm::Value *GetNextPc(llvm::IRBuilder<> &ir) {
-    return ir.CreateLoad(this->insn_lifter_parent.GetWordType(),
-                         this->GetNextPcRef());
+    return ir.CreateLoad(this->insn_lifter_parent.GetWordType(), this->GetNextPcRef());
   }
 
-  LiftStatus LiftBranchTaken(llvm::IRBuilder<> &bldr,
-                             const sleigh::BranchTakenVar &btaken_var) {
+  LiftStatus LiftBranchTaken(llvm::IRBuilder<> &bldr, const sleigh::BranchTakenVar &btaken_var) {
 
 
-    auto maybe_should_branch =
-        this->LiftIntegerInParam(bldr, btaken_var.target_vnode);
+    auto maybe_should_branch = this->LiftIntegerInParam(bldr, btaken_var.target_vnode);
     if (!maybe_should_branch) {
       DLOG(ERROR) << "Failed to lift iparam branch taken var";
       return LiftStatus::kLiftedLifterError;
     }
 
-    auto should_branch = bldr.CreateZExtOrTrunc(
-        *maybe_should_branch, llvm::IntegerType::get(this->context, 8));
+    auto should_branch =
+        bldr.CreateZExtOrTrunc(*maybe_should_branch, llvm::IntegerType::get(this->context, 8));
     auto branch_taken_ref = this->GetBranchTakenRef();
     bldr.CreateStore(should_branch, branch_taken_ref);
     return LiftStatus::kLiftedInstruction;
@@ -1396,18 +1293,15 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   void LiftBtakenIfReached(llvm::IRBuilder<> &bldr, OpCode opc) {
 
     if (this->to_lift_btaken && curr_id == this->to_lift_btaken->index) {
-      this->UpdateStatus(this->LiftBranchTaken(bldr, *this->to_lift_btaken),
-                         opc);
+      this->UpdateStatus(this->LiftBranchTaken(bldr, *this->to_lift_btaken), opc);
     }
   }
 
-  void LiftPcodeOp(llvm::IRBuilder<> &bldr, OpCode opc,
-                   std::optional<VarnodeData> outvar, VarnodeData *vars,
-                   int4 isize) {
+  void LiftPcodeOp(llvm::IRBuilder<> &bldr, OpCode opc, std::optional<VarnodeData> outvar,
+                   VarnodeData *vars, int4 isize) {
     // The MULTIEQUAL op has variadic operands
     if (opc == OpCode::CPUI_MULTIEQUAL || opc == OpCode::CPUI_CPOOLREF) {
-      this->UpdateStatus(this->LiftVariadicOp(bldr, opc, outvar, vars, isize),
-                         opc);
+      this->UpdateStatus(this->LiftVariadicOp(bldr, opc, outvar, vars, isize), opc);
       return;
     }
 
@@ -1422,20 +1316,16 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
         break;
       }
       case 2: {
-        this->UpdateStatus(this->LiftBinOp(bldr, opc, outvar, vars[0], vars[1]),
-                           opc);
+        this->UpdateStatus(this->LiftBinOp(bldr, opc, outvar, vars[0], vars[1]), opc);
         return;
       }
       case 3: {
-        this->UpdateStatus(this->LiftThreeOperandOp(bldr, opc, outvar, vars[0],
-                                                    vars[1], vars[2]),
+        this->UpdateStatus(this->LiftThreeOperandOp(bldr, opc, outvar, vars[0], vars[1], vars[2]),
                            opc);
 
         return;
       }
-      default:
-        this->UpdateStatus(LiftStatus::kLiftedUnsupportedInstruction, opc);
-        return;
+      default: this->UpdateStatus(LiftStatus::kLiftedUnsupportedInstruction, opc); return;
     }
   }
 
@@ -1464,148 +1354,135 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
   }
 };  // namespace remill
 
-std::unordered_set<OpCode>
-    SleighLifter::PcodeToLLVMEmitIntoBlock::INTEGER_COMP_OPS = {
-        CPUI_INT_EQUAL,   CPUI_INT_NOTEQUAL,  CPUI_INT_LESS,
-        CPUI_INT_SLESS,   CPUI_INT_LESSEQUAL, CPUI_INT_SLESSEQUAL,
-        CPUI_INT_SBORROW, CPUI_INT_SCARRY,    CPUI_INT_CARRY};
+std::unordered_set<OpCode> SleighLifter::PcodeToLLVMEmitIntoBlock::INTEGER_COMP_OPS = {
+    CPUI_INT_EQUAL,      CPUI_INT_NOTEQUAL, CPUI_INT_LESS,   CPUI_INT_SLESS, CPUI_INT_LESSEQUAL,
+    CPUI_INT_SLESSEQUAL, CPUI_INT_SBORROW,  CPUI_INT_SCARRY, CPUI_INT_CARRY};
 
 // NOTE(Ian): we store a mapping from pcode op to supported boolean operation so that we can easily check if
 // we want to lift the operands to this op as a boolean and also find the right post lifting operation to apply.
 std::map<OpCode, SleighLifter::PcodeToLLVMEmitIntoBlock::BinaryOperator>
     SleighLifter::PcodeToLLVMEmitIntoBlock::BOOL_BINARY_OPS = {
-        {OpCode::CPUI_BOOL_AND,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateAnd(lhs, rhs);
-         }},
-        {OpCode::CPUI_BOOL_OR,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateOr(lhs, rhs);
-         }},
-        {OpCode::CPUI_BOOL_XOR,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+        {OpCode::CPUI_BOOL_AND, [](llvm::Value *lhs, llvm::Value *rhs,
+                                   llvm::IRBuilder<> &bldr) { return bldr.CreateAnd(lhs, rhs); }},
+        {OpCode::CPUI_BOOL_OR, [](llvm::Value *lhs, llvm::Value *rhs,
+                                  llvm::IRBuilder<> &bldr) { return bldr.CreateOr(lhs, rhs); }},
+        {OpCode::CPUI_BOOL_XOR, [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
            return bldr.CreateXor(lhs, rhs);
          }}};
 std::map<OpCode, SleighLifter::PcodeToLLVMEmitIntoBlock::BinaryOperator>
-    SleighLifter::PcodeToLLVMEmitIntoBlock::INTEGER_BINARY_OPS = {
-        {OpCode::CPUI_INT_AND,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateAnd(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_OR,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateOr(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_XOR,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateXor(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_LEFT,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return CreatePcodeBitShift(
-               lhs, rhs, bldr,
-               [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-                 return bldr.CreateShl(lhs, rhs);
-               });
-         }},
-        {OpCode::CPUI_INT_RIGHT,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return CreatePcodeBitShift(
-               lhs, rhs, bldr,
-               [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-                 return bldr.CreateLShr(lhs, rhs);
-               });
-         }},
-        {OpCode::CPUI_INT_SRIGHT,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           if (lhs->getType() != rhs->getType()) {
-             rhs = bldr.CreateZExtOrTrunc(rhs, lhs->getType());
-           }
-           return bldr.CreateAShr(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_ADD,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateAdd(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_SUB,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateSub(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_MULT,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateMul(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_DIV,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateUDiv(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_SDIV,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateSDiv(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_REM,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateURem(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_SREM,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateSRem(lhs, rhs);
-         }},
-        {OpCode::CPUI_INT_EQUAL,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           // TODO(alex): Should these by using `trunc`?
-           // The docs seem to indicate that it's not ok to `zext` to a smaller type.
-           return bldr.CreateZExt(bldr.CreateICmpEQ(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_NOTEQUAL,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateZExt(bldr.CreateICmpNE(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_LESS,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateZExt(bldr.CreateICmpULT(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_SLESS,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateZExt(bldr.CreateICmpSLT(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_LESSEQUAL,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateZExt(bldr.CreateICmpSLE(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_SLESSEQUAL,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return bldr.CreateZExt(bldr.CreateICmpULE(lhs, rhs),
-                                  llvm::IntegerType::get(bldr.getContext(), 8));
-         }},
-        {OpCode::CPUI_INT_CARRY,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return ExtractOverflowBitFromCallToIntrinsic(
-               llvm::Intrinsic::uadd_with_overflow, lhs, rhs, bldr);
-         }},
-        {OpCode::CPUI_INT_SCARRY,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return ExtractOverflowBitFromCallToIntrinsic(
-               llvm::Intrinsic::sadd_with_overflow, lhs, rhs, bldr);
-         }},
-        {OpCode::CPUI_INT_SBORROW,
-         [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-           return ExtractOverflowBitFromCallToIntrinsic(
-               llvm::Intrinsic::ssub_with_overflow, lhs, rhs, bldr);
-         }},
+    SleighLifter::PcodeToLLVMEmitIntoBlock::INTEGER_BINARY_OPS =
+        {
+            {OpCode::CPUI_INT_AND,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateAnd(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_OR, [](llvm::Value *lhs, llvm::Value *rhs,
+                                     llvm::IRBuilder<> &bldr) { return bldr.CreateOr(lhs, rhs); }},
+            {OpCode::CPUI_INT_XOR,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateXor(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_LEFT,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return CreatePcodeBitShift(
+                   lhs, rhs, bldr, [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+                     return bldr.CreateShl(lhs, rhs);
+                   });
+             }},
+            {OpCode::CPUI_INT_RIGHT,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return CreatePcodeBitShift(
+                   lhs, rhs, bldr, [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+                     return bldr.CreateLShr(lhs, rhs);
+                   });
+             }},
+            {OpCode::CPUI_INT_SRIGHT,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               if (lhs->getType() != rhs->getType()) {
+                 rhs = bldr.CreateZExtOrTrunc(rhs, lhs->getType());
+               }
+               return bldr.CreateAShr(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_ADD,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateAdd(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_SUB,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateSub(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_MULT,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateMul(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_DIV,
+             [](llvm::Value *lhs, llvm::Value *rhs,
+                llvm::IRBuilder<> &bldr) { return bldr.CreateUDiv(lhs, rhs); }},
+            {OpCode::CPUI_INT_SDIV,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateSDiv(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_REM,
+             [](llvm::Value *lhs, llvm::Value *rhs,
+                llvm::IRBuilder<> &bldr) { return bldr.CreateURem(lhs, rhs); }},
+            {OpCode::CPUI_INT_SREM,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateSRem(lhs, rhs);
+             }},
+            {OpCode::CPUI_INT_EQUAL,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               // TODO(alex): Should these by using `trunc`?
+               // The docs seem to indicate that it's not ok to `zext` to a smaller type.
+               return bldr.CreateZExt(bldr.CreateICmpEQ(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_NOTEQUAL,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateZExt(bldr.CreateICmpNE(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_LESS,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateZExt(bldr.CreateICmpULT(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_SLESS,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateZExt(bldr.CreateICmpSLT(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_LESSEQUAL,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateZExt(bldr.CreateICmpSLE(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_SLESSEQUAL,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateZExt(bldr.CreateICmpULE(lhs, rhs),
+                                      llvm::IntegerType::get(bldr.getContext(), 8));
+             }},
+            {OpCode::CPUI_INT_CARRY,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return ExtractOverflowBitFromCallToIntrinsic(llvm::Intrinsic::uadd_with_overflow,
+                                                            lhs, rhs, bldr);
+             }},
+            {OpCode::CPUI_INT_SCARRY,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return ExtractOverflowBitFromCallToIntrinsic(llvm::Intrinsic::sadd_with_overflow,
+                                                            lhs, rhs, bldr);
+             }},
+            {OpCode::CPUI_INT_SBORROW,
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return ExtractOverflowBitFromCallToIntrinsic(llvm::Intrinsic::ssub_with_overflow,
+                                                            lhs, rhs, bldr);
+             }},
 };
 
-SleighLifter::SleighLifter(const remill::Arch &arch_,
-                           const remill::sleigh::SleighDecoder &dec_,
+SleighLifter::SleighLifter(const remill::Arch &arch_, const remill::sleigh::SleighDecoder &dec_,
                            const IntrinsicTable &intrinsics_)
     : InstructionLifter(&arch_, intrinsics_),
-      sleigh_context(new sleigh::SingleInstructionSleighContext(
-          dec_.GetSLAName(), dec_.GetPSpec())),
+      sleigh_context(
+          new sleigh::SingleInstructionSleighContext(dec_.GetSLAName(), dec_.GetPSpec())),
       decoder(dec_) {}
 
 
@@ -1620,21 +1497,18 @@ void SleighLifter::SetISelAttributes(llvm::Function *target_func) {
 }
 
 
-llvm::Function *
-SleighLifter::DefineInstructionFunction(Instruction &inst,
-                                        llvm::Module *target_mod) {
+llvm::Function *SleighLifter::DefineInstructionFunction(Instruction &inst,
+                                                        llvm::Module *target_mod) {
 
   std::stringstream nm;
   nm << SleighLifter::kInstructionFunctionPrefix << "_" << std::hex << inst.pc;
   auto &context = target_mod->getContext();
   auto ptr_ty = llvm::PointerType::get(context, 0);
   std::array<llvm::Type *, 4> params = {inst.arch->StatePointerType(),
-                                        inst.arch->MemoryPointerType(), ptr_ty,
-                                        ptr_ty};
-  auto ty =
-      llvm::FunctionType::get(inst.arch->MemoryPointerType(), params, false);
-  auto func = llvm::Function::Create(ty, llvm::GlobalValue::ExternalLinkage, 0,
-                                     nm.str(), target_mod);
+                                        inst.arch->MemoryPointerType(), ptr_ty, ptr_ty};
+  auto ty = llvm::FunctionType::get(inst.arch->MemoryPointerType(), params, false);
+  auto func =
+      llvm::Function::Create(ty, llvm::GlobalValue::ExternalLinkage, 0, nm.str(), target_mod);
 
   auto memory = remill::NthArgument(func, 1);
   auto state = remill::NthArgument(func, 0);
@@ -1651,14 +1525,13 @@ SleighLifter::DefineInstructionFunction(Instruction &inst,
 }
 
 std::pair<LiftStatus, std::optional<llvm::Function *>>
-SleighLifter::LiftIntoInternalBlockWithSleighState(
-    Instruction &inst, llvm::Module *target_mod, bool is_delayed,
-    const sleigh::MaybeBranchTakenVar &btaken,
-    const ContextValues &context_values) {
+SleighLifter::LiftIntoInternalBlockWithSleighState(Instruction &inst, llvm::Module *target_mod,
+                                                   bool is_delayed,
+                                                   const sleigh::MaybeBranchTakenVar &btaken,
+                                                   const ContextValues &context_values) {
 
   this->sleigh_context->resetContext();
-  this->decoder.InitializeSleighContext(inst.pc, *this->sleigh_context,
-                                        context_values);
+  this->decoder.InitializeSleighContext(inst.pc, *this->sleigh_context, context_values);
 
   sleigh::PcodeDecoder pcode_record(this->GetEngine());
   sleigh_context->oneInstruction(inst.pc, pcode_record, inst.bytes);
@@ -1671,18 +1544,16 @@ SleighLifter::LiftIntoInternalBlockWithSleighState(
 
   llvm::BasicBlock *target_block = &target_func->getEntryBlock();
   llvm::IRBuilder<> ir(target_block);
-  auto internal_state_pointer =
-      remill::NthArgument(target_func, kStatePointerArgNum);
+  auto internal_state_pointer = remill::NthArgument(target_func, kStatePointerArgNum);
 
 
-  auto exit_block = llvm::BasicBlock::Create(target_mod->getContext(),
-                                             "exit_block", target_func);
+  auto exit_block = llvm::BasicBlock::Create(target_mod->getContext(), "exit_block", target_func);
 
   llvm::IRBuilder<> exit_builder(exit_block);
 
 
-  exit_builder.CreateRet(remill::LoadMemoryPointer(
-      exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
+  exit_builder.CreateRet(
+      remill::LoadMemoryPointer(exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
 
 
   //TODO(Ian): make a safe to use sleighinstruction context that wraps a context with an arch to preform reset reinits
@@ -1691,15 +1562,13 @@ SleighLifter::LiftIntoInternalBlockWithSleighState(
   auto cfg = sleigh::CreateCFG(pcode_record.ops);
 
 
-  SleighLifter::PcodeToLLVMEmitIntoBlock::DecodingContextConstants
-      decoding_context_lifter(this->decoder.GetContextRegisterMapping(),
-                              target_mod->getContext(), context_values,
-                              target_block);
+  SleighLifter::PcodeToLLVMEmitIntoBlock::DecodingContextConstants decoding_context_lifter(
+      this->decoder.GetContextRegisterMapping(), target_mod->getContext(), context_values,
+      target_block);
 
-  SleighLifter::PcodeToLLVMEmitIntoBlock lifter(
-      target_block, internal_state_pointer, inst, *this,
-      this->sleigh_context->getUserOpNames(), exit_block, btaken,
-      std::move(decoding_context_lifter));
+  SleighLifter::PcodeToLLVMEmitIntoBlock lifter(target_block, internal_state_pointer, inst, *this,
+                                                this->sleigh_context->getUserOpNames(), exit_block,
+                                                btaken, std::move(decoding_context_lifter));
 
 
   for (auto blk : cfg.blocks) {
@@ -1722,10 +1591,10 @@ SleighLifter::LiftIntoInternalBlockWithSleighState(
   return {lifter.GetStatus(), target_func};
 }
 
-LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
-    Instruction &inst, llvm::BasicBlock *block, llvm::Value *state_ptr,
-    bool is_delayed, const sleigh::MaybeBranchTakenVar &btaken,
-    const ContextValues &context_values) {
+LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::BasicBlock *block,
+                                                      llvm::Value *state_ptr, bool is_delayed,
+                                                      const sleigh::MaybeBranchTakenVar &btaken,
+                                                      const ContextValues &context_values) {
   if (!inst.IsValid()) {
     DLOG(ERROR) << "Invalid function" << inst.Serialize();
     return kLiftedInvalidInstruction;
@@ -1733,8 +1602,8 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
 
 
   // Call the instruction function
-  auto res = this->LiftIntoInternalBlockWithSleighState(
-      inst, block->getModule(), is_delayed, btaken, context_values);
+  auto res = this->LiftIntoInternalBlockWithSleighState(inst, block->getModule(), is_delayed,
+                                                        btaken, context_values);
 
   if (res.first != LiftStatus::kLiftedInstruction || !res.second.has_value()) {
     return res.first;
@@ -1744,8 +1613,7 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
 
 
   // Setup PC and NEXT_PC
-  const auto [pc_ref, pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kPCVariableName);
+  const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
   const auto [next_pc_ref, next_pc_ref_type] =
       LoadRegAddress(block, state_ptr, kNextPCVariableName);
 
@@ -1753,30 +1621,26 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(
   llvm::IRBuilder<> intoblock_builer(block);
 
 
-  const auto next_pc =
-      intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref);
+  const auto next_pc = intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref);
 
 
-  intoblock_builer.CreateStore(this->decoder.LiftPcFromCurrPc(
-                                   intoblock_builer, next_pc, inst.bytes.size(),
-                                   DecodingContext(context_values)),
+  intoblock_builer.CreateStore(this->decoder.LiftPcFromCurrPc(intoblock_builer, next_pc,
+                                                              inst.bytes.size(),
+                                                              DecodingContext(context_values)),
                                pc_ref);
   intoblock_builer.CreateStore(
-      intoblock_builer.CreateAdd(
-          next_pc,
-          llvm::ConstantInt::get(this->GetWordType(), inst.bytes.size())),
+      intoblock_builer.CreateAdd(next_pc,
+                                 llvm::ConstantInt::get(this->GetWordType(), inst.bytes.size())),
       next_pc_ref);
 
   // TODO(Ian): THIS IS AN UNSOUND ASSUMPTION THAT RETURNS ALWAYS RETURN TO THE FALLTHROUGH, this is just to make things work
-  intoblock_builer.CreateStore(
-      intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref),
-      LoadReturnProgramCounterRef(block));
+  intoblock_builer.CreateStore(intoblock_builer.CreateLoad(this->GetWordType(), next_pc_ref),
+                               LoadReturnProgramCounterRef(block));
 
 
   std::array<llvm::Value *, 4> args = {
       state_ptr, remill::LoadMemoryPointer(block, *this->GetIntrinsicTable()),
-      remill::LoadBranchTakenRef(block),
-      remill::LoadNextProgramCounterRef(block)};
+      remill::LoadBranchTakenRef(block), remill::LoadNextProgramCounterRef(block)};
 
   intoblock_builer.CreateStore(intoblock_builer.CreateCall(target_func, args),
                                remill::LoadMemoryPointerRef(block));
@@ -1791,36 +1655,32 @@ Sleigh &SleighLifter::GetEngine(void) const {
   return this->sleigh_context->GetEngine();
 }
 
-SleighLifterWithState::SleighLifterWithState(
-    sleigh::MaybeBranchTakenVar btaken_, ContextValues context_values_,
-    std::shared_ptr<SleighLifter> lifter_)
+SleighLifterWithState::SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken_,
+                                             ContextValues context_values_,
+                                             std::shared_ptr<SleighLifter> lifter_)
     : btaken(btaken_),
       context_values(std::move(context_values_)),
       lifter(std::move(lifter_)) {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
-LiftStatus
-SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                     llvm::Value *state_ptr, bool is_delayed) {
-  return this->lifter->LiftIntoBlockWithSleighState(
-      inst, block, state_ptr, is_delayed, this->btaken, this->context_values);
+LiftStatus SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
+                                                llvm::Value *state_ptr, bool is_delayed) {
+  return this->lifter->LiftIntoBlockWithSleighState(inst, block, state_ptr, is_delayed,
+                                                    this->btaken, this->context_values);
 }
 
 
 // Load the address of a register.
 std::pair<llvm::Value *, llvm::Type *>
-SleighLifterWithState::LoadRegAddress(llvm::BasicBlock *block,
-                                      llvm::Value *state_ptr,
+SleighLifterWithState::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                       std::string_view reg_name) const {
   return this->lifter->LoadRegAddress(block, state_ptr, reg_name);
 }
 
 // Load the value of a register.
-llvm::Value *
-SleighLifterWithState::LoadRegValue(llvm::BasicBlock *block,
-                                    llvm::Value *state_ptr,
-                                    std::string_view reg_name) const {
+llvm::Value *SleighLifterWithState::LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                                 std::string_view reg_name) const {
   return this->lifter->LoadRegValue(block, state_ptr, reg_name);
 }
 

@@ -244,8 +244,7 @@ DEF_ISEL_Rn_In(CMP_OrAX_IMMz, CMP);
 namespace {
 
 template <typename T, typename U, typename V>
-ALWAYS_INLINE static void WriteFlagsMul(State &state, T lhs, T rhs, U res,
-                                        V res_trunc) {
+ALWAYS_INLINE static void WriteFlagsMul(State &state, T lhs, T rhs, U res, V res_trunc) {
   const auto new_of = Overflow<tag_mul>::Flag(lhs, rhs, res);
   FLAG_CF = new_of;
   FLAG_PF = BUndefined();  // Technically undefined.
@@ -327,15 +326,14 @@ MAKE_MULxax(al, REG_AL, REG_AL, REG_AH) MAKE_MULxax(ax, REG_AX, REG_AX, REG_DX)
     return memory; \
   }
 
-            MAKE_IMULxax(al, REG_AL, REG_AL, REG_AH)
-                MAKE_IMULxax(ax, REG_AX, REG_AX, REG_DX)
-                    MAKE_IMULxax(eax, REG_EAX, REG_XAX, REG_XDX)
-                        IF_64BIT(MAKE_IMULxax(rax, REG_RAX, REG_RAX, REG_RDX))
+            MAKE_IMULxax(al, REG_AL, REG_AL, REG_AH) MAKE_IMULxax(ax, REG_AX, REG_AX, REG_DX)
+                MAKE_IMULxax(eax, REG_EAX, REG_XAX, REG_XDX)
+                    IF_64BIT(MAKE_IMULxax(rax, REG_RAX, REG_RAX, REG_RDX))
 
 #undef MAKE_IMULxax
 
-                            template <typename D, typename S1, typename S2>
-                            DEF_SEM(MULPS, D dst, S1 src1, S2 src2) {
+                        template <typename D, typename S1, typename S2>
+                        DEF_SEM(MULPS, D dst, S1 src1, S2 src2) {
   FWriteV32(dst, FMulV32(FReadV32(src1), FReadV32(src2)));
   return memory;
 }
@@ -460,10 +458,9 @@ namespace {
     } \
   }
 
-MAKE_DIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
-    MAKE_DIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
-        MAKE_DIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
-            IF_64BIT(MAKE_DIVxax(rdxrax, REG_RAX, REG_RDX, REG_RAX, REG_RDX))
+MAKE_DIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH) MAKE_DIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
+    MAKE_DIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
+        IF_64BIT(MAKE_DIVxax(rdxrax, REG_RAX, REG_RDX, REG_RAX, REG_RDX))
 
 #undef MAKE_DIVxax
 
@@ -496,11 +493,10 @@ MAKE_DIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
     } \
   }
 
-                MAKE_IDIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
-                    MAKE_IDIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
-                        MAKE_IDIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
-                            IF_64BIT(MAKE_IDIVxax(rdxrax, REG_RAX, REG_RDX,
-                                                  REG_RAX, REG_RDX))
+            MAKE_IDIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
+                MAKE_IDIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
+                    MAKE_IDIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
+                        IF_64BIT(MAKE_IDIVxax(rdxrax, REG_RAX, REG_RDX, REG_RAX, REG_RDX))
 
 #undef MAKE_IDIVxax
 
@@ -643,8 +639,7 @@ namespace {
 
 template <typename TagT, typename T>
 ALWAYS_INLINE static bool CarryFlag(T a, T b, T ab, T c, T abc) {
-  static_assert(std::is_unsigned<T>::value,
-                "Invalid specialization of `CarryFlag` for addition.");
+  static_assert(std::is_unsigned<T>::value, "Invalid specialization of `CarryFlag` for addition.");
   return Carry<TagT>::Flag(a, b, ab) || Carry<TagT>::Flag(ab, c, abc);
 }
 

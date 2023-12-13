@@ -69,8 +69,8 @@ int futimens(int fd, const struct timespec times[2]) {
   auto last_access = &(times[0]);
   auto last_modified = &(times[1]);
 
-  auto need_now = !times || last_access->tv_nsec == UTIME_NOW ||
-                  last_modified->tv_nsec == UTIME_NOW;
+  auto need_now =
+      !times || last_access->tv_nsec == UTIME_NOW || last_modified->tv_nsec == UTIME_NOW;
 
   struct timespec curr_last_access = {};
   struct timespec curr_last_modified = {};
@@ -134,8 +134,7 @@ int futimens(int fd, const struct timespec times[2]) {
   return futimes(fd, new_utimes);
 }
 
-int utimensat(int fd, const char *path, const struct timespec times[2],
-              int flag) {
+int utimensat(int fd, const char *path, const struct timespec times[2], int flag) {
   errno = ENOSYS;
   return -1;
 }

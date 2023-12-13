@@ -24,8 +24,7 @@ llvm::Triple AArch32ArchBase::Triple(void) const {
     case kArchAArch32LittleEndian: triple.setArch(llvm::Triple::arm); break;
     case kArchThumb2LittleEndian: triple.setArch(llvm::Triple::thumb); break;
     default:
-      LOG(FATAL) << "Cannot get triple for non-aarch32 architecture "
-                 << GetArchName(arch_name);
+      LOG(FATAL) << "Cannot get triple for non-aarch32 architecture " << GetArchName(arch_name);
   }
 
   return triple;
@@ -35,16 +34,12 @@ llvm::Triple AArch32ArchBase::Triple(void) const {
 llvm::DataLayout AArch32ArchBase::DataLayout(void) const {
   std::string dl;
   switch (os_name) {
-    case kOSInvalid:
-      LOG(FATAL) << "Cannot convert module for an unrecognized OS.";
-      break;
+    case kOSInvalid: LOG(FATAL) << "Cannot convert module for an unrecognized OS."; break;
 
     case kOSLinux:
     case kOSSolaris:
     case kOSmacOS:
-    case kOSWindows:
-      dl = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64";
-      break;
+    case kOSWindows: dl = "e-m:e-p:32:32-Fi8-i64:64-v128:64:128-a:0:32-n32-S64"; break;
   }
 
   return llvm::DataLayout(dl);
@@ -76,11 +71,10 @@ void AArch32ArchBase::PopulateRegisterTable(void) const {
 
 
 #define OFFSET_OF(type, access) \
-  (reinterpret_cast<uintptr_t>(&reinterpret_cast<const volatile char &>( \
-      static_cast<type *>(nullptr)->access)))
+  (reinterpret_cast<uintptr_t>( \
+      &reinterpret_cast<const volatile char &>(static_cast<type *>(nullptr)->access)))
 
-#define REG(name, access, type) \
-  AddRegister(#name, type, OFFSET_OF(AArch32State, access), nullptr)
+#define REG(name, access, type) AddRegister(#name, type, OFFSET_OF(AArch32State, access), nullptr)
 
 #define SUB_REG(name, access, type, parent_reg_name) \
   AddRegister(#name, type, OFFSET_OF(AArch32State, access), #parent_reg_name)
@@ -201,8 +195,8 @@ void AArch32ArchBase::PopulateRegisterTable(void) const {
 
 // Populate a just-initialized lifted function function with architecture-
 // specific variables.
-void AArch32ArchBase::FinishLiftedFunctionInitialization(
-    llvm::Module *module, llvm::Function *bb_func) const {
+void AArch32ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
+                                                         llvm::Function *bb_func) const {
   const auto &dl = module->getDataLayout();
   CHECK_EQ(sizeof(State), dl.getTypeAllocSize(StateStructType()))
       << "Mismatch between size of State type for aarch32 and what is in "
@@ -220,10 +214,8 @@ void AArch32ArchBase::FinishLiftedFunctionInitialization(
 
   const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
-  ir.CreateStore(pc_arg,
-                 ir.CreateAlloca(addr, nullptr, kNextPCVariableName.data()));
-  ir.CreateStore(
-      pc_arg, ir.CreateAlloca(addr, nullptr, kIgnoreNextPCVariableName.data()));
+  ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, kNextPCVariableName.data()));
+  ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, kIgnoreNextPCVariableName.data()));
 
   auto zero_c = ir.CreateAlloca(u8, nullptr, "ZERO_C");
   ir.CreateStore(llvm::Constant::getNullValue(u8), zero_c);

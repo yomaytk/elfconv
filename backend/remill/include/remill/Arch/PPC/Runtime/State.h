@@ -33,11 +33,9 @@ struct Reg final {
 } __attribute__((packed));
 
 static_assert(sizeof(uint64_t) == sizeof(Reg), "Invalid packing of `Reg`.");
-static_assert(0 == __builtin_offsetof(Reg, dword),
-              "Invalid packing of `Reg::dword`.");
+static_assert(0 == __builtin_offsetof(Reg, dword), "Invalid packing of `Reg::dword`.");
 
-static_assert(0 == __builtin_offsetof(Reg, qword),
-              "Invalid packing of `Reg::qword`.");
+static_assert(0 == __builtin_offsetof(Reg, qword), "Invalid packing of `Reg::qword`.");
 
 // General Purpose Registers
 struct alignas(8) GPR final {

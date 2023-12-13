@@ -15,14 +15,13 @@
  */
 #pragma once
 
+#include "remill/BC/Version.h"
+
+#include <llvm/Support/Error.h>
 #include <llvm/Support/ErrorOr.h>
 #include <llvm/Support/Format.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/Support/Error.h>
-
 #include <system_error>
-
-#include "remill/BC/Version.h"
 
 namespace remill {
 
@@ -58,8 +57,7 @@ inline static std::string GetErrorString(llvm::ErrorOr<T> &val) {
 inline static std::string GetErrorString(llvm::Error &val) {
   std::string err;
   llvm::raw_string_ostream os(err);
-  llvm::handleAllErrors(std::move(val),
-                        [&os](llvm::ErrorInfoBase &eib) { eib.log(os); });
+  llvm::handleAllErrors(std::move(val), [&os](llvm::ErrorInfoBase &eib) { eib.log(os); });
   os.flush();
   return err;
 }

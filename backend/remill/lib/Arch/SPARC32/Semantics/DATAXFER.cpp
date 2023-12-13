@@ -184,8 +184,7 @@ DEF_ISEL(MOVN_xcc) = MOVN_xcc<R32, R32W>;
     auto new_value = Read(src); \
     auto old_value = Read(dst); \
     auto branch_taken = Cond##cond##_##cc(state); \
-    auto value = \
-        Select(branch_taken, new_value, decltype(new_value)(old_value)); \
+    auto value = Select(branch_taken, new_value, decltype(new_value)(old_value)); \
     WriteZExt(dst, value); \
     return memory; \
   } \
@@ -249,8 +248,7 @@ MAKE_SEMANTICS_FCC(MOVF, O)
     auto old_value = Read(dst); \
     auto cc = Read(reg_cc); \
     auto cond_taken = CondR##cond(state, cc); \
-    auto value = \
-        Select(cond_taken, new_value, decltype(new_value)(old_value)); \
+    auto value = Select(cond_taken, new_value, decltype(new_value)(old_value)); \
     WriteZExt(dst, value); \
     return memory; \
   } \

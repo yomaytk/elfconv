@@ -14,23 +14,6 @@
  * limitations under the License.
  */
 
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/GlobalValue.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
-
-#include <algorithm>
-#include <cstdint>
-#include <fstream>
-#include <map>
-#include <memory>
-#include <sstream>
-#include <string>
-
 #include "remill/Arch/Arch.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
@@ -41,14 +24,29 @@
 #include "remill/OS/OS.h"
 #include "tests/X86/Test.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/GlobalValue.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Type.h>
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
+
 #ifdef __APPLE__
 #  define SYMBOL_PREFIX "_"
 #else
 #  define SYMBOL_PREFIX ""
 #endif
 
-DEFINE_string(bc_out, "",
-              "Name of the file in which to place the generated bitcode.");
+DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 
 DEFINE_string(os, REMILL_OS,
               "Operating system name of the code being "
@@ -64,8 +62,7 @@ class TestTraceManager : public remill::TraceManager {
  public:
   virtual ~TestTraceManager(void) = default;
 
-  void SetLiftedTraceDefinition(uint64_t addr,
-                                llvm::Function *lifted_func) override {
+  void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) override {
     traces[addr] = lifted_func;
   }
 
@@ -147,8 +144,7 @@ extern "C" int main(int argc, char *argv[]) {
   }
 
   DLOG(INFO) << "Serializing bitcode to " << FLAGS_bc_out;
-  auto host_arch =
-      remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
+  auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
   host_arch->PrepareModule(module.get());
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 

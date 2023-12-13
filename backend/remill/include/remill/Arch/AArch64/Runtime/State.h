@@ -30,11 +30,9 @@ struct Reg final {
 } __attribute__((packed));
 
 static_assert(sizeof(uint64_t) == sizeof(Reg), "Invalid packing of `Reg`.");
-static_assert(0 == __builtin_offsetof(Reg, dword),
-              "Invalid packing of `Reg::dword`.");
+static_assert(0 == __builtin_offsetof(Reg, dword), "Invalid packing of `Reg::dword`.");
 
-static_assert(0 == __builtin_offsetof(Reg, qword),
-              "Invalid packing of `Reg::qword`.");
+static_assert(0 == __builtin_offsetof(Reg, qword), "Invalid packing of `Reg::qword`.");
 
 struct alignas(8) GPR final {
 
@@ -181,20 +179,11 @@ enum FPURoundingMode : uint64_t {
   kFPURoundToZero  // RZ (round toward zero).
 };
 
-enum FPUFlushToZeroMode : uint64_t {
-  kFlushToZeroDisabled,
-  kFlushToZeroEnabled
-};
+enum FPUFlushToZeroMode : uint64_t { kFlushToZeroDisabled, kFlushToZeroEnabled };
 
-enum FPUDefaultNaNMode : uint64_t {
-  kPropagateOriginalNaN,
-  kPropagateDefaultNaN
-};
+enum FPUDefaultNaNMode : uint64_t { kPropagateOriginalNaN, kPropagateDefaultNaN };
 
-enum FPUHalfPrecisionMode : uint64_t {
-  kIEEEHalfPrecisionMode,
-  kAlternativeHalfPrecisionMode
-};
+enum FPUHalfPrecisionMode : uint64_t { kIEEEHalfPrecisionMode, kAlternativeHalfPrecisionMode };
 #endif
 
 // Floating point control register. Really, this is a 32-bit register, but
@@ -247,13 +236,13 @@ struct alignas(8) SR final {
   Reg tpidrro_el0;  // Read-only thread pointer for EL0.
 
   uint64_t _2;
-  Reg ctr_el0;    // Cache Type Register
+  Reg ctr_el0;  // Cache Type Register
 
   uint64_t _3;
   Reg dczid_el0;  // Data Cache Zero ID Register
 
   uint64_t _4;
-  Reg midr_el1;   // Main ID Register
+  Reg midr_el1;  // Main ID Register
 
   uint8_t _5;
   uint8_t n;  //  Negative condition flag.
@@ -310,8 +299,7 @@ struct alignas(8) SleighFlagState {
   uint8_t padding[6];
 } __attribute__((packed));
 
-static_assert(24 == sizeof(SleighFlagState),
-              "Invalid packing of `struct SleighFlagState`.");
+static_assert(24 == sizeof(SleighFlagState), "Invalid packing of `struct SleighFlagState`.");
 
 struct alignas(16) AArch64State : public ArchState {
   SIMD simd;  // 512 bytes.
@@ -332,13 +320,14 @@ struct alignas(16) AArch64State : public ArchState {
 
   uint64_t _3;
 
-  SleighFlagState sleigh_flags; // 24 bytes.
+  SleighFlagState sleigh_flags;  // 24 bytes.
 
   uint8_t padding[8];
 
 } __attribute__((packed));
 
-static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ + 8 /* padding */) == sizeof(AArch64State),
+static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ +
+               8 /* padding */) == sizeof(AArch64State),
               "Invalid packing of `struct State`");
 
 struct State : public AArch64State {};

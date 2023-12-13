@@ -49,21 +49,18 @@ struct OptimizationGuide {
 };
 
 template <typename T>
-inline static void
-OptimizeModule(const std::unique_ptr<const remill::Arch> &arch,
-               const std::unique_ptr<llvm::Module> &module, T &&generator,
-               OptimizationGuide guide = {}) {
+inline static void OptimizeModule(const std::unique_ptr<const remill::Arch> &arch,
+                                  const std::unique_ptr<llvm::Module> &module, T &&generator,
+                                  OptimizationGuide guide = {}) {
   return OptimizeModule(arch.get(), module.get(), generator, guide);
 }
 
 void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
-                    std::function<llvm::Function *(void)> generator,
-                    OptimizationGuide guide = {});
+                    std::function<llvm::Function *(void)> generator, OptimizationGuide guide = {});
 
-inline static void
-OptimizeModule(const remill::Arch *arch, llvm::Module *module,
-               std::initializer_list<llvm::Function *> traces,
-               OptimizationGuide guide = {}) {
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
+                                  std::initializer_list<llvm::Function *> traces,
+                                  OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
   auto trace_func_gen = [&trace_it, &traces](void) -> llvm::Function * {
     if (trace_it != traces.end()) {
@@ -78,10 +75,9 @@ OptimizeModule(const remill::Arch *arch, llvm::Module *module,
 }
 
 template <typename K>
-inline static void
-OptimizeModule(const remill::Arch *arch, llvm::Module *module,
-               const std::unordered_map<K, llvm::Function *> &traces,
-               OptimizationGuide guide = {}) {
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
+                                  const std::unordered_map<K, llvm::Function *> &traces,
+                                  OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
   auto trace_func_gen = [&trace_it, &traces](void) -> llvm::Function * {
     if (trace_it != traces.end()) {
@@ -96,8 +92,7 @@ OptimizeModule(const remill::Arch *arch, llvm::Module *module,
 }
 
 template <typename K>
-inline static void OptimizeModule(const remill::Arch *arch,
-                                  llvm::Module *module,
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
                                   const std::map<K, llvm::Function *> &traces,
                                   OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
@@ -113,8 +108,7 @@ inline static void OptimizeModule(const remill::Arch *arch,
   return OptimizeModule(arch, module, trace_func_gen, guide);
 }
 
-inline static void OptimizeModule(const remill::Arch *arch,
-                                  llvm::Module *module,
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
                                   const std::set<llvm::Function *> &traces,
                                   OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
@@ -130,10 +124,9 @@ inline static void OptimizeModule(const remill::Arch *arch,
   return OptimizeModule(arch, module, trace_func_gen, guide);
 }
 
-inline static void
-OptimizeModule(const remill::Arch *arch, llvm::Module *module,
-               const std::unordered_set<llvm::Function *> &traces,
-               OptimizationGuide guide = {}) {
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
+                                  const std::unordered_set<llvm::Function *> &traces,
+                                  OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
   auto trace_func_gen = [&trace_it, &traces](void) -> llvm::Function * {
     if (trace_it != traces.end()) {
@@ -147,8 +140,7 @@ OptimizeModule(const remill::Arch *arch, llvm::Module *module,
   return OptimizeModule(arch, module, trace_func_gen, guide);
 }
 
-inline static void OptimizeModule(const remill::Arch *arch,
-                                  llvm::Module *module,
+inline static void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
                                   const std::vector<llvm::Function *> &traces,
                                   OptimizationGuide guide = {}) {
   auto trace_it = traces.begin();
@@ -168,9 +160,8 @@ inline static void OptimizeModule(const remill::Arch *arch,
 // intrinsics functions like `__remill_jump`, etc.
 void OptimizeBareModule(llvm::Module *module, OptimizationGuide guide = {});
 
-inline static void
-OptimizeBareModule(const std::unique_ptr<llvm::Module> &module,
-                   OptimizationGuide guide = {}) {
+inline static void OptimizeBareModule(const std::unique_ptr<llvm::Module> &module,
+                                      OptimizationGuide guide = {}) {
   std::vector<llvm::Function *> funcs;
   for (auto &func : *module) {
     funcs.push_back(&func);

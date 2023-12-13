@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/SPARC64/Runtime/State.h"
+
 #include <algorithm>
 #include <bitset>
 #include <cmath>
-
-#include "remill/Arch/Runtime/Float.h"
-#include "remill/Arch/SPARC64/Runtime/State.h"

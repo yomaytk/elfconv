@@ -19,10 +19,8 @@
 namespace {
 template <typename D, typename S1>
 DEF_SEM(CMOVNLE, D dst, S1 src1) {
-  WriteZExt(
-      dst,
-      Select(__remill_compare_sgt(BAnd(BNot(FLAG_ZF), BXnor(FLAG_SF, FLAG_OF))),
-             Read(src1), TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_sgt(BAnd(BNot(FLAG_ZF), BXnor(FLAG_SF, FLAG_OF))),
+                        Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
@@ -34,8 +32,8 @@ DEF_SEM(CMOVNS, D dst, S1 src1) {
 
 template <typename D, typename S1>
 DEF_SEM(CMOVL, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_slt(BXor(FLAG_SF, FLAG_OF)),
-                        Read(src1), TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_slt(BXor(FLAG_SF, FLAG_OF)), Read(src1),
+                        TruncTo<S1>(Read(dst))));
   return memory;
 }
 
@@ -47,15 +45,13 @@ DEF_SEM(CMOVNP, D dst, S1 src1) {
 
 template <typename D, typename S1>
 DEF_SEM(CMOVNZ, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_neq(BNot(FLAG_ZF)), Read(src1),
-                        TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_neq(BNot(FLAG_ZF)), Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
 template <typename D, typename S1>
 DEF_SEM(CMOVNB, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_uge(BNot(FLAG_CF)), Read(src1),
-                        TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_uge(BNot(FLAG_CF)), Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
@@ -68,29 +64,28 @@ DEF_SEM(CMOVNO, D dst, S1 src1) {
 
 template <typename D, typename S1>
 DEF_SEM(CMOVNL, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_sge(BXnor(FLAG_SF, FLAG_OF)),
-                        Read(src1), TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_sge(BXnor(FLAG_SF, FLAG_OF)), Read(src1),
+                        TruncTo<S1>(Read(dst))));
   return memory;
 }
 
 template <typename D, typename S1>
 DEF_SEM(CMOVNBE, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_ugt(BNot(BOr(FLAG_CF, FLAG_ZF))),
-                        Read(src1), TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_ugt(BNot(BOr(FLAG_CF, FLAG_ZF))), Read(src1),
+                        TruncTo<S1>(Read(dst))));
   return memory;
 }
 
 template <typename D, typename S1>
 DEF_SEM(CMOVBE, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_ule(BOr(FLAG_CF, FLAG_ZF)), Read(src1),
-                        TruncTo<S1>(Read(dst))));
+  WriteZExt(
+      dst, Select(__remill_compare_ule(BOr(FLAG_CF, FLAG_ZF)), Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
 template <typename D, typename S1>
 DEF_SEM(CMOVZ, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_eq(FLAG_ZF), Read(src1),
-                        TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_eq(FLAG_ZF), Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
@@ -114,16 +109,14 @@ DEF_SEM(CMOVO, D dst, S1 src1) {
 
 template <typename D, typename S1>
 DEF_SEM(CMOVB, D dst, S1 src1) {
-  WriteZExt(dst, Select(__remill_compare_ult(FLAG_CF), Read(src1),
-                        TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_ult(FLAG_CF), Read(src1), TruncTo<S1>(Read(dst))));
   return memory;
 }
 
 template <typename D, typename S1>
 DEF_SEM(CMOVLE, D dst, S1 src1) {
-  WriteZExt(dst,
-            Select(__remill_compare_sle(BOr(FLAG_ZF, BXor(FLAG_SF, FLAG_OF))),
-                   Read(src1), TruncTo<S1>(Read(dst))));
+  WriteZExt(dst, Select(__remill_compare_sle(BOr(FLAG_ZF, BXor(FLAG_SF, FLAG_OF))), Read(src1),
+                        TruncTo<S1>(Read(dst))));
   return memory;
 }
 

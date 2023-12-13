@@ -19,8 +19,7 @@ DEF_SEM(JMPL, PC pc_of_jmp, PC new_pc, PC new_npc, T dst, T dst_pc, T dst_npc) {
 
 // This is a variation on JMPL that also stores the return address.
 template <typename T>
-DEF_SEM(CALL, PC pc_of_jmp, PC new_pc, PC new_npc, T dst, T dst_pc, T dst_npc,
-        T return_pc_dst) {
+DEF_SEM(CALL, PC pc_of_jmp, PC new_pc, PC new_npc, T dst, T dst_pc, T dst_npc, T return_pc_dst) {
   Write(dst, Read(pc_of_jmp));
   Write(dst_pc, Read(new_pc));
   Write(dst_npc, Read(new_npc));
@@ -36,9 +35,8 @@ DEF_SEM(CALL, PC pc_of_jmp, PC new_pc, PC new_npc, T dst, T dst_pc, T dst_npc,
 // is placed inside of a delay slot.
 #define MAKE_BRANCH(name, cond, cc) \
   namespace { \
-  DEF_SEM(name##cond##_##cc, R8W branch_taken, PC new_taken_pc, \
-          PC new_taken_npc, PC new_not_taken_pc, PC new_not_taken_npc, \
-          R32W pc_dst, R32W npc_dst) { \
+  DEF_SEM(name##cond##_##cc, R8W branch_taken, PC new_taken_pc, PC new_taken_npc, \
+          PC new_not_taken_pc, PC new_not_taken_npc, R32W pc_dst, R32W npc_dst) { \
     if (Cond##cond##_##cc(state)) { \
       Write(branch_taken, true); \
       Write(pc_dst, Read(new_taken_pc)); \
@@ -107,15 +105,13 @@ DEF_SEM(FBN, PC new_not_taken_pc, PC new_not_taken_npc, T pc_dst, T npc_dst) {
 //      5     B*A(a=1)              any cti            12,40,44,... (16 annulled)
 //      6     B*cc                  dcti               12,unpredictable
 DEF_SEM(UNSUPPORTED_DCTI) {
-  return __remill_sync_hyper_call(state, memory,
-                                  SyncHyperCall::kSPARCUnhandledDCTI);
+  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kSPARCUnhandledDCTI);
 }
 
 // TODO(pag): Double check that `new_pc` reads `rs1/rs2` from the pre-
 //            incremented register window state.
 template <typename T>
-DEF_SEM(RETT, PC new_pc, PC new_npc, T dst_pc, T dst_npc,
-        RegisterWindow *&prev_window) {
+DEF_SEM(RETT, PC new_pc, PC new_npc, T dst_pc, T dst_npc, RegisterWindow *&prev_window) {
   RESTORE_WINDOW(memory, state, prev_window);
   Write(dst_pc, Read(new_pc));
   Write(dst_npc, Read(new_npc));
@@ -197,9 +193,8 @@ MAKE_BRANCH_F(FB, O)
 
 #define MAKE_BRANCH(name, cond) \
   namespace { \
-  DEF_SEM(name##cond, R8W branch_taken, PC new_taken_pc, PC new_taken_npc, \
-          PC new_not_taken_pc, PC new_not_taken_npc, R32W pc_dst, \
-          R32W npc_dst) { \
+  DEF_SEM(name##cond, R8W branch_taken, PC new_taken_pc, PC new_taken_npc, PC new_not_taken_pc, \
+          PC new_not_taken_npc, R32W pc_dst, R32W npc_dst) { \
     if (Cond##cond##_ccc(state)) { \
       Write(branch_taken, true); \
       Write(pc_dst, Read(new_taken_pc)); \
