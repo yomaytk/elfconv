@@ -35,7 +35,7 @@
 #endif
 
 #define ARY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-#define AARCH_OP_SIZE 4
+#define AARCH64_OP_SIZE 4
 
 class DisasmFunc {
   public:
@@ -51,9 +51,7 @@ class AArch64TraceManager : public remill::TraceManager {
   public:
   
     virtual ~AArch64TraceManager(void) = default;
-    AArch64TraceManager(std::string target_elf_file_name): elf_obj(BinaryLoader::ELFObject(target_elf_file_name)), unique_i64(0) {
-      panic_plt_jmp_fun_name = "__remill_panic_plt_jmp";
-    }
+    AArch64TraceManager(std::string target_elf_file_name): elf_obj(BinaryLoader::ELFObject(target_elf_file_name)), unique_i64(0) {}
 
     void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
     llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);

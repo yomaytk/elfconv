@@ -43,7 +43,7 @@ void MainLifter::SetBlockAddressData(
   static_cast<WrapImpl*>(impl.get())->SetBlockAddressData(block_address_ptrs_array, block_address_vmas_array, block_address_sizes_array, block_address_fn_vma_array);
 }
 
-/* declare helper function used in lifted LLVM bitcode */
+/* Declare helper function used in lifted LLVM bitcode */
 void MainLifter::DeclareHelperFunction() {
   static_cast<WrapImpl*>(impl.get())->DeclareHelperFunction();
 }

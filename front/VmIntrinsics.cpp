@@ -132,13 +132,6 @@ Memory *__remill_async_hyper_call(State &, addr_t ret_addr, Memory *memory){
   return memory; 
 }
 
-/* panic function for jumping to .plt section (FIXME) */
-Memory *__remill_panic_plt_jmp(State &, addr_t, Memory *) {
-  printf("[ERROR] detect jumping to .plt section\n");
-  fflush(stdout);
-  abort();
-}
-
 Memory * __remill_error(State &, addr_t addr, Memory *){
   printf("[ERROR] Reached __remill_error.\n");
   debug_state_machine();

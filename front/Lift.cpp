@@ -168,8 +168,8 @@ void AArch64TraceManager::SetELFData() {
         memory[plt_section.vma + ins_i + 2] = plt_section.bytes[ins_i + 2];
         memory[plt_section.vma + ins_i + 3] = plt_section.bytes[ins_i + 3];
         uint8_t* bts = plt_section.bytes + ins_i;
-        ins_i += sizeof(uint32_t); /* 4bytes fixed instruction */
-        if (bts[0] == 0x20 && bts[1] == 0x02 && bts[2] == 0x1f && bts[3] == 0xd6) { /* br instruction (FIXME) */
+        ins_i += AARCH64_OP_SIZE; /* 4bytes fixed instruction */
+        if ((bts[0] & 0x1f) == 0x00 && (bts[1] & 0xfc) == 0x00 && bts[2] == 0x1f && bts[3] == 0xd6) { /* br instruction (FIXME) */
           break;
         }
       }
@@ -187,7 +187,7 @@ void AArch64TraceManager::SetELFData() {
   */
   if (disasm_funcs.count(entry_point) == 1) {
     auto _start_disasm_fn = disasm_funcs[entry_point];
-    auto __wrap_main_size = sizeof(uint32_t) * 3;
+    auto __wrap_main_size = AARCH64_OP_SIZE * 3;
     auto &text_section = elf_obj.code_sections[".text"];
     auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
     uint64_t __wrap_main_diff = UINT64_MAX;
@@ -210,7 +210,7 @@ void AArch64TraceManager::SetELFData() {
   }
 }
 
-extern "C" int main(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 

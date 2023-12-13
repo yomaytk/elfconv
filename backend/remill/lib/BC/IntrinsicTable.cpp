@@ -88,7 +88,6 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       sync_hyper_call(FindIntrinsic(module, "__remill_sync_hyper_call")),
       async_hyper_call(FindIntrinsic(module, "__remill_async_hyper_call")),
       syscall_tranpoline_call(FindIntrinsic(module, "__remill_syscall_tranpoline_call")),
-      panic_plt_jmp(FindIntrinsic(module, "__remill_panic_plt_jmp")),
 
       // Memory access.
       read_memory_8(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_8"))),

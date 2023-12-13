@@ -49,7 +49,6 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[], State *sta
     {14 /* AT_EGID */, getegid()},
     {23 /* AT_SECURE */, 0},
     {25 /* AT_RANDOM */, randomp},
-    // {15 /* AT_PLATFORM */, (_ecv_reg64_t)&__g_platform_name},
     {0 /* AT_NULL */, 0},
   };
   sp -= sizeof(_ecv_auxv64);
@@ -108,9 +107,6 @@ void MappedMemory::DebugEmulatedMemory() {
     name.c_str(), vma, len, len, (addr_t)bytes, (addr_t)upper_bytes, bytes_on_heap ? "true" : "false");
 }
 
-/*
-  RuntimeManager
-*/
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   void *pma_addr = nullptr;
   /* search in every emulated memory */
@@ -145,7 +141,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   return pma_addr;
 }
 
-/* translate vma address to the actual mapped memory address */
+/* Wrapper of RuntimeManager::TranslateVMA */
 void *_ecv_translate_ptr(addr_t vma_addr) {
   return g_run_mgr->TranslateVMA(vma_addr);
 }

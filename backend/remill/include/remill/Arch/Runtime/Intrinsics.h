@@ -139,8 +139,6 @@ __remill_flag_computation_carry(bool result, ...);
 
 [[gnu::used]] extern Memory *__remill_syscall_tranpoline_call(State &state, Memory *);
 
-[[gnu::used]] extern Memory *__remill_panic_plt_jmp(State &, addr_t, Memory *);
-
 // This intrinsic must be tagged with the `always_inline` function attribute
 // since it has an implementation we want to use in Anvill's lifted IR.
 //
