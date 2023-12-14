@@ -244,6 +244,7 @@ function Configure
         -DCMAKE_CXX_COMPILER=clang++ \
         ${BUILD_FLAGS} \
         ${LIFT_DEBUG_MACROS} \
+        -GNinja \
         "${ROOT_DIR}"
   ) || exit $?
 
@@ -261,7 +262,7 @@ function Build
 
   (
     set -x
-    cmake --build . -- -j"${NPROC}" --silent
+    cmake --build . -- -j"${NPROC}"
   ) || return $?
 
   return $?
