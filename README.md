@@ -1,6 +1,6 @@
 # elfconv
 elfconv is an experimental AOT compiler that translates a Linux/aarch64 ELF binary to executable WebAssembly.
-elfconv converts a original ELF binary to the LLVM bitcode using the library for lifting machine code to LLVM bitcode, [remill](https://github.com/lifting-bits/remill),
+elfconv converts a original ELF binary to the LLVM bitcode using [remill](https://github.com/lifting-bits/remill) (library for lifting machine code to LLVM bitcode)
 and it uses [emscripten](https://github.com/emscripten-core/emscripten) in order to generate the WASM binary from the LLVM bitcode file.
 
 "**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Particularly, There are many aarch64 instructions and Linux syscalls elfconv doesn't support now. 
