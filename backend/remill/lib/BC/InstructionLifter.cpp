@@ -62,19 +62,21 @@ InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsic
 InstructionLifter::~InstructionLifter(void) {}
 
 InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *intrinsics_)
-    : impl(new Impl(arch_, intrinsics_)) {}
+    : impl(new Impl(arch_, intrinsics_)),
+      debug_pc_name("debug_pc") {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                                bool is_delayed) {
+                                                uint64_t debug_insn_addr, bool is_delayed) {
   return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
-                       is_delayed);
+                       debug_insn_addr, is_delayed);
 }
 
 // Lift a single instruction into a basic block.
 LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
-                                            llvm::Value *state_ptr, bool is_delayed) {
+                                            llvm::Value *state_ptr, uint64_t debug_insn_addr,
+                                            bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
   llvm::Function *isel_func = nullptr;
@@ -132,6 +134,17 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     ir.CreateStore(
         ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type, arch_inst.bytes.size())),
         next_pc_ref);
+  }
+
+  /* append debug_pc function call */
+  if (UINT64_MAX != debug_insn_addr) {
+    llvm::IRBuilder<> __debug_ir(block);
+    auto _debug_pc_fn = module->getFunction(debug_pc_name);
+    if (!_debug_pc_fn) {
+      printf("[ERROR] debug_pc is undeclared.\n");
+      abort();
+    }
+    __debug_ir.CreateCall(_debug_pc_fn);
   }
 
 #if defined(LIFT_INSN_DEBUG)

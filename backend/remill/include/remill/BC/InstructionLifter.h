@@ -77,11 +77,13 @@ class InstructionLifterIntf : public OperandLifter {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, bool is_delayed = false) = 0;
+                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   bool is_delayed = false) = 0;
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
-  LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block, bool is_delayed = false);
+  LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
+                           uint64_t debug_insn_addr = UINT64_MAX, bool is_delayed = false);
 };
 
 // Wraps the process of lifting an instruction into a block. This resolves
@@ -103,7 +105,8 @@ class InstructionLifter : public InstructionLifterIntf {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, bool is_delayed = false) override;
+                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   bool is_delayed = false) override;
 
 
   // Load the address of a register.
@@ -177,6 +180,7 @@ class InstructionLifter : public InstructionLifterIntf {
   class Impl;
 
   const std::unique_ptr<Impl> impl;
+  const std::string debug_pc_name;
 };
 
 }  // namespace remill

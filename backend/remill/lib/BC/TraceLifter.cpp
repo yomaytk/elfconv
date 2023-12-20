@@ -183,7 +183,7 @@ bool TraceLifter::Impl::ReadInstructionBytes(uint64_t addr) {
     }
     uint8_t byte = 0;
     if (!manager.TryReadExecutableByte(byte_addr, &byte)) {
-      printf("[WARNING] Couldn't read executable byte at 0x%llx\n", byte_addr);
+      printf("[WARNING] Couldn't read executable byte at 0x%lx\n", byte_addr);
       DLOG(WARNING) << "Couldn't read executable byte at " << std::hex << byte_addr << std::dec;
       break;
     }
@@ -338,23 +338,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
 
-      auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr);
+      // Lift instruction
+      auto lift_status =
+          control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]
+              ? inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, inst_addr)
+              : inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, UINT64_MAX);
+
       if (kLiftedInstruction != lift_status) {
         AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
         continue;
       }
-      /* append debug pc function */
-      do {
-        if (control_flow_debug_list.contains(trace_addr) && control_flow_debug_list[trace_addr]) {
-          llvm::IRBuilder<> __debug_ir(block);
-          auto _debug_pc_fn = module->getFunction(debug_pc_name);
-          if (!_debug_pc_fn) {
-            printf("[ERROR] debug_pc is undeclared.\n");
-            abort();
-          }
-          __debug_ir.CreateCall(_debug_pc_fn);
-        }
-      } while (false);
+
       // Handle lifting a delayed instruction.
       auto try_delay = arch->MayHaveDelaySlot(inst);
       if (try_delay) {
@@ -653,7 +647,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
        * func. */
     if (!lift_all_insn && indirectbr_block && inst_work_list.empty()) {
       CHECK(inst_work_list.empty());
-      for (int insn_vma = trace_addr; insn_vma < vma_e; insn_vma += 4)
+      for (uint64_t insn_vma = trace_addr; insn_vma < vma_e; insn_vma += 4)
         if (lifted_block_map.count(insn_vma) == 0)
           inst_work_list.insert(insn_vma);
       lift_all_insn = true;

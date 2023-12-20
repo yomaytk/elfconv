@@ -151,7 +151,6 @@ class TraceLifter::Impl {
         indirectbr_block_name("L_indirectbr"),
         g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
         debug_insn_name("debug_insn"),
-        debug_pc_name("debug_pc"),
         debug_call_stack_name("debug_call_stack") {
     inst_bytes.reserve(max_inst_bytes);
   }
@@ -206,13 +205,10 @@ class TraceLifter::Impl {
   const uint64_t addr_mask;
   TraceManager &manager;
 
-  std::string g_get_jmp_block_address_func_name;
-
   llvm::Function *func;
   llvm::BasicBlock *block;
   llvm::BasicBlock *indirectbr_block;
   llvm::SwitchInst *switch_inst;
-  std::string indirectbr_block_name;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
   bool lift_all_insn;
   const size_t max_inst_bytes;
@@ -225,7 +221,9 @@ class TraceLifter::Impl {
   DecoderWorkList dead_inst_work_list;
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
-  std::string debug_pc_name;
+
+  std::string indirectbr_block_name;
+  std::string g_get_jmp_block_address_func_name;
   std::string debug_insn_name;
   std::string debug_call_stack_name;
 };
