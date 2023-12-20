@@ -151,6 +151,7 @@ class TraceLifter::Impl {
         indirectbr_block_name("L_indirectbr"),
         g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
         debug_insn_name("debug_insn"),
+        debug_pc_name("debug_pc"),
         debug_call_stack_name("debug_call_stack") {
     inst_bytes.reserve(max_inst_bytes);
   }
@@ -225,6 +226,7 @@ class TraceLifter::Impl {
   std::string indirectbr_block_name;
   std::string g_get_jmp_block_address_func_name;
   std::string debug_insn_name;
+  std::string debug_pc_name;
   std::string debug_call_stack_name;
 };
 
