@@ -21,7 +21,7 @@
 #include <llvm/IR/Type.h>
 #include <map>
 #include <remill/Arch/Instruction.h>
-#include <remill/BC/Debug.h>
+#include <remill/BC/HelperMacro.h>
 #include <remill/BC/IntrinsicTable.h>
 #include <remill/BC/TraceLifter.h>
 #include <remill/BC/Util.h>
@@ -105,9 +105,8 @@ llvm::Function *TraceLifter::Impl::GetLiftedTraceDefinition(uint64_t addr) {
 
 llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   auto &block = blocks[block_pc];
-  if (!block) {
+  if (!block)
     block = llvm::BasicBlock::Create(context, "", func);
-  }
   if (lifted_block_map.count(block_pc) == 0)
     lifted_block_map[block_pc] = block;
   return block;
@@ -155,10 +154,30 @@ uint64_t TraceLifter::Impl::PopInstructionAddress(void) {
   return inst_addr;
 }
 
-/* Global variable array definition helper */
-llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(
-    llvm::Type *elem_type, std::vector<llvm::Constant *> &constant_array, const llvm::Twine &Name,
-    bool isConstant, llvm::GlobalValue::LinkageTypes linkage) {
+/* Global variable array definition helper (need override) */
+llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(llvm::Type *,
+                                                              std::vector<llvm::Constant *> &,
+                                                              const llvm::Twine &, bool,
+                                                              llvm::GlobalValue::LinkageTypes) {
+  printf("[ERROR] %s must be called by derived class instance.\n", __func__);
+  abort();
+}
+
+/* prepare the virtual machine for instruction test (need override) */
+llvm::BasicBlock *TraceLifter::Impl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &) {
+  printf("[ERROR] %s must be called by derived class instance.\n", __func__);
+  abort();
+}
+
+/* check the virtual machine for instruction test (need override) */
+llvm::BasicBlock *TraceLifter::Impl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
+                                                                    llvm::BasicBlock *) {
+  printf("[ERROR] %s must be called by derived class instance.\n", __func__);
+  abort();
+}
+
+/* add L_test_failed (need override) */
+void AddTestFailedBlock() {
   printf("[ERROR] %s must be called by derived class instance.\n", __func__);
   abort();
 }
@@ -241,6 +260,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       continue;
     }
 
+#if defined(TEST_MODE)
+    AddTestFailedBlock();
+#endif
+
     DLOG(INFO) << "Lifting trace at address " << std::hex << trace_addr << std::dec;
 
     func = get_trace_decl(trace_addr);
@@ -308,9 +331,19 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       switch_inst = nullptr;
       if (lifted_block_map.count(inst_addr) == 0)
         lifted_block_map[inst_addr] = block;
+
+#if defined(TEST_MODE)
+      /* 
+        L_vma_init --> L_pre_vm --> inst block
+      */
+      auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager);
+      if (!vma_bb->getTerminator())
+        vma_ir.CreateBr(pre_test_vm_bb);
+      llvm::BranchInst::Create(pre_test_vm_bb, block);
+#elif
       if (!vma_bb->getTerminator())
         vma_ir.CreateBr(block);
-
+#endif
       // We have already lifted this instruction block.
       if (!block->empty()) {
         continue;
@@ -641,11 +674,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           continue;
         }
       }
+
+#if defined(TEST_MODE)
+      auto next_inst_block = block;
+      CheckVirtualMahcineForInsnTest(inst_addr, manager, next_inst_block);
+#endif
     }
 
     /* if func includes BR instruction, it is necessary to lift all instructions of the
        * func. */
-    if (!lift_all_insn && indirectbr_block && inst_work_list.empty()) {
+    if (!lift_all_insn && indirectbr_block) {
       CHECK(inst_work_list.empty());
       for (uint64_t insn_vma = trace_addr; insn_vma < vma_e; insn_vma += 4)
         if (lifted_block_map.count(insn_vma) == 0)

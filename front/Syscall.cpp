@@ -1,5 +1,6 @@
 #include "Memory.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/BC/HelperMacro.h"
 
 #include <algorithm>
 #include <cstring>
@@ -15,7 +16,7 @@
 #include <unistd.h>
 
 #if defined(ELFCONV_SYSCALL_DEBUG)
-#  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #  sysnum "\" is empty now.\n");
+#  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
 #  define NOP_SYSCALL(sysnum) \
     printf("[INFO] syscall \"" #sysnum "\" is nop (but maybe allowd) now.\n");
 #else
@@ -126,7 +127,7 @@ void __svc_call(void) {
   auto &state_gpr = g_state.gpr;
   errno = 0;
 #if defined(ELFCONV_SYSCALL_DEBUG)
-  printf("__svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword,
+  printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword,
          g_state.gpr.pc.qword);
 #endif
   switch (state_gpr.x8.qword) {
@@ -187,8 +188,9 @@ void __svc_call(void) {
     } break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
 #if defined(ELFCONV_SERVER_ENV)
-      /* TODO */
-      state_gpr.x0.qword = state_gpr.x3.dword;
+      /* FIXME! */
+      readlink((const char *) _ecv_translate_ptr(state_gpr.x1.qword),
+               (char *) _ecv_translate_ptr(state_gpr.x2.qword), state_gpr.x3.dword);
 #else
       state_gpr.x0.qword =
           readlinkat(state_gpr.x0.dword, (const char *) _ecv_translate_ptr(state_gpr.x1.qword),
@@ -349,15 +351,12 @@ void __svc_call(void) {
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
 #if defined(ELFCONV_SERVER_ENV)
-      auto res = 0;
+      memset(_ecv_translate_ptr(state_gpr.x0.qword), 1, static_cast<size_t>(state_gpr.x1.qword));
+      state_gpr.x0.qword = state_gpr.x1.qword;
 #else
       auto res = getentropy(_ecv_translate_ptr(state_gpr.x0.qword),
                             static_cast<size_t>(state_gpr.x1.qword));
-      if (res == 0) {
-        state_gpr.x0.qword = state_gpr.x1.qword;
-      } else {
-        state_gpr.x0.qword = -1;
-      }
+      state_gpr.x0.qword = 0 == res ? state_gpr.x1.qword : -1;
 #endif
     } break;
     case AARCH64_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
@@ -372,6 +371,7 @@ void __svc_call(void) {
       // execute fstat
 #if defined(ELFCONV_SERVER_ENV)
       errno = _ECV_EACCESS;
+      EMPTY_SYSCALL(AARCH64_SYS_STATX);
 #else
       errno = fstat(dfd, &_stat);
 #endif
@@ -397,7 +397,7 @@ void __svc_call(void) {
     case AARCH64_SYS_RSEQ:
       /* TODO */
       state_gpr.x0.qword = 0;
-      EMPTY_SYSCALL(AARCH64_SYS_RSEQ);
+      NOP_SYSCALL(AARCH64_SYS_RSEQ);
       break;
     default:
       printf("Unknown syscall number: %llu, PC: 0x%llx\n", state_gpr.x8.qword, state_gpr.pc.qword);

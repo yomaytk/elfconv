@@ -126,6 +126,11 @@ DEF_SEM(StoreToOffset, S src, D base, ADDR offset) {
   return memory;
 }
 
+DEF_SEM(StoreDoubleToOffset, V64 src, MV64W base, ADDR offset) {
+  FWriteV64(DisplaceAddress(base, Read(offset)), FReadV64(src));
+  return memory;
+}
+
 template <typename S, typename D>
 DEF_SEM(StoreRelease, S src, D dst) {
   WriteTrunc(dst, Read(src));
@@ -191,6 +196,7 @@ DEF_ISEL(STRH_32_LDST_POS) = Store<R32, M16W>;
 
 DEF_ISEL(STR_32_LDST_REGOFF) = StoreToOffset<R32, M32W>;
 DEF_ISEL(STR_64_LDST_REGOFF) = StoreToOffset<R64, M64W>;
+DEF_ISEL(STR_D_LDST_REGOFF) = StoreDoubleToOffset;
 
 DEF_ISEL(SWP_32_MEMOP) = SWP_MEMOP<R32, R32W, M32, M32W>;
 DEF_ISEL(SWP_64_MEMOP) = SWP_MEMOP<R64, R64W, M64, M64W>;

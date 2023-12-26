@@ -29,11 +29,6 @@ using DecoderWorkList = std::set<uint64_t>;  // For ordering.
 
 enum class DevirtualizedTargetKind { kTraceLocal, kTraceHead };
 
-enum class LLVMFunTypeIdent : uint64_t {
-  VOID_VOID,
-  NULL_FUN_TY,
-};
-
 // Manages information about traces. Permits a user of the trace lifter to
 // provide more global information to the decoder as it goes, e.g. by pre-
 // declaring the existence of many traces, and by supporting devirtualization.
@@ -192,11 +187,19 @@ class TraceLifter::Impl {
 
   uint64_t PopInstructionAddress(void);
 
-  /* Global variable array definition helper */
+  /* Global variable array definition helper (need override) */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(
-      llvm::Type *elem_type, std::vector<llvm::Constant *> &constant_array,
-      const llvm::Twine &Name = "", bool isConstant = true,
+      llvm::Type *, std::vector<llvm::Constant *> &, const llvm::Twine &Name = "",
+      bool isConstant = true,
       llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage);
+
+  /* prepare the virtual machine for instruction test (need override) */
+  virtual llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &);
+  /* check the virtual machine for instruction test (need override) */
+  virtual llvm::BasicBlock *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
+                                                           llvm::BasicBlock *);
+  /* add L_test_failed (need override) */
+  virtual void AddTestFailedBlock();
 
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;

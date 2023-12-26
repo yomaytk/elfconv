@@ -72,7 +72,7 @@ typedef int int128_t __attribute__((mode(TI)));
 #  elif defined(__aarch64__)
 typedef __uint128_t uint128_t;
 typedef __int128_t int128_t;
-#  elif defined(__EMSCRIPTEN__)
+#  elif defined(__wasm__)
 typedef __uint128_t uint128_t;
 typedef __int128_t int128_t;
 #  elif defined(__sparc__)

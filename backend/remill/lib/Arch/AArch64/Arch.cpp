@@ -821,6 +821,8 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
   /* set operands of insn */
   if (!aarch64::TryDecode(dinst, inst)) {
     inst.category = Instruction::kCategoryInvalid;
+    printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryDecode), instFrom: %s\n",
+           address, inst.function.c_str());
     return false;
   }
 
@@ -1322,6 +1324,11 @@ bool TryDecodeSTR_32_LDST_REGOFF(const InstData &data, Instruction &inst) {
 // STR  <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 bool TryDecodeSTR_64_LDST_REGOFF(const InstData &data, Instruction &inst) {
   return TryDecodeSTR_n_LDST_REGOFF(data, inst, kRegX);
+}
+
+// STR  <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+bool TryDecodeSTR_D_LDST_REGOFF(const InstData &data, Instruction &inst) {
+  return TryDecodeSTR_n_LDST_REGOFF(data, inst, kRegD);
 }
 
 // SWP  <Ws>, <Wt>, [<Xn|SP>]
@@ -4385,6 +4392,17 @@ bool TryDecodeSCVTF_S64_FLOAT2INT(const InstData &data, Instruction &inst) {
 // SCVTF  <Dd>, <Xn>
 bool TryDecodeSCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegD, kRegX);
+}
+
+// SCVTF  <V><d>, <V><n>
+bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
+  if (1 == data.sz) {
+    inst.function += "_64";
+    return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegD, kRegD);
+  } else {
+    inst.function += "_32";
+    return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegS, kRegS);
+  }
 }
 
 // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>

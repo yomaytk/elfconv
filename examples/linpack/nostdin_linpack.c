@@ -98,10 +98,10 @@ void main(void)
     printf("    Reps Time(s) DGEFA   DGESL  OVERHEAD    KFLOPS\n");
     printf("----------------------------------------------------\n");
     nreps = 1;
-    // while (linpack(nreps, arsize) < 10.)
-    //   nreps *= 2;
-    // free(mempool);
-    // printf("\n");
+    while (linpack(nreps, arsize) < 10.)
+      nreps *= 2;
+    free(mempool);
+    printf("\n");
   } while (0);
 }
 

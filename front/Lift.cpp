@@ -17,7 +17,7 @@
 #include "Lift.h"
 
 #include "MainLifter.h"
-#include "remill/BC/Debug.h"
+#include "remill/BC/HelperMacro.h"
 #include "remill/BC/Lifter.h"
 
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
@@ -88,7 +88,8 @@ bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_
       return false;
     }
   } else {
-    printf("[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", __func__);
+    printf("[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", trace_addr,
+           __func__);
     abort();
   }
 }
@@ -113,7 +114,6 @@ void AArch64TraceManager::SetELFData() {
   std::sort(func_entrys.rbegin(), func_entrys.rend());
   /* set instructions of every symbol in the table */
   for (size_t i = 0; i < func_entrys.size();) {
-    uint64_t fun_bytes_size;
     uintptr_t fun_end_addr;
     uintptr_t sec_addr;
     uint8_t *bytes;
@@ -129,7 +129,7 @@ void AArch64TraceManager::SetELFData() {
       }
     }
     if (sec_included_cnt != 1) {
-      printf("[ERROR] \"%s\" is not included in one code section.\n",
+      printf("[ERROR] \"%s\" is included in multiple sections.\n",
              func_entrys[i].func_name.c_str());
       exit(EXIT_FAILURE);
     }
@@ -160,7 +160,7 @@ void AArch64TraceManager::SetELFData() {
   if (plt_section.sec_name.empty()) {
     printf("[WARNING] .plt section is not found.\n");
   } else {
-    int ins_i = 0;
+    uint64_t ins_i = 0;
     while (ins_i < plt_section.size) {
       auto b_entry = plt_section.vma + ins_i;
       for (; ins_i < plt_section.size;) {
@@ -169,7 +169,7 @@ void AArch64TraceManager::SetELFData() {
         memory[plt_section.vma + ins_i + 2] = plt_section.bytes[ins_i + 2];
         memory[plt_section.vma + ins_i + 3] = plt_section.bytes[ins_i + 3];
         uint8_t *bts = plt_section.bytes + ins_i;
-        ins_i += AARCH64_OP_SIZE; /* 4bytes fixed instruction */
+        ins_i += AARCH64_OP_SIZE;
         if ((bts[0] & 0x1f) == 0x00 && (bts[1] & 0xfc) == 0x00 && bts[2] == 0x1f &&
             bts[3] == 0xd6) { /* br instruction (FIXME) */
           break;
@@ -194,7 +194,7 @@ void AArch64TraceManager::SetELFData() {
     auto &text_section = elf_obj.code_sections[".text"];
     auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
     uint64_t __wrap_main_diff = UINT64_MAX;
-    for (int i = 0; i + __wrap_main_size <= _start_disasm_fn.func_size; i += 4) {
+    for (uint64_t i = 0; i + __wrap_main_size <= _start_disasm_fn.func_size; i += 4) {
       if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
           _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
           /* b main */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&

@@ -2,8 +2,11 @@
 
 // #define MULSECTIONS_WARNING_MSG 1
 
-#define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
-
+#if defined(__clang__)
+#  define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%lx\n", g_state.gpr.x##index.qword)
+#elif defined(__EMSCRIPTEN__)
+#  define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
+#endif
 /*
   MappedMemory
 */

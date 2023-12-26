@@ -5,7 +5,8 @@
 
 using namespace remill;
 
-class MainLifter final : public TraceLifter {
+class MainLifter : public TraceLifter {
+ protected:
   class WrapImpl : public TraceLifter::Impl {
    public:
     WrapImpl(const Arch *__arch, TraceManager *__manager)
@@ -89,12 +90,20 @@ class MainLifter final : public TraceLifter {
 
     llvm::Function *DeclareHelperFunction();
 
+    /* instruction test helper */
+    /* Prepare the virtual machine for instruction test (need override) */
+    llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &) override;
+    /* Check the virtual machine for instruction test (need override) */
+    llvm::BasicBlock *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
+                                                     llvm::BasicBlock *) override;
+    /* add L_test_failed (need override) */
+    void AddTestFailedBlock() override;
+
+    /* debug helper */
     /* Set control flow debug list */
     void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list);
-
     /* Declare debug function */
     llvm::Function *DeclareDebugFunction();
-
     /* Set lifted function symbol name table */
     llvm::GlobalVariable *
     SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
@@ -103,6 +112,9 @@ class MainLifter final : public TraceLifter {
  public:
   inline MainLifter(const Arch *arch_, TraceManager *manager_)
       : TraceLifter(static_cast<TraceLifter::Impl *>(new WrapImpl(arch_, manager_))) {}
+
+  /* called derived class */
+  MainLifter(WrapImpl *__wrap_impl) : TraceLifter(static_cast<TraceLifter::Impl *>(__wrap_impl)) {}
 
   void SetEntryPoint(std::string &entry_func_name);
   void SetEntryPC(uint64_t pc);

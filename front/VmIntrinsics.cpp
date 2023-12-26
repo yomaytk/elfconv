@@ -1,7 +1,7 @@
 #include "Memory.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/BC/Debug.h"
+#include "remill/BC/HelperMacro.h"
 
 #include <cstdarg>
 #include <iostream>
@@ -245,6 +245,10 @@ Memory *__remill_aarch64_emulate_instruction(Memory *memory) {
   return memory;
 }
 
+int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
+  return clear_mask;
+}
+
 Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &) {
   UNDEFINED_INTRINSICS("__remill_read_memory_f80");
   return nullptr;
@@ -417,10 +421,7 @@ Memory *__remill_fetch_and_nand_64(Memory *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_nand_64");
   return 0;
 }
-int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
-  UNDEFINED_INTRINSICS("__remill_fpu_exception_test_and_clear");
-  return 0;
-}
+
 uint8_t __remill_read_io_port_8(Memory *, addr_t) {
   UNDEFINED_INTRINSICS("__remill_read_io_port_8");
   return 0;

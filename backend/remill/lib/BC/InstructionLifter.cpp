@@ -16,7 +16,7 @@
 
 #include "InstructionLifter.h"
 
-#include "remill/BC/Debug.h"
+#include "remill/BC/HelperMacro.h"
 
 namespace remill {
 namespace {
@@ -102,6 +102,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->unsupported_instruction;
     arch_inst.operands.clear();
     status = kLiftedUnsupportedInstruction;
+    printf("[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction)\n",
+           arch_inst.pc);
   }
 
   llvm::IRBuilder<> ir(block);

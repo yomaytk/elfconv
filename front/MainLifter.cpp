@@ -241,6 +241,24 @@ llvm::Function *MainLifter::WrapImpl::DeclareHelperFunction() {
       llvm::Function::ExternalLinkage, g_get_jmp_block_address_func_name, *module);
 }
 
+/* Prepare the virtual machine for instruction test */
+llvm::BasicBlock *MainLifter::WrapImpl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &) {
+  printf("%s must be called by derived class.\n", __func__);
+  abort();
+}
+
+/* Check the virtual machine for instruction test */
+llvm::BasicBlock *MainLifter::WrapImpl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
+                                                                       llvm::BasicBlock *) {
+  printf("%s must be called by derived class.\n", __func__);
+  abort();
+}
+
+void MainLifter::WrapImpl::AddTestFailedBlock() {
+  printf("%s must be called by derived class.\n", __func__);
+  abort();
+}
+
 /* Set control flow debug list */
 void MainLifter::WrapImpl::SetControlFlowDebugList(
     std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {
