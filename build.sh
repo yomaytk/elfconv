@@ -236,7 +236,7 @@ function Configure
     set -x
     cmake \
         -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" \
-        -DCMAKE_VERBOSE_MAKEFILE=True \
+        -DCMAKE_VERBOSE_MAKEFILE=False \
         -DCMAKE_TOOLCHAIN_FILE="${DOWNLOAD_DIR}/${LIBRARY_VERSION}/scripts/buildsystems/vcpkg.cmake" \
         -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
         -DREMILL_BUILD_SPARC32_RUNTIME=OFF \
@@ -357,7 +357,6 @@ function main
         echo "[+] Disabled building packages"
         shift # past argument
       ;;
-
 
       # Make the build type to be a debug build.
       --debug)

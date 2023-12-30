@@ -19,6 +19,7 @@ include_directories("/usr/lib/llvm-16/include")
 add_executable(elflift
   Binary/Loader.cpp
   MainLifter.cpp
+  TraceManager.cpp
   Lift.cpp
 )
 

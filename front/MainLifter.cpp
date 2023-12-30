@@ -207,6 +207,8 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
     std::vector<llvm::Constant *> &block_address_vmas_array,
     std::vector<llvm::Constant *> &block_address_sizes_array,
     std::vector<llvm::Constant *> &block_address_fn_vma_array) {
+  if (block_address_ptrs_array.empty())
+    return nullptr;
   (void) new llvm::GlobalVariable(
       *module, llvm::Type::getInt64Ty(context), true, llvm::GlobalValue::ExternalLinkage,
       llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), block_address_ptrs_array.size()),

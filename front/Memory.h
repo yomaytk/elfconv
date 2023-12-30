@@ -90,8 +90,8 @@ class MappedMemory {
         vma(__vma),
         len(__len),
         bytes(__bytes),
-        bytes_on_heap(__bytes_on_heap),
-        upper_bytes(__upper_bytes) {}
+        upper_bytes(__upper_bytes),
+        bytes_on_heap(__bytes_on_heap) {}
   ~MappedMemory() {
     if (bytes_on_heap)
       free(bytes);

@@ -177,7 +177,7 @@ llvm::BasicBlock *TraceLifter::Impl::CheckVirtualMahcineForInsnTest(uint64_t, Tr
 }
 
 /* add L_test_failed (need override) */
-void AddTestFailedBlock() {
+void TraceLifter::Impl::AddTestFailedBlock() {
   printf("[ERROR] %s must be called by derived class instance.\n", __func__);
   abort();
 }
@@ -260,10 +260,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       continue;
     }
 
-#if defined(TEST_MODE)
-    AddTestFailedBlock();
-#endif
-
     DLOG(INFO) << "Lifting trace at address " << std::hex << trace_addr << std::dec;
 
     func = get_trace_decl(trace_addr);
@@ -315,7 +311,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // Initialize `NEXT_PC`.
       (void) new llvm::StoreInst(pc, next_pc_ref, entry_block);
 
-      // Branch to the VMA_INIT basic block.
+      // Branch to the `L_vma_init`.
       llvm::BranchInst::Create(vma_bb, entry_block);
     }
 
@@ -332,6 +328,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (lifted_block_map.count(inst_addr) == 0)
         lifted_block_map[inst_addr] = block;
 
+/* in the test mode, generates the basic block for initializing state and memory */
 #if defined(TEST_MODE)
       /* 
         L_vma_init --> L_pre_vm --> inst block
@@ -339,8 +336,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager);
       if (!vma_bb->getTerminator())
         vma_ir.CreateBr(pre_test_vm_bb);
-      llvm::BranchInst::Create(pre_test_vm_bb, block);
-#elif
+      llvm::BranchInst::Create(block, pre_test_vm_bb);
+#else
       if (!vma_bb->getTerminator())
         vma_ir.CreateBr(block);
 #endif
@@ -674,8 +671,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           continue;
         }
       }
-
+/* check the state of virtual machine */
 #if defined(TEST_MODE)
+      AddTestFailedBlock();
       auto next_inst_block = block;
       CheckVirtualMahcineForInsnTest(inst_addr, manager, next_inst_block);
 #endif
