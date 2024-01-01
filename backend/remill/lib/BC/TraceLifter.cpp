@@ -164,14 +164,14 @@ llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(llvm::Type *,
 }
 
 /* prepare the virtual machine for instruction test (need override) */
-llvm::BasicBlock *TraceLifter::Impl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &) {
+llvm::BasicBlock *TraceLifter::Impl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
+                                                                  llvm::BranchInst *) {
   printf("[ERROR] %s must be called by derived class instance.\n", __func__);
   abort();
 }
 
 /* check the virtual machine for instruction test (need override) */
-llvm::BasicBlock *TraceLifter::Impl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
-                                                                    llvm::BasicBlock *) {
+llvm::BranchInst *TraceLifter::Impl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &) {
   printf("[ERROR] %s must be called by derived class instance.\n", __func__);
   abort();
 }
@@ -268,6 +268,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
+    llvm::BranchInst *pre_check_inst_branch = nullptr; /* for lifting test */
+
     CHECK(func->isDeclaration());
 
     // Fill in the function, and make sure the block with all register
@@ -333,7 +335,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       /* 
         L_vma_init --> L_pre_vm --> inst block
       */
-      auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager);
+      auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager, pre_check_inst_branch);
       if (!vma_bb->getTerminator())
         vma_ir.CreateBr(pre_test_vm_bb);
       llvm::BranchInst::Create(block, pre_test_vm_bb);
@@ -674,8 +676,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 /* check the state of virtual machine */
 #if defined(TEST_MODE)
       AddTestFailedBlock();
-      auto next_inst_block = block;
-      CheckVirtualMahcineForInsnTest(inst_addr, manager, next_inst_block);
+      if (Instruction::kCategoryFunctionReturn != inst.category)
+        pre_check_inst_branch = CheckVirtualMahcineForInsnTest(inst_addr, manager);
 #endif
     }
 

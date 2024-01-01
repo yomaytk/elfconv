@@ -1,7 +1,6 @@
 #include "TestLift.h"
 
-#include "front/MainLifter.h"
-#include "remill/include/remill/BC/Util.h"
+#include "remill/BC/Util.h"
 
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 
@@ -12,36 +11,53 @@ DEFINE_string(arch, REMILL_ARCH,
               "Architecture of the code being translated. "
               "Valid architectures: aarch64");
 
-#include "Instructions.cpp"
+#include "TestInstructions.cpp"
 
 /* DisassembleCmd class */
-uint8_t *DisassembleCmd::ExecRasm2(const std::string &mnemonic) {
-  static uint8_t rasm2_dis_buf[128];
-  memset(rasm2_dis_buf, 0, sizeof(rasm2_dis_buf));
+/*
+  e.g.
+  'mov x0, #42' -> 0x400580d2
+  rasm2_exe_buf[0] = '4', [1] = '0', ... [8] = '2'
+  --> insn_bytes[0] = d2, [1] = 80, [2] = 05, [3] = 40
+*/
+void DisassembleCmd::ExecRasm2(const std::string &mnemonic, uint8_t insn_bytes[4]) {
+  uint8_t rasm2_exe_buf[128];
+  memset(rasm2_exe_buf, 0, sizeof(rasm2_exe_buf));
   std::string cmd = "rasm2 -a arm -b 64 '" + mnemonic + "'";
   FILE *pipe = popen(cmd.c_str(), "r");
   if (!pipe) {
     printf("[TEST_ERROR] rasm2 disassemble pipe is invalid. mnemonic: %s\n", mnemonic.c_str());
     abort();
   }
-  fgets(reinterpret_cast<char *>(rasm2_dis_buf), sizeof(rasm2_dis_buf), pipe);
+  fgets(reinterpret_cast<char *>(rasm2_exe_buf), sizeof(rasm2_exe_buf), pipe);
   char dum_buf[128];
   CHECK(NULL == fgets(dum_buf, sizeof(dum_buf), pipe));
-  return rasm2_dis_buf;
+  /* decode rasm2_exe_buf */
+  auto char2hex = [&rasm2_exe_buf](int id) -> int {
+    if ('0' <= rasm2_exe_buf[id] && rasm2_exe_buf[id] <= '9')
+      return rasm2_exe_buf[id] - '0';
+    else if ('a' <= rasm2_exe_buf[id] && rasm2_exe_buf[id] <= 'f')
+      return rasm2_exe_buf[id] - 'a' + 10;
+    else
+      std::__throw_runtime_error("ExecRasm2 Error: rasm2_exe_buf has invalid num.\n");
+    return 0;
+  };
+  insn_bytes[0] = char2hex(0) * 16 + char2hex(1);
+  insn_bytes[1] = char2hex(2) * 16 + char2hex(3);
+  insn_bytes[2] = char2hex(4) * 16 + char2hex(5);
+  insn_bytes[3] = char2hex(6) * 16 + char2hex(7);
 }
 
 /* TestLifter class */
-llvm::BasicBlock *
-TestLifter::TestWrapImpl::PreVirtualMachineForInsnTest(uint64_t inst_addr,
-                                                       TraceManager &trace_manager) {
+llvm::BasicBlock *TestLifter::TestWrapImpl::PreVirtualMachineForInsnTest(
+    uint64_t inst_addr, TraceManager &trace_manager, llvm::BranchInst *pre_check_branch_inst) {
   llvm::BasicBlock *pre_test_vm_bb;
 
   auto test_manager = static_cast<TestAArch64TraceManager *>(&trace_manager);
   if (1 == test_manager->test_inst_state_map.count(inst_addr)) {
     auto insn_state = test_manager->test_inst_state_map[inst_addr];
-    pre_test_vm_bb = llvm::BasicBlock::Create(context, pre_vm_bb_name.c_str(), func);
+    pre_test_vm_bb = llvm::BasicBlock::Create(context, GetUniquePreVMBBName().c_str(), func);
     llvm::IRBuilder<> ir(pre_test_vm_bb);
-    CHECK(inst.IsValid());
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
     /* set every initial state of virtual machine */
     for (auto &[_reg_name, ini_num] : insn_state->ini_state) {
@@ -55,17 +71,42 @@ TestLifter::TestWrapImpl::PreVirtualMachineForInsnTest(uint64_t inst_addr,
     abort();
   }
 
+  /* change the succesor of pre_check_branch_inst to `L_pre_vmX`*/
+  if (nullptr != pre_check_branch_inst) {
+    if (pre_check_branch_inst->getSuccessor(0) != block)
+      std::__throw_runtime_error(
+          "pre_check_branch_inst->getSuccessor(0) must be equaul to current block.\n");
+    pre_check_branch_inst->setSuccessor(0, pre_test_vm_bb);
+  }
+
   return pre_test_vm_bb;
 }
 
-llvm::BasicBlock *TestLifter::TestWrapImpl::CheckVirtualMahcineForInsnTest(
-    uint64_t inst_addr, TraceManager &trace_manager, llvm::BasicBlock *next_insn_block) {
+llvm::BranchInst *
+TestLifter::TestWrapImpl::CheckVirtualMahcineForInsnTest(uint64_t inst_addr,
+                                                         TraceManager &trace_manager) {
   llvm::BasicBlock *check_test_vm_bb;
+  llvm::BranchInst *block_branch_inst;
+  llvm::BasicBlock *next_insn_block;
+  llvm::BranchInst *check_branch_inst;
+
+  for (llvm::Instruction &ir_instr : *block)
+    if (block_branch_inst = llvm::dyn_cast<llvm::BranchInst>(&ir_instr);
+        nullptr != block_branch_inst) {
+      next_insn_block = block_branch_inst->getSuccessor(0);
+      /* why? */  // CHECK(nullptr == block_branch_inst->getSuccessor(1));
+      break;
+    }
+  if (nullptr == block_branch_inst || nullptr == next_insn_block)
+    std::__throw_runtime_error(
+        "[TESTERROR] cannot find the llvm::BranchInst* from the already lifted basic block.\n");
 
   auto test_manager = static_cast<TestAArch64TraceManager *>(&trace_manager);
   if (1 == test_manager->test_inst_state_map.count(inst_addr)) {
     auto insn_state = test_manager->test_inst_state_map[inst_addr];
-    check_test_vm_bb = llvm::BasicBlock::Create(context, check_vm_bb_name.c_str(), func);
+    check_test_vm_bb = llvm::BasicBlock::Create(context, GetUniqueCheckVMBBName().c_str(), func);
+    /* change the branch block to `L_check` */
+    block_branch_inst->setSuccessor(0, check_test_vm_bb);
     llvm::IRBuilder<> ir_1(check_test_vm_bb);
     CHECK(inst.IsValid());
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
@@ -75,19 +116,21 @@ llvm::BasicBlock *TestLifter::TestWrapImpl::CheckVirtualMahcineForInsnTest(
       auto reg_val = inst.GetLifter()->LoadRegValue(check_test_vm_bb, state_ptr, _reg_name);
       auto is_eq =
           ir_1.CreateICmpEQ(reg_val, llvm::ConstantInt::get(reg_val->getType(), required_num));
-      cond_val = ir_1.CreateAnd(cond_val, is_eq);
+      cond_val = ir_1.CreateAnd(cond_val, is_eq); /* cond_val = cond_1 && cond_2 && ... cond_n */
     }
-    ir_1.CreateCondBr(cond_val, next_insn_block, test_failed_block);
+    CHECK(test_failed_block);
+    check_branch_inst = ir_1.CreateCondBr(cond_val, next_insn_block, test_failed_block);
   } else {
     printf("[ERROR] %lld is invalid address at Check of instruction test state.\n", inst_addr);
     abort();
   }
-  /* put the next_insn_block back on */
-  block = next_insn_block;
-  return check_test_vm_bb;
+
+  return check_branch_inst;
 }
 
 void TestLifter::TestWrapImpl::AddTestFailedBlock() {
+  if (test_failed_block)
+    return;
   CHECK(!test_failed_block);
   test_failed_block = llvm::BasicBlock::Create(context, test_failed_bb_name.c_str(), func);
   llvm::IRBuilder<> ir(test_failed_block);
@@ -98,7 +141,17 @@ void TestLifter::TestWrapImpl::AddTestFailedBlock() {
   }
   ir.CreateCall(failed_fun);
   /* actually unreachable */
-  ir.CreateRet(llvm::ConstantInt::get(llvm::Type::getInt64PtrTy(context), 0));
+  auto mem_ptr_val = inst.GetLifter()->LoadRegValue(
+      test_failed_block, NthArgument(func, kStatePointerArgNum), kMemoryVariableName);
+  ir.CreateRet(mem_ptr_val);
+}
+
+std::string TestLifter::TestWrapImpl::GetUniquePreVMBBName() {
+  return pre_vm_bb_name + to_string(unique_num_of_bb++);
+}
+
+std::string TestLifter::TestWrapImpl::GetUniqueCheckVMBBName() {
+  return check_vm_bb_name + to_string(unique_num_of_bb++);
 }
 
 int main(int argc, char *argv[]) {
@@ -113,7 +166,8 @@ int main(int argc, char *argv[]) {
   /* set insn data to manager.memory */
   for (auto &[_vma, _test_aarch64_insn] : g_disasm_funcs) {
     manager.test_inst_state_map[_vma] = &_test_aarch64_insn;
-    uint8_t *insn_data = DisassembleCmd::ExecRasm2(_test_aarch64_insn.mnemonic);
+    uint8_t insn_data[4];
+    DisassembleCmd::ExecRasm2(_test_aarch64_insn.mnemonic, insn_data);
     manager.memory[_vma] = insn_data[0];
     manager.memory[_vma + 1] = insn_data[1];
     manager.memory[_vma + 2] = insn_data[2];
@@ -138,6 +192,7 @@ int main(int argc, char *argv[]) {
 
   /* declare helper function for lifted LLVM bitcode */
   test_lifter.DeclareHelperFunction();
+  test_lifter.DeclareDebugFunction();
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     if (!test_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
@@ -151,10 +206,6 @@ int main(int argc, char *argv[]) {
   }
   /* set lifted function pointer table (necessary for indirect call) */
   test_lifter.SetLiftedFunPtrTable(addr_fn_map);
-  /* set block address data */
-  test_lifter.SetBlockAddressData(
-      manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array,
-      manager.g_block_address_size_array, manager.g_block_address_fn_vma_array);
 
   /* generate LLVM bitcode file */
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));

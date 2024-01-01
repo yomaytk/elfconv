@@ -2,15 +2,16 @@
 #include "front/Lift.h"
 #include "front/MainLifter.h"
 #include "front/Memory.h"
+#include "front/TraceManager.h"
 
 #include <cstddef>
 #include <cstdint>
 
-static const uintptr_t g_test_disasm_func_vma = 0x004000000;
+static const uintptr_t g_test_disasm_func_vma = 0x00400000;
 
 class DisassembleCmd {
  public:
-  static uint8_t *ExecRasm2(const std::string &nemonic);
+  static void ExecRasm2(const std::string &nemonic, uint8_t insn_bytes[4]);
 };
 
 class TestInstructionState {
@@ -42,22 +43,27 @@ class TestLifter final : public MainLifter {
           pre_vm_bb_name("L_pre_vm"),
           check_vm_bb_name("L_check_vm"),
           test_failed_bb_name("L_test_failed"),
-          test_failed_result_fn_name("debug_state_machine") {}
+          test_failed_result_fn_name("debug_state_machine"),
+          unique_num_of_bb(0),
+          test_failed_block(nullptr) {}
 
     /* Prepare the virtual machine for instruction test (need override) */
-    llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t inst_addr,
-                                                   TraceManager &trace_manager) final;
+    llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t inst_addr, TraceManager &trace_manager,
+                                                   llvm::BranchInst *pre_check_branch_inst) final;
     /* Check the virtual machine for instruction test (need override) */
-    llvm::BasicBlock *CheckVirtualMahcineForInsnTest(uint64_t inst_addr,
-                                                     TraceManager &trace_manager,
-                                                     llvm::BasicBlock *next_insn_block) final;
-    void *AddTestFailedBlock() final;
+    llvm::BranchInst *CheckVirtualMahcineForInsnTest(uint64_t inst_addr,
+                                                     TraceManager &trace_manager) final;
+    void AddTestFailedBlock() final;
+    inline std::string GetUniquePreVMBBName();
+    inline std::string GetUniqueCheckVMBBName();
 
    public:
     std::string pre_vm_bb_name;
     std::string check_vm_bb_name;
     std::string test_failed_bb_name;
     std::string test_failed_result_fn_name;
+    uint32_t unique_num_of_bb;
+
     llvm::BasicBlock *test_failed_block;
   };
 

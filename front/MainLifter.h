@@ -92,10 +92,10 @@ class MainLifter : public TraceLifter {
 
     /* instruction test helper */
     /* Prepare the virtual machine for instruction test (need override) */
-    llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &) override;
+    llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
+                                                   llvm::BranchInst *) override;
     /* Check the virtual machine for instruction test (need override) */
-    llvm::BasicBlock *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
-                                                     llvm::BasicBlock *) override;
+    llvm::BranchInst *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &) override;
     /* add L_test_failed (need override) */
     void AddTestFailedBlock() override;
 

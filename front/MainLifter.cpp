@@ -244,14 +244,14 @@ llvm::Function *MainLifter::WrapImpl::DeclareHelperFunction() {
 }
 
 /* Prepare the virtual machine for instruction test */
-llvm::BasicBlock *MainLifter::WrapImpl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &) {
+llvm::BasicBlock *MainLifter::WrapImpl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
+                                                                     llvm::BranchInst *) {
   printf("%s must be called by derived class.\n", __func__);
   abort();
 }
 
 /* Check the virtual machine for instruction test */
-llvm::BasicBlock *MainLifter::WrapImpl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &,
-                                                                       llvm::BasicBlock *) {
+llvm::BranchInst *MainLifter::WrapImpl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &) {
   printf("%s must be called by derived class.\n", __func__);
   abort();
 }
