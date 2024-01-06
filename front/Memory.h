@@ -26,9 +26,6 @@ extern RuntimeManager *g_run_mgr;
 extern void __svc_call();
 /* translate the address of the original ELF to the actual address of mapped space */
 extern void *_ecv_translate_ptr(addr_t vma_addr);
-/* debug function */
-extern "C" void debug_state_machine();
-extern "C" void debug_pc();
 extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);
 
 /* get mapped memory address of vma */

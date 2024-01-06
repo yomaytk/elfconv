@@ -5,7 +5,9 @@ add_executable(aarch64_test_lift
   "${CMAKE_SOURCE_DIR}/front/TraceManager.cpp"
   "${CMAKE_SOURCE_DIR}/front/Util.cpp"
   "${CMAKE_SOURCE_DIR}/front/Binary/Loader.cpp"
+  TestInstructions.cpp
   TestLift.cpp
+  TestMainLifter.cpp
 )
 
 set_target_properties(aarch64_test_lift PROPERTIES

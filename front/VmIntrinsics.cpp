@@ -1,4 +1,5 @@
 #include "Memory.h"
+#include "elfconv.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/BC/HelperMacro.h"

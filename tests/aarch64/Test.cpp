@@ -7,8 +7,8 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <map>
-#include <stdio.h>
 
 State g_state = State();
 RuntimeManager *g_run_mgr;
@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
   /* go to the aarch64_insn_test_main_func */
   __g_entry_func(&g_state, __g_entry_pc, reinterpret_cast<Memory *>(g_run_mgr));
 
+  std::cout << "Test Success!" << std::endl;
   delete (g_run_mgr);
 
   return 0;

@@ -163,6 +163,11 @@ llvm::GlobalVariable *TraceLifter::Impl::GenGlobalArrayHelper(llvm::Type *,
   abort();
 }
 
+void TraceLifter::Impl::DeclareHelperFunction() {
+  printf("[ERROR] %s must be called by derived class instance.\n", __func__);
+  abort();
+}
+
 /* prepare the virtual machine for instruction test (need override) */
 llvm::BasicBlock *TraceLifter::Impl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
                                                                   llvm::BranchInst *) {

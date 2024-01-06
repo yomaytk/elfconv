@@ -193,11 +193,15 @@ class TraceLifter::Impl {
       bool isConstant = true,
       llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage);
 
+  /* Declare global helper function called by lifted llvm bitcode (need override) */
+  virtual void DeclareHelperFunction();
+
   /* prepare the virtual machine for instruction test (need override) */
   virtual llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
                                                          llvm::BranchInst *);
   /* check the virtual machine for instruction test (need override) */
   virtual llvm::BranchInst *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &);
+
   /* add L_test_failed (need override) */
   virtual void AddTestFailedBlock();
 

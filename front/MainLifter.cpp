@@ -232,9 +232,9 @@ llvm::GlobalVariable *MainLifter::WrapImpl::GenGlobalArrayHelper(
 }
 
 /* declare helper function in the lifted LLVM bitcode */
-llvm::Function *MainLifter::WrapImpl::DeclareHelperFunction() {
+void MainLifter::WrapImpl::DeclareHelperFunction() {
   /* uint64_t *__g_get_jmp_block_address(uint64_t, uint64_t) */
-  return llvm::Function::Create(
+  llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
                               {llvm::Type::getInt64Ty(context), llvm::Type::getInt64Ty(context)},
                               false),

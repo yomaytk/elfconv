@@ -88,7 +88,8 @@ class MainLifter : public TraceLifter {
         const llvm::Twine &Name = "", bool isConstant = true,
         llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage) override;
 
-    llvm::Function *DeclareHelperFunction();
+    /* Declare global helper function called by lifted llvm bitcode */
+    virtual void DeclareHelperFunction();
 
     /* instruction test helper */
     /* Prepare the virtual machine for instruction test (need override) */
@@ -126,7 +127,7 @@ class MainLifter : public TraceLifter {
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
-  void DeclareHelperFunction();
+  virtual void DeclareHelperFunction();
   /* debug */
   void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
   void DeclareDebugFunction();

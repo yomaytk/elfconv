@@ -419,8 +419,10 @@ function main
     ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Entry.o -c Entry.cpp && \
     ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Memory.o -c Memory.cpp && \
     ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Syscall.o -c Syscall.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o VmIntrinsics.o -c VmIntrinsics.cpp
-    ${EMAR} rcs "${INSTALL_LIB_DIR}/libelfconv.a" Entry.o Memory.o Syscall.o VmIntrinsics.o
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o VmIntrinsics.o -c VmIntrinsics.cpp && \
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Util.o -c Util.cpp && \
+    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o elfconv.o -c elfconv.cpp && \
+    ${EMAR} rcs "${INSTALL_LIB_DIR}/libelfconv.a" Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     rm *.o
 
   # for sample execution
