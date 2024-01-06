@@ -1,5 +1,6 @@
 #include "MainLifter.h"
 
+#include "Util.h"
 #include "remill/Arch/Arch.h"
 #include "remill/BC/ABI.h"
 
@@ -70,8 +71,8 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetEntryPoint(std::string &entry_fun
   auto entry_func = module->getFunction(entry_func_name);
   /* no defined entry function */
   if (!entry_func) {
-    printf("[ERROR] Entry function is not defined. func_name: %s\n", entry_func_name.c_str());
-    abort();
+    elfconv_runtime_error("[ERROR] Entry function is not defined. func_name: %s\n",
+                          entry_func_name.c_str());
   }
   auto g_entry_func = new llvm::GlobalVariable(*module, entry_func->getType(), true,
                                                llvm::GlobalVariable::ExternalLinkage, entry_func,
@@ -188,8 +189,7 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetLiftedFunPtrTable(
   for (auto &[addr, fn_name] : addr_fn_map) {
     auto lifted_fun = module->getFunction(fn_name);
     if (!lifted_fun) {
-      printf("[ERROR] lifted fun \"%s\" cannot be found.\n", fn_name);
-      abort();
+      elfconv_runtime_error("[ERROR] lifted fun \"%s\" cannot be found.\n", fn_name);
     }
     addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), addr));
     fn_ptr_list.push_back(lifted_fun);
@@ -207,8 +207,6 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
     std::vector<llvm::Constant *> &block_address_vmas_array,
     std::vector<llvm::Constant *> &block_address_sizes_array,
     std::vector<llvm::Constant *> &block_address_fn_vma_array) {
-  if (block_address_ptrs_array.empty())
-    return nullptr;
   (void) new llvm::GlobalVariable(
       *module, llvm::Type::getInt64Ty(context), true, llvm::GlobalValue::ExternalLinkage,
       llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), block_address_ptrs_array.size()),
@@ -246,19 +244,16 @@ llvm::Function *MainLifter::WrapImpl::DeclareHelperFunction() {
 /* Prepare the virtual machine for instruction test */
 llvm::BasicBlock *MainLifter::WrapImpl::PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
                                                                      llvm::BranchInst *) {
-  printf("%s must be called by derived class.\n", __func__);
-  abort();
+  elfconv_runtime_error("%s must be called by derived class.\n", __func__);
 }
 
 /* Check the virtual machine for instruction test */
 llvm::BranchInst *MainLifter::WrapImpl::CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &) {
-  printf("%s must be called by derived class.\n", __func__);
-  abort();
+  elfconv_runtime_error("%s must be called by derived class.\n", __func__);
 }
 
 void MainLifter::WrapImpl::AddTestFailedBlock() {
-  printf("%s must be called by derived class.\n", __func__);
-  abort();
+  elfconv_runtime_error("%s must be called by derived class.\n", __func__);
 }
 
 /* Set control flow debug list */

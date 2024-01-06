@@ -1,6 +1,7 @@
 #include "TraceManager.h"
 
 #include "Lift.h"
+#include "Util.h"
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
   traces[addr] = lifted_func;
@@ -31,12 +32,10 @@ bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
 }
 
 std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr) {
-  if (disasm_funcs.count(addr) == 1) {
+  if (disasm_funcs.count(addr) == 1)
     return disasm_funcs[addr].func_name;
-  } else {
-    printf("[ERROR] addr (0x%lx) doesn't indicate the entry of function.\n", addr);
-    abort();
-  }
+  else
+    elfconv_runtime_error("[ERROR] addr (0x%lx) doesn't indicate the entry of function.\n", addr);
 }
 
 bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
@@ -58,9 +57,9 @@ bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_
       return false;
     }
   } else {
-    printf("[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", trace_addr,
-           __func__);
-    abort();
+    elfconv_runtime_error(
+        "[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", trace_addr,
+        __func__);
   }
 }
 
@@ -68,8 +67,7 @@ uint64_t AArch64TraceManager::GetFuncVMA_E(uint64_t vma_s) {
   if (disasm_funcs.count(vma_s) == 1) {
     return vma_s + disasm_funcs[vma_s].func_size;
   } else {
-    printf("[ERROR] vma_s (%ld) is not a start address of function.\n", vma_s);
-    abort();
+    elfconv_runtime_error("[ERROR] vma_s (%ld) is not a start address of function.\n", vma_s);
   }
 }
 
@@ -98,21 +96,17 @@ void AArch64TraceManager::SetELFData() {
         sec_included_cnt++;
       }
     }
-    if (sec_included_cnt != 1) {
-      printf("[ERROR] \"%s\" is included in multiple sections.\n",
-             func_entrys[i].func_name.c_str());
-      exit(EXIT_FAILURE);
-    }
+    if (sec_included_cnt != 1)
+      elfconv_runtime_error("[ERROR] \"%s\" is included in multiple sections.\n",
+                            func_entrys[i].func_name.c_str());
     while (sec_addr < fun_end_addr) {
       /* assign every insn to the manager */
       auto lifted_func_name =
           GetUniqueLiftedFuncName(func_entrys[i].func_name, func_entrys[i].entry);
       /* program entry point */
       if (entry_point == func_entrys[i].entry) {
-        if (!entry_func_lifted_name.empty()) {
-          printf("[ERROR] multiple entrypoints are found.\n");
-          exit(EXIT_FAILURE);
-        }
+        if (!entry_func_lifted_name.empty())
+          elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
         entry_func_lifted_name = lifted_func_name;
       }
       for (uintptr_t addr = func_entrys[i].entry; addr < fun_end_addr; addr++) {
@@ -180,7 +174,6 @@ void AArch64TraceManager::SetELFData() {
       printf("[WARNING] __wrap_main cannot be found.\n");
     }
   } else {
-    printf("[ERROR] Entry function is not defined.\n");
-    exit(EXIT_FAILURE);
+    elfconv_runtime_error("[ERROR] Entry function is not defined.\n");
   }
 }

@@ -3,6 +3,7 @@ include_directories("/usr/lib/llvm-16/include")
 add_executable(aarch64_test_lift
   "${CMAKE_SOURCE_DIR}/front/MainLifter.cpp"
   "${CMAKE_SOURCE_DIR}/front/TraceManager.cpp"
+  "${CMAKE_SOURCE_DIR}/front/Util.cpp"
   "${CMAKE_SOURCE_DIR}/front/Binary/Loader.cpp"
   TestLift.cpp
 )

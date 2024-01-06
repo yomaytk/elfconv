@@ -18,6 +18,7 @@
 
 #include "MainLifter.h"
 #include "TraceManager.h"
+#include "Util.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/Lifter.h"
 
@@ -72,22 +73,18 @@ int main(int argc, char *argv[]) {
   main_lifter.DeclareHelperFunction();
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
-      printf("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
-      exit(EXIT_FAILURE);
-    }
+    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str()))
+      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
     addr_fn_map[addr] = dasm_func.func_name.c_str();
     /* set function name */
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
   /* set entry function of lifted function */
-  if (manager.entry_func_lifted_name.empty()) {
-    printf("[ERROR] We couldn't find entry function.\n");
-    exit(EXIT_FAILURE);
-  } else {
+  if (manager.entry_func_lifted_name.empty())
+    elfconv_runtime_error("[ERROR] We couldn't find entry function.\n");
+  else
     main_lifter.SetEntryPoint(manager.entry_func_lifted_name);
-  }
   /* set ELF header info */
   main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
   /* set lifted function pointer table (necessary for indirect call) */

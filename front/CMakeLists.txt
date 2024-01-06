@@ -21,6 +21,7 @@ add_executable(elflift
   MainLifter.cpp
   TraceManager.cpp
   Lift.cpp
+  Util.cpp
 )
 
 set_target_properties(elflift PROPERTIES

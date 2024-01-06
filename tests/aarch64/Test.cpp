@@ -12,7 +12,6 @@
 
 State g_state = State();
 RuntimeManager *g_run_mgr;
-extern LiftedFunc aarch64_insn_test_main_func;
 
 int main(int argc, char *argv[]) {
 
@@ -37,7 +36,7 @@ int main(int argc, char *argv[]) {
     g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
   }
   /* go to the aarch64_insn_test_main_func */
-  aarch64_insn_test_main_func(&g_state, __g_entry_pc, reinterpret_cast<Memory *>(g_run_mgr));
+  __g_entry_func(&g_state, __g_entry_pc, reinterpret_cast<Memory *>(g_run_mgr));
 
   delete (g_run_mgr);
 

@@ -1,5 +1,6 @@
 #include "TestLift.h"
 
+#include "front/Util.h"
 #include "remill/BC/Util.h"
 
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
@@ -25,10 +26,9 @@ void DisassembleCmd::ExecRasm2(const std::string &mnemonic, uint8_t insn_bytes[4
   memset(rasm2_exe_buf, 0, sizeof(rasm2_exe_buf));
   std::string cmd = "rasm2 -a arm -b 64 '" + mnemonic + "'";
   FILE *pipe = popen(cmd.c_str(), "r");
-  if (!pipe) {
-    printf("[TEST_ERROR] rasm2 disassemble pipe is invalid. mnemonic: %s\n", mnemonic.c_str());
-    abort();
-  }
+  if (!pipe)
+    elfconv_runtime_error("[TEST_ERROR] rasm2 disassemble pipe is invalid. mnemonic: %s\n",
+                          mnemonic.c_str());
   fgets(reinterpret_cast<char *>(rasm2_exe_buf), sizeof(rasm2_exe_buf), pipe);
   char dum_buf[128];
   CHECK(NULL == fgets(dum_buf, sizeof(dum_buf), pipe));
@@ -39,7 +39,7 @@ void DisassembleCmd::ExecRasm2(const std::string &mnemonic, uint8_t insn_bytes[4
     else if ('a' <= rasm2_exe_buf[id] && rasm2_exe_buf[id] <= 'f')
       return rasm2_exe_buf[id] - 'a' + 10;
     else
-      std::__throw_runtime_error("ExecRasm2 Error: rasm2_exe_buf has invalid num.\n");
+      elfconv_runtime_error("ExecRasm2 Error: rasm2_exe_buf has invalid num.\n");
     return 0;
   };
   insn_bytes[0] = char2hex(0) * 16 + char2hex(1);
@@ -66,15 +66,14 @@ llvm::BasicBlock *TestLifter::TestWrapImpl::PreVirtualMachineForInsnTest(
       ir.CreateStore(llvm::ConstantInt::get(_reg_ty, ini_num), reg_ptr);
     }
   } else {
-    printf("[ERROR] %lld is invalid address at Preparation of instruction test state.\n",
-           inst_addr);
-    abort();
+    elfconv_runtime_error(
+        "[ERROR] %lld is invalid address at Preparation of instruction test state.\n", inst_addr);
   }
 
   /* change the succesor of pre_check_branch_inst to `L_pre_vmX`*/
   if (nullptr != pre_check_branch_inst) {
     if (pre_check_branch_inst->getSuccessor(0) != block)
-      std::__throw_runtime_error(
+      elfconv_runtime_error(
           "pre_check_branch_inst->getSuccessor(0) must be equaul to current block.\n");
     pre_check_branch_inst->setSuccessor(0, pre_test_vm_bb);
   }
@@ -98,7 +97,7 @@ TestLifter::TestWrapImpl::CheckVirtualMahcineForInsnTest(uint64_t inst_addr,
       break;
     }
   if (nullptr == block_branch_inst || nullptr == next_insn_block)
-    std::__throw_runtime_error(
+    elfconv_runtime_error(
         "[TESTERROR] cannot find the llvm::BranchInst* from the already lifted basic block.\n");
 
   auto test_manager = static_cast<TestAArch64TraceManager *>(&trace_manager);
@@ -121,8 +120,8 @@ TestLifter::TestWrapImpl::CheckVirtualMahcineForInsnTest(uint64_t inst_addr,
     CHECK(test_failed_block);
     check_branch_inst = ir_1.CreateCondBr(cond_val, next_insn_block, test_failed_block);
   } else {
-    printf("[ERROR] %lld is invalid address at Check of instruction test state.\n", inst_addr);
-    abort();
+    elfconv_runtime_error("[ERROR] %lld is invalid address at Check of instruction test state.\n",
+                          inst_addr);
   }
 
   return check_branch_inst;
@@ -135,10 +134,9 @@ void TestLifter::TestWrapImpl::AddTestFailedBlock() {
   test_failed_block = llvm::BasicBlock::Create(context, test_failed_bb_name.c_str(), func);
   llvm::IRBuilder<> ir(test_failed_block);
   auto failed_fun = module->getFunction(test_failed_result_fn_name.c_str());
-  if (!failed_fun) {
-    printf("[ERROR] %s is not defined in LLVM module.\n", test_failed_result_fn_name.c_str());
-    abort();
-  }
+  if (!failed_fun)
+    elfconv_runtime_error("[ERROR] %s is not defined in LLVM module.\n",
+                          test_failed_result_fn_name.c_str());
   ir.CreateCall(failed_fun);
   /* actually unreachable */
   auto mem_ptr_val = inst.GetLifter()->LoadRegValue(
@@ -178,6 +176,7 @@ int main(int argc, char *argv[]) {
   manager.disasm_funcs = {
       {test_disasm_func_vma,
        DisasmFunc("aarch64_insn_test_main_func", test_disasm_func_vma, test_disasm_func_size)}};
+  manager.entry_func_lifted_name = "aarch64_insn_test_main_func";
 
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
@@ -196,14 +195,15 @@ int main(int argc, char *argv[]) {
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     if (!test_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
-      printf("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
-      exit(EXIT_FAILURE);
+      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
     }
     addr_fn_map[addr] = dasm_func.func_name.c_str();
     /* set function name */
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
+  /* set lifted entry function */
+  test_lifter.SetEntryPoint(manager.entry_func_lifted_name);
   /* set lifted function pointer table (necessary for indirect call) */
   test_lifter.SetLiftedFunPtrTable(addr_fn_map);
 

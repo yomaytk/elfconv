@@ -1,5 +1,7 @@
 #include "Memory.h"
 
+#include "Util.h"
+
 // #define MULSECTIONS_WARNING_MSG 1
 
 #if defined(__clang__)
@@ -86,10 +88,7 @@ void MappedMemory::DebugEmulatedMemory() {
     case MemoryAreaType::DATA: printf("DATA, "); break;
     case MemoryAreaType::RODATA: printf("RODATA, "); break;
     case MemoryAreaType::OTHER: printf("OTHER, "); break;
-    default:
-      printf("[ERROR] unknown memory area type, ");
-      abort();
-      break;
+    default: elfconv_runtime_error("[ERROR] unknown memory area type, "); break;
   }
   printf("name: %s, vma: 0x%016llx, len: %llu (0x%08llx) , bytes: 0x%016llx, upper_bytes: "
          "0x%016llx, bytes_on_heap: %s\n",
@@ -144,17 +143,16 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t
     if (vma_bb_map.count(bb_vma) == 1) {
       return vma_bb_map[bb_vma];
     } else {
-      if (g_run_mgr->addr_fn_map.count(fun_vma) == 1) {
+      if (g_run_mgr->addr_fn_map.count(fun_vma) == 1)
         return vma_bb_map[UINT64_MAX];
-      } else {
-        printf("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n", bb_vma, __func__);
-        abort();
-      }
+      else
+        elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n",
+                              bb_vma, __func__);
     }
   } else {
-    printf("[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
-           __func__);
-    abort();
+    elfconv_runtime_error(
+        "[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
+        __func__);
   }
 }
 
@@ -237,7 +235,6 @@ extern "C" void debug_call_stack() {
     printf("%s", tab_space.c_str());
     printf("%s", entry_func_log);
   } else {
-    printf("[ERROR] unknown entry func vma: 0x%08llx\n", current_pc);
-    abort();
+    elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", current_pc);
   }
 }

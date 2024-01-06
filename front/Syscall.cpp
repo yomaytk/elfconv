@@ -1,4 +1,5 @@
 #include "Memory.h"
+#include "Util.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/BC/HelperMacro.h"
 
@@ -223,8 +224,7 @@ void __svc_call(void) {
         /* FUTEX_WAIT */
         state_gpr.x0.qword = 0;
       } else {
-        printf("Unknown futex op 0x%08u\n", state_gpr.x1.dword);
-        abort();
+        elfconv_runtime_error("Unknown futex op 0x%08u\n", state_gpr.x1.dword);
       }
       NOP_SYSCALL(AARCH64_SYS_FUTEX);
       break;
@@ -244,11 +244,10 @@ void __svc_call(void) {
     case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
 #if defined(__linux__)
       state_gpr.x0.qword = tgkill(state_gpr.x0.dword, state_gpr.x1.dword, state_gpr.x2.dword);
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__wasm__)
       state_gpr.x0.qword = kill(state_gpr.x0.dword, state_gpr.x1.dword);
 #else
-      printf("Unknown Environment\n");
-      abort();
+      elfconv_runtime_error("Unknown Environment\n");
 #endif
       break;
     case AARCH64_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
@@ -269,7 +268,7 @@ void __svc_call(void) {
       memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &_utsname, sizeof(utsname));
       state_gpr.x0.dword = ret;
     }
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__wasm__)
     {
       struct __my_utsname {
         char sysname[65];
@@ -309,8 +308,7 @@ void __svc_call(void) {
         /* change program break */
         heap_memory->heap_cur = state_gpr.x0.qword;
       } else {
-        printf("Unsupported brk(0x%016llx).\n", state_gpr.x0.qword);
-        abort();
+        elfconv_runtime_error("Unsupported brk(0x%016llx).\n", state_gpr.x0.qword);
       }
     } break;
     case AARCH64_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
@@ -322,20 +320,15 @@ void __svc_call(void) {
       /* TODO */
       {
         auto heap_memory = g_run_mgr->mapped_memorys[1];
-        if (state_gpr.x4.dword != -1) {
-          printf("Unsupported mmap (X4=0x%08x)\n", state_gpr.x4.dword);
-          abort();
-        }
-        if (state_gpr.x5.dword != 0) {
-          printf("Unsupported mmap (X5=0x%016llx)\n", state_gpr.x5.qword);
-          abort();
-        }
+        if (state_gpr.x4.dword != -1)
+          elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", state_gpr.x4.dword);
+        if (state_gpr.x5.dword != 0)
+          elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", state_gpr.x5.qword);
         if (state_gpr.x0.qword == 0) {
           state_gpr.x0.qword = heap_memory->heap_cur;
           heap_memory->heap_cur += state_gpr.x1.qword;
         } else {
-          printf("Unsupported mmap (X0=0x%016llx)\n", state_gpr.x0.qword);
-          abort();
+          elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", state_gpr.x0.qword);
         }
       }
       NOP_SYSCALL(AARCH64_SYS_MMAP);
@@ -363,10 +356,8 @@ void __svc_call(void) {
     {
       int dfd = state_gpr.x0.dword;
       _ecv_reg_t flags = state_gpr.x2.dword;
-      if ((flags & _ECV_AT_EMPTY_PATH) == 0) {
-        printf("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
-        abort();
-      }
+      if ((flags & _ECV_AT_EMPTY_PATH) == 0)
+        elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
       struct stat _stat;
       // execute fstat
 #if defined(ELFCONV_SERVER_ENV)
@@ -400,8 +391,8 @@ void __svc_call(void) {
       NOP_SYSCALL(AARCH64_SYS_RSEQ);
       break;
     default:
-      printf("Unknown syscall number: %llu, PC: 0x%llx\n", state_gpr.x8.qword, state_gpr.pc.qword);
-      abort();
+      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", state_gpr.x8.qword,
+                            state_gpr.pc.qword);
       break;
   }
 }
