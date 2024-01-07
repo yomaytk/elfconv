@@ -13,8 +13,9 @@ extern State g_state;
 
 /* debug func */
 extern "C" void debug_state_machine() {
-  printf("[Debug] State Machine. Program Counter: 0x%016llx\n", g_state.gpr.pc.qword);
-  printf("State.GPR:\n");
+  std::cout << "[Debug] State Machine. Program Counter: 0x" << std::hex << std::setw(16)
+            << std::setfill('0') << g_state.gpr.pc.qword << std::endl;
+  std::cout << "State.GPR:" << std::endl;
   PRINT_GPREGISTERS(0);
   PRINT_GPREGISTERS(1);
   PRINT_GPREGISTERS(2);

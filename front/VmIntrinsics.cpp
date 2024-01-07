@@ -1,10 +1,12 @@
 #include "Memory.h"
+#include "Util.h"
 #include "elfconv.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/BC/HelperMacro.h"
 
 #include <cstdarg>
+#include <iomanip>
 #include <iostream>
 
 #define UNDEFINED_INTRINSICS(intrinsics) \
@@ -102,8 +104,7 @@ extern "C" void __remill_mark_as_used(void *mem) {
 Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
 #if defined(LIFT_CALLSTACK_DEBUG)
   if (g_run_mgr->call_stacks.empty()) {
-    printf("invalid debug call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
-    abort();
+    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
   } else {
     auto last_call_vma = g_run_mgr->call_stacks.back();
     auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
@@ -131,7 +132,9 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
 }
 
 Memory *__remill_missing_block(State &, addr_t, Memory *memory) {
-  printf("[WARNING] reached \"__remill_missing_block\", PC: 0x%016llx\n", g_state.gpr.pc.qword);
+  std::cout << std::hex << std::setw(16) << std::setfill('0')
+            << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << g_state.gpr.pc.qword
+            << std::endl;
   return memory;
 }
 
@@ -154,10 +157,10 @@ Memory *__remill_function_call(State &state, addr_t fn_vma, Memory *memory) {
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: "
-           "0x%08x\n",
-           fn_vma, state.gpr.pc.dword);
-    abort();
+    elfconv_runtime_error(
+        "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: "
+        "0x%08x\n",
+        fn_vma, state.gpr.pc.dword);
   }
   return memory;
 }
@@ -167,10 +170,10 @@ Memory *__remill_jump(State &state, addr_t fn_vma, Memory *memory) {
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
     jmp_fn(&state, fn_vma, memory);
   } else {
-    printf("[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: "
-           "0x%08x\n",
-           fn_vma, state.gpr.pc.dword);
-    abort();
+    elfconv_runtime_error(
+        "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: "
+        "0x%08x\n",
+        fn_vma, state.gpr.pc.dword);
   }
   return memory;
 }
