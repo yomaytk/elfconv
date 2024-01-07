@@ -2,11 +2,12 @@
 
 #include "remill/Arch/AArch64/Runtime/State.h"
 
-#if defined(__clang__)
-#  define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%lx\n", g_state.gpr.x##index.qword)
-#elif defined(__wasm__)
-#  define PRINT_GPREGISTERS(index) printf("x" #index ": 0x%llx\n", g_state.gpr.x##index.qword)
-#endif
+#include <iomanip>
+#include <iostream>
+
+#define PRINT_GPREGISTERS(index) \
+  std::cout << std::hex << std::setw(16) << std::setfill('0') << "x" << #index << ": 0x" \
+            << g_state.gpr.x##index.qword << std::endl;
 
 extern State g_state;
 
@@ -45,23 +46,27 @@ extern "C" void debug_state_machine() {
   PRINT_GPREGISTERS(28);
   PRINT_GPREGISTERS(29);
   PRINT_GPREGISTERS(30);
-  printf("sp: 0x%016llx, pc: 0x%016llx\n", g_state.gpr.sp.qword, g_state.gpr.pc.qword);
+  std::cout << std::hex << std::setw(16) << std::setfill('0') << "sp: 0x" << g_state.gpr.sp.qword
+            << ", pc: 0x" << g_state.gpr.pc.qword;
   auto sr = g_state.sr;
-  printf("State.SR:\ntpidr_el0: %llu, tpidrro_el0: %llu, ctr_el0: %llu, dczid_el0: %llu, midr_el0: "
-         "%llu, n: %hhu, z: %hhu, c: %hhu, v: %hhu, ixc: %hhu, ofc: %hhu, ufc: %hhu, idc: %hhu, "
-         "ioc: %hhu\n",
-         sr.tpidr_el0.qword, sr.tpidrro_el0.qword, sr.ctr_el0.qword, sr.dczid_el0.qword,
-         sr.midr_el1.qword, sr.n, sr.z, sr.c, sr.v, sr.ixc, sr.ofc, sr.ufc, sr.idc, sr.ioc);
+  std::cout << "State.SR" << std::dec << std::endl;
+  std::cout << "tpidr_el0: " << sr.tpidr_el0.qword << ", tpidrro_el0: " << sr.tpidrro_el0.qword
+            << ", ctr_el0: " << sr.ctr_el0.qword << ", dczid_el0: " << sr.dczid_el0.qword
+            << ", midr_el1: " << sr.midr_el1.qword << ", n: " << sr.n << ", z: " << sr.z
+            << ", c: " << sr.c << ", v: " << sr.v << ", ixc: " << sr.ixc << ", ofc: " << sr.ofc
+            << ", ufc: " << sr.ufc << ", idc: " << sr.idc << ", ioc: " << sr.ioc << std::endl;
 }
 
 extern "C" void debug_pc() {
-  printf("PC: 0x%08x\n", g_state.gpr.pc.dword);
+  std::cout << std::hex << std::setw(8) << std::setfill('0') << "PC: 0x" << g_state.gpr.pc.dword
+            << std::endl;
 }
 
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
-  printf("[DEBUG_INSN]\nPC: 0x%08x, x0: 0x%016llx, x1: 0x%08llx, x2, 0x%016llx, x3: 0x%016llx, x4: "
-         "0x%016llx, x5: 0x%016llx\n",
-         gpr.pc.dword, gpr.x0.qword, gpr.x1.qword, gpr.x2.qword, gpr.x3.qword, gpr.x4.qword,
-         gpr.x5.qword);
+  std::cout << "[DEBUG INSN]" << std::endl;
+  std::cout << std::hex << std::setw(16) << std::setfill('0') << "PC: 0x" << gpr.pc.qword
+            << ", x0: 0x" << gpr.x0.qword << ", x1: 0x" << gpr.x1.qword << ", x2: 0x"
+            << gpr.x2.qword << ", x3: 0x" << gpr.x3.qword << ", x4: 0x" << gpr.x4.qword
+            << ", x5: 0x" << gpr.x5.qword << std::endl;
 }

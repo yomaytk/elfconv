@@ -12,7 +12,7 @@ add_executable(aarch64_test_lift
 
 set_target_properties(aarch64_test_lift PROPERTIES
   POSITION_INDEPENDENT_CODE ON
-  COMPILE_FLAGS "-O0 -fPIC -pie"
+  COMPILE_FLAGS "-O0 -fPIC"
 )
 
 target_link_libraries(

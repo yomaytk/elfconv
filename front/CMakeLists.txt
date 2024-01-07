@@ -26,7 +26,7 @@ add_executable(elflift
 
 set_target_properties(elflift PROPERTIES
   POSITION_INDEPENDENT_CODE ON
-  COMPILE_FLAGS "-O0 -fPIC -pie"
+  COMPILE_FLAGS "-O0 -fPIC"
 )
 
 target_link_libraries(

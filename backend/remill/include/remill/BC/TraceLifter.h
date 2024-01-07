@@ -151,6 +151,8 @@ class TraceLifter::Impl {
     inst_bytes.reserve(max_inst_bytes);
   }
 
+  virtual ~Impl() {}
+
   // Lift one or more traces starting from `addr`. Calls `callback` with each
   // lifted trace.
   bool Lift(uint64_t addr, const char *fn_name = "",

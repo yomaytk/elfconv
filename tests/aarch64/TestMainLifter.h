@@ -3,7 +3,7 @@
 #include "front/MainLifter.h"
 
 class TestLifter final : public MainLifter {
-  class TestWrapImpl : public MainLifter::WrapImpl {
+  class TestWrapImpl final : public MainLifter::WrapImpl {
    public:
     TestWrapImpl(const Arch *__arch, TraceManager *__manager)
         : MainLifter::WrapImpl(__arch, __manager),
@@ -14,6 +14,8 @@ class TestLifter final : public MainLifter {
           show_test_target_inst_name("show_test_target_insn"),
           unique_num_of_bb(0),
           test_failed_block(nullptr) {}
+
+    ~TestWrapImpl() final {}
 
     /* Prepare the virtual machine for instruction test (need override) */
     llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t inst_addr, TraceManager &trace_manager,

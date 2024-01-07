@@ -34,6 +34,8 @@ class MainLifter : public TraceLifter {
           g_addr_list_second_name("__g_fn_vmas_second"),
           debug_state_machine_name("debug_state_machine") {}
 
+    virtual ~WrapImpl() override {}
+
     std::string g_entry_func_name;
     std::string g_entry_pc_name;
     std::string data_sec_name_array_name;
@@ -89,7 +91,7 @@ class MainLifter : public TraceLifter {
         llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage) override;
 
     /* Declare global helper function called by lifted llvm bitcode */
-    virtual void DeclareHelperFunction();
+    virtual void DeclareHelperFunction() override;
 
     /* instruction test helper */
     /* Prepare the virtual machine for instruction test (need override) */

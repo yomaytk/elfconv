@@ -1,4 +1,4 @@
 #pragma once
 
 /* runtime error function */
-void elfconv_runtime_error(char *fmt, ...);
+[[noreturn]] void elfconv_runtime_error(const char *fmt, ...);

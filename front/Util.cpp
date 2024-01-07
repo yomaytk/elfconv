@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void elfconv_runtime_error(char *fmt, ...) {
+void elfconv_runtime_error(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 #if defined(__wasm__)

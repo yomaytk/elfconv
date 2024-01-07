@@ -3,6 +3,9 @@
 #include "Util.h"
 #include "elfconv.h"
 
+#include <iomanip>
+#include <iostream>
+
 // #define MULSECTIONS_WARNING_MSG 1
 
 /*
@@ -77,19 +80,20 @@ MappedMemory *MappedMemory::VMAHeapEntryInit() {
 }
 
 void MappedMemory::DebugEmulatedMemory() {
-  printf("memory_area_type: ");
+  std::cout << "memory_area_type: ";
   switch (memory_area_type) {
-    case MemoryAreaType::STACK: printf("STACK, "); break;
-    case MemoryAreaType::HEAP: printf("HEAP, "); break;
-    case MemoryAreaType::DATA: printf("DATA, "); break;
-    case MemoryAreaType::RODATA: printf("RODATA, "); break;
-    case MemoryAreaType::OTHER: printf("OTHER, "); break;
+    case MemoryAreaType::STACK: std::cout << "STACK, "; break;
+    case MemoryAreaType::HEAP: std::cout << "HEAP, "; break;
+    case MemoryAreaType::DATA: std::cout << "DATA, "; break;
+    case MemoryAreaType::RODATA: std::cout << "RODATA, "; break;
+    case MemoryAreaType::OTHER: std::cout << "OTHER, "; break;
     default: elfconv_runtime_error("[ERROR] unknown memory area type, "); break;
   }
-  printf("name: %s, vma: 0x%016llx, len: %llu (0x%08llx) , bytes: 0x%016llx, upper_bytes: "
-         "0x%016llx, bytes_on_heap: %s\n",
-         name.c_str(), vma, len, len, (addr_t) bytes, (addr_t) upper_bytes,
-         bytes_on_heap ? "true" : "false");
+  std::cout << "name: " << name.c_str() << ", vma: 0x" << std::hex << std::setw(16)
+            << std::setfill('0') << vma << ", len: " << std::dec << len << std::hex << std::setw(16)
+            << std::setfill('0') << ", bytes: 0x" << (addr_t) bytes << ", upper_bytes: 0x"
+            << (addr_t) upper_bytes << ", bytes_on_heap" << (bytes_on_heap ? "true" : "false")
+            << std::endl;
 }
 
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
@@ -108,20 +112,22 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   }
   /* don't exist sections which includes the vma_addr. */
   if (allocated_sections.empty()) {
-    printf("[ERROR] The accessed memory is not mapped. vma_addr: 0x%016llx, pc: 0x%016llx\nHeap "
-           "vma: %016llx, Heap len: %016llx\n",
-           vma_addr, g_state.gpr.pc.qword, mapped_memorys[1]->vma, mapped_memorys[1]->len);
+    std::cout << "[ERROR] The accessed memory is not mapped. vma_addr: 0x" << std::hex
+              << std::setw(16) << std::setfill('0') << vma_addr << ", pc: 0x"
+              << g_state.gpr.pc.qword << ", Heap vma: 0x" << mapped_memorys[1]->vma
+              << ", Heap len: " << std::dec << mapped_memorys[1]->len << std::endl;
     debug_state_machine();
     abort();
   }
   /* multiple sections which includes the vma_addr */
 #if defined(MULSECTIONS_WARNING_MSG)
   if (allocated_sections.size() > 1) {
-    printf("[WARNING] vma_addr (0x%016llx) exists at multiple sections.\n", vma_addr);
-    printf("Sections: ");
+    std::cout << "[WARNING] vma_addr (0x" << std::hex << std::setw(16) << std::setfill('0')
+              << vma_addr << ") exists at multiple sections." << std::endl;
+    std::cout << "Sections: ";
     for (auto &sec_name : allocated_sections)
-      printf("%s ", sec_name.c_str());
-    printf("\n");
+      std::cout << sec_name.c_str() << " ";
+    std::cout << std::endl;
   }
 #endif
 
