@@ -38,6 +38,23 @@ $ docker run -it --name elfconv-container elfconv-img bash
 ~/elfconv/bin# SERVER=1 ./elfconv.sh /path/to/ELF # e.g. ../exmaples/print_hello/a.out
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
+## Build
+You can easily build and develop elfconv on the container. Thus, please see [Quick Start](#quick-start) and prepare the docker container if you have not done it.
+
+After executing `./build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build `build/front/elflift` with `ninja elflift`.
+```shell
+~/elfconv/build# ninja elflift
+```
+`elflift` is used to convert the target ELF binary to LLVM bitcode file. After generating `build/front/elflift`, you can compile the ELF binary to the WASM binary using `elfconv/dev.sh` as follows.
+```shell
+### Browser
+~/elfconv/build# WASM=1 ../dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/front
+~/elfconv/build# emrun --no_browser --port 8080 ./front/exe.wasm.html # execute the generated WASM binary with emscripten
+------------------------
+### Host (WASI Runtimes)
+~/elfconv/build# WASM=1 SERVER=1 ../dev.sh path/to/ELF
+~/elfconv/build# wasmedge ./front/exe.wasm
+```
 ## Acknowledgement
 elfconv uses or references some projects as following. Great thanks to its all developers!
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
