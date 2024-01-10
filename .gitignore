@@ -13,7 +13,6 @@
 # limitations under the License.
 
 install_manifest.txt
-Makefile
 
 backend/lifting-bits-downloads
 
