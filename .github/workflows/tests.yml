@@ -1,0 +1,27 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    name: Build-and-Run
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: build container image
+      run: docker build . -t elfconv-image
+    
+    - name: run container and build elfconv
+      run: |
+        docker run -d --name elfconv-container elfconv-image
+        docker exec elfconv-container /bin/bash -c "source ~/.bash_profile && ./build.sh"
+
+    - name: elfconv integration test
+      run: |
+        docker exec elfconv-container /bin/bash -c "ctest"
