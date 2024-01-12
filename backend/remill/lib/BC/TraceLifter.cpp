@@ -273,7 +273,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
+#if defined(TEST_MODE)
     llvm::BranchInst *pre_check_inst_branch = nullptr; /* for lifting test */
+#endif
 
     CHECK(func->isDeclaration());
 
@@ -593,6 +595,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             llvm::IRBuilder<> ir(block);
             auto eq = ir.CreateICmpEQ(next_pc, ret_pc);
             auto unexpected_ret_pc = llvm::BasicBlock::Create(context, "", func);
+            // WARNING: if there is no next instruction in this function, this create the branch instruction
+            // to the invalid instruction of next address.
             ir.CreateCondBr(eq, GetOrCreateNextBlock(), unexpected_ret_pc);
             AddTerminatingTailCall(unexpected_ret_pc, intrinsics->missing_block, *intrinsics);
           } while (false);

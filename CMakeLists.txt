@@ -19,5 +19,6 @@ add_subdirectory(backend/remill)
 # front build
 add_subdirectory(front)
 
-# aarch64 test build
+# tests
 add_subdirectory(tests/aarch64)
+add_subdirectory(tests/elfconv)

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
@@ -190,8 +191,7 @@ void __svc_call(void) {
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
 #if defined(ELFCONV_SERVER_ENV)
       /* FIXME! */
-      readlink((const char *) _ecv_translate_ptr(state_gpr.x1.qword),
-               (char *) _ecv_translate_ptr(state_gpr.x2.qword), state_gpr.x3.dword);
+      state_gpr.x0.qword = state_gpr.x3.dword;
 #else
       state_gpr.x0.qword =
           readlinkat(state_gpr.x0.dword, (const char *) _ecv_translate_ptr(state_gpr.x1.qword),

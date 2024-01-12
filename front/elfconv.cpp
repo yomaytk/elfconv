@@ -6,8 +6,7 @@
 #include <iostream>
 
 #define PRINT_GPREGISTERS(index) \
-  std::cout << std::hex << std::setw(16) << std::setfill('0') << "x" << #index << ": 0x" \
-            << g_state.gpr.x##index.qword << std::endl;
+  std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
 
 extern State g_state;
 

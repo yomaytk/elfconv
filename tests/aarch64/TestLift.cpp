@@ -31,8 +31,11 @@ void DisassembleCmd::ExecRasm2(const std::string &mnemonic, uint8_t insn_bytes[4
     elfconv_runtime_error("[TEST_ERROR] rasm2 disassemble pipe is invalid. mnemonic: %s\n",
                           mnemonic.c_str());
   fgets(reinterpret_cast<char *>(rasm2_exe_buf), sizeof(rasm2_exe_buf), pipe);
-  char dum_buf[128];
-  CHECK(NULL == fgets(dum_buf, sizeof(dum_buf), pipe));
+  // check
+  {
+    char dum_buf[128];
+    CHECK(NULL == fgets(dum_buf, sizeof(dum_buf), pipe));
+  }
   /* decode rasm2_exe_buf */
   auto char2hex = [&rasm2_exe_buf](int id) -> int {
     if ('0' <= rasm2_exe_buf[id] && rasm2_exe_buf[id] <= '9')

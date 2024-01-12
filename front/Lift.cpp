@@ -52,10 +52,6 @@ int main(int argc, char *argv[]) {
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 
-#if defined(LIFT_DEBUG)
-  /* declare debug function */
-  main_lifter.DeclareDebugFunction();
-#endif
   /* target function control flow */
   std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
   if (!FLAGS_dbg_fun_cfg.empty()) {
@@ -69,6 +65,8 @@ int main(int argc, char *argv[]) {
     }
     main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
+  /* declare debug function */
+  main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */
   main_lifter.DeclareHelperFunction();
   /* lift every disassembled function */

@@ -1,6 +1,6 @@
 CC=clang-16
 
-add: hello.c
+hello: hello.c
 	$(CC) -static hello.c
 
 clean:

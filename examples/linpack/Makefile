@@ -1,9 +1,12 @@
 # Note: elfconv cannot compile the linpack binary now
 
-CC=clang
+CC=clang-16
 
-add: nostdin_linpack.c
-	$(CC) -static nostdin_linpack.c
+linpack-soft-float: nostdin_linpack.c
+	$(CC) -static nostdin_linpack.c -o a.soft-float.out
+
+linpack: nostdin_linpack.c
+	$(CC) -static nostdin_linpack.c -o a.out
 
 clean:
-	rm a.out
+	rm *.out
