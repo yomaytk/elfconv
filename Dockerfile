@@ -1,6 +1,5 @@
 # Choose your LLVM version (16+)
 ARG LLVM_VERSION=16
-ARG ARCH=aarch64
 ARG UBUNTU_VERSION=22.04
 ARG DISTRO_NAME=jammy
 ARG ROOT_DIR=/root/elfconv
@@ -8,13 +7,11 @@ ARG ROOT_DIR=/root/elfconv
 # Run-time dependencies go here
 FROM ubuntu:${UBUNTU_VERSION}
 ARG LLVM_VERSION
-ARG ARCH
 ARG UBUNTU_VERSION
 ARG DISTRO_NAME
 ARG ROOT_DIR
 
 RUN date
-RUN dpkg --add-architecture armhf
 RUN apt update
 
 RUN apt install -qqy --no-install-recommends apt-transport-https software-properties-common gnupg ca-certificates wget && \
@@ -31,11 +28,19 @@ echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-
 
 # several install
 RUN apt update
-RUN apt install -qqy --no-install-recommends libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
-    clang-${LLVM_VERSION} lld-${LLVM_VERSION} libstdc++-*-dev-armhf-cross ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim \
+RUN apt install -qqy --no-install-recommends file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
+    clang-${LLVM_VERSION} lld-${LLVM_VERSION} ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim \
     libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache binutils-dev libelf-dev && \   
     apt upgrade --yes && apt clean --yes && \
     rm -rf /var/lib/apt/lists/*
+
+# cross compile library
+RUN apt update && \
+  if [ "$( uname -m )" = "x86_64" ]; then \
+    dpkg --add-architecture i386 && apt update && apt install -qqy zlib1g-dev:i386 gcc-multilib g++-multilib && apt update && apt install -qqy g++-*-aarch64-linux-gnu; \
+  elif [ "$( uname -m )" = "aarch64" ]; then \
+    dpkg --add-architecture armhf && apt update && apt install -qqy libstdc++-*-dev-armhf-cross; \
+  fi
 
 # emscripten install
 RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
