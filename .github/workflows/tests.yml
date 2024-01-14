@@ -17,9 +17,12 @@ jobs:
     - name: build container image
       run: docker build . -t elfconv-image
     
-    - name: run container and build elfconv
+    - name: run container
       run: |
         docker run -d --name elfconv-container elfconv-image
+    
+    - name: build elfconv
+      run: |
         docker exec elfconv-container /bin/bash -c "source ~/.bash_profile && ./build.sh"
 
     - name: elfconv integration test
