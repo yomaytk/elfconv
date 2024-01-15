@@ -46,11 +46,14 @@ RUN apt update && \
 RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
 git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
 
-# wasmedge install
+# WASI Runtimes install
 RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
+RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
 
 # git settings
 RUN git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global user.name "github-actions[bot]"
 
 WORKDIR ${ROOT_DIR}
 COPY ./ ./
+RUN chmod +x scripts/container-entry-point.sh
+ENTRYPOINT [ "./scripts/container-entry-point.sh" ]
