@@ -12,13 +12,13 @@ You can execute WASM application on the both browser and host environment (WASI 
 ```bash
 $ git clone https://github.com/yomaytk/elfconv
 $ cd elfconv
-$ docker build . -t elfconv-img
-$ docker run -it -p 8080:8080 --name elfconv-container elfconv-img bash
-~/elfconv# source ~/.bash_profile
-~/elfconv# ./build.sh
+$ docker build . -t elfconv-image
+$ docker run -it --rm -p 8080:8080 --name elfconv-container elfconv-image
+### ENTRYPOINT: elfconv/scripts/container-entry-point.sh
+### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# ./elfconv.sh /path/to/ELF # e.g. ../exmaples/print_hello/a.out
+~/elfconv/bin# ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
 ~/elfconv/bin# emrun --no_browser --port 8080 exe.wasm.html
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
@@ -29,30 +29,30 @@ The procedure is almost the same as the case of the browser environment, but you
 ```bash
 $ git clone https://github.com/yomaytk/elfconv
 $ cd elfconv
-$ docker build . -t elfconv-img
-$ docker run -it --name elfconv-container elfconv-img bash
-~/elfconv# source ~/.bash_profile
-~/elfconv# ./build.sh
+$ docker build . -t elfconv-image
+$ docker run -it --name elfconv-container elfconv-image
+### ENTRYPOINT: elfconv/scripts/container-entry-point.sh
+### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# SERVER=1 ./elfconv.sh /path/to/ELF # e.g. ../exmaples/print_hello/a.out
+~/elfconv/bin# SERVER=1 ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Build
 You can easily build and develop elfconv on the container. Thus, please see [Quick Start](#quick-start) and prepare the docker container if you have not done it.
 
-After executing `./build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build `build/front/elflift` with `ninja elflift`.
+After executing `./scripts/build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build `build/front/elflift` with `ninja elflift`.
 ```shell
 ~/elfconv/build# ninja elflift
 ```
-`elflift` is used to convert the target ELF binary to LLVM bitcode file. After generating `build/front/elflift`, you can compile the ELF binary to the WASM binary using `elfconv/dev.sh` as follows.
+`elflift` is used to convert the target ELF binary to LLVM bitcode file. After generating `build/front/elflift`, you can compile the ELF binary to the WASM binary using `scripts/dev.sh` as follows.
 ```shell
 ### Browser
-~/elfconv/build# WASM=1 ../dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/front
+~/elfconv/build# WASM=1 ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/front
 ~/elfconv/build# emrun --no_browser --port 8080 ./front/exe.wasm.html # execute the generated WASM binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
-~/elfconv/build# WASM=1 SERVER=1 ../dev.sh path/to/ELF
+~/elfconv/build# WASM=1 SERVER=1 ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# wasmedge ./front/exe.wasm
 ```
 ## Acknowledgement
