@@ -17,7 +17,7 @@
 #   /path/to/home/remill
 #   /path/to/home/remill-build
 
-ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+ROOT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )/../" && pwd )
 REMILL_DIR=$( cd "$( realpath "${ROOT_DIR}/backend/remill" )" && pwd )
 DOWNLOAD_DIR="$( cd "$( dirname "${REMILL_DIR}" )" && pwd )/lifting-bits-downloads"
 BUILD_DIR="${ROOT_DIR}/build"

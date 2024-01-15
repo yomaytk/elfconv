@@ -1,0 +1,21 @@
+name: Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# ENTRYPOINT: `container-entry-point.sh` build and ctest
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    name: Build-and-Run
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: build container image
+      run: |
+        docker build . -t elfconv-image
+        docker run --name elfconv-container elfconv-image 

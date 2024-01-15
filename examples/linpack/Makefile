@@ -2,11 +2,15 @@
 
 CC=clang-16
 
-linpack-soft-float: nostdin_linpack.c
-	$(CC) -static nostdin_linpack.c -o a.soft-float.out
-
 linpack: nostdin_linpack.c
-	$(CC) -static nostdin_linpack.c -o a.out
+	@ARCH=$$(uname -m); \
+	if [ "$$ARCH" = "x86_64" ]; then \
+			$(CC) -static --target=aarch64-linux-gnu --gcc-toolchain=/usr --sysroot=/usr/aarch64-linux-gnu nostdin_linpack.c -fuse-ld=lld -pthread; \
+	elif [ "$$ARCH" = "aarch64" ]; then \
+			$(CC) -static nostdin_linpack.c; \
+	else \
+			echo "Unknown architecture"; exit 1; \
+	fi
 
 clean:
 	rm *.out
