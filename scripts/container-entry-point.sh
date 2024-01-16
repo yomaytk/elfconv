@@ -7,10 +7,10 @@ source ~/.bash_profile
 ./scripts/build.sh
 
 # elfconv integration test
-cd ~/elfconv/examples/print_hello && make
-cd ~/elfconv/examples/eratosthenes_sieve && make
-cd ~/elfconv/examples/hello && make
-cd ~/elfconv/build && ctest
+make -C ~/elfconv/examples/print_hello
+make -C  ~/elfconv/examples/eratosthenes_sieve
+make -C  ~/elfconv/examples/hello
+cd ~/elfconv/build && ctest && cd ~/elfconv
 
 # bash
 exec bash && source ~/.bash_profile
