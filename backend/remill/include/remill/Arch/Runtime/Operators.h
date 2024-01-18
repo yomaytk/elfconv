@@ -229,12 +229,13 @@ MAKE_MWRITE(80, 80, float, float, f80)
 #define MAKE_READRV(prefix, size, accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVnW<T> vec) \
-      ->decltype(T().accessor) { \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<const T *>(&vec.val)->accessor; \
   }
 
@@ -256,12 +257,14 @@ MAKE_READRV(F, 80, tdoubles, float80_t)
 
 #define MAKE_READV(prefix, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<const T *>(vec.val)->accessor; \
   }
 
@@ -293,7 +296,7 @@ MAKE_READV(F, 80, tdouble)
 #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVn<T> mem) \
-      ->decltype(T().vec_accessor) { \
+      -> decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
@@ -304,7 +307,7 @@ MAKE_READV(F, 80, tdouble)
 \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVnW<T> mem) \
-      ->decltype(T().vec_accessor) { \
+      -> decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
@@ -342,7 +345,7 @@ MAKE_MREADV(F, 80, tdoubles, f80)
   template <typename T> \
   ALWAYS_INLINE static Memory /* _UWriteV16 */ *_##prefix##WriteV##size( \
       Memory *memory, kind<T> vec, base_type val) { \
-    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
+    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref) -> accessor; \
     sub_vec.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 1; i < NumVectorElems(sub_vec); ++i) { \
       sub_vec.elems[i] = 0; \
@@ -358,7 +361,7 @@ MAKE_MREADV(F, 80, tdoubles, f80)
     typedef decltype(V().elems[0]) VT; \
     static_assert(std::is_same<BT, VT>::value, \
                   "Incompatible types to a write to a vector register"); \
-    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
+    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref) -> accessor; \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
       sub_vec.elems[i] = val.elems[i]; \
     } \
@@ -1165,7 +1168,7 @@ MAKE_BROADCASTS(Not, MAKE_UN_BROADCAST, MAKE_NOP)
 // Binary broadcast operator.
 #define MAKE_ACCUMULATE(op, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto Accumulate##op##V##size(T R)->decltype(R.elems[0] | R.elems[1]) { \
+  ALWAYS_INLINE static auto Accumulate##op##V##size(T R) -> decltype(R.elems[0] | R.elems[1]) { \
     auto L = R.elems[0]; \
     _Pragma("unroll") for (auto i = 1UL; i < NumVectorElems(R); ++i) { \
       L = op(L, R.elems[i]); \
@@ -1191,6 +1194,7 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 }
 
 // Access the Nth element of an aggregate vector.
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32
 #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
   template <typename T> \
   ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \

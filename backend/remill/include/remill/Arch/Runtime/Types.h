@@ -121,6 +121,7 @@ union vec512_t;
 
 // MAKE_VECTOR(uint128_t, uint128, 4, 512, 64)
 // MAKE_VECTOR(uint16_t, uint16, 8, 128, 16)
+// MAKE_VECTOR(uint64_t, uint64, 2, 128, 16)
 #define MAKE_VECTOR(base_type, prefix, nelems, vec_size_bits, width_bytes) \
   struct prefix##v##nelems##_t final { \
     base_type elems[nelems]; \

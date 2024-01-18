@@ -159,14 +159,14 @@ DEF_SEM(SCVTF_Int64ToFloat64, V128W dst, R64 src) {
   return memory;
 }
 
-DEF_SEM(SCVTF_Int32ToFloat32_MISC, V128W dst, V32 src) {
-  auto res = CheckedCast<int32_t, float32_t>(state, FExtractV32(FReadV32(src), 0));
+DEF_SEM(SCVTF_Int32ToFloat32_FROMV, V128W dst, V32 src) {
+  auto res = CheckedCast<int32_t, float32_t>(state, SExtractV32(SReadV32(src), 0));
   FWriteV32(dst, res);
   return memory;
 }
 
-DEF_SEM(SCVTF_Int64ToFloat64_MISC, V128W dst, V64 src) {
-  auto res = CheckedCast<int64_t, float64_t>(state, FExtractV64(FReadV64(src), 0));
+DEF_SEM(SCVTF_Int64ToFloat64_FROMV, V128W dst, V64 src) {
+  auto res = CheckedCast<int64_t, float64_t>(state, SExtractV64(SReadV64(src), 0));
   FWriteV64(dst, res);
   return memory;
 }
@@ -180,5 +180,5 @@ DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_Int32ToFloat32;
 DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_Int32ToFloat64;
 DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_Int64ToFloat32;
 DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_Int64ToFloat64;
-DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_MISC;
-DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_MISC;
+DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;
+DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_FROMV;
