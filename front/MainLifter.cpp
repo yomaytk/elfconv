@@ -267,6 +267,10 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   /* void debug_state_machine() */
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_state_machine_name, *module);
+  /* void debug_state_machine_vectors() */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
+                         llvm::Function::ExternalLinkage, debug_state_machine_vectors_name,
+                         *module);
   /* void debug_pc() */
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_pc_name, *module);
