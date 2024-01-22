@@ -114,6 +114,18 @@ DEF_SEM(StoreUpdateIndex, S src, D dst_mem, R64W dst_reg, ADDR next_addr) {
   return memory;
 }
 
+DEF_SEM(StoreUpdateIndex_F32, V32 src, MV32W dst_mem, R64W dst_reg, ADDR next_addr) {
+  FWriteV32(dst_mem, FReadV32(src));
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
+DEF_SEM(StoreUpdateIndex_F64, V64 src, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
+  FWriteV64(dst_mem, FReadV64(src));
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
 template <typename S, typename D>
 DEF_SEM(Store, S src, D dst) {
   WriteTrunc(dst, Read(src));
@@ -176,6 +188,10 @@ DEF_ISEL(STR_32_LDST_IMMPOST) = StoreUpdateIndex<R32, M32W>;
 
 DEF_ISEL(STR_64_LDST_IMMPRE) = StoreUpdateIndex<R64, M64W>;
 DEF_ISEL(STR_64_LDST_IMMPOST) = StoreUpdateIndex<R64, M64W>;
+
+DEF_ISEL(STR_S_LDST_IMMPOST) = StoreUpdateIndex_F32;
+
+DEF_ISEL(STR_D_LDST_IMMPOST) = StoreUpdateIndex_F64;
 
 DEF_ISEL(STR_32_LDST_POS) = Store<R32, M32W>;
 DEF_ISEL(STR_64_LDST_POS) = Store<R64, M64W>;
@@ -1524,7 +1540,7 @@ namespace {
 template <typename D>
 DEF_SEM(DC_ZVA, D dst_mem, R64W) {
   auto bs = state.sr.dczid_el0.qword & 0b1111; /* get BS field */
-  for (int i = 0; i < (int) pow(2, bs); i++) {
+  for (size_t i = 0; i < static_cast<size_t>(pow(2.0, static_cast<double>(bs))); i++) {
     Write_Dc_Zva(dst_mem, sizeof(uint32_t) * i, 0);
   }
   return memory;

@@ -1263,6 +1263,22 @@ bool TryDecodeSTR_64_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// STR  <St>, [<Xn|SP>], #<simm>
+bool TryDecodeSTR_S_LDST_IMMPOST(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rt);
+  uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
+  AddPostIndexMemOp(inst, kActionWrite, 32, data.Rn, offset);
+  return true;
+}
+
+// STR  <Dt>, [<Xn|SP>], #<simm>
+bool TryDecodeSTR_D_LDST_IMMPOST(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rt);
+  uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
+  AddPostIndexMemOp(inst, kActionWrite, 64, data.Rn, offset);
+  return true;
+}
+
 // STR  <Qt>, [<Xn|SP>], #<simm>
 bool TryDecodeSTR_Q_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegQ, kUseAsValue, data.Rt);
@@ -3239,6 +3255,30 @@ bool TryDecodeFMADD_D_FLOATDP3(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+bool TryDecodeFMSUB_S_FLOATDP3(const InstData &data, Instruction &inst) {
+  if (IsUnallocatedFloatEncoding(data)) {
+    return false;
+  }
+  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rm);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Ra);
+  return true;
+}
+
+// FMSUB  <Dd>, <Dn>, <Dm>, <Da>
+bool TryDecodeFMSUB_D_FLOATDP3(const InstData &data, Instruction &inst) {
+  if (IsUnallocatedFloatEncoding(data)) {
+    return false;
+  }
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Ra);
+  return true;
+}
+
 // FCMPE  <Sn>, <Sm>
 bool TryDecodeFCMPE_S_FLOATCMP(const InstData &data, Instruction &inst) {
   return TryDecodeFn_Fm(data, inst, kRegS);
@@ -3801,6 +3841,16 @@ bool TryDecodeCSEL_64_CONDSEL(const InstData &data, Instruction &inst) {
   return DecodeConditionalRegSelect(data, inst, kRegX, 3);
 }
 
+// FCSEL  <Sd>, <Sn>, <Sm>, <cond>
+bool TryDecodeFCSEL_S_FLOATSEL(const InstData &data, Instruction &inst) {
+  return false;
+}
+
+// FCSEL  <Dd>, <Dn>, <Dm>, <cond>
+bool TryDecodeFCSEL_D_FLOATSEL(const InstData &data, Instruction &inst) {
+  return DecodeConditionalRegSelect(data, inst, kRegD, 3);
+}
+
 // CSINC  <Wd>, <Wn>, <Wm>, <cond>
 bool TryDecodeCSINC_32_CONDSEL(const InstData &data, Instruction &inst) {
   return DecodeConditionalRegSelect(data, inst, kRegW, 3);
@@ -4029,6 +4079,25 @@ bool TryDecodeDUP_ASIMDINS_DR_R(const InstData &data, Instruction &inst) {
   AddArrangementSpecifier(inst, data.Q ? 128 : 64, 8UL << size);
   AddRegOperand(inst, kActionWrite, data.Q ? kRegQ : kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, size == 3 ? kRegX : kRegW, kUseAsValue, data.Rn);
+  return true;
+}
+
+// DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+bool TryDecodeDUP_ASIMDINS_DV_V(const InstData &data, Instruction &inst) {
+  uint64_t size = 4;
+  auto imm5 = data.imm5.uimm;
+  for (uint8_t i = 0; i < 4; i++) {
+    if ((imm5 >> i) & 1) {
+      size = i;
+      break;
+    }
+  }
+  if (4 == size)
+    std::__throw_runtime_error("[ERROR] invalid imm5 at TryDecodeDUP_ASIMDINS_DV_V\n");
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, 8UL << size);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegV : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddImmOperand(inst, data.imm5.uimm >> (size + 1), kUnsigned, 32);
   return true;
 }
 
@@ -4275,6 +4344,76 @@ bool TryDecodeSMIN_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
 // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeSMAX_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   return TryDecodeUMAXP_ASIMDSAME_ONLY(data, inst);
+}
+
+// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeFMLA_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  uint64_t elem_size;
+  if (0b00001 /* half-precistion */ == data.opcode)
+    elem_size = 16;
+  else if (0b11001 /* (single | double)-precision */ == data.opcode)
+    elem_size = data.sz ? 64 : 32;
+  else
+    std::__throw_runtime_error(
+        "[ERROR] invalid opcode of InstData at 'TryDecodeFMLA_ASIMDSAME_ONLY'\n");
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, elem_size);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegV : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rm);
+  return true;
+}
+
+// FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeFADD_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  uint64_t elem_size;
+  if (0b00010 /* half-precision */ == data.opcode)
+    elem_size = 16;
+  else if (0b11010 /* (single | double)-precision */ == data.opcode)
+    elem_size = data.sz ? 64 : 32;
+  else
+    std::__throw_runtime_error(
+        "[ERROR] invaild opcode of InstData at TryDecodeFADD_ASIMDSAME_ONLY\n");
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, elem_size);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegV : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rm);
+  return true;
+}
+
+// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeFMUL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  uint64_t elem_size;
+  if (0b00011 /* half-precision */ == data.opcode)
+    elem_size = 16;
+  else if (0b11011 /* (single | double)-precision */ == data.opcode)
+    elem_size = data.sz ? 64 : 32;
+  else
+    std::__throw_runtime_error(
+        "[ERROR] invalid opcode of InstData at 'TryDecodeFMUL_ASIMDSAME_ONLY'\n");
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, elem_size);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegV : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rm);
+  return true;
+}
+
+// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+bool TryDecodeFMUL_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
+  int index;
+  uint64_t elem_size = data.sz ? 64 : 32;
+  if (0 == data.sz)
+    index = (data.H << 1) + data.L;
+  else if (1 == data.sz && 0 == data.L)
+    index = data.H;
+  else
+    std::__throw_runtime_error(
+        "[ERROR] invalid 'sz' or 'L' of InstData at TryDecodeFMUL_ASIMDELEM_R_SD\n");
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, elem_size);
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegV : kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, data.Q ? kRegV : kRegD, kUseAsValue, data.Rm);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  return true;
 }
 
 // UMOV  <Wd>, <Vn>.<Ts>[<index>]

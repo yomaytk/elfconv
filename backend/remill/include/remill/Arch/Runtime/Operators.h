@@ -292,7 +292,9 @@ MAKE_READV(F, 80, tdouble)
 
 #undef MAKE_READV
 
-// MAKE_MREADV(U, 16, words, 16)
+// MAKE_MREADV(U, 16, words, 16) \
+// e.g. uint16v*_t _UReadV16(memory, memV), float32v*_t _FReadV32(memory, memV), ...
+// res_vec = memV
 #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVn<T> mem) \
@@ -341,6 +343,10 @@ MAKE_MREADV(F, 80, tdoubles, f80)
 #undef MAKE_MREADV
 
 // MAKE_WRITEV(U, 16, words, VnW, uint16_t)
+// e.g. _UWriteV16(memory, vec, value), _FWriteV32(memory, vec, value), ...
+// -> vec = {value, 0, 0, ...}
+// e.g. _UWriteV16(memory, vec, vec2), _FWriteV32(memory, vec, vec2), ...
+// -> vec = {{vec2}, 0, 0, ...}
 #define MAKE_WRITEV(prefix, size, accessor, kind, base_type) \
   template <typename T> \
   ALWAYS_INLINE static Memory /* _UWriteV16 */ *_##prefix##WriteV##size( \
@@ -409,7 +415,11 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
 
 #undef MAKE_WRITEV
 
-// MAKE_MWRITEV(U, 128, dqwords, 128, uint128_t)
+// MAKE_MWRITEV(U, 32, dqwords, 32, uint32_t)
+// e.g. _UWriteV32(memory, memV, value), _FWriteV64(memory, memV, value)
+// memV = {val, 0, 0, ...}
+// e.g. _UWriteV32(memory, memV, srcv), _FWriteV64(memory, memV, srcv)
+// memV = {{srcv}, ...}
 #define MAKE_MWRITEV(prefix, size, vec_accessor, mem_accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
@@ -424,7 +434,7 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
     return memory; \
   } \
 \
-  template <typename T, typename V> \
+  template <typename T, typename V> /* _UWriteV32(memory, dstv, srcv) */ \
   ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
                                                        const V &val) { \
     static_assert(sizeof(T) == sizeof(V), "Invalid value size for MVnW."); \
@@ -1141,6 +1151,7 @@ ALWAYS_INLINE static bool BNot(bool a) {
     return ret; \
   }
 
+// e.g. UAddV32(UReadV(src1), UReadV32(src2))
 #define MAKE_BROADCASTS(op, make_int_broadcast, make_float_broadcast) \
   make_int_broadcast(U##op, 8, bytes) make_int_broadcast(U##op, 16, words) \
       make_int_broadcast(U##op, 32, dwords) make_int_broadcast(U##op, 64, qwords) \

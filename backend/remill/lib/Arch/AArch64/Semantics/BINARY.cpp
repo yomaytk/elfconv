@@ -348,6 +348,66 @@ DEF_SEM(FMADD_D, V128W dst, V64 src1, V64 src2, V64 src3) {
   return memory;
 }
 
+// FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+DEF_SEM(FMSUB_S, V128W dst, V32 src1, V32 src2, V32 src3) {
+  auto factor1 = FExtractV32(FReadV32(src1), 0);
+  auto factor2 = FExtractV32(FReadV32(src2), 0);
+  auto factora = FExtractV32(FReadV32(src3), 0);
+
+  auto old_underflow = state.sr.ufc;
+
+  auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul32(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FSub32(factora, prod);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
+
+  // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
+  if (state.sr.ufc && !old_underflow) {
+    if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
+      state.sr.ufc = old_underflow;
+    }
+  }
+
+  FWriteV32(dst, res);
+  return memory;
+}
+
+// FMSUB  <Dd>, <Dn>, <Dm>, <Da>
+DEF_SEM(FMSUB_D, V128W dst, V64 src1, V64 src2, V64 src3) {
+  auto factor1 = FExtractV64(FReadV64(src1), 0);
+  auto factor2 = FExtractV64(FReadV64(src2), 0);
+  auto factora = FExtractV64(FReadV64(src3), 0);
+
+  auto old_underflow = state.sr.ufc;
+
+  auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul64(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FAdd64(factora, prod);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
+
+  // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.
+  if (state.sr.ufc && !old_underflow) {
+    if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
+      state.sr.ufc = old_underflow;
+    }
+  }
+
+  FWriteV64(dst, res);
+  return memory;
+}
+
 DEF_SEM(FDIV_Scalar64, V128W dst, V64 src1, V64 src2) {
   auto val1 = FExtractV64(FReadV64(src1), 0);
   auto val2 = FExtractV64(FReadV64(src2), 0);
@@ -498,6 +558,9 @@ DEF_ISEL(FMUL_D_FLOATDP2) = FMUL_Scalar64;
 
 DEF_ISEL(FMADD_S_FLOATDP3) = FMADD_S;
 DEF_ISEL(FMADD_D_FLOATDP3) = FMADD_D;
+
+DEF_ISEL(FMSUB_S_FLOATDP3) = FMSUB_S;
+DEF_ISEL(FMSUB_D_FLOATDP3) = FMSUB_D;
 
 DEF_ISEL(FDIV_S_FLOATDP2) = FDIV_Scalar32;
 DEF_ISEL(FDIV_D_FLOATDP2) = FDIV_Scalar64;
