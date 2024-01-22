@@ -23,6 +23,22 @@ DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, val);
   return memory;
 }
+
+// FCSEL  <Dd>, <Dn>, <Dm>, <cond>
+#define MAKE_FCSEL(elem_size) \
+  template <bool (*check_cond)(const State &), typename D, typename S1, typename S2> \
+  DEF_SEM(FCSEL, D dst, S1 src1, S2 src2) { \
+    auto src1_val = FExtractV##elem_size(FReadV##elem_size(src1), 0); \
+    auto src2_val = FExtractV##elem_size(FReadV##elem_size(src2), 0); \
+    auto val = check_cond(state) ? src1_val : src2_val; \
+    FWriteV##elem_size(dst, val); \
+    return memory; \
+  }  // namespace
+
+MAKE_FCSEL(64);
+
+#undef MAKE_FCSEL
+
 }  // namespace
 
 #define DEF_COND_ISEL(isel, sem, ...) \
@@ -44,6 +60,8 @@ DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
 
 DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL, R32W, R32, R32)
 DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64W, R64, R64)
+
+DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL, V64W, V64, V64)
 
 namespace {
 

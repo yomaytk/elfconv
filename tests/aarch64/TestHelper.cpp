@@ -19,6 +19,7 @@ extern "C" void get_failed_lifting_detail() {
     printf("\n");
     printf("Actual:\n");
     debug_state_machine();
+    debug_state_machine_vectors();
     exit(EXIT_FAILURE);
   } else {
     elfconv_runtime_error("%lld is not included in g_disasm_funcs at %s.\n", failed_inst_vma,

@@ -229,12 +229,13 @@ MAKE_MWRITE(80, 80, float, float, f80)
 #define MAKE_READRV(prefix, size, accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVnW<T> vec) \
-      ->decltype(T().accessor) { \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, RVn<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<const T *>(&vec.val)->accessor; \
   }
 
@@ -256,12 +257,14 @@ MAKE_READRV(F, 80, tdoubles, float80_t)
 
 #define MAKE_READV(prefix, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, VnW<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec)->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *, Vn<T> vec) \
+      -> decltype(T().accessor) { \
     return reinterpret_cast<const T *>(vec.val)->accessor; \
   }
 
@@ -289,11 +292,13 @@ MAKE_READV(F, 80, tdouble)
 
 #undef MAKE_READV
 
-// MAKE_MREADV(U, 16, words, 16)
+// MAKE_MREADV(U, 16, words, 16) \
+// e.g. uint16v*_t _UReadV16(memory, memV), float32v*_t _FReadV32(memory, memV), ...
+// res_vec = memV
 #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVn<T> mem) \
-      ->decltype(T().vec_accessor) { \
+      -> decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
@@ -304,7 +309,7 @@ MAKE_READV(F, 80, tdouble)
 \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(Memory *memory, MVnW<T> mem) \
-      ->decltype(T().vec_accessor) { \
+      -> decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
@@ -338,11 +343,15 @@ MAKE_MREADV(F, 80, tdoubles, f80)
 #undef MAKE_MREADV
 
 // MAKE_WRITEV(U, 16, words, VnW, uint16_t)
+// e.g. _UWriteV16(memory, vec, value), _FWriteV32(memory, vec, value), ...
+// -> vec = {value, 0, 0, ...}
+// e.g. _UWriteV16(memory, vec, vec2), _FWriteV32(memory, vec, vec2), ...
+// -> vec = {{vec2}, 0, 0, ...}
 #define MAKE_WRITEV(prefix, size, accessor, kind, base_type) \
   template <typename T> \
   ALWAYS_INLINE static Memory /* _UWriteV16 */ *_##prefix##WriteV##size( \
       Memory *memory, kind<T> vec, base_type val) { \
-    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
+    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref) -> accessor; \
     sub_vec.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 1; i < NumVectorElems(sub_vec); ++i) { \
       sub_vec.elems[i] = 0; \
@@ -358,7 +367,7 @@ MAKE_MREADV(F, 80, tdoubles, f80)
     typedef decltype(V().elems[0]) VT; \
     static_assert(std::is_same<BT, VT>::value, \
                   "Incompatible types to a write to a vector register"); \
-    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
+    auto &sub_vec = reinterpret_cast<T *>(vec.val_ref) -> accessor; \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
       sub_vec.elems[i] = val.elems[i]; \
     } \
@@ -406,7 +415,11 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
 
 #undef MAKE_WRITEV
 
-// MAKE_MWRITEV(U, 128, dqwords, 128, uint128_t)
+// MAKE_MWRITEV(U, 32, dqwords, 32, uint32_t)
+// e.g. _UWriteV32(memory, memV, value), _FWriteV64(memory, memV, value)
+// memV = {val, 0, 0, ...}
+// e.g. _UWriteV32(memory, memV, srcv), _FWriteV64(memory, memV, srcv)
+// memV = {{srcv}, ...}
 #define MAKE_MWRITEV(prefix, size, vec_accessor, mem_accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
@@ -421,7 +434,7 @@ MAKE_WRITEV(F, 80, tdoubles, RVnW, float80_t)
     return memory; \
   } \
 \
-  template <typename T, typename V> \
+  template <typename T, typename V> /* _UWriteV32(memory, dstv, srcv) */ \
   ALWAYS_INLINE static Memory *_##prefix##WriteV##size(Memory *memory, MVnW<T> mem, \
                                                        const V &val) { \
     static_assert(sizeof(T) == sizeof(V), "Invalid value size for MVnW."); \
@@ -1138,6 +1151,7 @@ ALWAYS_INLINE static bool BNot(bool a) {
     return ret; \
   }
 
+// e.g. UAddV32(UReadV(src1), UReadV32(src2))
 #define MAKE_BROADCASTS(op, make_int_broadcast, make_float_broadcast) \
   make_int_broadcast(U##op, 8, bytes) make_int_broadcast(U##op, 16, words) \
       make_int_broadcast(U##op, 32, dwords) make_int_broadcast(U##op, 64, qwords) \
@@ -1165,7 +1179,7 @@ MAKE_BROADCASTS(Not, MAKE_UN_BROADCAST, MAKE_NOP)
 // Binary broadcast operator.
 #define MAKE_ACCUMULATE(op, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto Accumulate##op##V##size(T R)->decltype(R.elems[0] | R.elems[1]) { \
+  ALWAYS_INLINE static auto Accumulate##op##V##size(T R) -> decltype(R.elems[0] | R.elems[1]) { \
     auto L = R.elems[0]; \
     _Pragma("unroll") for (auto i = 1UL; i < NumVectorElems(R); ++i) { \
       L = op(L, R.elems[i]); \
@@ -1191,6 +1205,7 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 }
 
 // Access the Nth element of an aggregate vector.
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32
 #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
   template <typename T> \
   ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \

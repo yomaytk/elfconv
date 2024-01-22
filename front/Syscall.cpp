@@ -239,7 +239,7 @@ void __svc_call(void) {
       struct timespec emu_tp;
       int clock_time = clock_gettime(which_clock, &emu_tp);
       memcpy(_ecv_translate_ptr(state_gpr.x1.qword), &emu_tp, sizeof(timespec));
-      state_gpr.x0.qword = clock_time;
+      state_gpr.x0.qword = (_ecv_reg64_t) clock_time;
     } break;
     case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
 #if defined(__linux__)

@@ -107,10 +107,10 @@ DEF_SEM(FMOV_VectorToUInt64, R64W dst, V128 src) {
 
 DEF_SEM(FMOV_UInt64ToVector, V128W dst, R64 src) {
   auto val = Read(src);
-  uint64v2_t temp_vec = {};
-  temp_vec = UInsertV64(temp_vec, 0, UExtractV64(UReadV64(dst), 0));
-  temp_vec = UInsertV64(temp_vec, 1, val);
-  UWriteV64(dst, temp_vec);
+  uint64v2_t tmpv = {};
+  tmpv = UInsertV64(tmpv, 0, UExtractV64(UReadV64(dst), 0));
+  tmpv = UInsertV64(tmpv, 1, val);
+  UWriteV64(dst, tmpv);
   return memory;
 }
 }  // namespace
@@ -148,6 +148,39 @@ DEF_ISEL(DUP_ASIMDINS_DR_R_8H) = DUP_16<uint16v8_t>;
 DEF_ISEL(DUP_ASIMDINS_DR_R_2S) = DUP_32<uint32v2_t>;
 DEF_ISEL(DUP_ASIMDINS_DR_R_4S) = DUP_32<uint32v4_t>;
 DEF_ISEL(DUP_ASIMDINS_DR_R_2D) = DUP_64<uint64v2_t>;
+
+// DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+namespace {
+
+#define MAKE_DUP(size) \
+  template <typename V> \
+  DEF_SEM(DUP_DV_##size, V128W dst, V64 src, I32 imm) { \
+    auto index = Read(imm); \
+    auto val = TruncTo<uint##size##_t>(UExtractV##size(UReadV##size(src), index)); \
+    V vec = {}; \
+    _Pragma("unroll") for (auto &element : vec.elems) { \
+      element = val; \
+    } \
+    UWriteV##size(dst, vec); \
+    return memory; \
+  }
+
+MAKE_DUP(8);
+MAKE_DUP(16);
+MAKE_DUP(32);
+MAKE_DUP(64);
+
+#undef MAKE_DUP
+
+}  // namespace
+
+DEF_ISEL(DUP_ASIMDINS_DV_V_8B) = DUP_DV_8<uint8v8_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_16B) = DUP_DV_8<uint8v16_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_4H) = DUP_DV_16<uint16v4_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_8H) = DUP_DV_16<uint16v8_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_2S) = DUP_DV_32<uint32v2_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_4S) = DUP_DV_32<uint32v4_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_2D) = DUP_DV_64<uint64v2_t>;
 
 namespace {
 
@@ -869,11 +902,121 @@ DEF_SEM(USHR_64B, V128W dst, V128W src, I64 shift) {
   auto vec = UExtractV64(UReadV64(src), 0);
   auto sft = Read(shift);
   auto shifted = UShr128(vec, sft);
-  uint64v2_t temp_vec = {};
-  temp_vec = UInsertV64(temp_vec, 1, 0);
-  temp_vec = UInsertV64(temp_vec, 0, (uint64_t) shifted);
-  UWriteV64(dst, temp_vec);
+  uint64v2_t tmpv = {};
+  tmpv = UInsertV64(tmpv, 1, 0);
+  tmpv = UInsertV64(tmpv, 0, (uint64_t) shifted);
+  UWriteV64(dst, tmpv);
   return memory;
 }
 
 DEF_ISEL(USHR_ASISDSHF_R) = USHR_64B;
+
+// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> twice operation
+// FMLA_ASIMDSAME_ONLY
+namespace {
+
+#define MAKE_FTWICEOP_ASIMDSAME_ONLY(prefix, elem_size, op1, op2) \
+  template <typename DV, typename SV, typename V> \
+  DEF_SEM(F##prefix##_V##elem_size, DV dst, SV src1, SV src2) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto dstv = FReadV##elem_size(dst); \
+    auto srcv1 = FReadV##elem_size(src1); \
+    auto srcv2 = FReadV##elem_size(src2); \
+    V tmpv = {}; \
+    /* tmpv = Vn op1 Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
+      tmpv.elems[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractV##elem_size(srcv1, i), \
+                                        FExtractV##elem_size(srcv2, i)); \
+    } \
+    /* tmpv = tmpv op2 Vd */ \
+    _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(dstv); i++) { \
+      tmpv.elems[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractV##elem_size(dstv, i), \
+                                        FExtractV##elem_size(tmpv, i)); \
+    } \
+    FWriteV##elem_size(dst, tmpv); \
+    return memory; \
+  }  // namespace
+
+// no support of float16
+MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 32, Mul, Add);
+MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 64, Mul, Add);
+
+#undef MAKE_FTWICEOP_ASIMDSAME_ONLY
+
+}  // namespace
+
+// no support of float16
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S) = FMLA_V32<V64W, V64, float32v2_t>;
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S) = FMLA_V32<V128W, V128, float32v4_t>;
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D) = FMLA_V64<V128W, V128, float64v2_t>;
+
+// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> once operation
+// FMUL_ASIMDSAME_ONLY
+namespace {
+
+#define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
+  template <typename DV, typename SV, typename V> \
+  DEF_SEM(F##prefix##_V##elem_size, DV dst, SV src1, SV src2) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto srcv1 = FReadV##elem_size(src1); \
+    auto srcv2 = FReadV##elem_size(src2); \
+    V tmpv = {}; \
+    /* tmpv = Vn op Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
+      tmpv.elems[i] = CheckedFloatBinOp(state, F##op##elem_size, FExtractV##elem_size(srcv1, i), \
+                                        FExtractV##elem_size(srcv2, i)); \
+    } \
+    FWriteV##elem_size(dst, tmpv); \
+    return memory; \
+  }  // namespace
+
+// no support of float16
+MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 64, Mul);
+
+MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 32, Add);
+MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 64, Add);
+
+#undef MAKE_FONCEOP_ASIMDSAME_ONLY
+
+}  // namespace
+
+// no support of float16
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2S) = FMUL_V32<V64W, V64, float32v2_t>;
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_4S) = FMUL_V32<V128W, V128, float32v4_t>;
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2D) = FMUL_V64<V128W, V128, float64v2_t>;
+
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2S) = FADD_V32<V64W, V64, float32v2_t>;
+DEF_ISEL(FADD_ASIMDSAME_ONLY_4S) = FADD_V32<V128W, V128, float32v4_t>;
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2D) = FADD_V64<V128W, V128, float64v2_t>;
+
+// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+namespace {
+#define MAKE_FONCEOP_ASIMD_INDEX(prefix, elem_size, op) \
+  template <typename DV, typename SV, typename V> \
+  DEF_SEM(F##prefix##ID_V##elem_size, DV dst, SV src1, SV src2, I32 imm) { \
+    auto index = Read(imm); \
+    auto srcv1 = FReadV##elem_size(src1); \
+    auto srcv2 = FReadV##elem_size(src2); \
+    V tmpv = {}; \
+    auto v2_val = FExtractV##elem_size(srcv2, index); \
+    /* tmpv = Vn + Vm[<index>] */ \
+    _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
+      tmpv.elems[i] = \
+          CheckedFloatBinOp(state, F##op##elem_size, FExtractV##elem_size(srcv1, i), v2_val); \
+    } \
+    FWriteV##elem_size(dst, tmpv); \
+    return memory; \
+  }
+
+// no support of float16
+MAKE_FONCEOP_ASIMD_INDEX(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMD_INDEX(MUL, 64, Mul);
+
+#undef MAKE_FONCEOP_ASIMD_INDEX
+
+}  // namespace
+
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S) = FMULID_V32<V64W, V64, float32v2_t>;
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) = FMULID_V32<V128W, V128, float32v4_t>;
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) = FMULID_V64<V128W, V128, float64v2_t>;
