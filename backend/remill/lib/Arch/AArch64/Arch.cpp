@@ -3428,8 +3428,8 @@ static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
     default:
       LOG(ERROR) << "Unrecognized system register " << std::hex << bits.flat
                  << " with op0=" << bits.op0 << ", op1=" << bits.op1 << ", crn=" << bits.crn
-                 << ", crm=" << bits.crm << ", op2=" << bits.op2 < < < <
-          ", bits.name=" << bits.name << std::dec;
+                 << ", crm=" << bits.crm << ", op2=" << bits.op2 << ", bits.name=" << bits.name
+                 << std::dec;
       return false;
   }
 
