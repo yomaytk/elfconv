@@ -30,11 +30,6 @@ setting() {
     ELFCONV_DEBUG_MACROS="-DELFCONV_SYSCALL_DEBUG=1"
   fi
 
-  # use this change the behavior of syscall emulation in the case of WASI runtimes
-  if [ -n "$SERVER" ]; then
-    
-  fi
-
 }
 
 aarch64_test() {
