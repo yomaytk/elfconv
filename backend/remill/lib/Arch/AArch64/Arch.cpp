@@ -3428,7 +3428,7 @@ static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
     default:
       LOG(ERROR) << "Unrecognized system register " << std::hex << bits.flat
                  << " with op0=" << bits.op0 << ", op1=" << bits.op1 << ", crn=" << bits.crn
-                 << ", crm=" << bits.crm << ", op2=" << bits.op2 << ", bits.name=" << bits.name
+                 << ", crm=" << bits.crm << ", op2=" << bits.op2 << ", bits.name=0x" << bits.name
                  << std::dec;
       return false;
   }
@@ -3439,7 +3439,7 @@ static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
 
 // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
 bool TryDecodeMRS_RS_SYSTEM(const InstData &data, Instruction &inst) {
-  SystemReg bits;
+  SystemReg bits = {};
   bits.op0 = data.o0 + 2ULL;  // 2 bits.
   bits.op1 = data.op1;  // 3 bits.
   bits.crn = data.CRn;  // 4 bits.
@@ -3451,7 +3451,7 @@ bool TryDecodeMRS_RS_SYSTEM(const InstData &data, Instruction &inst) {
 
 // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 bool TryDecodeMSR_SR_SYSTEM(const InstData &data, Instruction &inst) {
-  SystemReg bits;
+  SystemReg bits = {};
   bits.op0 = data.o0 + 2ULL;  // 2 bits.
   bits.op1 = data.op1;  // 3 bits.
   bits.crn = data.CRn;  // 4 bits.
