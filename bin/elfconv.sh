@@ -14,7 +14,7 @@ setting() {
   ELFCONV_DEBUG_MACROS=
   ELFPATH=$( realpath "$1" )
 
-  if [ "$TAREGT" = "wasm-host" ]; then
+  if [ "$TARGET" = "wasm-host" ]; then
     ELFCONV_MACROS="-DELFCONV_SERVER_ENV=1"
   fi
 
