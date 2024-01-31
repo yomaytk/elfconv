@@ -31,8 +31,7 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t
 /* get mapped memory address of vma */
 template <typename T>
 T *getMemoryAddr(addr_t vma_addr) {
-  auto pma_addr = reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
-  return pma_addr;
+  return reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
 }
 
 extern "C" {
@@ -111,8 +110,8 @@ class MappedMemory {
 
 class RuntimeManager {
  public:
-  RuntimeManager(std::vector<MappedMemory *> __emulated_memorys)
-      : mapped_memorys(__emulated_memorys),
+  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys)
+      : mapped_memorys(__mapped_memorys),
         addr_fn_map({}) {}
   RuntimeManager() {}
   ~RuntimeManager() {
