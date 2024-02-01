@@ -3,9 +3,15 @@ elfconv is an experimental AOT compiler that translates a Linux/aarch64 ELF bina
 elfconv converts a original ELF binary to the LLVM bitcode using [remill](https://github.com/lifting-bits/remill) (library for lifting machine code to LLVM bitcode)
 and it uses [emscripten](https://github.com/emscripten-core/emscripten) in order to generate the WASM binary from the LLVM bitcode file.
 
-"**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Particularly, There are many aarch64 instructions and Linux syscalls elfconv doesn't support now. 
+## Status
+"**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Particularly, There are many aarch64 instructions and Linux syscalls elfconv doesn't support now. current limitations are as follows.
+- No support of stripped binaries
+- No support of shared objects
+- a lot of Linux system calls are unimplemented
+- a part of aarch64 instructions are not supported
+    - if the instruction of your ELF binary is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...)
 ## Quick Start
-You can try elfconv using docker container (currently supported for only aarch64) executing the commands as follows.
+You can try elfconv using docker container (arm64 and amd64) executing the commands as follows.
 In default settings, both `elflift` (used for generating LLVM bitcode file) and `libelfconv.a` (used for executing generated LLVM bitcode) are installed to `~/.elfconv`.
 You can execute WASM application on the both browser and host environment (WASI runtimes).
 ### Browser
@@ -18,14 +24,13 @@ $ docker run -it --rm -p 8080:8080 --name elfconv-container elfconv-image
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
+~/elfconv/bin# TARGET=wasm-browser ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
 ~/elfconv/bin# emrun --no_browser --port 8080 exe.wasm.html
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
 ```
 Now, the WASM application server has started, so that you can access it (e.g. http://localhost:8080/exe.wasm.html) from outside the container.
 ### Host (WASI runtimes)
-The procedure is almost the same as the case of the browser environment, but you don't need to set up port forwarding and should set the environment variable `SERVER` to 1 to build for WASI runtimes.
 ```bash
 $ git clone https://github.com/yomaytk/elfconv
 $ cd elfconv
@@ -35,25 +40,28 @@ $ docker run -it --name elfconv-container elfconv-image
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# SERVER=1 ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
+~/elfconv/bin# TARGET=wasm-host ./elfconv.sh /path/to/ELF # e.g. ../exmaples/eratosthenes_sieve/a.out
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Build
 You can easily build and develop elfconv on the container. Thus, please see [Quick Start](#quick-start) and prepare the docker container if you have not done it.
 
-After executing `./scripts/build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build `build/lifter/elflift` with `ninja elflift`.
+After executing `./scripts/build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build with ninja build system.
+
 ```shell
-~/elfconv/build# ninja elflift
+~/elfconv/build# ninja
 ```
-`elflift` is used to convert the target ELF binary to LLVM bitcode file. After generating `build/lifter/elflift`, you can compile the ELF binary to the WASM binary using `scripts/dev.sh` as follows.
+
+After that, you can compile the ELF binary to the WASM binary using `scripts/dev.sh` as follows. you should explicitly specify the path of elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `scripts/dev.sh`. 
 ```shell
 ### Browser
-~/elfconv/build# WASM=1 ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/front
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
 ~/elfconv/build# emrun --no_browser --port 8080 ./lifter/exe.wasm.html # execute the generated WASM binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
-~/elfconv/build# WASM=1 SERVER=1 ../scripts/dev.sh path/to/ELF
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-host ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# wasmedge ./lifter/exe.wasm
+
 ```
 ## Acknowledgement
 elfconv uses or references some projects as following. Great thanks to its all developers!
