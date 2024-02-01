@@ -115,8 +115,8 @@ main() {
       ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o VmIntrinsics.wasm.o -c ${RUNTIME_DIR}/VmIntrinsics.cpp && \
       ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
       ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
-      ${EMCC} ${EMCCFLAGS} -c lift.ll -o lift.wasm.o
-      ${EMCC} ${EMCCFLAGS} -o exe.wasm lift.wasm.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
+      ${EMCC} -c lift.ll -o lift.wasm.o
+      ${EMCC} -o exe.wasm lift.wasm.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
       # delete obj
       cd "${BUILD_LIFTER_DIR}" && rm *.o
       return 0

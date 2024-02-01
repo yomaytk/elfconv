@@ -67,7 +67,7 @@ extern "C" {
 
 [[gnu::used, gnu::const]] extern float64_t __remill_undefined_f64(void);
 
-[[gnu::used, gnu::const]] extern float80_t __remill_undefined_f80(void);
+// [[gnu::used, gnu::const]] extern float80_t __remill_undefined_f80(void);
 
 [[gnu::used, gnu::const]] extern float128_t __remill_undefined_f128(void);
 

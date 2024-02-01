@@ -87,7 +87,7 @@ class IntrinsicTable {
   llvm::Function *const undefined_64;
   llvm::Function *const undefined_f32;
   llvm::Function *const undefined_f64;
-  llvm::Function *const undefined_f80;
+  // llvm::Function *const undefined_f80;
 
   // Flag markers
   llvm::Function *const flag_computation_zero;

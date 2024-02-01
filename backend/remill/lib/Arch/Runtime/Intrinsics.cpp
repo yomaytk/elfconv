@@ -129,7 +129,7 @@ extern "C" [[gnu::used]] void __remill_intrinsics(void) {
   USED(__remill_undefined_64);
   USED(__remill_undefined_f32);
   USED(__remill_undefined_f64);
-  USED(__remill_undefined_f80);
+  // USED(__remill_undefined_f80);
 
   USED(__remill_flag_computation_zero);
   USED(__remill_flag_computation_overflow);
