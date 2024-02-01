@@ -22,6 +22,9 @@
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/Lifter.h"
 
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <remill/BC/Optimizer.h>
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 
 DEFINE_string(os, REMILL_OS,
@@ -57,8 +60,8 @@ int main(int argc, char *argv[]) {
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
       /* append the address of necesarry debug function */
-      if (strncmp(dasm_func.func_name.c_str(), FLAGS_dbg_fun_cfg.c_str(),
-                  FLAGS_dbg_fun_cfg.length()) == 0) {
+      if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length()).c_str(),
+                  FLAGS_dbg_fun_cfg.c_str(), FLAGS_dbg_fun_cfg.length()) == 0) {
         control_flow_debug_list[fn_addr] = true;
         break;
       }
@@ -69,15 +72,17 @@ int main(int argc, char *argv[]) {
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */
   main_lifter.DeclareHelperFunction();
+
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str()))
       elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
     addr_fn_map[addr] = dasm_func.func_name.c_str();
-    /* set function name */
+    /* set function attributes */
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
+
   /* set entry function of lifted function */
   if (manager.entry_func_lifted_name.empty())
     elfconv_runtime_error("[ERROR] We couldn't find entry function.\n");
