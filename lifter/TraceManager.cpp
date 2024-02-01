@@ -121,9 +121,7 @@ void AArch64TraceManager::SetELFData() {
   }
   /* set instructions of every block of .plt section (FIXME) */
   auto plt_section = elf_obj.code_sections[".plt"];
-  if (plt_section.sec_name.empty()) {
-    printf("[WARNING] .plt section is not found.\n");
-  } else {
+  if (!plt_section.sec_name.empty()) {
     uint64_t ins_i = 0;
     while (ins_i < plt_section.size) {
       auto b_entry = plt_section.vma + ins_i;
@@ -169,9 +167,6 @@ void AArch64TraceManager::SetELFData() {
                              DisasmFunc("__wrap_main", __wrap_main_diff, __wrap_main_size));
         break;
       }
-    }
-    if (UINT64_MAX == __wrap_main_diff) {
-      printf("[WARNING] __wrap_main cannot be found.\n");
     }
   } else {
     elfconv_runtime_error("[ERROR] Entry function is not defined.\n");

@@ -285,10 +285,10 @@ float64_t __remill_undefined_f64(void) {
   UNDEFINED_INTRINSICS("__remill_undefined_f64");
   return 0;
 }
-float80_t __remill_undefined_f80(void) {
-  UNDEFINED_INTRINSICS("__remill_undefined_f80");
-  return 0;
-}
+// float80_t __remill_undefined_f80(void) {
+//   UNDEFINED_INTRINSICS("__remill_undefined_f80");
+//   return 0;
+// }
 float128_t __remill_undefined_f128(void) {
   UNDEFINED_INTRINSICS("__remill_undefined_f128");
   return 0;

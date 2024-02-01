@@ -32,7 +32,7 @@ main() {
   fi
 
   # build runtime
-  echo "[INFO] Building libelfconv.a ..."
+  echo "[INFO] Building elfconv-Runtime ..."
   cd "${RUNTIME_DIR}"
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
@@ -59,18 +59,18 @@ main() {
   # LLVM bc -> target file
   case "$TARGET" in
     wasm-browser)
-      echo "[INFO] Converting LLVM bitcode to WASM binary and glue code (for browser) ..."
+      echo "[INFO] Converting LLVM bitcode to WASM binary (for browser) ..."
       cd "${BIN_DIR}"
-        $EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
-        $EMCC $EMCCFLAGS -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
+        $EMCC -c lift.bc -o lift.o && \
+        $EMCC -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
       echo "[INFO] Generate WASM binary."
       return 0
     ;;
     wasm-host)
       echo "[INFO] Converting LLVM bitcode to WASM binary (for server) ..."
       cd "${BIN_DIR}"
-        $EMCC $EMCCFLAGS -c lift.bc -o lift.o && \
-        $EMCC $EMCCFLAGS -o exe.wasm -L"./" lift.o -lelfconv
+        $EMCC -c lift.bc -o lift.o && \
+        $EMCC -o exe.wasm -L"./" lift.o -lelfconv
       echo "[INFO] Generate WASM binary."
       return 0
     ;;

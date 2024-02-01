@@ -131,7 +131,7 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       undefined_64(FindPureIntrinsic(module, "__remill_undefined_64")),
       undefined_f32(FindPureIntrinsic(module, "__remill_undefined_f32")),
       undefined_f64(FindPureIntrinsic(module, "__remill_undefined_f64")),
-      undefined_f80(FindPureIntrinsic(module, "__remill_undefined_f80")),
+      // undefined_f80(FindPureIntrinsic(module, "__remill_undefined_f80")),
 
       // Flag computations
       flag_computation_zero(FindPureIntrinsic(module, "__remill_flag_computation_zero")),
