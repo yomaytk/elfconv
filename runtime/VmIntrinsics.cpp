@@ -1,9 +1,9 @@
 #include "Memory.h"
-#include "Util.h"
-#include "elfconv.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/BC/HelperMacro.h"
+#include "utils/Util.h"
+#include "utils/elfconv.h"
 
 #include <cstdarg>
 #include <iomanip>
@@ -46,37 +46,37 @@ float128_t __remill_read_memory_f128(Memory *, addr_t addr) {
 Memory *__remill_write_memory_8(Memory *memory, addr_t addr, uint8_t src) {
   auto dst = getMemoryAddr<uint8_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_16(Memory *memory, addr_t addr, uint16_t src) {
   auto dst = getMemoryAddr<uint16_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_32(Memory *memory, addr_t addr, uint32_t src) {
   auto dst = getMemoryAddr<uint32_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_64(Memory *memory, addr_t addr, uint64_t src) {
   auto dst = getMemoryAddr<uint64_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_f32(Memory *memory, addr_t addr, float32_t src) {
   auto dst = getMemoryAddr<float32_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_f64(Memory *memory, addr_t addr, float64_t src) {
   auto dst = getMemoryAddr<float64_t>(addr);
   *dst = src;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_write_memory_f128(Memory *, addr_t, float128_t) {
@@ -89,7 +89,7 @@ Memory *__remill_write_memory_f128(Memory *, addr_t, float128_t) {
 Memory *__remill_syscall_tranpoline_call(State &state, Memory *memory) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
   __svc_call();
-  return memory;
+  return nullptr;
 }
 
 /*
@@ -109,7 +109,7 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
     auto last_call_vma = g_run_mgr->call_stacks.back();
     auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
     if (strncmp(func_name, "fn_plt", 6) == 0) {
-      return memory;
+      return nullptr;
     } else {
       std::string tab_space;
       for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
@@ -128,18 +128,18 @@ Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
     }
   }
 #endif
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_missing_block(State &, addr_t, Memory *memory) {
   std::cout << std::hex << std::setw(16) << std::setfill('0')
             << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << g_state.gpr.pc.qword
             << std::endl;
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_async_hyper_call(State &, addr_t ret_addr, Memory *memory) {
-  return memory;
+  return nullptr;
 }
 
 Memory *__remill_error(State &, addr_t addr, Memory *) {
@@ -162,7 +162,7 @@ Memory *__remill_function_call(State &state, addr_t fn_vma, Memory *memory) {
         "0x%08x\n",
         fn_vma, state.gpr.pc.dword);
   }
-  return memory;
+  return nullptr;
 }
 
 /* BR instruction */
@@ -175,7 +175,7 @@ Memory *__remill_jump(State &state, addr_t fn_vma, Memory *memory) {
         "0x%08x\n",
         fn_vma, state.gpr.pc.dword);
   }
-  return memory;
+  return nullptr;
 }
 
 bool __remill_flag_computation_sign(bool result, ...) {
@@ -224,29 +224,29 @@ bool __remill_compare_neq(bool result) {
 
 /* Data Memory Barrier instruction (FIXME) */
 Memory *__remill_barrier_load_load(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 Memory *__remill_barrier_load_store(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 Memory *__remill_barrier_store_load(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 Memory *__remill_barrier_store_store(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 
 /* atomic */
 Memory *__remill_atomic_begin(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 Memory *__remill_atomic_end(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 
 /* FIXME */
 Memory *__remill_aarch64_emulate_instruction(Memory *memory) {
-  return memory;
+  return nullptr;
 }
 
 int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {

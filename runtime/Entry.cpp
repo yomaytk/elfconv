@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
     g_run_mgr->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
   }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
-  __g_entry_func(&g_state, __g_entry_pc, reinterpret_cast<Memory *>(g_run_mgr));
+  __g_entry_func(&g_state, __g_entry_pc, nullptr);
 
   delete (g_run_mgr);
 

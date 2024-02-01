@@ -47,18 +47,21 @@ $ docker run -it --name elfconv-container elfconv-image
 You can easily build and develop elfconv on the container. Thus, please see [Quick Start](#quick-start) and prepare the docker container if you have not done it.
 
 After executing `./scripts/build.sh` (please see [Quick Start](#quick-start)) , `elfconv/build` directory is generated and you can build with ninja build system.
+
 ```shell
 ~/elfconv/build# ninja
 ```
+
 After that, you can compile the ELF binary to the WASM binary using `scripts/dev.sh` as follows. you should explicitly specify the path of elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `scripts/dev.sh`. 
 ```shell
 ### Browser
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/front
-~/elfconv/build# emrun --no_browser --port 8080 ./front/exe.wasm.html # execute the generated WASM binary with emscripten
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
+~/elfconv/build# emrun --no_browser --port 8080 ./lifter/exe.wasm.html # execute the generated WASM binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
 ~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-host ../scripts/dev.sh path/to/ELF
-~/elfconv/build# wasmedge ./front/exe.wasm
+~/elfconv/build# wasmedge ./lifter/exe.wasm
+
 ```
 ## Acknowledgement
 elfconv uses or references some projects as following. Great thanks to its all developers!

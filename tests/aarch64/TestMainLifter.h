@@ -1,6 +1,6 @@
 #pragma once
 
-#include "front/MainLifter.h"
+#include "lifter/MainLifter.h"
 
 class TestLifter final : public MainLifter {
   class TestWrapImpl final : public MainLifter::WrapImpl {

@@ -1,5 +1,5 @@
 #pragma once
-#include "front/Memory.h"
+#include "runtime/Memory.h"
 
 const _ecv_reg_t __G__E_PHENT = 56;
 const _ecv_reg_t __G_E_PHNUM = 7;

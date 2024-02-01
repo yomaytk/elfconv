@@ -18,8 +18,8 @@ add_compile_options(-Wno-format-extra-args)
 # remill build
 add_subdirectory(backend/remill)
 
-# front build
-add_subdirectory(front)
+# lifter build
+add_subdirectory(lifter)
 
 # tests
 add_subdirectory(tests/aarch64)

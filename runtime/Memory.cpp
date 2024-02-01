@@ -1,7 +1,7 @@
 #include "Memory.h"
 
-#include "Util.h"
-#include "elfconv.h"
+#include "utils/Util.h"
+#include "utils/elfconv.h"
 
 #include <iomanip>
 #include <iostream>
@@ -98,20 +98,20 @@ void MappedMemory::DebugEmulatedMemory() {
 
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   void *pma_addr = nullptr;
-  /* search in every emulated memory */
-  std::vector<std::string> allocated_sections;
+  /* search in every mapped memory */
+  int exist = 0;
   for (auto &memory : mapped_memorys) {
     if (memory->vma <= vma_addr && vma_addr < memory->vma + memory->len) {
       /*
               for Debug (we should break out this loop at the same time of finding the target
               emulated memory) There are multiple sections whose vma is 0x00000000
             */
-      allocated_sections.push_back(memory->name);
+      exist++;
       pma_addr = reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
     }
   }
   /* don't exist sections which includes the vma_addr. */
-  if (allocated_sections.empty()) {
+  if (0 == exist) {
     std::cout << "[ERROR] The accessed memory is not mapped. vma_addr: 0x" << std::hex
               << std::setw(16) << std::setfill('0') << vma_addr << ", pc: 0x"
               << g_state.gpr.pc.qword << ", Heap vma: 0x" << mapped_memorys[1]->vma
@@ -121,13 +121,9 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   }
   /* multiple sections which includes the vma_addr */
 #if defined(MULSECTIONS_WARNING_MSG)
-  if (allocated_sections.size() > 1) {
+  if (exist > 1) {
     std::cout << "[WARNING] vma_addr (0x" << std::hex << std::setw(16) << std::setfill('0')
               << vma_addr << ") exists at multiple sections." << std::endl;
-    std::cout << "Sections: ";
-    for (auto &sec_name : allocated_sections)
-      std::cout << sec_name.c_str() << " ";
-    std::cout << std::endl;
   }
 #endif
 

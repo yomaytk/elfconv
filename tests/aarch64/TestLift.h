@@ -1,9 +1,9 @@
 #pragma once
 #include "TestState.h"
-#include "front/Lift.h"
-#include "front/MainLifter.h"
-#include "front/Memory.h"
-#include "front/TraceManager.h"
+#include "lifter/Lift.h"
+#include "lifter/MainLifter.h"
+#include "lifter/TraceManager.h"
+#include "runtime/Memory.h"
 
 #include <cstddef>
 #include <cstdint>

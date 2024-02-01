@@ -4,12 +4,13 @@ setting() {
 
   BIN_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
   ROOT_DIR=${BIN_DIR}/../
-  FRONT_DIR=${ROOT_DIR}/front
+  RUNTIME_DIR=${ROOT_DIR}/runtime
+  UTILS_DIR=${ROOT_DIR}/utils
   BUILD_DIR=${ROOT_DIR}/build
-  BUILD_FRONT_DIR=${BUILD_DIR}/front
+  BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
   EMCC=emcc
   EMAR=emar
-  EMCCFLAGS="-O0 -I${ROOT_DIR}/backend/remill/include"
+  EMCCFLAGS="-O3 -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
   ELFCONV_DEBUG_MACROS=
   ELFPATH=$( realpath "$1" )
@@ -30,22 +31,22 @@ main() {
     exit 1
   fi
 
-  # build front
+  # build runtime
   echo "[INFO] Building libelfconv.a ..."
-  cd "${FRONT_DIR}"
+  cd "${RUNTIME_DIR}"
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c Syscall.cpp && \
     $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c Util.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c elfconv.cpp && \
+    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c ${UTILS_DIR}/Util.cpp && \
+    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c ${UTILS_DIR}/elfconv.cpp && \
     $EMAR rcs libelfconv.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     mv libelfconv.a "${BIN_DIR}/"
 		rm *.o
   echo "[INFO] Generate libelfconv.a."
 
   # ELF -> LLVM bc
-  cp -p "${BUILD_FRONT_DIR}/elflift" "${BIN_DIR}/"
+  cp -p "${BUILD_LIFTER_DIR}/elflift" "${BIN_DIR}/"
   echo "[INFO] Converting ELF to LLVM bitcode ..."
     cd "${BIN_DIR}"
     ./elflift \

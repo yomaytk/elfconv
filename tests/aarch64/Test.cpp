@@ -1,9 +1,9 @@
 #include "Test.h"
 
-#include "front/Memory.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/BC/HelperMacro.h"
+#include "runtime/Memory.h"
 
 #include <cstdint>
 #include <cstring>

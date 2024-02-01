@@ -57,7 +57,7 @@ void OptimizeModule(const remill::Arch *arch, llvm::Module *module,
   // TODO(alex): Some of the optimization passes that the builder adds still rely on typed pointers
   // so we cannot use them. We should switch to using the new pass manager and choose which passes
   // we want.
-  builder.OptLevel = 0;
+  builder.OptLevel = 3;
   builder.SizeLevel = 0;
   builder.Inliner = llvm::createFunctionInliningPass(250);
   builder.LibraryInfo = TLI;  // Deleted by `llvm::~PassManagerBuilder`.
@@ -96,7 +96,7 @@ void OptimizeBareModule(llvm::Module *module, OptimizationGuide guide) {
   // TODO(alex): Some of the optimization passes that the builder adds still rely on typed pointers
   // so we cannot use them. We should switch to using the new pass manager and choose which passes
   // we want.
-  builder.OptLevel = 0;
+  builder.OptLevel = 3;
   builder.SizeLevel = 0;
   builder.Inliner = llvm::createFunctionInliningPass(250);
   builder.LibraryInfo = TLI;  // Deleted by `llvm::~PassManagerBuilder`.

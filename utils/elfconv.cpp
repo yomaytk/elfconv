@@ -69,14 +69,14 @@ extern "C" void debug_state_machine_vectors() {
 }
 
 extern "C" void debug_pc() {
-  std::cout << std::hex << std::setw(8) << std::setfill('0') << "PC: 0x" << g_state.gpr.pc.dword
+  std::cout << std::hex << "PC: 0x" << std::setw(8) << std::setfill('0') << g_state.gpr.pc.dword
             << std::endl;
 }
 
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
   std::cout << "[DEBUG INSN]" << std::endl;
-  std::cout << std::hex << std::setw(16) << std::setfill('0') << "PC: 0x" << gpr.pc.qword
+  std::cout << std::hex << "PC: 0x" << std::setw(16) << std::setfill('0') << gpr.pc.qword
             << ", x0: 0x" << gpr.x0.qword << ", x1: 0x" << gpr.x1.qword << ", x2: 0x"
             << gpr.x2.qword << ", x3: 0x" << gpr.x3.qword << ", x4: 0x" << gpr.x4.qword
             << ", x5: 0x" << gpr.x5.qword << std::endl;

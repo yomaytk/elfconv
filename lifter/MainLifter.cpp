@@ -1,8 +1,8 @@
 #include "MainLifter.h"
 
-#include "Util.h"
 #include "remill/Arch/Arch.h"
 #include "remill/BC/ABI.h"
+#include "utils/Util.h"
 
 /* Set entry function pointer */
 void MainLifter::SetEntryPoint(std::string &entry_func_name) {
@@ -71,8 +71,16 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetEntryPoint(std::string &entry_fun
   auto entry_func = module->getFunction(entry_func_name);
   /* no defined entry function */
   if (!entry_func) {
-    elfconv_runtime_error("[ERROR] Entry function is not defined. func_name: %s\n",
-                          entry_func_name.c_str());
+    // elfconv_runtime_error("[ERROR] Entry function is not defined. expected: %s\n",
+    //                       entry_func_name.c_str());
+    auto bg = module->getFunctionList().begin();
+    for (; bg != module->getFunctionList().end();) {
+      auto strr = bg->getName().str();
+      if (strr.find("_start") != std::string::npos)
+        printf("%s\n", strr.c_str());
+      bg++;
+    }
+    return nullptr;
   }
   auto g_entry_func = new llvm::GlobalVariable(*module, entry_func->getType(), true,
                                                llvm::GlobalVariable::ExternalLinkage, entry_func,

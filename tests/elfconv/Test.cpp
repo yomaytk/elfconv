@@ -1,4 +1,4 @@
-#include "../../front/Util.h"
+#include "../../utils/Util.h"
 
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
@@ -11,13 +11,16 @@ using ::testing::TestInfo;
 using ::testing::UnitTest;
 
 #define ECV_PATH(path) "../../../" #path
-#define EMCC_SERVER_CMD(ident) \
+#define EMCC_HOST_CMD(ident) \
   "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -o " #ident ".test.wasm.o " \
-  "-c ../../../front/" #ident ".cpp"
+  "-c ../../../runtime/" #ident ".cpp"
+#define EMCC_UTILS_CMD(ident) \
+  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -o " #ident ".test.wasm.o " \
+  "-c ../../../utils/" #ident ".cpp"
 #define EMCC_WASM_O(bc_ident) \
   "emcc -c " bc_ident ".bc" \
   " -o " bc_ident ".wasm.o"
-#define FRONT_OBJS \
+#define RUNTIME_OBJS \
   "Entry.test.wasm.o Memory.test.wasm.o Syscall.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
 
 enum WASI_RUNTIME : uint8_t { WASMTIME, WASMEDGE };
@@ -36,11 +39,11 @@ class TestEnvironment : public ::testing::Environment {
   }
 };
 
-// compile `elfconv/front`
+// compile `elfconv/runtime`
 void compile_fronts_emscripten() {
-  std::string cmds[] = {EMCC_SERVER_CMD(Entry),   EMCC_SERVER_CMD(Memory),
-                        EMCC_SERVER_CMD(Syscall), EMCC_SERVER_CMD(VmIntrinsics),
-                        EMCC_SERVER_CMD(Util),    EMCC_SERVER_CMD(elfconv)};
+  std::string cmds[] = {EMCC_HOST_CMD(Entry),   EMCC_HOST_CMD(Memory),
+                        EMCC_HOST_CMD(Syscall), EMCC_HOST_CMD(VmIntrinsics),
+                        EMCC_UTILS_CMD(Util),   EMCC_UTILS_CMD(elfconv)};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe)
@@ -61,7 +64,7 @@ void clean_up() {
 std::string binary_lifting(const char *elf_path) {
   std::string stdout_res = "";
   std::string cmds[] = {
-      "../../../build/front/elflift --arch aarch64 --bc_out lift.bc --target_elf " +
+      "../../../build/lifter/elflift --arch aarch64 --bc_out lift.bc --target_elf " +
       std::string(elf_path)};
   for (auto &cmd : cmds) {
     auto *pipe = popen(cmd.c_str(), "r");
@@ -88,7 +91,7 @@ void gen_wasm_for_wasi_runtimes() {
   std::string cmds[] = {// generate lift.wasm.o
                         "emcc -c lift.bc -o lift.wasm.o",
                         // generate wasm
-                        "emcc -o exe.wasm lift.wasm.o " FRONT_OBJS};
+                        "emcc -o exe.wasm lift.wasm.o " RUNTIME_OBJS};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe)
