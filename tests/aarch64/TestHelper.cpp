@@ -1,7 +1,7 @@
 #include "TestState.h"
-#include "front/Util.h"
-#include "front/elfconv.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
+#include "utils/Util.h"
+#include "utils/elfconv.h"
 
 #include <map>
 

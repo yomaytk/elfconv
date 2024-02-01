@@ -16,7 +16,7 @@ enable_testing()
 
 add_executable(
   elfconv_test
-  ../../front/Util.cpp
+  ../../utils/Util.cpp
   Test.cpp
 )
 

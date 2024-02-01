@@ -1,8 +1,8 @@
 #include "TestLift.h"
 
 #include "TestMainLifter.h"
-#include "front/Util.h"
 #include "remill/BC/Util.h"
+#include "utils/Util.h"
 
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 

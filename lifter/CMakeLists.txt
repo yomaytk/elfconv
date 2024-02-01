@@ -21,12 +21,12 @@ add_executable(elflift
   MainLifter.cpp
   TraceManager.cpp
   Lift.cpp
-  Util.cpp
+  ${CMAKE_SOURCE_DIR}/utils/Util.cpp
 )
 
 set_target_properties(elflift PROPERTIES
   POSITION_INDEPENDENT_CODE ON
-  COMPILE_FLAGS "-O0 -fPIC"
+  COMPILE_FLAGS "-O3 -fPIC"
 )
 
 target_link_libraries(

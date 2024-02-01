@@ -1,7 +1,7 @@
 #include "TraceManager.h"
 
 #include "Lift.h"
-#include "Util.h"
+#include "utils/Util.h"
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
   traces[addr] = lifted_func;

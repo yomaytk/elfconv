@@ -1,7 +1,7 @@
 #include "Memory.h"
 
-#include "Util.h"
-#include "elfconv.h"
+#include "utils/Util.h"
+#include "utils/elfconv.h"
 
 #include <iomanip>
 #include <iostream>

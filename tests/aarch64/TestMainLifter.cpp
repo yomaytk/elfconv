@@ -1,7 +1,7 @@
 #include "TestMainLifter.h"
 
 #include "TestLift.h"
-#include "front/Util.h"
+#include "utils/Util.h"
 
 /* TestLifter class */
 void TestLifter::DeclareHelperFunction() {

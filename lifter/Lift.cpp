@@ -18,9 +18,9 @@
 
 #include "MainLifter.h"
 #include "TraceManager.h"
-#include "Util.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/Lifter.h"
+#include "utils/Util.h"
 
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
