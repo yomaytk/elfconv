@@ -97,28 +97,19 @@ void MappedMemory::DebugEmulatedMemory() {
 }
 
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
-  void *pma_addr = nullptr;
   /* search in every mapped memory */
-  int exist = 0;
   for (auto &memory : mapped_memorys) {
     if (memory->vma <= vma_addr && vma_addr < memory->vma + memory->len) {
       /*
               for Debug (we should break out this loop at the same time of finding the target
               emulated memory) There are multiple sections whose vma is 0x00000000
             */
-      exist++;
-      pma_addr = reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
+      return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
     }
   }
-  /* don't exist sections which includes the vma_addr. */
-  if (0 == exist) {
-    std::cout << "[ERROR] The accessed memory is not mapped. vma_addr: 0x" << std::hex
-              << std::setw(16) << std::setfill('0') << vma_addr << ", pc: 0x"
-              << g_state.gpr.pc.qword << ", Heap vma: 0x" << mapped_memorys[1]->vma
-              << ", Heap len: " << std::dec << mapped_memorys[1]->len << std::endl;
-    debug_state_machine();
-    abort();
-  }
+  /* not exist sections which includes the vma_addr. */
+  elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
+                        vma_addr, g_state.gpr.pc.qword);
   /* multiple sections which includes the vma_addr */
 #if defined(MULSECTIONS_WARNING_MSG)
   if (exist > 1) {
@@ -126,8 +117,6 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
               << vma_addr << ") exists at multiple sections." << std::endl;
   }
 #endif
-
-  return pma_addr;
 }
 
 /* Wrapper of RuntimeManager::TranslateVMA */

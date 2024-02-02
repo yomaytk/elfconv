@@ -21,6 +21,9 @@ int main(int argc, char *argv[]) {
   mapped_memorys.push_back(MappedMemory::VMAHeapEntryInit());
   /* allocate every sections */
   for (int i = 0; i < __g_data_sec_num; i++) {
+    // remove covered section (FIXME)
+    if (strncmp(reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]), ".tbss", 5) == 0)
+      continue;
     mapped_memorys.push_back(new MappedMemory(
         MemoryAreaType::DATA, reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]),
         __g_data_sec_vma_array[i], static_cast<size_t>(__g_data_sec_size_array[i]),
