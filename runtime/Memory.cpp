@@ -67,14 +67,15 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
   auto argc64 = (_ecv_reg64_t) argc;
   memcpy(bytes + (sp - vma), &argc64, sizeof(_ecv_reg64_t));
   state->gpr.sp.qword = sp;
-  return new MappedMemory(MemoryAreaType::STACK, "Stack", vma, len, bytes, bytes + len, true);
+  return new MappedMemory(MemoryAreaType::STACK, "Stack", vma, vma + len, len, bytes, bytes + len,
+                          true);
 }
 
 MappedMemory *MappedMemory::VMAHeapEntryInit() {
   auto bytes = reinterpret_cast<uint8_t *>(malloc(HEAP_SIZE));
   auto upper_bytes = bytes + HEAP_SIZE;
-  auto heap = new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA, HEAP_SIZE, bytes,
-                               upper_bytes, true);
+  auto heap = new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA,
+                               HEAPS_START_VMA + HEAP_SIZE, HEAP_SIZE, bytes, upper_bytes, true);
   heap->heap_cur = HEAPS_START_VMA;
   return heap;
 }
@@ -99,11 +100,7 @@ void MappedMemory::DebugEmulatedMemory() {
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   /* search in every mapped memory */
   for (auto &memory : mapped_memorys) {
-    if (memory->vma <= vma_addr && vma_addr < memory->vma + memory->len) {
-      /*
-              for Debug (we should break out this loop at the same time of finding the target
-              emulated memory) There are multiple sections whose vma is 0x00000000
-            */
+    if (memory->vma <= vma_addr && vma_addr < memory->vma_end) {
       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
     }
   }

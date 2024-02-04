@@ -26,8 +26,9 @@ int main(int argc, char *argv[]) {
       continue;
     mapped_memorys.push_back(new MappedMemory(
         MemoryAreaType::DATA, reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]),
-        __g_data_sec_vma_array[i], static_cast<size_t>(__g_data_sec_size_array[i]),
-        __g_data_sec_bytes_ptr_array[i],
+        __g_data_sec_vma_array[i],
+        __g_data_sec_vma_array[i] + static_cast<size_t>(__g_data_sec_size_array[i]),
+        static_cast<size_t>(__g_data_sec_size_array[i]), __g_data_sec_bytes_ptr_array[i],
         __g_data_sec_bytes_ptr_array[i] + __g_data_sec_size_array[i], false));
   }
   /* set program counter */
