@@ -145,8 +145,8 @@ static REAL linpack(long nreps, int arsize)
     tdgesl += second() - t1;
   }
   totalt = second() - totalt;
-  if (totalt < 0.5 || tdgefa + tdgesl < 0.2)
-    return (0.);
+  // if (totalt < 0.5 || tdgefa + tdgesl < 0.2)
+  //   return (0.);
   kflops = 2. * nreps * ops / (1000. * (tdgefa + tdgesl));
   toverhead = totalt - tdgefa - tdgesl;
   if (tdgefa < 0.)

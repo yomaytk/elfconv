@@ -292,7 +292,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       llvm::IRBuilder<> __debug_ir(&first_block);
       auto _debug_call_stack_fn = module->getFunction(debug_call_stack_name);
       if (!_debug_call_stack_fn) {
-        printf("[ERROR] debug_pc is undeclared.\n");
+        printf("[ERROR] debug_call_stack_fn is undeclared.\n");
         abort();
       }
       __debug_ir.CreateCall(_debug_call_stack_fn);
