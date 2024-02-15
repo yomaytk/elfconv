@@ -420,7 +420,7 @@ llvm::Value *FindIndirectBrAddress(llvm::BasicBlock *block) {
     }
   }
   if (nullptr == indirect_addr) {
-    printf("[ERROR] BR instruction doesn't have the LLVM IR insn like `load ptr \\%XZZ`");
+    printf("[ERROR] BR instruction doesn't have the LLVM IR insn like `load ptr XZZ`");
     abort();
   }
   return indirect_addr;
