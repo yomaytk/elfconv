@@ -180,7 +180,7 @@ class InstructionLifter : public InstructionLifterIntf {
   class Impl;
 
   const std::unique_ptr<Impl> impl;
-  const std::string debug_pc_name;
+  const std::string debug_insn_name;
 };
 
 }  // namespace remill

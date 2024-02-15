@@ -63,7 +63,7 @@ InstructionLifter::~InstructionLifter(void) {}
 
 InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : impl(new Impl(arch_, intrinsics_)),
-      debug_pc_name("debug_pc") {}
+      debug_insn_name("debug_insn") {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
@@ -138,15 +138,15 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         next_pc_ref);
   }
 
-  /* append debug_pc function call */
+  /* append debug_insn function call */
   if (UINT64_MAX != debug_insn_addr) {
     llvm::IRBuilder<> __debug_ir(block);
-    auto _debug_pc_fn = module->getFunction(debug_pc_name);
-    if (!_debug_pc_fn) {
-      printf("[ERROR] debug_pc is undeclared.\n");
+    auto _debug_insn_fn = module->getFunction(debug_insn_name);
+    if (!_debug_insn_fn) {
+      printf("[ERROR] debug_insn is undeclared.\n");
       abort();
     }
-    __debug_ir.CreateCall(_debug_pc_fn);
+    __debug_ir.CreateCall(_debug_insn_fn);
   }
 
 #if defined(LIFT_INSN_DEBUG)

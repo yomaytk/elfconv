@@ -16,65 +16,65 @@
   abort();
 
 uint8_t __remill_read_memory_8(Memory *, addr_t addr) {
-  return *getMemoryAddr<uint8_t>(addr);
+  return *(uint8_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 uint16_t __remill_read_memory_16(Memory *, addr_t addr) {
-  return *getMemoryAddr<uint16_t>(addr);
+  return *(uint16_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 uint32_t __remill_read_memory_32(Memory *, addr_t addr) {
-  return *getMemoryAddr<uint32_t>(addr);
+  return *(uint32_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 uint64_t __remill_read_memory_64(Memory *, addr_t addr) {
-  return *getMemoryAddr<uint64_t>(addr);
+  return *(uint64_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 float32_t __remill_read_memory_f32(Memory *, addr_t addr) {
-  return *getMemoryAddr<float32_t>(addr);
+  return *(float32_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 float64_t __remill_read_memory_f64(Memory *, addr_t addr) {
-  return *getMemoryAddr<float64_t>(addr);
+  return *(float64_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 float128_t __remill_read_memory_f128(Memory *, addr_t addr) {
-  return *getMemoryAddr<float128_t>(addr);
+  return *(float128_t *) g_run_mgr->TranslateVMA(addr);
 }
 
 Memory *__remill_write_memory_8(Memory *memory, addr_t addr, uint8_t src) {
-  auto dst = getMemoryAddr<uint8_t>(addr);
+  auto dst = (uint8_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }
 
 Memory *__remill_write_memory_16(Memory *memory, addr_t addr, uint16_t src) {
-  auto dst = getMemoryAddr<uint16_t>(addr);
+  auto dst = (uint16_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }
 
 Memory *__remill_write_memory_32(Memory *memory, addr_t addr, uint32_t src) {
-  auto dst = getMemoryAddr<uint32_t>(addr);
+  auto dst = (uint32_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }
 
 Memory *__remill_write_memory_64(Memory *memory, addr_t addr, uint64_t src) {
-  auto dst = getMemoryAddr<uint64_t>(addr);
+  auto dst = (uint64_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }
 
 Memory *__remill_write_memory_f32(Memory *memory, addr_t addr, float32_t src) {
-  auto dst = getMemoryAddr<float32_t>(addr);
+  auto dst = (float32_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }
 
 Memory *__remill_write_memory_f64(Memory *memory, addr_t addr, float64_t src) {
-  auto dst = getMemoryAddr<float64_t>(addr);
+  auto dst = (float64_t *) g_run_mgr->TranslateVMA(addr);
   *dst = src;
   return nullptr;
 }

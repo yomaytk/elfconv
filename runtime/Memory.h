@@ -20,8 +20,6 @@ typedef uint64_t _ecv_reg64_t;
 class MappedMemory;
 class RuntimeManager;
 
-extern RuntimeManager *g_run_mgr;
-
 /* own implementation of syscall emulation */
 extern void __svc_call();
 /* translate the address of the original ELF to the actual address of mapped space */
@@ -79,11 +77,13 @@ enum class MemoryAreaType : uint8_t {
 class MappedMemory {
 
  public:
-  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-               uint8_t *__bytes, uint8_t *__upper_bytes, bool __bytes_on_heap)
+  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma,
+               addr_t __vma_end, uint64_t __len, uint8_t *__bytes, uint8_t *__upper_bytes,
+               bool __bytes_on_heap)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
+        vma_end(__vma_end),
         len(__len),
         bytes(__bytes),
         upper_bytes(__upper_bytes),
@@ -101,6 +101,7 @@ class MappedMemory {
   MemoryAreaType memory_area_type;
   std::string name;
   addr_t vma;
+  addr_t vma_end;
   uint64_t len;
   uint8_t *bytes;
   uint8_t *upper_bytes;
@@ -132,4 +133,9 @@ class RuntimeManager {
   std::unordered_map<addr_t, const char *> addr_fn_symbol_map;
   std::map<addr_t, std::map<uint64_t, uint64_t *>> addr_block_addrs_map;
   std::vector<addr_t> call_stacks;
+
+  int cnt = 0;
+  std::unordered_map<std::string, uint64_t> sec_map;
 };
+
+extern RuntimeManager *g_run_mgr;
