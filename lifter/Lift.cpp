@@ -18,13 +18,13 @@
 
 #include "MainLifter.h"
 #include "TraceManager.h"
-#include "remill/BC/HelperMacro.h"
-#include "remill/BC/Lifter.h"
-#include "utils/Util.h"
 
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <remill/BC/HelperMacro.h>
+#include <remill/BC/Lifter.h>
 #include <remill/BC/Optimizer.h>
+#include <utils/Util.h>
 DEFINE_string(bc_out, "", "Name of the file in which to place the generated bitcode.");
 
 DEFINE_string(os, REMILL_OS,

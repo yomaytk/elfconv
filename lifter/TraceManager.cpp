@@ -1,7 +1,8 @@
 #include "TraceManager.h"
 
 #include "Lift.h"
-#include "utils/Util.h"
+
+#include <utils/Util.h>
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
   traces[addr] = lifted_func;
@@ -121,6 +122,8 @@ void AArch64TraceManager::SetELFData() {
   }
   /* set instructions of every block of .plt section (FIXME) */
   auto plt_section = elf_obj.code_sections[".plt"];
+  if (plt_section.sec_name.empty())
+    plt_section = elf_obj.code_sections[".iplt"];
   if (!plt_section.sec_name.empty()) {
     uint64_t ins_i = 0;
     while (ins_i < plt_section.size) {

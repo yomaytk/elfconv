@@ -1,9 +1,8 @@
 #include "elfconv.h"
 
-#include "remill/Arch/AArch64/Runtime/State.h"
-
 #include <iomanip>
 #include <iostream>
+#include <remill/Arch/AArch64/Runtime/State.h>
 
 #define PRINT_GPR(index) \
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;

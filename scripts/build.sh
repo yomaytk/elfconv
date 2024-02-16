@@ -32,7 +32,7 @@ LIFT_DEBUG_MACROS=
 CXX_COMMON_VERSION="0.5.0"
 EMCC=emcc
 EMAR=emar
-EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -O3"
+EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -I${ROOT_DIR} -O3"
 RUNTIME_DIR=""$( realpath "${ROOT_DIR}" )"/runtime"
 UTILS_DIR=""$( realpath "${ROOT_DIR}" )"/utils"
 ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"

@@ -1,10 +1,9 @@
 #pragma once
 
-#include "remill/Arch/AArch64/Runtime/State.h"
-#include "remill/Arch/Runtime/Types.h"
-
 #include <cstring>
 #include <map>
+#include <remill/Arch/AArch64/Runtime/State.h>
+#include <remill/Arch/Runtime/Types.h>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>

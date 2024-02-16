@@ -1,9 +1,8 @@
-#include "../../utils/Util.h"
-
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <utils/Util.h>
 
 using ::testing::InitGoogleTest;
 using ::testing::Test;
@@ -12,10 +11,12 @@ using ::testing::UnitTest;
 
 #define ECV_PATH(path) "../../../" #path
 #define EMCC_HOST_CMD(ident) \
-  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -o " #ident ".test.wasm.o " \
+  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+  ".test.wasm.o " \
   "-c ../../../runtime/" #ident ".cpp"
 #define EMCC_UTILS_CMD(ident) \
-  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -o " #ident ".test.wasm.o " \
+  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+  ".test.wasm.o " \
   "-c ../../../utils/" #ident ".cpp"
 #define EMCC_WASM_O(bc_ident) \
   "emcc -c " bc_ident ".bc" \
@@ -25,14 +26,14 @@ using ::testing::UnitTest;
 
 enum WASI_RUNTIME : uint8_t { WASMTIME, WASMEDGE };
 
-void compile_fronts_emscripten();
+void compile_runtime_emscripten();
 void clean_up();
 
 class TestEnvironment : public ::testing::Environment {
  public:
   ~TestEnvironment() override {}
   void SetUp() override {
-    compile_fronts_emscripten();
+    compile_runtime_emscripten();
   }
   void TearDown() override {
     clean_up();
@@ -40,7 +41,7 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 // compile `elfconv/runtime`
-void compile_fronts_emscripten() {
+void compile_runtime_emscripten() {
   std::string cmds[] = {EMCC_HOST_CMD(Entry),   EMCC_HOST_CMD(Memory),
                         EMCC_HOST_CMD(Syscall), EMCC_HOST_CMD(VmIntrinsics),
                         EMCC_UTILS_CMD(Util),   EMCC_UTILS_CMD(elfconv)};
@@ -138,21 +139,19 @@ void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNT
 }
 
 TEST(TestWasmtime, IntegrationExamplesTest) {
-  unit_test_wasi_runtime("print_hello", "Hello, World!\n", WASMTIME);
   unit_test_wasi_runtime(
       "eratosthenes_sieve",
       "2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,521,523,541\n",
       WASMTIME);
-  // unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME); (ERROR)
+  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME);
 }
 
 TEST(TestWasmedge, IntegrationExamplesTest) {
-  unit_test_wasi_runtime("print_hello", "Hello, World!\n", WASMEDGE);
   unit_test_wasi_runtime(
       "eratosthenes_sieve",
       "2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,521,523,541\n",
       WASMEDGE);
-  // unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME); (ERROR)
+  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME);
 }
 
 int main(int argc, char **argv) {

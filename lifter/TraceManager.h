@@ -1,21 +1,11 @@
 #pragma once
-#include <gflags/gflags.h>
-#include <glog/logging.h>
 #include "Binary/Loader.h"
-#include "remill/Arch/AArch64/Runtime/State.h"
-#include "remill/Arch/Arch.h"
-#include "remill/Arch/Instruction.h"
-#include "remill/Arch/Name.h"
-#include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/Arch/Runtime/Runtime.h"
-#include "remill/BC/IntrinsicTable.h"
-#include "remill/BC/Lifter.h"
-#include "remill/BC/Util.h"
-#include "remill/OS/OS.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <gflags/gflags.h>
+#include <glog/logging.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/Instructions.h>
@@ -24,6 +14,16 @@
 #include <llvm/IR/Type.h>
 #include <map>
 #include <memory>
+#include <remill/Arch/AArch64/Runtime/State.h>
+#include <remill/Arch/Arch.h>
+#include <remill/Arch/Instruction.h>
+#include <remill/Arch/Name.h>
+#include <remill/Arch/Runtime/Intrinsics.h>
+#include <remill/Arch/Runtime/Runtime.h>
+#include <remill/BC/IntrinsicTable.h>
+#include <remill/BC/Lifter.h>
+#include <remill/BC/Util.h>
+#include <remill/OS/OS.h>
 #include <sstream>
 #include <string>
 
