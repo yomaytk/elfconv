@@ -25,5 +25,7 @@ target_link_libraries(
   GTest::gtest_main
 )
 
+target_include_directories(elfconv_test PRIVATE ${CMAKE_SOURCE_DIR})
+
 include(GoogleTest)
 gtest_discover_tests(elfconv_test)

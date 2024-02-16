@@ -1,11 +1,10 @@
 #include "Memory.h"
-#include "remill/Arch/AArch64/Runtime/State.h"
-#include "remill/BC/HelperMacro.h"
-#include "utils/Util.h"
 
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <remill/Arch/AArch64/Runtime/State.h>
+#include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
@@ -16,6 +15,7 @@
 #include <sys/utsname.h>
 #include <termios.h>
 #include <unistd.h>
+#include <utils/Util.h>
 
 #if defined(ELFCONV_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
