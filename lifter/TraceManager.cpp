@@ -122,6 +122,8 @@ void AArch64TraceManager::SetELFData() {
   }
   /* set instructions of every block of .plt section (FIXME) */
   auto plt_section = elf_obj.code_sections[".plt"];
+  if (plt_section.sec_name.empty())
+    plt_section = elf_obj.code_sections[".iplt"];
   if (!plt_section.sec_name.empty()) {
     uint64_t ins_i = 0;
     while (ins_i < plt_section.size) {
