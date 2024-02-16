@@ -1,8 +1,8 @@
 #include "MainLifter.h"
 
-#include "remill/Arch/Arch.h"
-#include "remill/BC/ABI.h"
-#include "utils/Util.h"
+#include <remill/Arch/Arch.h>
+#include <remill/BC/ABI.h>
+#include <utils/Util.h>
 
 /* Set entry function pointer */
 void MainLifter::SetEntryPoint(std::string &entry_func_name) {

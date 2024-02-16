@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Binary/Loader.h"
-#include "remill/BC/TraceLifter.h"
+
+#include <remill/BC/TraceLifter.h>
 
 using namespace remill;
 

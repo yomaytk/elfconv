@@ -1,10 +1,9 @@
 #include "Memory.h"
 
-#include "utils/Util.h"
-#include "utils/elfconv.h"
-
 #include <iomanip>
 #include <iostream>
+#include <utils/Util.h>
+#include <utils/elfconv.h>
 
 // #define MULSECTIONS_WARNING_MSG 1
 
