@@ -1538,7 +1538,7 @@ DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64, M64W>;
 namespace {
 
 template <typename D>
-DEF_SEM(DC_ZVA, D dst_mem, R64W) {
+DEF_SEM(DC_ZVA, D dst_mem) {
   auto bs = state.sr.dczid_el0.qword & 0b1111; /* get BS field */
   for (size_t i = 0; i < static_cast<size_t>(pow(2.0, static_cast<double>(bs))); i++) {
     Write_Dc_Zva(dst_mem, sizeof(uint32_t) * i, 0);

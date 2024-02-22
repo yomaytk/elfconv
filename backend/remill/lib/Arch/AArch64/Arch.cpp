@@ -827,28 +827,28 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
   }
 
   // Control flow operands update the next program counter.
-  if (inst.IsControlFlow()) {
-    inst.operands.emplace_back();
-    auto &dst_ret_pc = inst.operands.back();
-    dst_ret_pc.type = Operand::kTypeRegister;
-    dst_ret_pc.action = Operand::kActionWrite;
-    dst_ret_pc.size = address_size;
-    dst_ret_pc.reg.name = "NEXT_PC";
-    dst_ret_pc.reg.size = address_size;
-  }
+  // if (inst.IsControlFlow()) {
+  //   inst.operands.emplace_back();
+  //   auto &dst_ret_pc = inst.operands.back();
+  //   dst_ret_pc.type = Operand::kTypeRegister;
+  //   dst_ret_pc.action = Operand::kActionWrite;
+  //   dst_ret_pc.size = address_size;
+  //   dst_ret_pc.reg.name = "NEXT_PC";
+  //   dst_ret_pc.reg.size = address_size;
+  // }
 
   // The semantics will store the return address in `RETURN_PC`. This is to
   // help synchronize program counters when lifting instructions on an ISA
   // with delay slots.
-  if (inst.IsFunctionCall()) {
-    inst.operands.emplace_back();
-    auto &dst_ret_pc = inst.operands.back();
-    dst_ret_pc.type = Operand::kTypeRegister;
-    dst_ret_pc.action = Operand::kActionWrite;
-    dst_ret_pc.size = address_size;
-    dst_ret_pc.reg.name = "RETURN_PC";
-    dst_ret_pc.reg.size = address_size;
-  }
+  // if (inst.IsFunctionCall()) {
+  //   inst.operands.emplace_back();
+  //   auto &dst_ret_pc = inst.operands.back();
+  //   dst_ret_pc.type = Operand::kTypeRegister;
+  //   dst_ret_pc.action = Operand::kActionWrite;
+  //   dst_ret_pc.size = address_size;
+  //   dst_ret_pc.reg.name = "RETURN_PC";
+  //   dst_ret_pc.reg.size = address_size;
+  // }
 
   return true;
 }
