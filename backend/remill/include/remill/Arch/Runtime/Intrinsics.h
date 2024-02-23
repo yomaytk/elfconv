@@ -22,34 +22,34 @@
 extern "C" {
 
 // Memory read intrinsics.
-[[gnu::used, gnu::const]] extern uint8_t __remill_read_memory_8(Memory *, addr_t);
+[[gnu::used]] extern uint8_t __remill_read_memory_8(Memory *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint16_t __remill_read_memory_16(Memory *, addr_t);
+[[gnu::used]] extern uint16_t __remill_read_memory_16(Memory *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint32_t __remill_read_memory_32(Memory *, addr_t);
+[[gnu::used]] extern uint32_t __remill_read_memory_32(Memory *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint64_t __remill_read_memory_64(Memory *, addr_t);
+[[gnu::used]] extern uint64_t __remill_read_memory_64(Memory *, addr_t);
 
 // Memory write intrinsics.
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_8(Memory *, addr_t, uint8_t);
+[[gnu::used]] extern Memory *__remill_write_memory_8(Memory *, addr_t, uint8_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_16(Memory *, addr_t, uint16_t);
+[[gnu::used]] extern Memory *__remill_write_memory_16(Memory *, addr_t, uint16_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_32(Memory *, addr_t, uint32_t);
+[[gnu::used]] extern Memory *__remill_write_memory_32(Memory *, addr_t, uint32_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_64(Memory *, addr_t, uint64_t);
+[[gnu::used]] extern Memory *__remill_write_memory_64(Memory *, addr_t, uint64_t);
 
-[[gnu::used, gnu::const]] extern float32_t __remill_read_memory_f32(Memory *, addr_t);
+[[gnu::used]] extern float32_t __remill_read_memory_f32(Memory *, addr_t);
 
-[[gnu::used, gnu::const]] extern float64_t __remill_read_memory_f64(Memory *, addr_t);
+[[gnu::used]] extern float64_t __remill_read_memory_f64(Memory *, addr_t);
 
 [[gnu::used]] extern Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &);
 
 [[gnu::used]] extern float128_t __remill_read_memory_f128(Memory *, addr_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_f32(Memory *, addr_t, float32_t);
+[[gnu::used]] extern Memory *__remill_write_memory_f32(Memory *, addr_t, float32_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_f64(Memory *, addr_t, float64_t);
+[[gnu::used]] extern Memory *__remill_write_memory_f64(Memory *, addr_t, float64_t);
 
 [[gnu::used]] extern Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &);
 
