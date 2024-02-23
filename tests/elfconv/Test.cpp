@@ -11,11 +11,11 @@ using ::testing::UnitTest;
 
 #define ECV_PATH(path) "../../../" #path
 #define EMCC_HOST_CMD(ident) \
-  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+  "emcc -O0 -DELFC_RUNTIME_HOST_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../runtime/" #ident ".cpp"
 #define EMCC_UTILS_CMD(ident) \
-  "emcc -O0 -DELFCONV_SERVER_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+  "emcc -O0 -DELFC_RUNTIME_HOST_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../utils/" #ident ".cpp"
 #define EMCC_WASM_O(bc_ident) \

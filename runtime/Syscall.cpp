@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <utils/Util.h>
 
-#if defined(ELFCONV_SYSCALL_DEBUG)
+#if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
 #  define NOP_SYSCALL(sysnum) \
     printf("[INFO] syscall \"" #sysnum "\" is nop (but maybe allowd) now.\n");
@@ -128,7 +128,7 @@ void __svc_call(void) {
 
   auto &state_gpr = g_state.gpr;
   errno = 0;
-#if defined(ELFCONV_SYSCALL_DEBUG)
+#if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword,
          g_state.gpr.pc.qword);
 #endif
@@ -189,7 +189,7 @@ void __svc_call(void) {
       free(cache_vec);
     } break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-#if defined(ELFCONV_SERVER_ENV)
+#if defined(ELFC_RUNTIME_HOST_ENV)
       /* FIXME! */
       memcpy((char *) _ecv_translate_ptr(state_gpr.x2.qword),
              (const char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x3.dword);
@@ -346,7 +346,7 @@ void __svc_call(void) {
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-#if defined(ELFCONV_SERVER_ENV)
+#if defined(ELFC_RUNTIME_HOST_ENV)
       memset(_ecv_translate_ptr(state_gpr.x0.qword), 1, static_cast<size_t>(state_gpr.x1.qword));
       state_gpr.x0.qword = state_gpr.x1.qword;
 #else
@@ -363,7 +363,7 @@ void __svc_call(void) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
       struct stat _stat;
       // execute fstat
-#if defined(ELFCONV_SERVER_ENV)
+#if defined(ELFC_RUNTIME_HOST_ENV)
       errno = _ECV_EACCESS;
       EMPTY_SYSCALL(AARCH64_SYS_STATX);
 #else

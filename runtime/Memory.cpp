@@ -5,8 +5,6 @@
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
-// #define MULSECTIONS_WARNING_MSG 1
-
 /*
   MappedMemory
 */
@@ -98,6 +96,7 @@ void MappedMemory::DebugEmulatedMemory() {
 
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   /* search in every mapped memory */
+  // std::cout << "vma: " << std::hex << "0x" << vma_addr << std::endl;
   for (auto &memory : mapped_memorys) {
     if (memory->vma <= vma_addr && vma_addr < memory->vma_end) {
       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));

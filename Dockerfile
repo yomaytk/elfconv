@@ -29,7 +29,7 @@ echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-
 # several install
 RUN apt update
 RUN apt install -qqy --no-install-recommends file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
-    clang-${LLVM_VERSION} lld-${LLVM_VERSION} ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim \
+    clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim \
     libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache binutils-dev libelf-dev && \   
     apt upgrade --yes && apt clean --yes && \
     rm -rf /var/lib/apt/lists/*
