@@ -270,6 +270,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     func = get_trace_decl(trace_addr);
     blocks.clear();
     lifted_block_map.clear();
+    br_blocks.clear();
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
@@ -448,10 +449,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           /* indirectbr entry block */
           indirectbr_block = GetOrCreateIndirectJmpBlock();
           llvm::IRBuilder<> ir(block);
-          /* store indirectbr addr to `INDIRECT_BR_ADDR` */
-          llvm::Value *indirect_br_addr = FindIndirectBrAddress(block);
-          auto braddr_key_ref = LoadIndirectBrAddrRef(block);
-          (void) new llvm::StoreInst(indirect_br_addr, braddr_key_ref, block);
+          br_blocks.push_back({block, FindIndirectBrAddress(block)});
           /* jmp to indirectbr block */
           ir.CreateBr(indirectbr_block);
           break;
@@ -738,22 +736,27 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
       /* indirectbr_block */
       llvm::IRBuilder<> ir_1(indirectbr_block);
-      auto br_vma =
-          ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
-      auto fn_vma = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
       /* calculate the target block address */
       auto g_get_jmp_helper_fn =
           module->getFunction(g_get_jmp_block_address_func_name); /* return type: uint64_t* */
       CHECK(g_get_jmp_helper_fn);
-      auto target_bb_i64 = ir_1.CreateCall(g_get_jmp_helper_fn, {fn_vma, br_vma});
+      auto br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
+      for (auto &br_pair : br_blocks) {
+        auto br_block = br_pair.first;
+        auto dest_addr = br_pair.second;
+        br_vma_phi->addIncoming(dest_addr, br_block);
+      }
+      auto target_bb_i64 = ir_1.CreateCall(
+          g_get_jmp_helper_fn,
+          {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), br_vma_phi});
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());
-      for (auto &[_vma, _block] : lifted_block_map)
+      for (auto &[_, _block] : lifted_block_map)
         indirect_br_i->addDestination(_block);
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
-      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, br_vma);
+      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, br_vma_phi);
     }
 
     for (auto &block : *func) {

@@ -219,6 +219,7 @@ class TraceLifter::Impl {
   llvm::BasicBlock *indirectbr_block;
   llvm::SwitchInst *switch_inst;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
+  std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> br_blocks;
   bool lift_all_insn;
   const size_t max_inst_bytes;
   std::string inst_bytes;
