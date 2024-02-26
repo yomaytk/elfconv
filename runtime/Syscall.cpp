@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <fcntl.h>
 #include <iostream>
 #include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/BC/HelperMacro.h>
@@ -31,6 +32,7 @@
 */
 #define AARCH64_SYS_IOCTL 29
 #define AARCH64_SYS_FACCESSAT 48
+#define AARCH64_SYS_OPENAT 56
 #define AARCH64_SYS_READ 63
 #define AARCH64_SYS_WRITE 64
 #define AARCH64_SYS_WRITEV 66
@@ -166,8 +168,11 @@ void __svc_call(void) {
       EMPTY_SYSCALL(AARCH64_SYS_FACCESSAT);
       errno = _ECV_EACCESS;
       break;
+    case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
+      state_gpr.x0.dword = openat(
+          state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x2.dword);
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      state_gpr.x0.qword = read(state_gpr.x0.dword, _ecv_translate_ptr(state_gpr.x1.qword),
+      state_gpr.x0.qword = read(state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword),
                                 static_cast<size_t>(state_gpr.x2.qword));
       break;
     case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
@@ -194,11 +199,9 @@ void __svc_call(void) {
       memcpy((char *) _ecv_translate_ptr(state_gpr.x2.qword),
              (const char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x3.dword);
 #else
-      printf("buf: %s", (char *) _ecv_translate_ptr(state_gpr.x2.qword));
       state_gpr.x0.qword =
           readlinkat(state_gpr.x0.dword, (const char *) _ecv_translate_ptr(state_gpr.x1.qword),
                      (char *) _ecv_translate_ptr(state_gpr.x2.qword), state_gpr.x3.dword);
-      printf("buf: %s", (char *) _ecv_translate_ptr(state_gpr.x2.qword));
 #endif
       break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
