@@ -117,63 +117,63 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
-DEF_SEM_RETU64(DoDirectBranch, PC target_pc) {
-  const auto new_pc = Read(target_pc);
+DEF_SEM(DoDirectBranch, PC target_pc) {
+  // const auto new_pc = Read(target_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 template <typename S>
-DEF_SEM_RETU64(DoIndirectBranch, S dst) {
-  const auto new_pc = Read(dst);
+DEF_SEM(DoIndirectBranch, S dst) {
+  // const auto new_pc = Read(dst);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 template <bool (*check_cond)(const State &)>
-DEF_SEM_RETU64(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
+DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = check_cond(state);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
+  // const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 template <typename S>
-DEF_SEM_RETU64(CBZ, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpEq(Read(src), 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
+  // const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 template <typename S>
-DEF_SEM_RETU64(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpNeq(Read(src), 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
+  // const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 
 template <typename S>
-DEF_SEM_RETU64(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
@@ -182,14 +182,14 @@ DEF_SEM_RETU64(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   auto take_branch = UCmpEq(bit_set, 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
+  // const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 template <typename S>
-DEF_SEM_RETU64(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
@@ -198,10 +198,10 @@ DEF_SEM_RETU64(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   auto take_branch = UCmpNeq(bit_set, 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
+  // const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
   // Write(REG_PC, new_pc);
   // Write(pc_dst, new_pc);
-  return new_pc;
+  return memory;
 }
 
 }  // namespace

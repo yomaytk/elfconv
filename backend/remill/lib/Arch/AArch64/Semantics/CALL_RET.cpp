@@ -27,11 +27,11 @@ DEF_SEM(CALL, S target_addr, PC ret_addr) {
   return memory;
 }
 
-DEF_SEM_RETU64(RET, R64 target_pc) {
+DEF_SEM(RET, R64 target_pc) {
   const auto new_pc = Read(target_pc);
   Write(REG_PC, new_pc);
   // Write(dst_pc, new_pc);
-  return new_pc;
+  return memory;
 }
 
 }  // namespace

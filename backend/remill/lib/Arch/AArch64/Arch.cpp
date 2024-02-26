@@ -2884,46 +2884,65 @@ bool TryDecodeSBCS_64_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
   return TryDecodeSBC_64_ADDSUB_CARRY(data, inst);
 }
 
+static bool TryDecodeUCVTF_Un_FLOAT2INT(const InstData &data, Instruction &inst,
+                                        RegClass dest_class, RegClass src_class) {
+  AddRegOperand(inst, kActionWrite, dest_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, src_class, kUseAsValue, data.Rn);
+  return true;
+}
+
 // UCVTF  <Hd>, <Wn>
 bool TryDecodeUCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegH, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegH, kRegW);
   return true;
 }
 
 // UCVTF  <Sd>, <Wn>
 bool TryDecodeUCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegS, kRegW);
   return true;
 }
 
 // UCVTF  <Dd>, <Wn>
 bool TryDecodeUCVTF_D32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegD, kRegW);
   return true;
 }
 
 // UCVTF  <Hd>, <Xn>
 bool TryDecodeUCVTF_H64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegH, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegH, kRegX);
+
   return true;
 }
 
 // UCVTF  <Sd>, <Xn>
 bool TryDecodeUCVTF_S64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegS, kRegX);
   return true;
 }
 
 // UCVTF  <Dd>, <Xn>
 bool TryDecodeUCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
+  TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegD, kRegX);
   return true;
+}
+
+// UCVTF  <V><d>, <V><n>
+bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
+  if (1 == data.sz)
+    inst.function += "_64";
+  else
+    inst.function += "_32";
+  return TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegV, kRegV);
+  return true;
+}
+
+// FRINTA  <Dd>, <Dn>
+bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
+  // AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  // AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  return false;
 }
 
 bool IsUnallocatedFloatEncoding(const InstData &data) {
@@ -3512,6 +3531,11 @@ static bool TryDecodeSTR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
   AddBasePlusOffsetMemOp(inst, kActionWrite, 8U << scale, data.Rn, 0);
   AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
+}
+
+// STR  <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+bool TryDecodeSTR_S_LDST_REGOFF(const InstData &data, Instruction &inst) {
+  return TryDecodeSTR_Vn_LDST_REGOFF(data, inst, kRegS);
 }
 
 // STR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
@@ -4536,13 +4560,11 @@ bool TryDecodeSCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // SCVTF  <V><d>, <V><n>
 bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
-  if (1 == data.sz) {
+  if (1 == data.sz)
     inst.function += "_64";
-    return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegD, kRegD);
-  } else {
+  else
     inst.function += "_32";
-    return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegS, kRegS);
-  }
+  return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegV, kRegV);
 }
 
 // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
