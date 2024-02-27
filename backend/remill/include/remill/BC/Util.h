@@ -141,12 +141,6 @@ llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
 /* Return a reference to the indirect br addr ref. */
 llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block);
 
-/* Return a reference to the vma start address */
-llvm::Value *LoadVMASRef(llvm::BasicBlock *block);
-
-/* Return a reference to the vma end address */
-llvm::Value *LoadVMAERef(llvm::BasicBlock *block);
-
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
 // or not a conditional branch is taken.
 llvm::Value *LoadBranchTaken(llvm::IRBuilder<> &builder);

@@ -102,6 +102,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
     }
   }
+  debug_state_machine();
   /* not exist sections which includes the vma_addr. */
   elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
                         vma_addr, g_state.gpr.pc.qword);

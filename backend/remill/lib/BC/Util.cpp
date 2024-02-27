@@ -305,16 +305,6 @@ llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kIndirectBrAddrName).first;
 }
 
-/* Return a reference to the vma start address */
-llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kFunctionVMASName).first;
-}
-
-/* Return a reference to the vma end address */
-llvm::Value *LoadVMAERef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kFunctionVMAEName).first;
-}
-
 // Update the program counter in the state struct with a new value.
 void StoreProgramCounter(llvm::BasicBlock *block, llvm::Value *pc) {
   (void) new llvm::StoreInst(pc, LoadProgramCounterRef(block), block);

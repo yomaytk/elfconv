@@ -18,6 +18,7 @@
 
 #include "remill/Arch/Name.h"
 #include "remill/BC/ABI.h"
+#include "remill/BC/HelperMacro.h"
 #include "remill/BC/Util.h"
 #include "remill/BC/Version.h"
 #include "remill/OS/OS.h"
@@ -723,8 +724,6 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   ir.CreateAlloca(addr, nullptr, "MONITOR");
   ir.CreateAlloca(u64, nullptr, "SWITCH_KEY");
   ir.CreateAlloca(u64, nullptr, "INDIRECT_BR_ADDR");
-  ir.CreateAlloca(u64, nullptr, "VMA_S");
-  ir.CreateAlloca(u64, nullptr, "VMA_E");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.

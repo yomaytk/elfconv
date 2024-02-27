@@ -320,13 +320,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (lifted_block_map.count(inst_addr) == 0)
         lifted_block_map[inst_addr] = block;
 
-#if defined(LIFT_DEBUG)
-      auto [pc_ref, _] = this->arch->DefaultLifter(*this->intrinsics)
-                             ->LoadRegAddress(block, state_ptr, kNextPCVariableName);
-      (void) llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
-                             pc_ref, block);
-#endif
-
 /* in the test mode, generates the basic block for initializing state and memory */
 #if defined(TEST_MODE)
       // L_pre_vm --> inst block
@@ -361,6 +354,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // TODO(Ian): not passing context around in trace lifter
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
+
+#if defined(LIFT_DEBUG)
+      (void) new llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                                 LoadProgramCounterRef(block), block);
+#endif
 
       // Lift instruction
       auto lift_status =
@@ -447,10 +445,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           try_add_delay_slot(true, block);
           const auto fall_through_block = llvm::BasicBlock::Create(context, "", func);
 
-          // const auto ret_pc_ref = LoadReturnProgramCounterRef(fall_through_block);
-          // const auto next_pc_ref = LoadNextProgramCounterRef(fall_through_block);
           llvm::IRBuilder<> ir(fall_through_block);
-          // ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(GetOrCreateBranchNotTakenBlock());
 
           // indirect jump address is value of %Xzzz just before
@@ -509,9 +504,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                     llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
           }
           llvm::IRBuilder<> ir(block);
-          // const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
-          // const auto next_pc_ref = LoadNextProgramCounterRef(block);
-          // ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(GetOrCreateBranchNotTakenBlock());
           continue;
         }
@@ -546,10 +538,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           AddCall(taken_block, intrinsics->function_call, *intrinsics);
           AddCall(taken_block, target_trace, *intrinsics);
 
-          // const auto ret_pc_ref = LoadReturnProgramCounterRef(taken_block);
-          // const auto next_pc_ref = LoadNextProgramCounterRef(taken_block);
           llvm::IRBuilder<> ir(taken_block);
-          // ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(orig_not_taken_block);
           block = orig_not_taken_block;
           continue;
@@ -575,18 +564,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         check_call_return:
           do {
-            // auto pc = LoadProgramCounter(block, *intrinsics);
-            // auto next_pc = LoadNextProgramCounter(block, *intrinsics);
-            // auto ret_pc = llvm::ConstantInt::get(intrinsics->pc_type, inst.next_pc);
-
             llvm::IRBuilder<> ir(block);
             ir.CreateBr(GetOrCreateNextBlock());
-            // auto eq = ir.CreateICmpEQ(next_pc, ret_pc);
-            // auto unexpected_ret_pc = llvm::BasicBlock::Create(context, "", func);
             // WARNING: if there is no next instruction in this function, this create the branch instruction
             // to the invalid instruction of next address.
-            // ir.CreateCondBr(eq, GetOrCreateNextBlock(), unexpected_ret_pc);
-            // AddTerminatingTailCall(unexpected_ret_pc, intrinsics->missing_block, *intrinsics);
           } while (false);
           break;
 
