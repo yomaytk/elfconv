@@ -58,6 +58,11 @@
   ALWAYS_INLINE __attribute__((flatten)) static Memory *name(Memory *memory, State &state, \
                                                              ##__VA_ARGS__)
 
+// Define a DEF_SEM that returns uint64_t.
+#define DEF_SEM_RETU64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(Memory *memory, State &state, \
+                                                              ##__VA_ARGS__)
+
 template <typename R, typename... Args>
 inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*)(Args...) {
   return b;

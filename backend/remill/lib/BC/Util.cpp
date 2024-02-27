@@ -137,17 +137,19 @@ void InitFunctionAttributes(llvm::Function *function) {
 
 // Create a call from one lifted function to another.
 llvm::CallInst *AddCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                        const IntrinsicTable &intrinsics) {
+                        const IntrinsicTable &intrinsics, llvm::Value *pc_value) {
   llvm::IRBuilder<> ir(source_block);
-  return AddCall(ir, source_block, dest_func, intrinsics);
+  return AddCall(ir, source_block, dest_func, intrinsics, pc_value);
 }
 
 llvm::CallInst *AddCall(llvm::IRBuilder<> &ir, llvm::BasicBlock *source_block,
-                        llvm::Value *dest_func, const IntrinsicTable &intrinsics) {
-  auto args = LiftedFunctionArgs(source_block, intrinsics);
+                        llvm::Value *dest_func, const IntrinsicTable &intrinsics,
+                        llvm::Value *pc_value) {
+  auto args = pc_value ? LiftedFunctionArgsWithPCValue(source_block, intrinsics, pc_value)
+                       : LiftedFunctionArgs(source_block, intrinsics);
+
   if (auto func = llvm::dyn_cast<llvm::Function>(dest_func); func) {
     return ir.CreateCall(func, args);
-
   } else {
     llvm::Type *arg_types[kNumBlockArgs];
     arg_types[kStatePointerArgNum] = args[kStatePointerArgNum]->getType();
@@ -161,15 +163,15 @@ llvm::CallInst *AddCall(llvm::IRBuilder<> &ir, llvm::BasicBlock *source_block,
 
 // Create a tail-call from one lifted function to another.
 llvm::CallInst *AddTerminatingTailCall(llvm::Function *source_func, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics) {
+                                       const IntrinsicTable &intrinsics, llvm::Value *pc_value) {
   if (source_func->isDeclaration()) {
     llvm::IRBuilder<> ir(llvm::BasicBlock::Create(source_func->getContext(), "", source_func));
   }
-  return AddTerminatingTailCall(&(source_func->back()), dest_func, intrinsics);
+  return AddTerminatingTailCall(&(source_func->back()), dest_func, intrinsics, pc_value);
 }
 
 llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics) {
+                                       const IntrinsicTable &intrinsics, llvm::Value *pc_value) {
   CHECK(nullptr != dest_func) << "Target function/block does not exist!";
 
   LOG_IF(ERROR, source_block->getTerminator())
@@ -179,11 +181,11 @@ llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Val
   llvm::IRBuilder<> ir(source_block);
 
   // get the `NEXT_PC` and set it to `PC`
-  auto next_pc = LoadNextProgramCounter(source_block, intrinsics);
-  auto pc_ref = LoadProgramCounterRef(source_block);
-  (void) new llvm::StoreInst(next_pc, pc_ref, source_block);
+  // auto next_pc = LoadNextProgramCounter(source_block, intrinsics);
+  // auto pc_ref = LoadProgramCounterRef(source_block);
+  // (void) new llvm::StoreInst(next_pc, pc_ref, source_block);
 
-  auto call_target_instr = AddCall(source_block, dest_func, intrinsics);
+  auto call_target_instr = AddCall(source_block, dest_func, intrinsics, pc_value);
   call_target_instr->setTailCall(true);
 
   ir.CreateRet(call_target_instr);
@@ -301,16 +303,6 @@ llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block) {
 /* Return a reference to the switch key. */
 llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kIndirectBrAddrName).first;
-}
-
-/* Return a reference to the vma start address */
-llvm::Value *LoadVMASRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kFunctionVMASName).first;
-}
-
-/* Return a reference to the vma end address */
-llvm::Value *LoadVMAERef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kFunctionVMAEName).first;
 }
 
 // Update the program counter in the state struct with a new value.
@@ -692,6 +684,27 @@ std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *bl
     args[kMemoryPointerArgNum] = NthArgument(func, kMemoryPointerArgNum);
     args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
     args[kPCArgNum] = NthArgument(func, kPCArgNum);
+  }
+
+  return args;
+}
+
+std::array<llvm::Value *, kNumBlockArgs>
+LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &intrinsics,
+                              llvm::Value *pc_value) {
+  auto func = block->getParent();
+
+  // Set up arguments according to our ABI.
+  std::array<llvm::Value *, kNumBlockArgs> args;
+
+  if (FindVarInFunction(func, kPCVariableName, true).first) {
+    args[kMemoryPointerArgNum] = LoadMemoryPointer(block, intrinsics);
+    args[kStatePointerArgNum] = LoadStatePointer(block);
+    args[kPCArgNum] = pc_value;
+  } else {
+    args[kMemoryPointerArgNum] = NthArgument(func, kMemoryPointerArgNum);
+    args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
+    args[kPCArgNum] = pc_value;
   }
 
   return args;

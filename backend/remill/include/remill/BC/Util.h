@@ -68,17 +68,20 @@ void InitFunctionAttributes(llvm::Function *F);
 
 // Create a call from one lifted function to another.
 llvm::CallInst *AddCall(llvm::IRBuilder<> &builder, llvm::BasicBlock *source_block,
-                        llvm::Value *dest_func, const IntrinsicTable &intrinsics);
+                        llvm::Value *dest_func, const IntrinsicTable &intrinsics,
+                        llvm::Value *pc_value = nullptr);
 
 llvm::CallInst *AddCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                        const IntrinsicTable &intrinsics);
+                        const IntrinsicTable &intrinsics, llvm::Value *pc_value = nullptr);
 
 // Create a tail-call from one lifted function to another.
 llvm::CallInst *AddTerminatingTailCall(llvm::Function *source_func, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics);
+                                       const IntrinsicTable &intrinsics,
+                                       llvm::Value *pc_value = nullptr);
 
 llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics);
+                                       const IntrinsicTable &intrinsics,
+                                       llvm::Value *pc_value = nullptr);
 
 // Find a local variable defined in the entry block of the function. We use
 // this to find register variables.
@@ -137,12 +140,6 @@ llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
 
 /* Return a reference to the indirect br addr ref. */
 llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block);
-
-/* Return a reference to the vma start address */
-llvm::Value *LoadVMASRef(llvm::BasicBlock *block);
-
-/* Return a reference to the vma end address */
-llvm::Value *LoadVMAERef(llvm::BasicBlock *block);
 
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
 // or not a conditional branch is taken.
@@ -209,6 +206,13 @@ llvm::Argument *NthArgument(llvm::Function *func, size_t index);
 // arguments are derived from `block`.
 std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *block,
                                                             const IntrinsicTable &intrinsics);
+
+// Return a vector of arguments to pass to a lifted function, where the
+// arguments are derived from `block`.
+// this function uses constant program counter instead of loading `NEXT_PC`
+std::array<llvm::Value *, kNumBlockArgs>
+LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &intrinsics,
+                              llvm::Value *pc_value);
 
 // Serialize an LLVM object into a string.
 std::string LLVMThingToString(llvm::Value *thing);

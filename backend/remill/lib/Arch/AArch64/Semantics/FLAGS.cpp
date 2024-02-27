@@ -23,7 +23,8 @@ enum : uint32_t { kLHS = 2415899639U, kRHS = 70623199U };
 // Zero flags, tells us whether or not a value is zero.
 template <typename T, typename S1, typename S2>
 [[gnu::const]] ALWAYS_INLINE static bool ZeroFlag(T res, S1 lhs, S2 rhs) {
-  return __remill_flag_computation_zero(T(0) == res, lhs, rhs, res);
+  return T(0) == res;
+  // return __remill_flag_computation_zero(T(0) == res, lhs, rhs, res);
 }
 
 // Zero flags, tells us whether or not a value is zero.
@@ -36,13 +37,15 @@ template <typename T>
 // Zero flags, tells us whether or not a value is zero.
 template <typename T, typename S1, typename S2>
 [[gnu::const]] ALWAYS_INLINE static bool NotZeroFlag(T res, S1 lhs, S2 rhs) {
-  return !__remill_flag_computation_zero(T(0) == res, lhs, rhs, res);
+  return !T(0) == res;
+  // return !__remill_flag_computation_zero(T(0) == res, lhs, rhs, res);
 }
 
 // Sign flag, tells us if a result is signed or unsigned.
 template <typename T, typename S1, typename S2>
 [[gnu::const]] ALWAYS_INLINE static bool SignFlag(T res, S1 lhs, S2 rhs) {
-  return __remill_flag_computation_sign(0 > Signed(res), lhs, rhs, res);
+  return 0 > Signed(res);
+  // return __remill_flag_computation_sign(0 > Signed(res), lhs, rhs, res);
 }
 
 // Tests whether there is an even number of bits in the low order byte.
@@ -81,8 +84,9 @@ struct Overflow<tag_add> {
     const T sign_lhs = lhs >> kSignShift;
     const T sign_rhs = rhs >> kSignShift;
     const T sign_res = res >> kSignShift;
-    return __remill_flag_computation_overflow(2 == (sign_lhs ^ sign_res) + (sign_rhs ^ sign_res),
-                                              lhs, rhs, res);
+    return 2 == (sign_lhs ^ sign_res) + (sign_rhs ^ sign_res);
+    // return __remill_flag_computation_overflow(2 == (sign_lhs ^ sign_res) + (sign_rhs ^ sign_res),
+    //                                           lhs, rhs, res);
   }
 };
 
@@ -98,8 +102,9 @@ struct Overflow<tag_sub> {
     const T sign_lhs = lhs >> kSignShift;
     const T sign_rhs = rhs >> kSignShift;
     const T sign_res = res >> kSignShift;
-    return __remill_flag_computation_overflow(2 == (sign_lhs ^ sign_rhs) + (sign_lhs ^ sign_res),
-                                              lhs, rhs, res);
+    return 2 == (sign_lhs ^ sign_res) + (sign_rhs ^ sign_res);
+    // return __remill_flag_computation_overflow(2 == (sign_lhs ^ sign_rhs) + (sign_lhs ^ sign_res),
+    //                                           lhs, rhs, res);
   }
 };
 
@@ -112,9 +117,9 @@ struct Overflow<tag_mul> {
   template <typename T, typename R>
   [[gnu::const]] ALWAYS_INLINE static bool
   Flag(T lhs, T rhs, R res, typename std::enable_if<sizeof(T) < sizeof(R), int>::type = 0) {
-
-    return __remill_flag_computation_overflow(static_cast<R>(static_cast<T>(res)) != res, lhs, rhs,
-                                              res);
+    return static_cast<R>(static_cast<T>(res)) != res;
+    // return __remill_flag_computation_overflow(static_cast<R>(static_cast<T>(res)) != res, lhs, rhs,
+    //                                           res);
   }
 
   // Signed integer multiplication overflow check, where the result is
@@ -139,7 +144,8 @@ struct Carry<tag_add> {
   [[gnu::const]] ALWAYS_INLINE static bool Flag(T lhs, T rhs, T res) {
     static_assert(std::is_unsigned<T>::value,
                   "Invalid specialization of `Carry::Flag` for addition.");
-    return __remill_flag_computation_carry(res < lhs || res < rhs, lhs, rhs, res);
+    return res < lhs || res < rhs;
+    // return __remill_flag_computation_carry(res < lhs || res < rhs, lhs, rhs, res);
   }
 };
 
@@ -150,7 +156,8 @@ struct Carry<tag_sub> {
   [[gnu::const]] ALWAYS_INLINE static bool Flag(T lhs, T rhs, T res) {
     static_assert(std::is_unsigned<T>::value,
                   "Invalid specialization of `Carry::Flag` for addition.");
-    return __remill_flag_computation_carry(lhs < rhs, lhs, rhs, res);
+    return lhs < rhs;
+    // return __remill_flag_computation_carry(lhs < rhs, lhs, rhs, res);
   }
 };
 
@@ -166,12 +173,12 @@ ALWAYS_INLINE static auto CheckedFloatUnaryOp(State &state, F func, T arg1)
     -> decltype(func(arg1)) {
 
   //state.sr.idc |= IsDenormal(arg1);
-  auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  BarrierReorder();
+  // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
+  // BarrierReorder();
   auto res = func(arg1);
-  BarrierReorder();
-  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
-  SetFPSRStatusFlags(state, new_except);
+  // BarrierReorder();
+  // auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
+  // SetFPSRStatusFlags(state, 0);
   return res;
 }
 
@@ -180,12 +187,12 @@ ALWAYS_INLINE static auto CheckedFloatBinOp(State &state, F func, T arg1, T arg2
     -> decltype(func(arg1, arg2)) {
 
   //state.sr.idc |= IsDenormal(arg1) | IsDenormal(arg2);
-  auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  BarrierReorder();
+  // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
+  // BarrierReorder();
   auto res = func(arg1, arg2);
-  BarrierReorder();
-  auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
-  SetFPSRStatusFlags(state, new_except);
+  // BarrierReorder();
+  // auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
+  // SetFPSRStatusFlags(state, 0);
   return res;
 }
 

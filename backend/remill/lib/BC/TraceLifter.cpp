@@ -270,6 +270,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     func = get_trace_decl(trace_addr);
     blocks.clear();
     lifted_block_map.clear();
+    br_blocks.clear();
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
@@ -299,29 +300,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     } while (false);
 #endif
 
-    /* add basic block for initializing VMA_S and VMA_E */
-    auto vma_bb = llvm::BasicBlock::Create(context, "L_vma_init", func);
-    const uint64_t vma_e = manager.GetFuncVMA_E(trace_addr);
-    llvm::IRBuilder<> vma_ir(vma_bb);
-    auto vma_s_ref = LoadVMASRef(vma_bb);
-    auto vma_e_ref = LoadVMAERef(vma_bb);
-    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr),
-                       vma_s_ref);
-    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma_e), vma_e_ref);
-
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
 
     if (auto entry_block = &(func->front())) {
-      auto pc = LoadProgramCounterArg(func);
-      auto [next_pc_ref, next_pc_ref_type] =
-          this->arch->DefaultLifter(*this->intrinsics)
-              ->LoadRegAddress(entry_block, state_ptr, kNextPCVariableName);
-
-      // Initialize `NEXT_PC`.
-      (void) new llvm::StoreInst(pc, next_pc_ref, entry_block);
-
-      // Branch to the `L_vma_init`.
-      llvm::BranchInst::Create(vma_bb, entry_block);
+      // Branch to the block of trace_addr.
+      llvm::BranchInst::Create(GetOrCreateBlock(trace_addr), entry_block);
     }
 
     CHECK(inst_work_list.empty());
@@ -339,16 +322,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
 /* in the test mode, generates the basic block for initializing state and memory */
 #if defined(TEST_MODE)
-      /* 
-        L_vma_init --> L_pre_vm --> inst block
-      */
+      // L_pre_vm --> inst block
       auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager, pre_check_inst_branch);
-      if (!vma_bb->getTerminator())
-        vma_ir.CreateBr(pre_test_vm_bb);
       llvm::BranchInst::Create(block, pre_test_vm_bb);
-#else
-      if (!vma_bb->getTerminator())
-        vma_ir.CreateBr(block);
 #endif
       // We have already lifted this instruction block.
       if (!block->empty()) {
@@ -360,7 +336,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // decoding or lifting the instruction.
       if (inst_addr != trace_addr) {
         if (auto inst_as_trace = get_trace_decl(inst_addr)) {
-          AddTerminatingTailCall(block, inst_as_trace, *intrinsics);
+          AddTerminatingTailCall(
+              block, inst_as_trace, *intrinsics,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           continue;
         }
       }
@@ -376,6 +354,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // TODO(Ian): not passing context around in trace lifter
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
+
+#if defined(LIFT_DEBUG)
+      (void) new llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                                 LoadProgramCounterRef(block), block);
+#endif
 
       // Lift instruction
       auto lift_status =
@@ -440,41 +423,38 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::BranchInst::Create(GetOrCreateBranchTakenBlock(), block);
           break;
 
-        /* case: BR instruction */
+        /* case: BR instruction (only BR in glibc) */
         case Instruction::kCategoryIndirectJump: {
           try_add_delay_slot(true, block);
           /* indirectbr entry block */
           indirectbr_block = GetOrCreateIndirectJmpBlock();
           llvm::IRBuilder<> ir(block);
-          /* store indirectbr addr to `INDIRECT_BR_ADDR` */
-          llvm::Value *indirect_br_addr = FindIndirectBrAddress(block);
-          auto braddr_key_ref = LoadIndirectBrAddrRef(block);
-          (void) new llvm::StoreInst(indirect_br_addr, braddr_key_ref, block);
+          br_blocks.push_back({block, FindIndirectBrAddress(block)});
           /* jmp to indirectbr block */
           ir.CreateBr(indirectbr_block);
           break;
         }
 
         case Instruction::kCategoryAsyncHyperCall:
-          AddCall(block, intrinsics->async_hyper_call, *intrinsics);
+          AddCall(block, intrinsics->async_hyper_call, *intrinsics,
+                  llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           goto check_call_return;
 
+        /* case: BLR instruction (only BLR in glibc) */
         case Instruction::kCategoryIndirectFunctionCall: {
           try_add_delay_slot(true, block);
           const auto fall_through_block = llvm::BasicBlock::Create(context, "", func);
 
-          const auto ret_pc_ref = LoadReturnProgramCounterRef(fall_through_block);
-          const auto next_pc_ref = LoadNextProgramCounterRef(fall_through_block);
           llvm::IRBuilder<> ir(fall_through_block);
-          ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(GetOrCreateBranchNotTakenBlock());
 
-          AddCall(block, intrinsics->function_call, *intrinsics);
+          // indirect jump address is value of %Xzzz just before
+          AddCall(block, intrinsics->function_call, *intrinsics, FindIndirectBrAddress(block));
           llvm::BranchInst::Create(fall_through_block, block);
           block = fall_through_block;
           continue;
         }
-
+        // no instruction in aarch64?
         case Instruction::kCategoryConditionalIndirectFunctionCall: {
           auto taken_block = llvm::BasicBlock::Create(context, "", func);
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
@@ -520,12 +500,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           if (inst.branch_not_taken_pc != inst.branch_taken_pc) {
             trace_work_list.insert(inst.branch_taken_pc);
             auto target_trace = get_trace_decl(inst.branch_taken_pc);
-            AddCall(block, target_trace, *intrinsics);
+            AddCall(block, target_trace, *intrinsics,
+                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
           }
           llvm::IRBuilder<> ir(block);
-          const auto ret_pc_ref = LoadReturnProgramCounterRef(block);
-          const auto next_pc_ref = LoadNextProgramCounterRef(block);
-          ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(GetOrCreateBranchNotTakenBlock());
           continue;
         }
@@ -560,10 +538,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           AddCall(taken_block, intrinsics->function_call, *intrinsics);
           AddCall(taken_block, target_trace, *intrinsics);
 
-          const auto ret_pc_ref = LoadReturnProgramCounterRef(taken_block);
-          const auto next_pc_ref = LoadNextProgramCounterRef(taken_block);
           llvm::IRBuilder<> ir(taken_block);
-          ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
           ir.CreateBr(orig_not_taken_block);
           block = orig_not_taken_block;
           continue;
@@ -582,23 +557,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::BranchInst::Create(do_hyper_call, GetOrCreateNextBlock(), LoadBranchTaken(block),
                                    block);
           block = do_hyper_call;
-          AddCall(block, intrinsics->async_hyper_call, *intrinsics);
+          AddCall(block, intrinsics->async_hyper_call, *intrinsics,
+                  llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           goto check_call_return;
         }
 
         check_call_return:
           do {
-            // auto pc = LoadProgramCounter(block, *intrinsics);
-            auto next_pc = LoadNextProgramCounter(block, *intrinsics);
-            auto ret_pc = llvm::ConstantInt::get(intrinsics->pc_type, inst.next_pc);
-
             llvm::IRBuilder<> ir(block);
-            auto eq = ir.CreateICmpEQ(next_pc, ret_pc);
-            auto unexpected_ret_pc = llvm::BasicBlock::Create(context, "", func);
+            ir.CreateBr(GetOrCreateNextBlock());
             // WARNING: if there is no next instruction in this function, this create the branch instruction
             // to the invalid instruction of next address.
-            ir.CreateCondBr(eq, GetOrCreateNextBlock(), unexpected_ret_pc);
-            AddTerminatingTailCall(unexpected_ret_pc, intrinsics->missing_block, *intrinsics);
           } while (false);
           break;
 
@@ -657,6 +626,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
           break;
         }
+        // no instruction in aarch64?
         case Instruction::kCategoryConditionalIndirectJump: {
           auto taken_block = llvm::BasicBlock::Create(context, "", func);
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
@@ -694,7 +664,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
        * func. */
     if (!lift_all_insn && indirectbr_block) {
       CHECK(inst_work_list.empty());
-      for (uint64_t insn_vma = trace_addr; insn_vma < vma_e; insn_vma += 4)
+      for (uint64_t insn_vma = trace_addr; insn_vma < manager.GetFuncVMA_E(trace_addr);
+           insn_vma += 4)
         if (lifted_block_map.count(insn_vma) == 0)
           inst_work_list.insert(insn_vma);
       lift_all_insn = true;
@@ -729,22 +700,27 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
       /* indirectbr_block */
       llvm::IRBuilder<> ir_1(indirectbr_block);
-      auto br_vma =
-          ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadIndirectBrAddrRef(indirectbr_block));
-      auto fn_vma = ir_1.CreateLoad(llvm::Type::getInt64Ty(context), LoadVMASRef(indirectbr_block));
       /* calculate the target block address */
       auto g_get_jmp_helper_fn =
           module->getFunction(g_get_jmp_block_address_func_name); /* return type: uint64_t* */
       CHECK(g_get_jmp_helper_fn);
-      auto target_bb_i64 = ir_1.CreateCall(g_get_jmp_helper_fn, {fn_vma, br_vma});
+      auto br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
+      for (auto &br_pair : br_blocks) {
+        auto br_block = br_pair.first;
+        auto dest_addr = br_pair.second;
+        br_vma_phi->addIncoming(dest_addr, br_block);
+      }
+      auto target_bb_i64 = ir_1.CreateCall(
+          g_get_jmp_helper_fn,
+          {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), br_vma_phi});
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());
-      for (auto &[_vma, _block] : lifted_block_map)
+      for (auto &[_, _block] : lifted_block_map)
         indirect_br_i->addDestination(_block);
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
-      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics);
+      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, br_vma_phi);
     }
 
     for (auto &block : *func) {

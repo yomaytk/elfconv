@@ -46,6 +46,26 @@ DEF_SEM(UCVTF_UInt64ToFloat64, V128W dst, R64 src) {
   return memory;
 }
 
+DEF_SEM(UCVTF_Uint32ToFloat32_FROMV, V128W dst, V128 src) {
+  auto src_vec = UReadV32(src);
+  float32v4_t tmp_vec = {};
+  _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(src_vec); i++) {
+    tmp_vec.elems[i] = CheckedCast<uint32_t, float32_t>(state, UExtractV32(src_vec, i));
+  }
+  FWriteV32(dst, tmp_vec);
+  return memory;
+}
+
+DEF_SEM(UCVTF_Uint64ToFloat64_FROMV, V128W dst, V128 src) {
+  auto src_vec = UReadV64(src);
+  float64v2_t tmp_vec = {};
+  _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(src_vec); i++) {
+    tmp_vec.elems[i] = CheckedCast<int64_t, float64_t>(state, UExtractV64(src_vec, i));
+  }
+  FWriteV64(dst, tmp_vec);
+  return memory;
+}
+
 DEF_SEM(FCVTZU_Float32ToUInt32, R32W dst, V32 src) {
   auto float_val = FExtractV32(FReadV32(src), 0);
   auto res = CheckedCast<float32_t, uint32_t>(state, float_val);
@@ -119,6 +139,9 @@ DEF_ISEL(UCVTF_D32_FLOAT2INT) = UCVTF_UInt32ToFloat64;
 DEF_ISEL(UCVTF_S64_FLOAT2INT) = UCVTF_UInt64ToFloat32;
 DEF_ISEL(UCVTF_D64_FLOAT2INT) = UCVTF_UInt64ToFloat64;
 
+DEF_ISEL(UCVTF_ASISDMISC_R_32) = UCVTF_Uint32ToFloat32_FROMV;
+DEF_ISEL(UCVTF_ASISDMISC_R_64) = UCVTF_Uint64ToFloat64_FROMV;
+
 DEF_ISEL(FCVTZU_64S_FLOAT2INT) = FCVTZU_Float32ToUInt64;
 DEF_ISEL(FCVTZU_32S_FLOAT2INT) = FCVTZU_Float32ToUInt32;
 
@@ -159,15 +182,23 @@ DEF_SEM(SCVTF_Int64ToFloat64, V128W dst, R64 src) {
   return memory;
 }
 
-DEF_SEM(SCVTF_Int32ToFloat32_FROMV, V128W dst, V32 src) {
-  auto res = CheckedCast<int32_t, float32_t>(state, SExtractV32(SReadV32(src), 0));
-  FWriteV32(dst, res);
+DEF_SEM(SCVTF_Int32ToFloat32_FROMV, V128W dst, V128 src) {
+  auto src_vec = SReadV32(src);
+  float32v4_t tmp_vec = {};
+  _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(src_vec); i++) {
+    tmp_vec.elems[i] = CheckedCast<int32_t, float32_t>(state, SExtractV32(src_vec, i));
+  }
+  FWriteV32(dst, tmp_vec);
   return memory;
 }
 
-DEF_SEM(SCVTF_Int64ToFloat64_FROMV, V128W dst, V64 src) {
-  auto res = CheckedCast<int64_t, float64_t>(state, SExtractV64(SReadV64(src), 0));
-  FWriteV64(dst, res);
+DEF_SEM(SCVTF_Int64ToFloat64_FROMV, V128W dst, V128 src) {
+  auto src_vec = SReadV64(src);
+  float64v2_t tmp_vec = {};
+  _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(src_vec); i++) {
+    tmp_vec.elems[i] = CheckedCast<int64_t, float64_t>(state, SExtractV64(src_vec, i));
+  }
+  FWriteV64(dst, tmp_vec);
   return memory;
 }
 
@@ -180,5 +211,5 @@ DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_Int32ToFloat32;
 DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_Int32ToFloat64;
 DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_Int64ToFloat32;
 DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_Int64ToFloat64;
-DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;
 DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_FROMV;
+DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;

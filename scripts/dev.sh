@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+LLVM_VERSION=16
 ROOT_DIR=${HOME}/workspace/compiler/elfconv
 
 setting() {
@@ -28,7 +29,7 @@ setting() {
   ELFCONV_DEBUG_MACROS=
 
   if [ -n "$DEBUG" ]; then
-    ELFCONV_DEBUG_MACROS="-DELFCONV_SYSCALL_DEBUG=1"
+    ELFCONV_DEBUG_MACROS="-DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
   fi
 
 }
@@ -42,7 +43,7 @@ aarch64_test() {
     --arch aarch64 \
     --bc_out ./aarch64_test.bc
   echo "[INFO] Generate aarch64_lift.bc"
-  llvm-dis aarch64_test.bc -o aarch64_test.ll
+  llvm-dis-${LLVM_VERSION} aarch64_test.bc -o aarch64_test.ll
   echo "[INFO] Generate aarch64_lift.ll"  
 
   # generate execute file (lift_test.aarch64)
@@ -63,7 +64,7 @@ lifting() {
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
     --dbg_fun_cfg "$2" && \
-    llvm-dis lift.bc -o lift.ll
+    llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
   echo "[INFO] Generate lift.bc."
 
 }
@@ -109,7 +110,7 @@ main() {
       return 0
     ;;
     wasm-host)
-      ELFCONV_MACROS="-DELFCONV_SERVER_ENV=1"
+      ELFCONV_MACROS="-DELFC_RUNTIME_HOST_ENV=1"
       cd "${BUILD_LIFTER_DIR}" && \
       ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Entry.wasm.o -c ${RUNTIME_DIR}/Entry.cpp && \
       ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Memory.wasm.o -c ${RUNTIME_DIR}/Memory.cpp && \

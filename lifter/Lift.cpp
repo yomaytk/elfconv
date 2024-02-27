@@ -55,6 +55,10 @@ int main(int argc, char *argv[]) {
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 
+#if defined(LIFT_DEBUG)
+  std::cout << "[INFO] DEBUG MODE ON." << std::endl;
+#endif
+
   /* target function control flow */
   std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
   if (!FLAGS_dbg_fun_cfg.empty()) {

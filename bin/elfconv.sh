@@ -16,7 +16,7 @@ setting() {
   ELFPATH=$( realpath "$1" )
 
   if [ "$TARGET" = "wasm-host" ]; then
-    ELFCONV_MACROS="-DELFCONV_SERVER_ENV=1"
+    ELFCONV_MACROS="-DELFC_RUNTIME_HOST_ENV=1"
   fi
 
 }

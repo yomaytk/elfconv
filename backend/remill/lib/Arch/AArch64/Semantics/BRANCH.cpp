@@ -18,42 +18,50 @@ namespace {
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
 static inline bool CondGE(const State &state) {
-  return __remill_compare_sge(FLAG_N == FLAG_V);
+  return FLAG_N == FLAG_V;
+  // return __remill_compare_sge(FLAG_N == FLAG_V);
 }
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
 static inline bool CondLT(const State &state) {
-  return __remill_compare_slt(FLAG_N != FLAG_V);
+  return FLAG_N != FLAG_V;
+  // return __remill_compare_slt(FLAG_N != FLAG_V);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
 static inline bool CondEQ(const State &state) {
-  return __remill_compare_eq(FLAG_Z);
+  return FLAG_Z;
+  // return __remill_compare_eq(FLAG_Z);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
 static inline bool CondNE(const State &state) {
-  return __remill_compare_neq(!FLAG_Z);
+  return !FLAG_Z;
+  // return __remill_compare_neq(!FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
 static inline bool CondGT(const State &state) {
-  return __remill_compare_sgt((FLAG_N == FLAG_V) && !FLAG_Z);
+  return (FLAG_N == FLAG_V) && !FLAG_Z;
+  // return __remill_compare_sgt((FLAG_N == FLAG_V) && !FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
 static inline bool CondLE(const State &state) {
-  return __remill_compare_sle((FLAG_N != FLAG_V) || FLAG_Z);
+  return (FLAG_N != FLAG_V) || FLAG_Z;
+  // return __remill_compare_sle((FLAG_N != FLAG_V) || FLAG_Z);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
 static inline bool CondCS(const State &state) {
-  return __remill_compare_uge(FLAG_C);
+  return FLAG_C;
+  // return __remill_compare_uge(FLAG_C);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
 static inline bool CondCC(const State &state) {
-  return __remill_compare_ult(!FLAG_C);
+  return !FLAG_C;
+  // return __remill_compare_ult(!FLAG_C);
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
@@ -78,12 +86,14 @@ static inline bool CondVC(const State &state) {
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
 static inline bool CondHI(const State &state) {
-  return __remill_compare_ugt(FLAG_C && !FLAG_Z);
+  return FLAG_C && !FLAG_Z;
+  // return __remill_compare_ugt(FLAG_C && !FLAG_Z);
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
 static inline bool CondLS(const State &state) {
-  return __remill_compare_ule(!FLAG_C || FLAG_Z);
+  return !FLAG_C || FLAG_Z;
+  // return __remill_compare_ule(!FLAG_C || FLAG_Z);
 }
 
 static inline bool CondAL(const State &state) {
@@ -117,63 +127,48 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
-DEF_SEM(DoDirectBranch, PC target_pc, R64W pc_dst) {
-  const auto new_pc = Read(target_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
+DEF_SEM(DoDirectBranch, PC target_pc) {
   return memory;
 }
 
 template <typename S>
-DEF_SEM(DoIndirectBranch, S dst, R64W pc_dst) {
-  const auto new_pc = Read(dst);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
+DEF_SEM(DoIndirectBranch, S dst) {
   return memory;
 }
 
 template <bool (*check_cond)(const State &)>
-DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken, R64W pc_dst) {
+DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = check_cond(state);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
   return memory;
 }
 
 template <typename S>
-DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) {
+DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpEq(Read(src), 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
   return memory;
 }
 
 template <typename S>
-DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) {
+DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpNeq(Read(src), 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
   return memory;
 }
 
 
 template <typename S>
-DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) {
+DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
@@ -182,14 +177,11 @@ DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) {
   auto take_branch = UCmpEq(bit_set, 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
   return memory;
 }
 
 template <typename S>
-DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) {
+DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   addr_t taken_pc = Read(taken);
   addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
@@ -198,9 +190,6 @@ DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src, R64W pc_dst) 
   auto take_branch = UCmpNeq(bit_set, 0);
   Write(cond, take_branch);
 
-  const auto new_pc = Select<addr_t>(take_branch, taken_pc, not_taken_pc);
-  Write(REG_PC, new_pc);
-  Write(pc_dst, new_pc);
   return memory;
 }
 

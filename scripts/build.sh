@@ -22,7 +22,7 @@ REMILL_DIR=$( cd "$( realpath "${ROOT_DIR}/backend/remill" )" && pwd )
 DOWNLOAD_DIR="$( cd "$( dirname "${REMILL_DIR}" )" && pwd )/lifting-bits-downloads"
 BUILD_DIR="${ROOT_DIR}/build"
 BUILD_LIFTER_DIR="${BUILD_DIR}/lifter"
-INSTALL_DIR="${HOME}/.elfconv/bin"
+ELFCOV_INSTALL_DIR="${HOME}/.elfconv/bin"
 INSTALL_LIB_DIR="${HOME}/.elfconv/lib"
 LLVM_VERSION=llvm-16
 OS_VERSION=
@@ -307,6 +307,12 @@ function Help
 
 function main
 {
+
+  if [ -d $BUILD_DIR ]; then
+    echo "Already build done! (at scripts/build.sh)"
+    exit 0
+  fi
+
   while [[ $# -gt 0 ]] ; do
     key="$1"
 
@@ -359,13 +365,6 @@ function main
         shift # past argument
       ;;
 
-      # Make the build type to be a debug build.
-      --debug)
-        LIFT_DEBUG_MACROS="-DLIFT_DEBUG=1 -DLIFT_CALLSTACK_DEBUG=1 -DLIFT_INSN_DEBUG=1"
-        ELFCONV_DEBUG_MACROS="-DSYSCALL_DEBUG=1"
-        echo "[+] Enabling a debug lifting of elfconv"
-      ;;
-
       --extra-cmake-args)
         BUILD_FLAGS="${BUILD_FLAGS} ${2}"
         echo "[+] Will supply additional arguments to cmake: ${BUILD_FLAGS}"
@@ -407,28 +406,11 @@ function main
   fi
 
   # install elflift
-  mkdir -p "${INSTALL_DIR}"
-  cp -p "${BUILD_LIFTER_DIR}/elflift"  "${INSTALL_DIR}"
-
-  if [ -n "$SERVER" ]; then
-    ELFCONV_MACROS="-DELFCONV_SERVER_ENV=1"
-  fi
-  
-  # build libelfconv using emscripten
-  mkdir -p "${INSTALL_LIB_DIR}"
-  cd "${RUNTIME_DIR}" && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Entry.o -c Entry.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Memory.o -c Memory.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Syscall.o -c Syscall.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o Util.o -c ${UTILS_DIR}/Util.cpp && \
-    ${EMCC} ${EMCCFLAGS} ${ELFCONV_MACROS} ${ELFCONV_DEBUG_MACROS} -o elfconv.o -c ${UTILS_DIR}/elfconv.cpp && \
-    ${EMAR} rcs "${INSTALL_LIB_DIR}/libelfconv.a" Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
-    rm *.o
+  mkdir -p "${ELFCONV_INSTALL_DIR}"
+  cp -p "${BUILD_LIFTER_DIR}/elflift"  "${ELFCONV_INSTALL_DIR}"
 
   # for sample execution
   cp -p "${BUILD_LIFTER_DIR}/elflift"  "${ROOT_DIR}/bin"
-  cp -p "${INSTALL_LIB_DIR}/libelfconv.a"  "${ROOT_DIR}/bin" 
 
   return $?
 }

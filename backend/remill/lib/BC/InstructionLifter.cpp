@@ -109,10 +109,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   llvm::IRBuilder<> ir(block);
   const auto [mem_ptr_ref, mem_ptr_ref_type] =
       LoadRegAddress(block, state_ptr, kMemoryVariableName);
-  const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
-  const auto [next_pc_ref, next_pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kNextPCVariableName);
-  const auto next_pc = ir.CreateLoad(impl->word_type, next_pc_ref);
 
   // If this instruction appears within a delay slot, then we're going to assume
   // that the prior instruction updated `PC` to the target of the CTI, and that
@@ -124,18 +120,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (is_delayed) {
     llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
-
-    // Leave `PC` and `NEXT_PC` alone; we assume that the semantics have done
-    // the right thing initializing `PC` and `NEXT_PC` for the delay slots.
-
-  } else {
-
-    // Update the current program counter. Control-flow instructions may update
-    // the program counter in the semantics code.
-    ir.CreateStore(next_pc, pc_ref);
-    ir.CreateStore(
-        ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type, arch_inst.bytes.size())),
-        next_pc_ref);
   }
 
   /* append debug_insn function call */
@@ -219,13 +203,13 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (is_delayed) {
 
     // This is the delayed update of the program counter.
-    ir.CreateStore(next_pc, pc_ref);
+    // ir.CreateStore(next_pc, pc_ref);
 
     // We don't know what the `NEXT_PC` is going to be because of the next
     // instruction size is unknown (really, it's likely to be
     // `arch->MaxInstructionSize()`), and for normal instructions, before they
     // are lifted, we do the `PC = NEXT_PC + size`, so this is fine.
-    ir.CreateStore(next_pc, next_pc_ref);
+    // ir.CreateStore(next_pc, next_pc_ref);
 
     llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
@@ -257,7 +241,6 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
     (void) added;
     return reg_ptr_it->second;
   }
-
 
   auto reg = impl->arch->RegisterByName(reg_name_);
 
@@ -776,6 +759,11 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
   CHECK(word_size >= arch_addr.index_reg.size)
       << "Memory index register " << arch_addr.base_reg.name << "for instruction at " << std::hex
       << inst.pc << " is wider than the machine word size.";
+
+  if ("PC" == arch_addr.base_reg.name) {
+    return llvm::ConstantInt::get(word_type,
+                                  static_cast<uint64_t>(inst.pc + arch_addr.displacement));
+  }
 
   auto addr = LoadWordRegValOrZero(block, state_ptr, arch_addr.base_reg.name, zero);
   auto index = LoadWordRegValOrZero(block, state_ptr, arch_addr.index_reg.name, zero);

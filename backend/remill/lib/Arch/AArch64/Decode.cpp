@@ -3344,44 +3344,6 @@ bool TryDecodeUCVTF_ASISDMISCFP16_R(const InstData &, Instruction &) {
   return false;
 }
 
-// UCVTF UCVTF_asisdmisc_R:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 1 opcode   0
-//  13 0 opcode   1
-//  14 1 opcode   2
-//  15 1 opcode   3
-//  16 1 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x sz       0
-//  23 0
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 1 U        0
-//  30 1
-//  31 0
-// UCVTF  <V><d>, <V><n>
-bool TryDecodeUCVTF_ASISDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
-
 // UCVTF UCVTF_asimdmiscfp16_R:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -35455,44 +35417,6 @@ bool TryDecodeFRINTA_S_FLOATDP1(const InstData &, Instruction &) {
   return false;
 }
 
-// FRINTA FRINTA_D_floatdp1:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0
-//  13 0
-//  14 1
-//  15 0 rmode    0
-//  16 0 rmode    1
-//  17 1 rmode    2
-//  18 1
-//  19 0
-//  20 0
-//  21 1
-//  22 1 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FRINTA  <Dd>, <Dn>
-bool TryDecodeFRINTA_D_FLOATDP1(const InstData &, Instruction &) {
-  return false;
-}
-
 // FCSEL FCSEL_H_floatsel:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -40240,44 +40164,6 @@ bool TryDecodeSTR_BL_LDST_REGOFF(const InstData &, Instruction &) {
 //  31 0 size     1
 // STR  <Ht>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 bool TryDecodeSTR_H_LDST_REGOFF(const InstData &, Instruction &) {
-  return false;
-}
-
-// STR STR_S_ldst_regoff:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 x S        0
-//  13 x option   0
-//  14 x option   1
-//  15 x option   2
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 0 opc      0
-//  23 0 opc      1
-//  24 0
-//  25 0
-//  26 1 V        0
-//  27 1
-//  28 1
-//  29 1
-//  30 0 size     0
-//  31 1 size     1
-// STR  <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
-bool TryDecodeSTR_S_LDST_REGOFF(const InstData &, Instruction &) {
   return false;
 }
 
