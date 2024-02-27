@@ -109,12 +109,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   llvm::IRBuilder<> ir(block);
   const auto [mem_ptr_ref, mem_ptr_ref_type] =
       LoadRegAddress(block, state_ptr, kMemoryVariableName);
-  // const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
-  // ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(module->getContext()), arch_inst.pc),
-  //                pc_ref);
-  // const auto [next_pc_ref, next_pc_ref_type] =
-  //     LoadRegAddress(block, state_ptr, kNextPCVariableName);
-  // const auto next_pc = ir.CreateLoad(impl->word_type, next_pc_ref);
 
   // If this instruction appears within a delay slot, then we're going to assume
   // that the prior instruction updated `PC` to the target of the CTI, and that
@@ -126,18 +120,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (is_delayed) {
     llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
-
-    // Leave `PC` and `NEXT_PC` alone; we assume that the semantics have done
-    // the right thing initializing `PC` and `NEXT_PC` for the delay slots.
-
-  } else {
-
-    // Update the current program counter. Control-flow instructions may update
-    // the program counter in the semantics code.
-    // ir.CreateStore(next_pc, pc_ref);
-    // ir.CreateStore(
-    //     ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type, arch_inst.bytes.size())),
-    //     next_pc_ref);
   }
 
   /* append debug_insn function call */

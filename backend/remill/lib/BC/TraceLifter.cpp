@@ -300,29 +300,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     } while (false);
 #endif
 
-    /* add basic block for initializing VMA_S and VMA_E */
-    auto vma_bb = llvm::BasicBlock::Create(context, "L_vma_init", func);
-    const uint64_t vma_e = manager.GetFuncVMA_E(trace_addr);
-    llvm::IRBuilder<> vma_ir(vma_bb);
-    auto vma_s_ref = LoadVMASRef(vma_bb);
-    auto vma_e_ref = LoadVMAERef(vma_bb);
-    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr),
-                       vma_s_ref);
-    vma_ir.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma_e), vma_e_ref);
-
     auto state_ptr = NthArgument(func, kStatePointerArgNum);
 
     if (auto entry_block = &(func->front())) {
-      // auto pc = LoadProgramCounterArg(func);
-      // auto [next_pc_ref, next_pc_ref_type] =
-      //     this->arch->DefaultLifter(*this->intrinsics)
-      //         ->LoadRegAddress(entry_block, state_ptr, kNextPCVariableName);
-
-      // Initialize `NEXT_PC`.
-      // (void) new llvm::StoreInst(pc, next_pc_ref, entry_block);
-
-      // Branch to the `L_vma_init`.
-      llvm::BranchInst::Create(vma_bb, entry_block);
+      // Branch to the block of trace_addr.
+      llvm::BranchInst::Create(GetOrCreateBlock(trace_addr), entry_block);
     }
 
     CHECK(inst_work_list.empty());
@@ -340,16 +322,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
 /* in the test mode, generates the basic block for initializing state and memory */
 #if defined(TEST_MODE)
-      /* 
-        L_vma_init --> L_pre_vm --> inst block
-      */
+      // L_pre_vm --> inst block
       auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager, pre_check_inst_branch);
-      if (!vma_bb->getTerminator())
-        vma_ir.CreateBr(pre_test_vm_bb);
       llvm::BranchInst::Create(block, pre_test_vm_bb);
-#else
-      if (!vma_bb->getTerminator())
-        vma_ir.CreateBr(block);
 #endif
       // We have already lifted this instruction block.
       if (!block->empty()) {
@@ -701,7 +676,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
        * func. */
     if (!lift_all_insn && indirectbr_block) {
       CHECK(inst_work_list.empty());
-      for (uint64_t insn_vma = trace_addr; insn_vma < vma_e; insn_vma += 4)
+      for (uint64_t insn_vma = trace_addr; insn_vma < manager.GetFuncVMA_E(trace_addr);
+           insn_vma += 4)
         if (lifted_block_map.count(insn_vma) == 0)
           inst_work_list.insert(insn_vma);
       lift_all_insn = true;
