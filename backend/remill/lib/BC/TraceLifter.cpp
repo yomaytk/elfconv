@@ -320,6 +320,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (lifted_block_map.count(inst_addr) == 0)
         lifted_block_map[inst_addr] = block;
 
+#if defined(LIFT_DEBUG)
+      auto [pc_ref, _] = this->arch->DefaultLifter(*this->intrinsics)
+                             ->LoadRegAddress(block, state_ptr, kNextPCVariableName);
+      (void) llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                             pc_ref, block);
+#endif
+
 /* in the test mode, generates the basic block for initializing state and memory */
 #if defined(TEST_MODE)
       // L_pre_vm --> inst block

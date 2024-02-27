@@ -365,13 +365,6 @@ function main
         shift # past argument
       ;;
 
-      # Make the build type to be a debug build.
-      --debug)
-        LIFT_DEBUG_MACROS="-DLIFT_DEBUG=1 -DLIFT_CALLSTACK_DEBUG=1 -DLIFT_INSN_DEBUG=1"
-        ELFCONV_DEBUG_MACROS="-DSYSCALL_DEBUG=1"
-        echo "[+] Enabling a debug lifting of elfconv"
-      ;;
-
       --extra-cmake-args)
         BUILD_FLAGS="${BUILD_FLAGS} ${2}"
         echo "[+] Will supply additional arguments to cmake: ${BUILD_FLAGS}"
