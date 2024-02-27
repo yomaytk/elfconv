@@ -761,15 +761,8 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
       << inst.pc << " is wider than the machine word size.";
 
   if ("PC" == arch_addr.base_reg.name) {
-    if (0 == arch_addr.displacement) {
-      return llvm::ConstantInt::get(word_type, static_cast<uint64_t>(inst.pc));
-    } else if (0 < arch_addr.displacement) {
-      return llvm::ConstantInt::get(word_type,
-                                    static_cast<uint64_t>(inst.pc + arch_addr.displacement));
-    } else {
-      return llvm::ConstantInt::get(word_type,
-                                    static_cast<uint64_t>(inst.pc - arch_addr.displacement));
-    }
+    return llvm::ConstantInt::get(word_type,
+                                  static_cast<uint64_t>(inst.pc + arch_addr.displacement));
   }
 
   auto addr = LoadWordRegValOrZero(block, state_ptr, arch_addr.base_reg.name, zero);
