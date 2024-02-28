@@ -87,6 +87,7 @@ class MappedMemory {
         bytes(__bytes),
         upper_bytes(__upper_bytes),
         bytes_on_heap(__bytes_on_heap) {}
+  MappedMemory() {}
   ~MappedMemory() {
     if (bytes_on_heap)
       free(bytes);
@@ -110,8 +111,11 @@ class MappedMemory {
 
 class RuntimeManager {
  public:
-  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys)
+  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__stack_memory,
+                 MappedMemory *__heap_memory)
       : mapped_memorys(__mapped_memorys),
+        stack_memory(__stack_memory),
+        heap_memory(__heap_memory),
         addr_fn_map({}) {}
   RuntimeManager() {}
   ~RuntimeManager() {
@@ -126,6 +130,8 @@ class RuntimeManager {
   }
 
   std::vector<MappedMemory *> mapped_memorys;
+  MappedMemory *stack_memory;
+  MappedMemory *heap_memory;
   /* heap area manage */
   addr_t heaps_end_addr;
   std::unordered_map<addr_t, LiftedFunc> addr_fn_map;

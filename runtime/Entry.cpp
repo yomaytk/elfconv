@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
@@ -16,9 +17,9 @@ int main(int argc, char *argv[]) {
   std::vector<MappedMemory *> mapped_memorys;
 
   /* allocate Stack */
-  mapped_memorys.push_back(MappedMemory::VMAStackEntryInit(argc, argv, &g_state));
+  auto stack_memory = MappedMemory::VMAStackEntryInit(argc, argv, &g_state);
   /* allocate Heap */
-  mapped_memorys.push_back(MappedMemory::VMAHeapEntryInit());
+  auto heap_memory = MappedMemory::VMAHeapEntryInit();
   /* allocate every sections */
   for (int i = 0; i < __g_data_sec_num; i++) {
     // remove covered section (FIXME)
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
   g_state.sr.ctr_el0 = {.qword = 0x80038003};
   g_state.sr.dczid_el0 = {.qword = 0x4};
   /* set global RuntimeManager */
-  g_run_mgr = new RuntimeManager(mapped_memorys);
+  g_run_mgr = new RuntimeManager(mapped_memorys, stack_memory, heap_memory);
   g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_SIZE;
   /* set lifted function pointer table */
   for (int i = 0; __g_fn_vmas[i] && __g_fn_ptr_table[i]; i++) {
