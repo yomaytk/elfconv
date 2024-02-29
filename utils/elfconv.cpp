@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <iostream>
 #include <remill/Arch/AArch64/Runtime/State.h>
+#include <remill/BC/HelperMacro.h>
 
 #define PRINT_GPR(index) \
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
@@ -75,3 +76,12 @@ extern "C" void debug_insn() {
             << gpr.x2.qword << ", x3: 0x" << gpr.x3.qword << ", x4: 0x" << gpr.x4.qword
             << ", x5: 0x" << gpr.x5.qword << std::endl;
 }
+
+#if defined(LIFT_DEBUG)
+extern "C" void segv_debug_state_machine(int sig, siginfo_t *info, void *ctx) {
+  std::cout << "[ERROR] Segmantation Fault." << std::endl;
+  std::cout << "signo: " << info->si_signo << " code: " << info->si_code << std::endl;
+  debug_state_machine();
+  exit(0);
+}
+#endif

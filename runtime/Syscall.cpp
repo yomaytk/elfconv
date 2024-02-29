@@ -17,6 +17,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <utils/Util.h>
+#include <utils/elfconv.h>
 
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
@@ -171,8 +172,9 @@ void __svc_call(void) {
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
       state_gpr.x0.dword = openat(
           state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x2.dword);
+      break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      state_gpr.x0.qword = read(state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword),
+      state_gpr.x0.qword = read(3, (char *) _ecv_translate_ptr(state_gpr.x1.qword),
                                 static_cast<size_t>(state_gpr.x2.qword));
       break;
     case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
