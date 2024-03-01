@@ -45,7 +45,7 @@ bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
 
 std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s) {
   std::stringstream lifted_fn_name;
-  lifted_fn_name << func_name << "_" << to_string(unique_i64++) << "_" << std::hex << vma_s;
+  lifted_fn_name << func_name << "_____" << to_string(unique_i64++) << "_" << std::hex << vma_s;
   return lifted_fn_name.str();
 }
 

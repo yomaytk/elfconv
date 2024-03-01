@@ -16,7 +16,7 @@ setting() {
   BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
   BUILD_TESTS_AARCH64_DIR=${BUILD_DIR}/tests/aarch64
   CXX=clang++-16
-  OPTFLAGS="-O3"
+  OPTFLAGS="-O0"
   CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   CXXX64=x86_64-linux-gnu-g++-11
   CROSS_COMPILE_FLAGS_X64="-static --target=x86-64-linux-gnu nostdin_linpack.c -fuse-ld=lld -pthread;"
