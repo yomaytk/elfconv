@@ -140,10 +140,11 @@ DEF_SEM(FCVT_Float64ToFloat32, V128W dst, V64 src) {
 
 // FRINTA  <Dd>, <Dn>
 // (FIXME) not using rounding to nearest with ties to Away
-DEF_SEM(FRINTA_Float64ToSInt64, R64W dst, V64 src) {
+DEF_SEM(FRINTA_Float64ToSInt64, V64W dst, V64 src) {
   auto float_val = FExtractV64(FReadV64(src), 0);
-  auto res = CheckedCast<float64_t, int64_t>(state, float_val);
-  WriteZExt(dst, res);
+  auto res = (double) (long) float_val;
+  // auto res = CheckedCast<float64_t, int64_t>(state, float_val);
+  FWriteV64(dst, res);
   return memory;
 }
 
