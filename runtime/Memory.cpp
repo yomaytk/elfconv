@@ -69,10 +69,11 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
 }
 
 MappedMemory *MappedMemory::VMAHeapEntryInit() {
-  auto bytes = reinterpret_cast<uint8_t *>(malloc(HEAP_SIZE));
-  auto upper_bytes = bytes + HEAP_SIZE;
-  auto heap = new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA,
-                               HEAPS_START_VMA + HEAP_SIZE, HEAP_SIZE, bytes, upper_bytes, true);
+  auto bytes = reinterpret_cast<uint8_t *>(malloc(HEAP_UNIT_SIZE));
+  auto upper_bytes = bytes + HEAP_UNIT_SIZE;
+  auto heap =
+      new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA,
+                       HEAPS_START_VMA + HEAP_UNIT_SIZE, HEAP_UNIT_SIZE, bytes, upper_bytes, true);
   heap->heap_cur = HEAPS_START_VMA;
   return heap;
 }
