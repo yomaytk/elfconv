@@ -34,6 +34,7 @@
 #define AARCH64_SYS_IOCTL 29
 #define AARCH64_SYS_FACCESSAT 48
 #define AARCH64_SYS_OPENAT 56
+#define AARCH64_SYS_CLOSE 57
 #define AARCH64_SYS_READ 63
 #define AARCH64_SYS_WRITE 64
 #define AARCH64_SYS_WRITEV 66
@@ -173,8 +174,11 @@ void __svc_call(void) {
       state_gpr.x0.dword = openat(
           state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x2.dword);
       break;
+    case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
+      state_gpr.x0.dword = close(state_gpr.x0.dword);
+      break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      state_gpr.x0.qword = read(3, (char *) _ecv_translate_ptr(state_gpr.x1.qword),
+      state_gpr.x0.qword = read(state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword),
                                 static_cast<size_t>(state_gpr.x2.qword));
       break;
     case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
