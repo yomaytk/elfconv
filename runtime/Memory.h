@@ -111,11 +111,11 @@ class MappedMemory {
 
 class RuntimeManager {
  public:
-  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__stack_memory,
-                 MappedMemory *__heap_memory)
+  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__mapped_stack,
+                 MappedMemory *__mapped_heap)
       : mapped_memorys(__mapped_memorys),
-        stack_memory(__stack_memory),
-        heap_memory(__heap_memory),
+        stack_memory(__mapped_stack),
+        heap_memory(__mapped_heap),
         addr_fn_map({}) {}
   RuntimeManager() {}
   ~RuntimeManager() {

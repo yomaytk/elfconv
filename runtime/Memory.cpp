@@ -40,12 +40,33 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
       _ecv_reg64_t _ecv_a_val;
     } _ecv_a_un;
   } _ecv_auxv64[] = {
-      {3 /* AT_PHDR */, phdr},          {4 /* AT_PHENT */, __g_e_phent},
-      {5 /* AT_PHNUM */, __g_e_phnum},  {6 /* AT_PAGESZ */, 4096},
-      {9 /* AT_ENTRY */, __g_entry_pc}, {11 /* AT_UID */, 42},
-      {12 /* AT_EUID */, 42},           {13 /* AT_GID */, 42},
-      {14 /* AT_EGID */, 42},           {23 /* AT_SECURE */, 0},
-      {25 /* AT_RANDOM */, randomp},    {0 /* AT_NULL */, 0},
+#if defined(__linux__)
+    {3 /* AT_PHDR */, phdr},
+    {4 /* AT_PHENT */, __g_e_phent},
+    {5 /* AT_PHNUM */, __g_e_phnum},
+    {6 /* AT_PAGESZ */, 4096},
+    {9 /* AT_ENTRY */, __g_entry_pc},
+    {11 /* AT_UID */, getuid()},
+    {12 /* AT_EUID */, geteuid()},
+    {13 /* AT_GID */, getgid()},
+    {14 /* AT_EGID */, getegid()},
+    {23 /* AT_SECURE */, 0},
+    {25 /* AT_RANDOM */, randomp},
+    {0 /* AT_NULL */, 0},
+#elif defined(__wasm__)
+    {3 /* AT_PHDR */, phdr},
+    {4 /* AT_PHENT */, __g_e_phent},
+    {5 /* AT_PHNUM */, __g_e_phnum},
+    {6 /* AT_PAGESZ */, 4096},
+    {9 /* AT_ENTRY */, __g_entry_pc},
+    {11 /* AT_UID */, 42},
+    {12 /* AT_EUID */, 42},
+    {13 /* AT_GID */, 42},
+    {14 /* AT_EGID */, 42},
+    {23 /* AT_SECURE */, 0},
+    {25 /* AT_RANDOM */, randomp},
+    {0 /* AT_NULL */, 0},
+#endif
   };
   sp -= sizeof(_ecv_auxv64);
   memcpy(bytes + (sp - vma), _ecv_auxv64, sizeof(_ecv_auxv64));
