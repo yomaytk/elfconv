@@ -115,6 +115,15 @@ DEF_SEM(FCVTZS_Float64ToSInt64, R64W dst, V64 src) {
   return memory;
 }
 
+// FCVTAS  <Xd>, <Dn>
+// (FIXME) not using rounding to nearest with ties to Away
+DEF_SEM(FCVTAS_Float64ToSInt64, R64W dst, V64 src) {
+  auto float_val = FExtractV64(FReadV64(src), 0);
+  auto res = CheckedCast<float64_t, int64_t>(state, float_val);
+  WriteZExt(dst, res);
+  return memory;
+}
+
 DEF_SEM(FCVT_Float32ToFloat64, V128W dst, V32 src) {
   auto float_val = FExtractV32(FReadV32(src), 0);
   auto res = CheckedCast<float32_t, float64_t>(state, float_val);
@@ -128,6 +137,16 @@ DEF_SEM(FCVT_Float64ToFloat32, V128W dst, V64 src) {
   FWriteV32(dst, res);
   return memory;
 }
+
+// FRINTA  <Dd>, <Dn>
+// (FIXME) not using rounding to nearest with ties to Away
+DEF_SEM(FRINTA_Float64ToSInt64, R64W dst, V64 src) {
+  auto float_val = FExtractV64(FReadV64(src), 0);
+  auto res = CheckedCast<float64_t, int64_t>(state, float_val);
+  WriteZExt(dst, res);
+  return memory;
+}
+
 }  // namespace
 
 // TODO(pag): UCVTF_H32_FLOAT2INT.
@@ -153,8 +172,12 @@ DEF_ISEL(FCVTZS_32S_FLOAT2INT) = FCVTZS_Float32ToSInt32;
 DEF_ISEL(FCVTZS_32D_FLOAT2INT) = FCVTZS_Float64ToSInt32;
 DEF_ISEL(FCVTZS_64D_FLOAT2INT) = FCVTZS_Float64ToSInt64;
 
+DEF_ISEL(FCVTAS_64D_FLOAT2INT) = FCVTAS_Float64ToSInt64;
+
 DEF_ISEL(FCVT_DS_FLOATDP1) = FCVT_Float32ToFloat64;
 DEF_ISEL(FCVT_SD_FLOATDP1) = FCVT_Float64ToFloat32;
+
+DEF_ISEL(FRINTA_D_FLOATDP1) = FRINTA_Float64ToSInt64;
 
 namespace {
 

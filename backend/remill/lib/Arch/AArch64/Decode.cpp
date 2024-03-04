@@ -29224,44 +29224,6 @@ bool TryDecodeFCVTAS_32D_FLOAT2INT(const InstData &, Instruction &) {
   return false;
 }
 
-// FCVTAS FCVTAS_64D_float2int:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0
-//  13 0
-//  14 0
-//  15 0
-//  16 0 opcode   0
-//  17 0 opcode   1
-//  18 1 opcode   2
-//  19 0 rmode    0
-//  20 0 rmode    1
-//  21 1
-//  22 1 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 1 sf       0
-// FCVTAS  <Xd>, <Dn>
-bool TryDecodeFCVTAS_64D_FLOAT2INT(const InstData &, Instruction &) {
-  return false;
-}
-
 // SSHLL SXTL_SSHLL_asimdshf_L:
 //   0 x Rd       0
 //   1 x Rd       1
