@@ -9,6 +9,7 @@
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
 
 extern State g_state;
+extern void *_ecv_translate_ptr(addr_t vma_addr);
 
 /* debug func */
 extern "C" void debug_state_machine() {
@@ -69,13 +70,31 @@ extern "C" void debug_state_machine_vectors() {
   }
 }
 
+extern "C" void debug_memory() {
+  static uint64_t target_vma = 0xfffff00000f7f50;  // should set target vma
+  if (0 == target_vma)
+    return;
+  static uint64_t old_value = 0;
+  auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
+  auto new_value = *target_pma;
+  if (old_value != new_value) {
+    std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
+              << std::endl
+              << "\told value: 0x" << old_value << std::endl
+              << "\tnew value: 0x" << new_value << std::endl;
+    old_value = new_value;
+  }
+}
+
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
   std::cout << "[DEBUG INSN]" << std::endl;
   std::cout << std::hex << "PC: 0x" << gpr.pc.qword << ", SP: 0x" << gpr.sp.qword << ", x19: 0x"
             << gpr.x19.qword << ", x20: 0x" << gpr.x20.qword << ", x21: 0x" << gpr.x21.qword
             << ", x22: 0x" << gpr.x22.qword << ", x29: 0x" << gpr.x29.qword << ", x30: 0x"
-            << gpr.x30.qword << std::endl;
+            << gpr.x30.qword << std::dec << ", x8: " << gpr.x8.dword << std::hex << ", x0: 0x"
+            << gpr.x0.qword << ", x1: 0x" << gpr.x1.qword << ", x2: 0x" << gpr.x2.qword
+            << std::endl;
 }
 
 #if defined(LIFT_DEBUG)

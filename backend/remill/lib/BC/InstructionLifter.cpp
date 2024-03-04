@@ -63,6 +63,7 @@ InstructionLifter::~InstructionLifter(void) {}
 
 InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : impl(new Impl(arch_, intrinsics_)),
+      debug_memory_name("debug_memory"),
       debug_insn_name("debug_insn") {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
@@ -102,8 +103,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->unsupported_instruction;
     arch_inst.operands.clear();
     status = kLiftedUnsupportedInstruction;
-    printf("[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction)\n",
-           arch_inst.pc);
+    printf(
+        "[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
+        arch_inst.pc, arch_inst.function.c_str());
   }
 
   llvm::IRBuilder<> ir(block);
@@ -120,17 +122,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (is_delayed) {
     llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
-  }
-
-  /* append debug_insn function call */
-  if (UINT64_MAX != debug_insn_addr) {
-    llvm::IRBuilder<> __debug_ir(block);
-    auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    if (!_debug_insn_fn) {
-      printf("[ERROR] debug_insn is undeclared.\n");
-      abort();
-    }
-    __debug_ir.CreateCall(_debug_insn_fn);
   }
 
 #if defined(LIFT_INSN_DEBUG)
@@ -213,6 +204,16 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
     llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
+  }
+
+  /* append debug_insn function call */
+  if (UINT64_MAX != debug_insn_addr) {
+    llvm::IRBuilder<> __debug_ir(block);
+    auto _debug_insn_fn = module->getFunction(debug_insn_name);
+    auto _debug_memory_fn = module->getFunction(debug_memory_name);
+    CHECK(_debug_insn_fn && _debug_memory_fn);
+    __debug_ir.CreateCall(_debug_insn_fn);
+    __debug_ir.CreateCall(_debug_memory_fn);
   }
 
   return status;
