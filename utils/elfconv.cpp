@@ -89,15 +89,10 @@ extern "C" void debug_memory() {
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
   std::cout << "[DEBUG INSN]" << std::endl;
-  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << ", SP: 0x" << gpr.sp.qword << ", x19: 0x"
-            << gpr.x19.qword << ", x20: 0x" << gpr.x20.qword << ", x21: 0x" << gpr.x21.qword
-            << ", x22: 0x" << gpr.x22.qword << ", x29: 0x" << gpr.x29.qword << ", x30: 0x"
-            << gpr.x30.qword << std::dec << ", x8: " << gpr.x8.dword << std::hex << ", x0: 0x"
-            << gpr.x0.qword << ", x1: 0x" << gpr.x1.qword << ", x2: 0x" << gpr.x2.qword
-            << std::endl;
+  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << std::endl;
 }
 
-#if defined(LIFT_DEBUG)
+#if defined(LIFT_DEBUG) && defined(__linux__)
 extern "C" void segv_debug_state_machine(int sig, siginfo_t *info, void *ctx) {
   std::cout << "[ERROR] Segmantation Fault." << std::endl;
   std::cout << "signo: " << info->si_signo << " code: " << info->si_code << std::endl;
