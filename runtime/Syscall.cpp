@@ -180,8 +180,15 @@ void __svc_call(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
+#if defined(WASI_ENV)
+      if (-100 == state_gpr.x0.dword)
+        state_gpr.x0.qword = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
+      state_gpr.x2.dword = O_RDWR;
+#endif
       state_gpr.x0.dword = openat(
           state_gpr.x0.dword, (char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x2.dword);
+      if (-1 == state_gpr.x0.dword)
+        perror("openat error!");
       break;
     case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
       state_gpr.x0.dword = close(state_gpr.x0.dword);
@@ -209,15 +216,9 @@ void __svc_call(void) {
       free(cache_vec);
     } break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-#if defined(ELFC_RUNTIME_HOST_ENV)
-      /* FIXME! */
-      memcpy((char *) _ecv_translate_ptr(state_gpr.x2.qword),
-             (const char *) _ecv_translate_ptr(state_gpr.x1.qword), state_gpr.x3.dword);
-#else
       state_gpr.x0.qword =
           readlinkat(state_gpr.x0.dword, (const char *) _ecv_translate_ptr(state_gpr.x1.qword),
                      (char *) _ecv_translate_ptr(state_gpr.x2.qword), state_gpr.x3.dword);
-#endif
       break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
@@ -362,7 +363,7 @@ void __svc_call(void) {
       EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
       break;
     case AARCH64_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
-      /* TODO */
+      /* FIXME */
       {
         auto heap_memory = g_run_mgr->heap_memory;
         if (state_gpr.x4.dword != -1)
