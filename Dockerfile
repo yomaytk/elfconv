@@ -50,7 +50,7 @@ git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.s
 # takes long times to build wasi-sdk in arm64 because wasi-sdk doesn't release arm64 packages.
 RUN \
   if [ "$( uname -m )" = "x86_64" ]; then \
-    cd /root && echo -e "export WASI_VERSION=21\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}" >> /root/.bash_profile && \
+    cd /root && export WASI_VERSION=21 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && echo -e "export WASI_VERSION=21\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}" >> /root/.bash_profile && \
     wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && rm wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz; \
   elif [ "$( uname -m )" = "aarch64" ]; then \
     cd /root && git clone --recursive https://github.com/WebAssembly/wasi-sdk.git; \
