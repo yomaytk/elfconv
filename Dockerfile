@@ -46,6 +46,10 @@ RUN apt update && \
 RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
 git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
 
+# wasi-sdk install
+RUN cd /root && export WASI_VERSION=21 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && echo -e 'export WASI_VERSION=21\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=`pwd`/wasi-sdk-${WASI_VERSION_FULL}' >> /root/.bash_profile && \
+wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz
+
 # WASI Runtimes install
 RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
 RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
