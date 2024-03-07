@@ -14,9 +14,15 @@ setting() {
   ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
   ELFCONV_DEBUG_MACROS=
   ELFPATH=$( realpath "$1" )
+  WASMCC=$EMCC
+  WASMCCFLAGS=$EMCCFLAGS
+  WASMAR=$EMAR
+  WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
+  WASISDKAR=${WASI_SDK_PATH}/bin/ar
+  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
 
   if [ "$TARGET" = "wasm-host" ]; then
-    ELFCONV_MACROS="-DELFC_RUNTIME_HOST_ENV=1"
+    ELFCONV_MACROS="-DELFC_WASI_ENV=1"
   fi
 
 }
@@ -33,14 +39,19 @@ main() {
 
   # build runtime
   echo "[INFO] Building elfconv-Runtime ..."
-  cd "${RUNTIME_DIR}"
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c Syscall.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c ${UTILS_DIR}/Util.cpp && \
-    $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c ${UTILS_DIR}/elfconv.cpp && \
-    $EMAR rcs libelfconv.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
+  if [ "$TARGET" = "wasm-host" ]; then
+    WASMCC=$WASISDKCXX
+    WASMCCFLAGS=$WASISDKFLAGS
+    WASMAR=$WASISDKAR
+  fi
+  cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Entry.o -c Entry.cpp && \
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Memory.o -c Memory.cpp && \
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Syscall.o -c Syscall.cpp && \
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o VmIntrinsics.o -c VmIntrinsics.cpp && \
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
+    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
+    $WASMAR rcs libelfconv.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     mv libelfconv.a "${BIN_DIR}/"
 		rm *.o
   echo "[INFO] Generate libelfconv.a."
@@ -48,7 +59,7 @@ main() {
   # ELF -> LLVM bc
   cp -p "${BUILD_LIFTER_DIR}/elflift" "${BIN_DIR}/"
   echo "[INFO] Converting ELF to LLVM bitcode ..."
-    cd "${BIN_DIR}"
+    cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
     ./elflift \
     --arch aarch64 \
     --bc_out lift.bc \
@@ -60,17 +71,17 @@ main() {
   case "$TARGET" in
     wasm-browser)
       echo "[INFO] Converting LLVM bitcode to WASM binary (for browser) ..."
-      cd "${BIN_DIR}"
-        $EMCC -c lift.bc -o lift.o && \
-        $EMCC -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
+      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
+        $WASMCC -c lift.bc -o lift.o && \
+        $WASMCC -o exe.wasm.html -L"./" -sWASM -sALLOW_MEMORY_GROWTH lift.o -lelfconv
       echo "[INFO] Generate WASM binary."
       return 0
     ;;
     wasm-host)
       echo "[INFO] Converting LLVM bitcode to WASM binary (for server) ..."
-      cd "${BIN_DIR}"
-        $EMCC -c lift.bc -o lift.o && \
-        $EMCC -o exe.wasm -L"./" lift.o -lelfconv
+      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
+        $WASMCC -c lift.bc -o lift.o && \
+        $WASMCC -o exe.wasm -L"./" lift.o -lelfconv
       echo "[INFO] Generate WASM binary."
       return 0
     ;;

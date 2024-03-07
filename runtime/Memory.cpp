@@ -40,12 +40,33 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
       _ecv_reg64_t _ecv_a_val;
     } _ecv_a_un;
   } _ecv_auxv64[] = {
-      {3 /* AT_PHDR */, phdr},          {4 /* AT_PHENT */, __g_e_phent},
-      {5 /* AT_PHNUM */, __g_e_phnum},  {6 /* AT_PAGESZ */, 4096},
-      {9 /* AT_ENTRY */, __g_entry_pc}, {11 /* AT_UID */, 42},
-      {12 /* AT_EUID */, 42},           {13 /* AT_GID */, 42},
-      {14 /* AT_EGID */, 42},           {23 /* AT_SECURE */, 0},
-      {25 /* AT_RANDOM */, randomp},    {0 /* AT_NULL */, 0},
+#if defined(ELFC_WASI_ENV)
+    {3 /* AT_PHDR */, phdr},
+    {4 /* AT_PHENT */, __g_e_phent},
+    {5 /* AT_PHNUM */, __g_e_phnum},
+    {6 /* AT_PAGESZ */, 4096},
+    {9 /* AT_ENTRY */, __g_entry_pc},
+    {11 /* AT_UID */, 42},
+    {12 /* AT_EUID */, 42},
+    {13 /* AT_GID */, 42},
+    {14 /* AT_EGID */, 42},
+    {23 /* AT_SECURE */, 0},
+    {25 /* AT_RANDOM */, randomp},
+    {0 /* AT_NULL */, 0},
+#else
+    {3 /* AT_PHDR */, phdr},
+    {4 /* AT_PHENT */, __g_e_phent},
+    {5 /* AT_PHNUM */, __g_e_phnum},
+    {6 /* AT_PAGESZ */, 4096},
+    {9 /* AT_ENTRY */, __g_entry_pc},
+    {11 /* AT_UID */, getuid()},
+    {12 /* AT_EUID */, geteuid()},
+    {13 /* AT_GID */, getgid()},
+    {14 /* AT_EGID */, getegid()},
+    {23 /* AT_SECURE */, 0},
+    {25 /* AT_RANDOM */, randomp},
+    {0 /* AT_NULL */, 0},
+#endif
   };
   sp -= sizeof(_ecv_auxv64);
   memcpy(bytes + (sp - vma), _ecv_auxv64, sizeof(_ecv_auxv64));
@@ -69,10 +90,11 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
 }
 
 MappedMemory *MappedMemory::VMAHeapEntryInit() {
-  auto bytes = reinterpret_cast<uint8_t *>(malloc(HEAP_SIZE));
-  auto upper_bytes = bytes + HEAP_SIZE;
-  auto heap = new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA,
-                               HEAPS_START_VMA + HEAP_SIZE, HEAP_SIZE, bytes, upper_bytes, true);
+  auto bytes = reinterpret_cast<uint8_t *>(malloc(HEAP_UNIT_SIZE));
+  auto upper_bytes = bytes + HEAP_UNIT_SIZE;
+  auto heap =
+      new MappedMemory(MemoryAreaType::HEAP, "Heap", HEAPS_START_VMA,
+                       HEAPS_START_VMA + HEAP_UNIT_SIZE, HEAP_UNIT_SIZE, bytes, upper_bytes, true);
   heap->heap_cur = HEAPS_START_VMA;
   return heap;
 }
@@ -96,11 +118,13 @@ void MappedMemory::DebugEmulatedMemory() {
 
 void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   /* search in every mapped memory */
-  // std::cout << "vma: " << std::hex << "0x" << vma_addr << std::endl;
+  if (vma_addr >= stack_memory->vma)
+    return reinterpret_cast<void *>(stack_memory->bytes + (vma_addr - stack_memory->vma));
+  if (vma_addr >= heap_memory->vma)
+    return reinterpret_cast<void *>(heap_memory->bytes + (vma_addr - heap_memory->vma));
   for (auto &memory : mapped_memorys) {
-    if (memory->vma <= vma_addr && vma_addr < memory->vma_end) {
+    if (memory->vma <= vma_addr && vma_addr < memory->vma_end)
       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
-    }
   }
   debug_state_machine();
   /* not exist sections which includes the vma_addr. */

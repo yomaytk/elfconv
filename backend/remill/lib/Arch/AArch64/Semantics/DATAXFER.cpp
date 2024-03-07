@@ -138,6 +138,11 @@ DEF_SEM(StoreToOffset, S src, D base, ADDR offset) {
   return memory;
 }
 
+DEF_SEM(StoreWordToOffset, V32 src, MV32W base, ADDR offset) {
+  FWriteV32(DisplaceAddress(base, Read(offset)), FReadV32(src));
+  return memory;
+}
+
 DEF_SEM(StoreDoubleToOffset, V64 src, MV64W base, ADDR offset) {
   FWriteV64(DisplaceAddress(base, Read(offset)), FReadV64(src));
   return memory;
@@ -212,6 +217,7 @@ DEF_ISEL(STRH_32_LDST_POS) = Store<R32, M16W>;
 
 DEF_ISEL(STR_32_LDST_REGOFF) = StoreToOffset<R32, M32W>;
 DEF_ISEL(STR_64_LDST_REGOFF) = StoreToOffset<R64, M64W>;
+DEF_ISEL(STR_S_LDST_REGOFF) = StoreWordToOffset;
 DEF_ISEL(STR_D_LDST_REGOFF) = StoreDoubleToOffset;
 
 DEF_ISEL(SWP_32_MEMOP) = SWP_MEMOP<R32, R32W, M32, M32W>;
@@ -567,6 +573,7 @@ DEF_ISEL(FMOV_D64_FLOAT2INT) = FMOV_I64ToF64;
 
 DEF_ISEL(FMOV_S_FLOATDP1) = FMOV_S;
 DEF_ISEL(FMOV_D_FLOATDP1) = FMOV_D;
+
 namespace {
 
 DEF_SEM(ADRP, R64W dst, PC label) {

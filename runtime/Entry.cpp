@@ -2,6 +2,13 @@
 
 #include <cstdint>
 #include <cstring>
+#include <remill/BC/HelperMacro.h>
+#if defined(LIFT_DEBUG) && defined(__linux__)
+#  include <signal.h>
+#  include <utils/Util.h>
+#  include <utils/elfconv.h>
+#endif
+#include <iostream>
 #include <map>
 #include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
@@ -15,10 +22,18 @@ int main(int argc, char *argv[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
 
+#if defined(LIFT_DEBUG) && defined(__linux__)
+  struct sigaction segv_action = {0};
+  segv_action.sa_flags = SA_SIGINFO;
+  segv_action.sa_sigaction = segv_debug_state_machine;
+  if (sigaction(SIGSEGV, &segv_action, NULL) < 0)
+    elfconv_runtime_error("sigaction for SIGSEGV failed.\n");
+#endif
+
   /* allocate Stack */
-  mapped_memorys.push_back(MappedMemory::VMAStackEntryInit(argc, argv, &g_state));
+  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, &g_state);
   /* allocate Heap */
-  mapped_memorys.push_back(MappedMemory::VMAHeapEntryInit());
+  auto mapped_heap = MappedMemory::VMAHeapEntryInit();
   /* allocate every sections */
   for (int i = 0; i < __g_data_sec_num; i++) {
     // remove covered section (FIXME)
@@ -39,8 +54,8 @@ int main(int argc, char *argv[]) {
   g_state.sr.ctr_el0 = {.qword = 0x80038003};
   g_state.sr.dczid_el0 = {.qword = 0x4};
   /* set global RuntimeManager */
-  g_run_mgr = new RuntimeManager(mapped_memorys);
-  g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_SIZE;
+  g_run_mgr = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
+  g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
   /* set lifted function pointer table */
   for (int i = 0; __g_fn_vmas[i] && __g_fn_ptr_table[i]; i++) {
     g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];

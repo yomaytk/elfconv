@@ -821,7 +821,7 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
   /* set operands of insn */
   if (!aarch64::TryDecode(dinst, inst)) {
     inst.category = Instruction::kCategoryInvalid;
-    printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryDecode), instFrom: %s\n",
+    printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryDecode), instForm: %s\n",
            address, inst.function.c_str());
     return false;
   }
@@ -2940,9 +2940,9 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
 
 // FRINTA  <Dd>, <Dn>
 bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
-  // AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
-  // AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  return false;
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  return true;
 }
 
 bool IsUnallocatedFloatEncoding(const InstData &data) {
@@ -3016,6 +3016,13 @@ bool TryDecodeFCVTZS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
+  AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  return true;
+}
+
+// FCVTAS  <Xd>, <Dn>
+bool TryDecodeFCVTAS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   return true;
@@ -3555,6 +3562,7 @@ static bool TryDecodeSTR_Vn_LDST_IMMPRE(const InstData &data, Instruction &inst,
   AddPreIndexMemOp(inst, kActionWrite, num_bits, data.Rn, offset);
   return true;
 }
+
 // STR  <Qt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeSTR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   return TryDecodeSTR_Vn_LDST_IMMPRE(data, inst, kRegQ);

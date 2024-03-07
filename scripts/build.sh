@@ -22,27 +22,20 @@ REMILL_DIR=$( cd "$( realpath "${ROOT_DIR}/backend/remill" )" && pwd )
 DOWNLOAD_DIR="$( cd "$( dirname "${REMILL_DIR}" )" && pwd )/lifting-bits-downloads"
 BUILD_DIR="${ROOT_DIR}/build"
 BUILD_LIFTER_DIR="${BUILD_DIR}/lifter"
-ELFCOV_INSTALL_DIR="${HOME}/.elfconv/bin"
-INSTALL_LIB_DIR="${HOME}/.elfconv/lib"
+ELFCONV_INSTALL_DIR="${HOME}/.elfconv/bin"
 LLVM_VERSION=llvm-16
 OS_VERSION=
 ARCH_VERSION=
 BUILD_FLAGS=
 LIFT_DEBUG_MACROS=
 CXX_COMMON_VERSION="0.5.0"
-EMCC=emcc
-EMAR=emar
-EMCCFLAGS="-I"$( realpath "${REMILL_DIR}" )"/include -I${ROOT_DIR} -O3"
-RUNTIME_DIR=""$( realpath "${ROOT_DIR}" )"/runtime"
-UTILS_DIR=""$( realpath "${ROOT_DIR}" )"/utils"
-ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
-ELFCONV_DEBUG_MACROS=
 
 # There are pre-build versions of various libraries for specific
 # Ubuntu releases.
 function GetUbuntuOSVersion
 {
   # Version name of OS (e.g. xenial, trusty).
+  # shellcheck disable=SC1091
   source /etc/lsb-release
 
   case "${DISTRIB_CODENAME}" in
@@ -127,6 +120,7 @@ function DownloadVcpkgLibraries
 # Attempt to detect the OS distribution name.
 function GetOSVersion
 {
+  # shellcheck disable=SC1091
   source /etc/os-release
 
   case "${ID,,}" in
@@ -243,8 +237,8 @@ function Configure
         -DREMILL_BUILD_SPARC32_RUNTIME=OFF \
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
-        ${BUILD_FLAGS} \
-        ${LIFT_DEBUG_MACROS} \
+        "${BUILD_FLAGS}" \
+        "${LIFT_DEBUG_MACROS}" \
         -GNinja \
         "${ROOT_DIR}"
   ) || exit $?
@@ -288,7 +282,6 @@ function GetLLVMVersion
       return 1
     ;;
   esac
-  return 1
 }
 
 function Help
@@ -308,7 +301,7 @@ function Help
 function main
 {
 
-  if [ -d $BUILD_DIR ]; then
+  if [ -d "$BUILD_DIR" ]; then
     echo "Already build done! (at scripts/build.sh)"
     exit 0
   fi
@@ -360,7 +353,6 @@ function main
 
       # Disable packages
       --disable-package)
-        CREATE_PACKAGES=false
         echo "[+] Disabled building packages"
         shift # past argument
       ;;
@@ -376,7 +368,7 @@ function main
         GetOSVersion
         if [[ $OS_VERSION != ubuntu* ]] ; then
           echo "[+] Dyninst frontend is supported only on Ubuntu, try at your own peril"
-          read -p "Continue? (Y/N): " confirm
+          read -r -p "Continue? (Y/N): " confirm
           case $confirm in
             y|Y ) echo "Confirmed";;
             n|N ) exit 1;;

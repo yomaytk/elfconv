@@ -27,8 +27,8 @@ echo "deb http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LL
 echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list
 
 # several install
-RUN apt update
-RUN apt install -qqy --no-install-recommends file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
+RUN apt-get update
+RUN apt-get install -qqy --no-install-recommends file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
     clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim \
     libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache binutils-dev libelf-dev && \   
     apt upgrade --yes && apt clean --yes && \
@@ -45,6 +45,17 @@ RUN apt update && \
 # emscripten install
 RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
 git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
+
+# wasi-sdk install
+# takes long times to build wasi-sdk in arm64 because wasi-sdk doesn't release arm64 packages.
+RUN \
+  if [ "$( uname -m )" = "x86_64" ]; then \
+    cd /root && export WASI_VERSION=21 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && echo -e "export WASI_VERSION=21\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}" >> /root/.bash_profile && \
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && rm wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz; \
+  elif [ "$( uname -m )" = "aarch64" ]; then \
+    cd /root && git clone --recursive https://github.com/WebAssembly/wasi-sdk.git; \
+    cd wasi-sdk && NINJA_FLAGS=-v make package; \
+  fi
 
 # WASI Runtimes install
 RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash

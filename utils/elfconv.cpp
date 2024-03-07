@@ -3,11 +3,13 @@
 #include <iomanip>
 #include <iostream>
 #include <remill/Arch/AArch64/Runtime/State.h>
+#include <remill/BC/HelperMacro.h>
 
 #define PRINT_GPR(index) \
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
 
 extern State g_state;
+extern void *_ecv_translate_ptr(addr_t vma_addr);
 
 /* debug func */
 extern "C" void debug_state_machine() {
@@ -49,11 +51,12 @@ extern "C" void debug_state_machine() {
             << std::endl;
   auto sr = g_state.sr;
   std::cout << "State.SR" << std::dec << std::endl;
-  std::cout << "tpidr_el0: " << sr.tpidr_el0.qword << ", tpidrro_el0: " << sr.tpidrro_el0.qword
-            << ", ctr_el0: " << sr.ctr_el0.qword << ", dczid_el0: " << sr.dczid_el0.qword
-            << ", midr_el1: " << sr.midr_el1.qword << ", n: " << sr.n << ", z: " << sr.z
-            << ", c: " << sr.c << ", v: " << sr.v << ", ixc: " << sr.ixc << ", ofc: " << sr.ofc
-            << ", ufc: " << sr.ufc << ", idc: " << sr.idc << ", ioc: " << sr.ioc << std::endl;
+  std::cout << std::hex << "tpidr_el0: 0x" << sr.tpidr_el0.qword << ", tpidrro_el0: 0x"
+            << sr.tpidrro_el0.qword << ", ctr_el0: 0x" << sr.ctr_el0.qword << ", dczid_el0: 0x"
+            << sr.dczid_el0.qword << ", midr_el1: 0x" << sr.midr_el1.qword << std::dec
+            << ", n: " << sr.n << ", z: " << sr.z << ", c: " << sr.c << ", v: " << sr.v
+            << ", ixc: " << sr.ixc << ", ofc: " << sr.ofc << ", ufc: " << sr.ufc
+            << ", idc: " << sr.idc << ", ioc: " << sr.ioc << std::endl;
 }
 
 extern "C" void debug_state_machine_vectors() {
@@ -67,11 +70,33 @@ extern "C" void debug_state_machine_vectors() {
   }
 }
 
+extern "C" void debug_memory() {
+  static uint64_t target_vma = 0xfffff00000f7f50;  // should set target vma
+  if (0 == target_vma)
+    return;
+  static uint64_t old_value = 0;
+  auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
+  auto new_value = *target_pma;
+  if (old_value != new_value) {
+    std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
+              << std::endl
+              << "\told value: 0x" << old_value << std::endl
+              << "\tnew value: 0x" << new_value << std::endl;
+    old_value = new_value;
+  }
+}
+
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
   std::cout << "[DEBUG INSN]" << std::endl;
-  std::cout << std::hex << "PC: 0x" << std::setw(16) << std::setfill('0') << gpr.pc.qword
-            << ", x0: 0x" << gpr.x0.qword << ", x1: 0x" << gpr.x1.qword << ", x2: 0x"
-            << gpr.x2.qword << ", x3: 0x" << gpr.x3.qword << ", x4: 0x" << gpr.x4.qword
-            << ", x5: 0x" << gpr.x5.qword << std::endl;
+  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << std::endl;
 }
+
+#if defined(LIFT_DEBUG) && defined(__linux__)
+extern "C" void segv_debug_state_machine(int sig, siginfo_t *info, void *ctx) {
+  std::cout << "[ERROR] Segmantation Fault." << std::endl;
+  std::cout << "signo: " << info->si_signo << " code: " << info->si_code << std::endl;
+  debug_state_machine();
+  exit(0);
+}
+#endif

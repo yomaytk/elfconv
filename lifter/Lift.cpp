@@ -64,8 +64,8 @@ int main(int argc, char *argv[]) {
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
       /* append the address of necesarry debug function */
-      if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length()).c_str(),
-                  FLAGS_dbg_fun_cfg.c_str(), FLAGS_dbg_fun_cfg.length()) == 0) {
+      if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length() + 4).c_str(),
+                  (FLAGS_dbg_fun_cfg + "_____").c_str(), FLAGS_dbg_fun_cfg.length() + 4) == 0) {
         control_flow_debug_list[fn_addr] = true;
         break;
       }
