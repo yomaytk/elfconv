@@ -22,7 +22,7 @@ setting() {
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
 
   if [ "$TARGET" = "wasm-host" ]; then
-    ELFCONV_MACROS="-DELFC_RUNTIME_HOST_ENV=1"
+    ELFCONV_MACROS="-DELFC_WASI_ENV=1"
   fi
 
 }

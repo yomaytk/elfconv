@@ -40,7 +40,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
       _ecv_reg64_t _ecv_a_val;
     } _ecv_a_un;
   } _ecv_auxv64[] = {
-#if defined(WASI_ENV)
+#if defined(ELFC_WASI_ENV)
     {3 /* AT_PHDR */, phdr},
     {4 /* AT_PHENT */, __g_e_phent},
     {5 /* AT_PHNUM */, __g_e_phnum},

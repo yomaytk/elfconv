@@ -18,9 +18,6 @@ setting() {
   CXX=clang++-16
   OPTFLAGS="-O3"
   CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
-  CXXX64=x86_64-linux-gnu-g++-11
-  CROSS_COMPILE_FLAGS_X64="-static --target=x86-64-linux-gnu nostdin_linpack.c -fuse-ld=lld -pthread;"
-  X64CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDK_CXX=${HOME}/wasi-sdk/build/install/opt/wasi-sdk/bin/clang++
@@ -40,7 +37,7 @@ aarch64_test() {
 
   # generate LLVM bc
   echo "[INFO] AArch64 Test Lifting Start."
-  cd ${BUILD_TESTS_AARCH64_DIR} && \
+  cd "${BUILD_TESTS_AARCH64_DIR}" && \
     ./aarch64_test_lift \
     --arch aarch64 \
     --bc_out ./aarch64_test.bc
@@ -49,8 +46,8 @@ aarch64_test() {
   echo "[INFO] Generate aarch64_lift.ll"  
 
   # generate execute file (lift_test.aarch64)
-  ${CXX} ${CLANGFLAGS} $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o lift_test.aarch64 aarch64_test.ll ${AARCH64_TEST_DIR}/Test.cpp ${AARCH64_TEST_DIR}/TestHelper.cpp \
-  ${AARCH64_TEST_DIR}/TestInstructions.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/Syscall.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
+  ${CXX} "${CLANGFLAGS}" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o lift_test.aarch64 aarch64_test.ll "${AARCH64_TEST_DIR}"/Test.cpp "${AARCH64_TEST_DIR}"/TestHelper.cpp \
+  "${AARCH64_TEST_DIR}"/TestInstructions.cpp "${RUNTIME_DIR}"/Memory.cpp "${RUNTIME_DIR}"/Syscall.cpp "${RUNTIME_DIR}"/VmIntrinsics.cpp "${UTILS_DIR}"/Util.cpp "${UTILS_DIR}"/elfconv.cpp
   echo "[INFO] Generate lift_test.aarch64"
 
 }
@@ -112,7 +109,7 @@ main() {
       return 0
     ;;
     wasm-host)
-      ELFCONV_MACROS="-DELFC_RUNTIME_HOST_ENV=1"
+      ELFCONV_MACROS="-DELFC_WASI_ENV=1"
       if [ -n "$WASISDK" ]; then
         WASMCC=$WASISDK_CXX
         WASMCCFLAGS=$WASISDKFLAGS

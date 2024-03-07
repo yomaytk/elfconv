@@ -10,16 +10,16 @@ using ::testing::TestInfo;
 using ::testing::UnitTest;
 
 #define ECV_PATH(path) "../../../" #path
-#define EMCC_HOST_CMD(ident) \
-  "emcc -O0 -DELFC_RUNTIME_HOST_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+#define WASMCC_OPTION_HOST_CMD(ident) \
+  "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -DELFC_WASI_ENV=1 -fno-exceptions -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../runtime/" #ident ".cpp"
-#define EMCC_UTILS_CMD(ident) \
-  "emcc -O0 -DELFC_RUNTIME_HOST_ENV=1 -I../../../backend/remill/include -I../../../ -o " #ident \
+#define WASMCC_OPTION_UTILS_CMD(ident) \
+  "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -DELFC_WASI_ENV=1 -fno-exceptions -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../utils/" #ident ".cpp"
-#define EMCC_WASM_O(bc_ident) \
-  "emcc -c " bc_ident ".bc" \
+#define WASMCC_OPTION_WASM_O(bc_ident) \
+  "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -c " bc_ident ".bc" \
   " -o " bc_ident ".wasm.o"
 #define RUNTIME_OBJS \
   "Entry.test.wasm.o Memory.test.wasm.o Syscall.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
@@ -42,9 +42,9 @@ class TestEnvironment : public ::testing::Environment {
 
 // compile `elfconv/runtime`
 void compile_runtime_emscripten() {
-  std::string cmds[] = {EMCC_HOST_CMD(Entry),   EMCC_HOST_CMD(Memory),
-                        EMCC_HOST_CMD(Syscall), EMCC_HOST_CMD(VmIntrinsics),
-                        EMCC_UTILS_CMD(Util),   EMCC_UTILS_CMD(elfconv)};
+  std::string cmds[] = {WASMCC_OPTION_HOST_CMD(Entry),   WASMCC_OPTION_HOST_CMD(Memory),
+                        WASMCC_OPTION_HOST_CMD(Syscall), WASMCC_OPTION_HOST_CMD(VmIntrinsics),
+                        WASMCC_OPTION_UTILS_CMD(Util),   WASMCC_OPTION_UTILS_CMD(elfconv)};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe)
@@ -90,9 +90,9 @@ std::string binary_lifting(const char *elf_path) {
 
 void gen_wasm_for_wasi_runtimes() {
   std::string cmds[] = {// generate lift.wasm.o
-                        "emcc -c lift.bc -o lift.wasm.o",
+                        "${WASI_SDK_PATH}/bin/clang++ -c lift.bc -o lift.wasm.o",
                         // generate wasm
-                        "emcc -o exe.wasm lift.wasm.o " RUNTIME_OBJS};
+                        "${WASI_SDK_PATH}/bin/clang++ -o exe.wasm lift.wasm.o " RUNTIME_OBJS};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe)

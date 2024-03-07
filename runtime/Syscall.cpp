@@ -140,7 +140,7 @@ void __svc_call(void) {
 #endif
   switch (state_gpr.x8.qword) {
     case AARCH64_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
       EMPTY_SYSCALL(AARCH64_SYS_IOCTL)
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
@@ -180,7 +180,7 @@ void __svc_call(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-#if defined(WASI_ENV)
+#if defined(ELFC_WASI_ENV)
       if (-100 == state_gpr.x0.dword)
         state_gpr.x0.qword = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
       state_gpr.x2.dword = O_RDWR;
@@ -236,7 +236,7 @@ void __svc_call(void) {
       break;
     case AARCH64_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
-#if defined(WASI_ENV)
+#if defined(ELFC_WASI_ENV)
       pid_t tid = 42;
 #else
       pid_t tid = gettid();
@@ -260,7 +260,7 @@ void __svc_call(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
-#if defined(WASI_ENV)
+#if defined(ELFC_WASI_ENV)
       EMPTY_SYSCALL(AARCH64_SYS_CLOCK_GETTIME);
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
@@ -275,7 +275,7 @@ void __svc_call(void) {
     } break;
 #endif
     case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
       EMPTY_SYSCALL(AARCH64_SYS_TGKILL);
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
@@ -291,7 +291,7 @@ void __svc_call(void) {
       EMPTY_SYSCALL(AARCH64_SYS_RT_SIGPROCMASK);
       break;
     case AARCH64_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
       EMPTY_SYSCALL(AARCH64_SYS_RT_SIGACTION)
@@ -326,7 +326,7 @@ void __svc_call(void) {
     }
 #endif
     break;
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
     case AARCH64_SYS_GETPID: /* getpid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETPPID: /* getppid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETTUID: /* getuid () */ state_gpr.x0.dword = 42; break;
@@ -389,7 +389,7 @@ void __svc_call(void) {
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
       memset(_ecv_translate_ptr(state_gpr.x0.qword), 1, static_cast<size_t>(state_gpr.x1.qword));
       state_gpr.x0.qword = state_gpr.x1.qword;
 #else
@@ -406,7 +406,7 @@ void __svc_call(void) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
       struct stat _stat;
       // execute fstat
-#if defined(ELFC_RUNTIME_HOST_ENV)
+#if defined(ELFC_WASI_ENV)
       errno = _ECV_EACCESS;
       EMPTY_SYSCALL(AARCH64_SYS_STATX);
 #else
