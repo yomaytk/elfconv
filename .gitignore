@@ -83,6 +83,7 @@ remill_disass.egg-info/*
 *.app
 *.wasm
 elflift
+test
 
 *.pyc
 
