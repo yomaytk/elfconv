@@ -147,7 +147,8 @@ class TraceLifter::Impl {
         g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
         debug_memory_name("debug_memory"),
         debug_insn_name("debug_insn"),
-        debug_call_stack_name("debug_call_stack") {
+        debug_call_stack_push_name("debug_call_stack_push"),
+        debug_call_stack_pop_name("debug_call_stack_pop") {
     inst_bytes.reserve(max_inst_bytes);
   }
 
@@ -237,7 +238,8 @@ class TraceLifter::Impl {
   std::string g_get_jmp_block_address_func_name;
   std::string debug_memory_name;
   std::string debug_insn_name;
-  std::string debug_call_stack_name;
+  std::string debug_call_stack_push_name;
+  std::string debug_call_stack_pop_name;
 };
 
 }  // namespace remill

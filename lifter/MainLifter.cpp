@@ -279,9 +279,14 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_state_machine_vectors_name,
                          *module);
-  /* void debug_call_stack() */
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_call_stack_name, *module);
+  /* void debug_call_stack_push() */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_call_stack_push_name, *module);
+  /* void debug_call_stack_pop() */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_call_stack_pop_name, *module);
   // void debug_memory()
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_memory_name, *module);
