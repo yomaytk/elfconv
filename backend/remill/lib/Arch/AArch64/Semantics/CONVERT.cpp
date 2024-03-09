@@ -60,7 +60,7 @@ DEF_SEM(UCVTF_Uint64ToFloat64_FROMV, V128W dst, V128 src) {
   auto src_vec = UReadV64(src);
   float64v2_t tmp_vec = {};
   _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(src_vec); i++) {
-    tmp_vec.elems[i] = CheckedCast<int64_t, float64_t>(state, UExtractV64(src_vec, i));
+    tmp_vec.elems[i] = CheckedCast<uint64_t, float64_t>(state, UExtractV64(src_vec, i));
   }
   FWriteV64(dst, tmp_vec);
   return memory;
