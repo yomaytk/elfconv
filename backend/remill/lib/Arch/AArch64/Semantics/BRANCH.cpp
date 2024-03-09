@@ -138,8 +138,6 @@ DEF_SEM(DoIndirectBranch, S dst) {
 
 template <bool (*check_cond)(const State &)>
 DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
-  addr_t taken_pc = Read(taken);
-  addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = check_cond(state);
   Write(cond, take_branch);
 
@@ -148,8 +146,6 @@ DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
 
 template <typename S>
 DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
-  addr_t taken_pc = Read(taken);
-  addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpEq(Read(src), 0);
   Write(cond, take_branch);
 
@@ -158,8 +154,6 @@ DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
 
 template <typename S>
 DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
-  addr_t taken_pc = Read(taken);
-  addr_t not_taken_pc = Read(not_taken);
   uint8_t take_branch = UCmpNeq(Read(src), 0);
   Write(cond, take_branch);
 
@@ -169,8 +163,6 @@ DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
 
 template <typename S>
 DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
-  addr_t taken_pc = Read(taken);
-  addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
@@ -182,8 +174,6 @@ DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
 
 template <typename S>
 DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
-  addr_t taken_pc = Read(taken);
-  addr_t not_taken_pc = Read(not_taken);
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
