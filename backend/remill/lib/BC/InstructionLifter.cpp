@@ -103,9 +103,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->unsupported_instruction;
     arch_inst.operands.clear();
     status = kLiftedUnsupportedInstruction;
+#if defined(WARNING_OUTPUT)
     printf(
         "[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
         arch_inst.pc, arch_inst.function.c_str());
+#endif
   }
 
   llvm::IRBuilder<> ir(block);

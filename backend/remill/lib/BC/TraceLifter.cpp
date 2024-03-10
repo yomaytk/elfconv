@@ -207,7 +207,9 @@ bool TraceLifter::Impl::ReadInstructionBytes(uint64_t addr) {
     }
     uint8_t byte = 0;
     if (!manager.TryReadExecutableByte(byte_addr, &byte)) {
+#if defined(WARNING_OUTPUT)
       printf("[WARNING] Couldn't read executable byte at 0x%lx\n", byte_addr);
+#endif
       DLOG(WARNING) << "Couldn't read executable byte at " << std::hex << byte_addr << std::dec;
       break;
     }

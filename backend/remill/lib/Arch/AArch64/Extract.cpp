@@ -17,6 +17,7 @@
 #include "Decode.h"
 
 #include <stdio.h>
+#include <remill/BC/HelperMacro.h>
 
 namespace remill {
 namespace aarch64 {
@@ -76980,7 +76981,9 @@ const char *InstFormToString(InstForm iform) {
   if (iform == InstForm::INVALID) {
     return nullptr;
   } else if (static_cast<uint16_t>(InstForm::WHILELO_PREDICATE) < num) {
+#if defined(WARNING_OUTPUT)
     printf("[WARNING] failed to convert iform \"%d\" to InstForm value.\n", num);
+#endif
     return nullptr;
   } else {
     return kIFormName[num];

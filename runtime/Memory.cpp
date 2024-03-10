@@ -130,13 +130,6 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   /* not exist sections which includes the vma_addr. */
   elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
                         vma_addr, g_state.gpr.pc.qword);
-  /* multiple sections which includes the vma_addr */
-#if defined(MULSECTIONS_WARNING_MSG)
-  if (exist > 1) {
-    std::cout << "[WARNING] vma_addr (0x" << std::hex << std::setw(16) << std::setfill('0')
-              << vma_addr << ") exists at multiple sections." << std::endl;
-  }
-#endif
 }
 
 /* Wrapper of RuntimeManager::TranslateVMA */
