@@ -358,6 +358,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               ? inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, inst_addr)
               : inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, UINT64_MAX);
 
+      if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
+        llvm::IRBuilder<> ir(block);
+        auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
+        std::vector<llvm::Value *> args = {ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
+        auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
+        ir.CreateCall(tmp_patch_fn, args);
+        tmp_patch_fn_check = true;
+      }
+
       if (kLiftedInstruction != lift_status) {
         AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
         continue;

@@ -198,6 +198,8 @@ extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
         elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
                               last_call_vma, g_run_mgr->addr_fn_symbol_map[fn_vma],
                               g_run_mgr->addr_fn_symbol_map[last_call_vma]);
+      g_run_mgr->call_stacks.pop_back();
+      return;
       std::string tab_space;
       for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
         if (i & 0b1)
@@ -211,7 +213,12 @@ extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
       snprintf(return_func_log, 100, "end   : %s\n", func_name);
       printf("%s", tab_space.c_str());
       printf("%s", return_func_log);
-      g_run_mgr->call_stacks.pop_back();
     }
   }
+}
+
+extern "C" void temp_patch_f_flags(uint64_t f_flags_vma) {
+  uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
+  *pma = 0xfbad2a84;
+  return;
 }

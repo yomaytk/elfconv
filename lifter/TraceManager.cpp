@@ -104,6 +104,8 @@ void AArch64TraceManager::SetELFData() {
       /* assign every insn to the manager */
       auto lifted_func_name =
           GetUniqueLiftedFuncName(func_entrys[i].func_name, func_entrys[i].entry);
+      if (strncmp(lifted_func_name.c_str(), "_IO_file_xsputn____", 19) == 0)
+        _io_file_xsputn_vma = func_entrys[i].entry;
       /* program entry point */
       if (entry_point == func_entrys[i].entry) {
         if (!entry_func_lifted_name.empty())

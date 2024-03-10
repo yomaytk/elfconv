@@ -293,6 +293,10 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   // void debug_memory_value()
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_memory_value_name, *module);
+  // temporary patch fun
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   return llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                                 llvm::Function::ExternalLinkage, debug_insn_name, *module);
