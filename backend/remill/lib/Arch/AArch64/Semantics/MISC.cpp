@@ -18,14 +18,6 @@
 
 extern "C" void debug_state_machine();
 
-// #define LIFT_UNDEFINSN_DEBUG 1
-
-#if defined(LIFT_UNDEFINSN_DEBUG)
-#  define UNDEF_INSN_PRINT(name) \
-    printf("[WARNING] reach the instruction ( " #name " ) whose semantic is not defined.\n");
-#else
-#  define UNDEF_INSN_PRINT(name) ;
-#endif
 namespace {
 
 DEF_SEM(DoNOP) {
