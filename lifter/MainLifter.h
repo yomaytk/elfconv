@@ -34,7 +34,8 @@ class MainLifter : public TraceLifter {
           g_fun_symbol_table_name("__g_fn_symbol_table"),
           g_addr_list_second_name("__g_fn_vmas_second"),
           debug_state_machine_name("debug_state_machine"),
-          debug_state_machine_vectors_name("debug_state_machine_vectors") {}
+          debug_state_machine_vectors_name("debug_state_machine_vectors"),
+          debug_memory_value_name("debug_memory_value") {}
 
     virtual ~WrapImpl() override {}
 
@@ -60,6 +61,7 @@ class MainLifter : public TraceLifter {
     std::string g_addr_list_second_name;
     std::string debug_state_machine_name;
     std::string debug_state_machine_vectors_name;
+    std::string debug_memory_value_name;
 
     // Set entry function pointer
     llvm::GlobalVariable *SetEntryPoint(std::string &entry_func_name);

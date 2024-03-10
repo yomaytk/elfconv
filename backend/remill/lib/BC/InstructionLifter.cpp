@@ -63,7 +63,7 @@ InstructionLifter::~InstructionLifter(void) {}
 
 InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : impl(new Impl(arch_, intrinsics_)),
-      debug_memory_name("debug_memory"),
+      debug_memory_value_change_name("debug_memory_value_change"),
       debug_insn_name("debug_insn") {}
 
 // Lift a single instruction into a basic block. `is_delayed` signifies that
@@ -210,10 +210,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (UINT64_MAX != debug_insn_addr) {
     llvm::IRBuilder<> __debug_ir(block);
     auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    auto _debug_memory_fn = module->getFunction(debug_memory_name);
-    CHECK(_debug_insn_fn && _debug_memory_fn);
+    auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
+    CHECK(_debug_insn_fn && _debug_memory_value_change_fn);
     __debug_ir.CreateCall(_debug_insn_fn);
-    __debug_ir.CreateCall(_debug_memory_fn);
+    __debug_ir.CreateCall(_debug_memory_value_change_fn);
   }
 
   return status;

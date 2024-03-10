@@ -287,9 +287,12 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
                                                  {llvm::Type::getInt64Ty(context)}, false),
                          llvm::Function::ExternalLinkage, debug_call_stack_pop_name, *module);
-  // void debug_memory()
+  // void debug_memory_value_change()
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_memory_name, *module);
+                         llvm::Function::ExternalLinkage, debug_memory_value_change_name, *module);
+  // void debug_memory_value()
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
+                         llvm::Function::ExternalLinkage, debug_memory_value_name, *module);
   /* void debug_insn() */
   return llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                                 llvm::Function::ExternalLinkage, debug_insn_name, *module);

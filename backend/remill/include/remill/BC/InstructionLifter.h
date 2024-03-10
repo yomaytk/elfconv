@@ -180,7 +180,7 @@ class InstructionLifter : public InstructionLifterIntf {
   class Impl;
 
   const std::unique_ptr<Impl> impl;
-  const std::string debug_memory_name;
+  const std::string debug_memory_value_change_name;
   const std::string debug_insn_name;
 };
 
