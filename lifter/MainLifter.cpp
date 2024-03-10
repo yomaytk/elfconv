@@ -279,12 +279,24 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_state_machine_vectors_name,
                          *module);
-  /* void debug_call_stack() */
+  /* void debug_call_stack_push() */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_call_stack_push_name, *module);
+  /* void debug_call_stack_pop() */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_call_stack_pop_name, *module);
+  // void debug_memory_value_change()
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_call_stack_name, *module);
-  // void debug_memory()
+                         llvm::Function::ExternalLinkage, debug_memory_value_change_name, *module);
+  // void debug_memory_value()
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_memory_name, *module);
+                         llvm::Function::ExternalLinkage, debug_memory_value_name, *module);
+  // temporary patch fun
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   return llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                                 llvm::Function::ExternalLinkage, debug_insn_name, *module);

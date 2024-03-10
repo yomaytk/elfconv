@@ -101,33 +101,7 @@ extern "C" void __remill_mark_as_used(void *mem) {
   asm("" ::"m"(mem));
 }
 
-Memory *__remill_function_return(State &state, addr_t, Memory *memory) {
-#if defined(LIFT_CALLSTACK_DEBUG)
-  if (g_run_mgr->call_stacks.empty()) {
-    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", state.gpr.pc.qword);
-  } else {
-    auto last_call_vma = g_run_mgr->call_stacks.back();
-    auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
-    if (strncmp(func_name, "fn_plt", 6) == 0) {
-      return nullptr;
-    } else {
-      std::string tab_space;
-      for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
-        if (i & 0b1)
-          tab_space += "\033[34m";
-        else
-          tab_space += "\033[31m";
-        tab_space += "|";
-      }
-      tab_space += "\033[0m";
-      char return_func_log[100];
-      snprintf(return_func_log, 100, "end : %s\n", func_name);
-      printf("%s", tab_space.c_str());
-      printf("%s", return_func_log);
-      g_run_mgr->call_stacks.pop_back();
-    }
-  }
-#endif
+Memory *__remill_function_return(State &state, addr_t fn_ret_vma, Memory *memory) {
   return nullptr;
 }
 
@@ -155,6 +129,7 @@ Memory *__remill_error(State &, addr_t addr, Memory *) {
 */
 Memory *__remill_function_call(State &state, addr_t fn_vma, Memory *memory) {
   if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
+    // std::cout << "indirect: " << g_run_mgr->addr_fn_symbol_map[fn_vma] << std::endl;
     jmp_fn(&state, fn_vma, memory);
   } else {
     elfconv_runtime_error(

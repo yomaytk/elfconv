@@ -130,13 +130,6 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   /* not exist sections which includes the vma_addr. */
   elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
                         vma_addr, g_state.gpr.pc.qword);
-  /* multiple sections which includes the vma_addr */
-#if defined(MULSECTIONS_WARNING_MSG)
-  if (exist > 1) {
-    std::cout << "[WARNING] vma_addr (0x" << std::hex << std::setw(16) << std::setfill('0')
-              << vma_addr << ") exists at multiple sections." << std::endl;
-  }
-#endif
 }
 
 /* Wrapper of RuntimeManager::TranslateVMA */
@@ -163,13 +156,12 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t
   }
 }
 
-extern "C" void debug_call_stack() {
-  auto current_pc = g_state.gpr.pc.qword;
-  if (auto func_name = g_run_mgr->addr_fn_symbol_map[current_pc]; func_name) {
+extern "C" void debug_call_stack_push(uint64_t fn_vma) {
+  if (auto func_name = g_run_mgr->addr_fn_symbol_map[fn_vma]; func_name) {
     if (strncmp(func_name, "fn_plt", 6) == 0) {
       return;
     }
-    g_run_mgr->call_stacks.push_back(current_pc);
+    g_run_mgr->call_stacks.push_back(fn_vma);
     std::string tab_space;
     for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
       if (i & 0b1)
@@ -184,6 +176,42 @@ extern "C" void debug_call_stack() {
     printf("%s", tab_space.c_str());
     printf("%s", entry_func_log);
   } else {
-    elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", current_pc);
+    elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", fn_vma);
   }
+}
+
+extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
+  if (g_run_mgr->call_stacks.empty()) {
+    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", g_state.gpr.pc.qword);
+  } else {
+    auto last_call_vma = g_run_mgr->call_stacks.back();
+    auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
+    if (strncmp(func_name, "fn_plt", 6) != 0) {
+      if (fn_vma != last_call_vma)
+        elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
+                              last_call_vma, g_run_mgr->addr_fn_symbol_map[fn_vma],
+                              g_run_mgr->addr_fn_symbol_map[last_call_vma]);
+      g_run_mgr->call_stacks.pop_back();
+      return;
+      std::string tab_space;
+      for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
+        if (i & 0b1)
+          tab_space += "\033[34m";
+        else
+          tab_space += "\033[31m";
+        tab_space += "|";
+      }
+      tab_space += "\033[0m";
+      char return_func_log[100];
+      snprintf(return_func_log, 100, "end   : %s\n", func_name);
+      printf("%s", tab_space.c_str());
+      printf("%s", return_func_log);
+    }
+  }
+}
+
+extern "C" void temp_patch_f_flags(uint64_t f_flags_vma) {
+  uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
+  *pma = 0xfbad2a84;
+  return;
 }

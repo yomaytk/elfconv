@@ -56,6 +56,7 @@
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/ToolOutputFile.h>
 #include <llvm/Support/raw_ostream.h>
+#include <remill/BC/HelperMacro.h>
 
 namespace {
 #ifdef _WIN32
@@ -163,15 +164,17 @@ llvm::CallInst *AddCall(llvm::IRBuilder<> &ir, llvm::BasicBlock *source_block,
 
 // Create a tail-call from one lifted function to another.
 llvm::CallInst *AddTerminatingTailCall(llvm::Function *source_func, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics, llvm::Value *pc_value) {
+                                       const IntrinsicTable &intrinsics, const uint64_t fn_vma,
+                                       llvm::Value *pc_value) {
   if (source_func->isDeclaration()) {
     llvm::IRBuilder<> ir(llvm::BasicBlock::Create(source_func->getContext(), "", source_func));
   }
-  return AddTerminatingTailCall(&(source_func->back()), dest_func, intrinsics, pc_value);
+  return AddTerminatingTailCall(&(source_func->back()), dest_func, intrinsics, fn_vma, pc_value);
 }
 
 llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics, llvm::Value *pc_value) {
+                                       const IntrinsicTable &intrinsics, const uint64_t fn_vma,
+                                       llvm::Value *pc_value) {
   CHECK(nullptr != dest_func) << "Target function/block does not exist!";
 
   LOG_IF(ERROR, source_block->getTerminator())
@@ -187,6 +190,15 @@ llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Val
 
   auto call_target_instr = AddCall(source_block, dest_func, intrinsics, pc_value);
   call_target_instr->setTailCall(true);
+
+#if defined(LIFT_CALLSTACK_DEBUG)
+  if ((uint64_t) -1 != fn_vma) {
+    auto debug_call_stack_pop_fn = source_block->getModule()->getFunction("debug_call_stack_pop");
+    std::vector<llvm::Value *> args = {
+        llvm::ConstantInt::get(llvm::Type::getInt64Ty(source_block->getContext()), fn_vma)};
+    ir.CreateCall(debug_call_stack_pop_fn, args);
+  }
+#endif
 
   ir.CreateRet(call_target_instr);
   return call_target_instr;

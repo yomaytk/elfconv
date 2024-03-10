@@ -18,14 +18,6 @@
 
 extern "C" void debug_state_machine();
 
-// #define LIFT_UNDEFINSN_DEBUG 1
-
-#if defined(LIFT_UNDEFINSN_DEBUG)
-#  define UNDEF_INSN_PRINT(name) \
-    printf("[WARNING] reach the instruction ( " #name " ) whose semantic is not defined.\n");
-#else
-#  define UNDEF_INSN_PRINT(name) ;
-#endif
 namespace {
 
 DEF_SEM(DoNOP) {
@@ -46,37 +38,30 @@ DEF_ISEL(PRFM_P_LDST_POS) = DoNOP;
 namespace {
 
 DEF_SEM(UNDEF_CNT_ASIMDMISC_R) {
-  UNDEF_INSN_PRINT(CNT_ASIMDMISC_R);
   return memory;
 }
 
 DEF_SEM(UNDEF_CMGE_ASISDMISC_Z) {
-  UNDEF_INSN_PRINT(CMGE_ASISDMISC_Z);
   return memory;
 }
 
 DEF_SEM(UNDEF_CNTB_X64_BITCOUNT) {
-  UNDEF_INSN_PRINT(CNTB_X64_BITCOUNT);
   return memory;
 }
 
 DEF_SEM(UNDEF_CNTD_X64_BITCOUNT) {
-  UNDEF_INSN_PRINT(CNTD_X64_BITCOUNT);
   return memory;
 }
 
 DEF_SEM(UNDEF_CNTH_X64_BITCOUNT) {
-  UNDEF_INSN_PRINT(CNTH_X64_BITCOUNT);
   return memory;
 }
 
 DEF_SEM(UNDEF_CNTW_X64_BITCOUNT) {
-  UNDEF_INSN_PRINT(CNTW_X64_BITCOUNT);
   return memory;
 }
 
 DEF_SEM(UNDEF_WHILELO_PREDICATE) {
-  UNDEF_INSN_PRINT(WHILELO_PREDICATE);
   return memory;
 }
 

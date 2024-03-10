@@ -76,11 +76,11 @@ llvm::CallInst *AddCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
 
 // Create a tail-call from one lifted function to another.
 llvm::CallInst *AddTerminatingTailCall(llvm::Function *source_func, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics,
+                                       const IntrinsicTable &intrinsics, const uint64_t fn_vma,
                                        llvm::Value *pc_value = nullptr);
 
 llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Value *dest_func,
-                                       const IntrinsicTable &intrinsics,
+                                       const IntrinsicTable &intrinsics, const uint64_t fn_vma,
                                        llvm::Value *pc_value = nullptr);
 
 // Find a local variable defined in the entry block of the function. We use

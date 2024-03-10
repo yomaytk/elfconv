@@ -98,6 +98,8 @@ class TraceManager {
   std::vector<llvm::Constant *> g_block_address_vmas_array;
   std::vector<llvm::Constant *> g_block_address_size_array;
   std::vector<llvm::Constant *> g_block_address_fn_vma_array;
+
+  uint64_t _io_file_xsputn_vma = 0;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -145,9 +147,10 @@ class TraceLifter::Impl {
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
         indirectbr_block_name("L_indirectbr"),
         g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
-        debug_memory_name("debug_memory"),
+        debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),
-        debug_call_stack_name("debug_call_stack") {
+        debug_call_stack_push_name("debug_call_stack_push"),
+        debug_call_stack_pop_name("debug_call_stack_pop") {
     inst_bytes.reserve(max_inst_bytes);
   }
 
@@ -235,9 +238,12 @@ class TraceLifter::Impl {
 
   std::string indirectbr_block_name;
   std::string g_get_jmp_block_address_func_name;
-  std::string debug_memory_name;
+  std::string debug_memory_value_change_name;
   std::string debug_insn_name;
-  std::string debug_call_stack_name;
+  std::string debug_call_stack_push_name;
+  std::string debug_call_stack_pop_name;
+
+  bool tmp_patch_fn_check = false;
 };
 
 }  // namespace remill

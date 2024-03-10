@@ -29,6 +29,7 @@
 #include <llvm/IR/Module.h>
 #include <map>
 #include <memory>
+#include <remill/BC/HelperMacro.h>
 #include <sstream>
 #include <string>
 
@@ -804,7 +805,9 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
     return false;
   } else if (!aarch64::TryExtract(bytes, dinst)) {
     inst.category = Instruction::kCategoryInvalid;
+#if defined(WARNING_OUTPUT)
     printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryExtract)\n", address);
+#endif
     return false;
   }
 
@@ -821,8 +824,10 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
   /* set operands of insn */
   if (!aarch64::TryDecode(dinst, inst)) {
     inst.category = Instruction::kCategoryInvalid;
+#if defined(WARNING_OUTPUT)
     printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryDecode), instForm: %s\n",
            address, inst.function.c_str());
+#endif
     return false;
   }
 

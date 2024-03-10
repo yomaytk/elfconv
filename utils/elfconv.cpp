@@ -4,6 +4,7 @@
 #include <iostream>
 #include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/BC/HelperMacro.h>
+#include <vector>
 
 #define PRINT_GPR(index) \
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
@@ -70,11 +71,13 @@ extern "C" void debug_state_machine_vectors() {
   }
 }
 
-extern "C" void debug_memory() {
-  static uint64_t target_vma = 0xfffff00000f7f50;  // should set target vma
+extern "C" void debug_memory_value_change() {
+  // step 1. set target vma
+  static uint64_t target_vma = 0x493258;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
+  // step 2. set the data type of target value
   auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
   auto new_value = *target_pma;
   if (old_value != new_value) {
@@ -86,10 +89,24 @@ extern "C" void debug_memory() {
   }
 }
 
+extern "C" void debug_memory_value() {
+  // step 1. set target vma
+  std::vector<uint64_t> target_vmas = {0x493230};
+  // step 2. set the data type of target values
+  std::cout << "[Memory Debug]" << std::endl;
+  for (auto &target_vma : target_vmas) {
+    auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
+    *target_pma = 0xfbad2a84;
+    // std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
+    //           << " value: 0x" << *target_pma << std::endl;
+  }
+}
+
 extern "C" void debug_insn() {
   auto gpr = g_state.gpr;
   std::cout << "[DEBUG INSN]" << std::endl;
-  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << std::endl;
+  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << " x0: 0x" << gpr.x0.qword << " x1: 0x"
+            << gpr.x1.qword << " x2: 0x" << gpr.x2.qword << " x3: 0x" << gpr.x3.qword << std::endl;
 }
 
 #if defined(LIFT_DEBUG) && defined(__linux__)

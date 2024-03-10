@@ -207,7 +207,9 @@ bool TraceLifter::Impl::ReadInstructionBytes(uint64_t addr) {
     }
     uint8_t byte = 0;
     if (!manager.TryReadExecutableByte(byte_addr, &byte)) {
+#if defined(WARNING_OUTPUT)
       printf("[WARNING] Couldn't read executable byte at 0x%lx\n", byte_addr);
+#endif
       DLOG(WARNING) << "Couldn't read executable byte at " << std::hex << byte_addr << std::dec;
       break;
     }
@@ -274,10 +276,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
-#if defined(TEST_MODE)
-    llvm::BranchInst *pre_check_inst_branch = nullptr; /* for lifting test */
-#endif
-
     CHECK(func->isDeclaration());
 
     // Fill in the function, and make sure the block with all register
@@ -291,12 +289,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           *std::prev(func->end()); /* arch->InitializeEmptyLiftedFunction(func)
                                         generates first block */
       llvm::IRBuilder<> __debug_ir(&first_block);
-      auto _debug_call_stack_fn = module->getFunction(debug_call_stack_name);
-      if (!_debug_call_stack_fn) {
+      auto _debug_call_stack_push_fn = module->getFunction(debug_call_stack_push_name);
+      if (!_debug_call_stack_push_fn) {
         printf("[ERROR] debug_call_stack_fn is undeclared.\n");
         abort();
       }
-      __debug_ir.CreateCall(_debug_call_stack_fn);
+      std::vector<llvm::Value *> args = {
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)};
+      __debug_ir.CreateCall(_debug_call_stack_push_fn, args);
     } while (false);
 #endif
 
@@ -320,12 +320,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (lifted_block_map.count(inst_addr) == 0)
         lifted_block_map[inst_addr] = block;
 
-/* in the test mode, generates the basic block for initializing state and memory */
-#if defined(TEST_MODE)
-      // L_pre_vm --> inst block
-      auto pre_test_vm_bb = PreVirtualMachineForInsnTest(inst_addr, manager, pre_check_inst_branch);
-      llvm::BranchInst::Create(block, pre_test_vm_bb);
-#endif
       // We have already lifted this instruction block.
       if (!block->empty()) {
         continue;
@@ -337,7 +331,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (inst_addr != trace_addr) {
         if (auto inst_as_trace = get_trace_decl(inst_addr)) {
           AddTerminatingTailCall(
-              block, inst_as_trace, *intrinsics,
+              block, inst_as_trace, *intrinsics, trace_addr,
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           continue;
         }
@@ -345,7 +339,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       // No executable bytes here.
       if (!ReadInstructionBytes(inst_addr)) {
-        AddTerminatingTailCall(block, intrinsics->missing_block, *intrinsics);
+        AddTerminatingTailCall(block, intrinsics->missing_block, *intrinsics, trace_addr);
         continue;
       }
 
@@ -366,8 +360,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               ? inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, inst_addr)
               : inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, UINT64_MAX);
 
+      if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
+        llvm::IRBuilder<> ir(block);
+        auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
+        std::vector<llvm::Value *> args = {ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
+        auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
+        ir.CreateCall(tmp_patch_fn, args);
+        tmp_patch_fn_check = true;
+      }
+
       if (kLiftedInstruction != lift_status) {
-        AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
+        AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
         continue;
       }
 
@@ -379,7 +382,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             !arch->DecodeDelayedInstruction(inst.delayed_pc, inst_bytes, delayed_inst,
                                             this->arch->CreateInitialContext())) {
           LOG(ERROR) << "Couldn't read delayed inst " << delayed_inst.Serialize();
-          AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
+          AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
           continue;
         }
       }
@@ -396,7 +399,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         lift_status = delayed_inst.GetLifter()->LiftIntoBlock(delayed_inst, into_block, state_ptr,
                                                               true /* is_delayed */);
         if (kLiftedInstruction != lift_status) {
-          AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
+          AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
         }
       };
 
@@ -404,7 +407,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       switch (inst.category) {
         case Instruction::kCategoryInvalid:
         case Instruction::kCategoryError:
-          AddTerminatingTailCall(block, intrinsics->error, *intrinsics);
+          AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
           break;
 
         case Instruction::kCategoryNormal:
@@ -573,7 +576,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         case Instruction::kCategoryFunctionReturn:
           try_add_delay_slot(true, block);
-          AddTerminatingTailCall(block, intrinsics->function_return, *intrinsics);
+          AddTerminatingTailCall(block, intrinsics->function_return, *intrinsics, trace_addr);
           break;
 
         case Instruction::kCategoryConditionalFunctionReturn: {
@@ -596,7 +599,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
           llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
-          AddTerminatingTailCall(taken_block, intrinsics->function_return, *intrinsics);
+          AddTerminatingTailCall(taken_block, intrinsics->function_return, *intrinsics, trace_addr);
           block = orig_not_taken_block;
           continue;
         }
@@ -647,17 +650,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
           llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
-          AddTerminatingTailCall(taken_block, intrinsics->jump, *intrinsics);
+          AddTerminatingTailCall(taken_block, intrinsics->jump, *intrinsics, trace_addr);
           block = orig_not_taken_block;
           continue;
         }
       }
-/* check the state of virtual machine */
-#if defined(TEST_MODE)
-      AddTestFailedBlock();
-      if (Instruction::kCategoryFunctionReturn != inst.category)
-        pre_check_inst_branch = CheckVirtualMahcineForInsnTest(inst_addr, manager);
-#endif
     }
 
     /* if func includes BR instruction, it is necessary to lift all instructions of the
@@ -720,12 +717,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         indirect_br_i->addDestination(_block);
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
-      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, br_vma_phi);
+      AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
     }
 
     for (auto &block : *func) {
       if (!block.getTerminator()) {
-        AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics);
+        AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
       }
     }
 
