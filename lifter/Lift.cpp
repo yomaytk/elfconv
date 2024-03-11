@@ -116,6 +116,6 @@ int main(int argc, char *argv[]) {
   host_arch->PrepareModule(module.get());
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
-  printf("[INFO] Lift Done.\n");
+  printf("[\033[32mINFO\033[0m] Lift Done.\n");
   return 0;
 }
