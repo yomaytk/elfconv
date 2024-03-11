@@ -10,7 +10,8 @@ setting() {
   BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
   EMCC=emcc
   EMAR=emar
-  EMCCFLAGS="-O3 -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
+  OPTFLAGS="-O3"
+  EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
   ELFCONV_DEBUG_MACROS=
   ELFPATH=$( realpath "$1" )
@@ -19,7 +20,7 @@ setting() {
   WASMAR=$EMAR
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
   WASISDKAR=${WASI_SDK_PATH}/bin/ar
-  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
+  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
 
   if [ "$TARGET" = "wasm-host" ]; then
     ELFCONV_MACROS="-DELFC_WASI_ENV=1"
@@ -45,12 +46,13 @@ main() {
     WASMAR=$WASISDKAR
   fi
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Entry.o -c Entry.cpp && \
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Memory.o -c Memory.cpp && \
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Syscall.o -c Syscall.cpp && \
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
-    $WASMCC "$WASMCCFLAGS" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
+    # shellcheck disable=SC2086
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c Syscall.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
     $WASMAR rcs libelfconv.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     mv libelfconv.a "${BIN_DIR}/"
 		rm *.o
