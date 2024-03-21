@@ -237,6 +237,7 @@ function Configure
         -DREMILL_BUILD_SPARC32_RUNTIME=OFF \
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
+        -DCMAKE_ELFLIFT_STATIC_LINK="${ELFCONV_RELEASE}" \
         "${BUILD_FLAGS}" \
         "${LIFT_DEBUG_MACROS}" \
         -GNinja \

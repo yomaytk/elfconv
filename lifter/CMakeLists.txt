@@ -29,12 +29,32 @@ set_target_properties(elflift PROPERTIES
   COMPILE_FLAGS "-O3 -fPIC"
 )
 
-target_link_libraries(
-  elflift 
-  PRIVATE
-  bfd
-  elf
-)
+# static link
+if(${CMAKE_ELFLIFT_STATIC_LINK})
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+      set(LIBIBERTY_PATH "/usr/lib/aarch64-linux-gnu/libiberty.a")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
+      set(LIBIBERTY_PATH "/usr/lib/x86_64-linux-gnu/libiberty.a")
+  else()
+      message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+  endif() 
+  target_link_options(elflift PUBLIC -static)
+  target_link_libraries(
+    elflift 
+    PRIVATE
+    bfd
+    elf
+    ${LIBIBERTY_PATH}
+  )
+else()
+# dynamic link
+  target_link_libraries(
+    elflift 
+    PRIVATE
+    bfd
+    elf
+  )
+endif()
 
 target_link_libraries(elflift PUBLIC remill ${PROJECT_LIBRARIES} )
 target_include_directories(elflift PUBLIC ${PROJECT_INCLUDEDIRECTORIES})
