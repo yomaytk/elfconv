@@ -53,7 +53,7 @@ RUN \
     cd /root && export WASI_VERSION=21 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && echo -e "export WASI_VERSION=21\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}" >> /root/.bash_profile && \
     wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz && rm wasi-sdk-${WASI_VERSION_FULL}-linux.tar.gz; \
   elif [ "$( uname -m )" = "aarch64" ]; then \
-    cd /root && echo "WASI_SDK_PATH=/root/wasi-sdk/build/install/opt/wasi-sdk" >> /root/.bash_profile && git clone --recursive https://github.com/WebAssembly/wasi-sdk.git; \
+    cd /root && echo "export WASI_SDK_PATH=/root/wasi-sdk/build/install/opt/wasi-sdk" >> /root/.bash_profile && git clone --recursive https://github.com/WebAssembly/wasi-sdk.git; \
     cd wasi-sdk && NINJA_FLAGS=-v make package; \
   fi
 
