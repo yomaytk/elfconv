@@ -32,7 +32,7 @@ add_subdirectory(AArch64)
 # add_subdirectory(SPARC32)
 # add_subdirectory(SPARC64)
 add_subdirectory(Sleigh)
-# add_subdirectory(X86)
+add_subdirectory(X86)
 
 set_property(TARGET remill_arch PROPERTY POSITION_INDEPENDENT_CODE ON)
 
@@ -41,7 +41,7 @@ target_link_libraries(remill_arch LINK_PUBLIC
   remill_arch_sleigh
   # remill_arch_sparc32
   # remill_arch_sparc64
-  # remill_arch_x86
+  remill_arch_x86
   LINK_PRIVATE
   remill_settings
 )
