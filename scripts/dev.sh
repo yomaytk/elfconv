@@ -62,7 +62,8 @@ lifting() {
     --arch aarch64 \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
-    --dbg_fun_cfg "$2" && \
+    --dbg_fun_cfg "$2" \
+    --bitcode_path "$3" && \
     llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
   echo -e "[\033[32mINFO\033[0m] Generate lift.bc."
 

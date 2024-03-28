@@ -36,6 +36,7 @@ DEFINE_string(arch, REMILL_ARCH,
               "`_avx` or `_avx512` appended), aarch64, aarch32");
 DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
+DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 
 int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -48,7 +49,9 @@ int main(int argc, char *argv[]) {
   auto os_name = remill::GetOSName(REMILL_OS);
   auto arch_name = remill::GetArchName(FLAGS_arch);
   auto arch = remill::Arch::Build(&context, os_name, arch_name);
-  auto module = remill::LoadArchSemantics(arch.get());
+  auto module = FLAGS_bitcode_path.empty()
+                    ? remill::LoadArchSemantics(arch.get())
+                    : remill::LoadArchSemantics(arch.get(), {FLAGS_bitcode_path.c_str()});
 
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
