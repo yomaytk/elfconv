@@ -20,7 +20,7 @@ setting() {
   CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
-  WASISDK_CXX=${HOME}/wasi-sdk/build/install/opt/wasi-sdk/bin/clang++
+  WASISDK_CXX=${WASI_SDK_PATH}/bin/clang++
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
   ELFCONV_DEBUG_MACROS=
