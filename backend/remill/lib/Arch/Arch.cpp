@@ -168,13 +168,13 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
 
     case kArchAArch32LittleEndian: {
       DLOG(INFO) << "Using architecture: AArch32, feature set: Little Endian";
-      return GetAArch32(context_, os_name_, arch_name_);
+      return GetUndefinedArch(context_, os_name_, arch_name_);
       break;
     }
 
     case kArchThumb2LittleEndian: {
       DLOG(INFO) << "Using architecture: thumb2";
-      return GetSleighThumb2(context_, os_name_, arch_name_);
+      return GetUndefinedArch(context_, os_name_, arch_name_);
     }
 
     case kArchX86: {
@@ -219,23 +219,28 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
 
     case kArchSparc32: {
       DLOG(INFO) << "Using architecture: 32-bit SPARC";
-      return GetSPARC(context_, os_name_, arch_name_);
+      return GetUndefinedArch(context_, os_name_, arch_name_);
     }
 
     case kArchSparc64: {
       DLOG(INFO) << "Using architecture: 64-bit SPARC";
-      return GetSPARC64(context_, os_name_, arch_name_);
+      return GetUndefinedArch(context_, os_name_, arch_name_);
     }
 
     case kArchPPC: {
       DLOG(INFO) << "Using architecture: PowerPC";
-      return GetSleighPPC(context_, os_name_, arch_name_);
+      return GetUndefinedArch(context_, os_name_, arch_name_);
     }
 
     default: {
       return nullptr;
     }
   }
+}
+
+auto Arch::GetUndefinedArch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
+  return nullptr;
 }
 
 auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_) -> ArchPtr {

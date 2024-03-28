@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
-#if defined(__linux__)
+#if !defined(ELFC_WASI_ENV)
 #  include <signal.h>
 #  include <termios.h>
 #endif
