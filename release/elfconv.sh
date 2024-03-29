@@ -2,8 +2,6 @@
 
 setting() {
 
-  BIN_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-  ROOT_DIR=${BIN_DIR}/../
   WASMCC=emcc
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
   OPTFLAGS="-O3"
