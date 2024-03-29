@@ -36,8 +36,11 @@ main() {
   # set elflift
   mkdir -p bin
   cd "${BUILD_DIR}" && ninja
+  if file "./lifter/elflift" | grep -q "dynamically linked"; then
+    echo -e "[\033[33mWARNING\033[0m] elflift is dynamically linked file."
+  fi
   cd "${RELEASE_DIR}"
-  if cp ${ELFCONV_DIR}/build/lifter/elflift bin; then
+  if cp ${BUILD_DIR}/lifter/elflift bin; then
     echo -e "[\033[32mINFO\033[0m] Set elflift."
   else
     echo -e "[\033[31mERROR\033[0m] Faild to set elflift."
