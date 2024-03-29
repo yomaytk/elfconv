@@ -1,10 +1,17 @@
 # How to use release packages
 This shows how to use the release packages (e.g. elfconv-v0.1.0-linux-arm64.tar.gz). 
 ## Quick Start
-You can translate the ELF binary to the WASM binary by the following command. `TARGET` should be `wasm-host` for WASI runtimes or `wasm-browser` for browser.
+You can translate the ELF binary to the WASM binary using `elfconv.sh`. `TARGET` should be `wasm-host` for WASI runtimes or `wasm-browser` for the browser. elfconv generates the WASM using [emscripten](https://github.com/emscripten-core/emscripten) for the browser and [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) for WASI runtimes, so please configure the following settings.
+### settings
+#### emscripten
+`emcc`: compile command of emscripten
+#### wasi-sdk
+`WASI_SDK_PATH`: path to the parent directory of `bin` of wasi-sdk.
+### command
+After configuring the above settings, you can try translation by the command as follows.
 ```bash
 $ cd <unzipped directory>
-$ TARGET=wasm-host ./elfconv.sh /path/to/ELF ./bitcode
+$ TARGET=wasm-host ./elfconv.sh </path/to/ELF> ./bitcode
 ```
 ## Contents
 The unzipped directory includes 3 shell scripts (`prepare.sh`, `elfconv.sh`, `clean.sh`) and 3 directories (`bin`, `bitcode`, `lib`).
