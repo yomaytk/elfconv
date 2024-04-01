@@ -4,10 +4,10 @@ setting() {
 
   RELEASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
   ELFCONV_DIR=${RELEASE_DIR}/../
-  ELFCONV_ARCH_DIR=${ELFCONV_DIR}/backend/remill/lib/Arch
+  BUILD_DIR=${ELFCONV_DIR}/build
+  ELFCONV_ARCH_DIR=${BUILD_DIR}/backend/remill/lib/Arch
   RUNTIME_DIR=${ELFCONV_DIR}/runtime
   UTILS_DIR=${ELFCONV_DIR}/utils
-  BUILD_DIR=${ELFCONV_DIR}/build
 
   # shared compiler options
   OPTFLAGS="-O3"
@@ -49,7 +49,7 @@ main() {
 
   # set semantics *.bc file
   mkdir -p bitcode
-  if cp -r ${ELFCONV_ARCH_DIR}/AArch64/Runtime/ bitcode; then
+  if cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc bitcode ; then
     echo -e "[\033[32mINFO\033[0m] Set semantics *.bc."
   else
     echo -e "[\033[31mERROR\033[0m] Failed to set semantics *.bc."
