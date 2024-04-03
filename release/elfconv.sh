@@ -5,7 +5,7 @@ setting() {
   WASMCC=emcc
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
   OPTFLAGS="-O3"
-  ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
+  ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
   ELFPATH=$( realpath "$1" )
   BITCODEPATH=$( realpath "$2" )
 

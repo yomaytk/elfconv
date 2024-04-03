@@ -12,7 +12,7 @@ setting() {
   EMAR=emar
   OPTFLAGS="-O3"
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
-  ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
+  ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
   ELFCONV_DEBUG_MACROS=
   ELFPATH=$( realpath "$1" )
   WASMCC=$EMCC
@@ -39,17 +39,19 @@ main() {
   fi
 
   # build runtime
+  SYSCALLCPP="syscall/SyscallBrowser.cpp"
   echo -e "[\033[32mINFO\033[0m] Building elfconv-Runtime ..."
   if [ "$TARGET" = "wasm-host" ]; then
     WASMCC=$WASISDKCXX
     WASMCCFLAGS=$WASISDKFLAGS
     WASMAR=$WASISDKAR
+    SYSCALLCPP="syscall/SyscallWasi.cpp"
   fi
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
-    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c Syscall.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c $SYSCALLCPP && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
