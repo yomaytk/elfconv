@@ -16,7 +16,7 @@ setting() {
   EMCXX=emcc
   EMAR=emar
   EMCCFLAGS="${OPTFLAGS} -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR}"
-  EMCC_ELFCONV_MACROS="-DELFCONV_BROWSER_ENV=1"
+  EMCC_ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
   
   # wasi-sdk
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
@@ -62,7 +62,7 @@ main() {
     # shellcheck disable=SC2086
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c Syscall.cpp && \
+    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
@@ -80,7 +80,7 @@ main() {
     # shellcheck disable=SC2086
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Syscall.o -c Syscall.cpp && \
+    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallWasi.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \

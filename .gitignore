@@ -111,3 +111,7 @@ VERSION
 
 examples/w2c
 examples/tests
+
+# release
+SHA*
+elfconv-v*

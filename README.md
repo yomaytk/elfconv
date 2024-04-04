@@ -9,7 +9,7 @@ and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (fo
     - Furthermore, a part of aarch64 instructions are not supported. if the instruction of your ELF binary is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...)
 - No support of stripped binaries
 - No support of shared objects
-- a lot of Linux system calls are unimplemented(ref: [`runtime/Syscall.cpp`](https://github.com/yomaytk/elfconv/blob/main/runtime/Syscall.cpp))
+- a lot of Linux system calls are unimplemented(ref: [`runtime/syscalls`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
 ## Quick Start
 You can try elfconv using docker container (amd64 and arm64) by executing the commands as follows.
 In default settings, both `elflift` (used for generating LLVM bitcode file) and `libelfconv.a` (used for executing generated LLVM bitcode) are installed to `~/.elfconv`.

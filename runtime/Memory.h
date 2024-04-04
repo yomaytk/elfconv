@@ -20,7 +20,9 @@ class MappedMemory;
 class RuntimeManager;
 
 /* own implementation of syscall emulation */
-extern void __svc_call();
+extern void __svc_native_call();
+extern void __svc_browser_call();
+extern void __svc_wasi_call();
 /* translate the address of the original ELF to the actual address of mapped space */
 extern void *_ecv_translate_ptr(addr_t vma_addr);
 extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);

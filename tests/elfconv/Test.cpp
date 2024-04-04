@@ -10,19 +10,20 @@ using ::testing::TestInfo;
 using ::testing::UnitTest;
 
 #define ECV_PATH(path) "../../../" #path
-#define WASMCC_OPTION_HOST_CMD(ident) \
+#define WASMCC_RUNTIME_CMD(ident) \
   "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -DELFC_WASI_ENV=1 -fno-exceptions -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../runtime/" #ident ".cpp"
-#define WASMCC_OPTION_UTILS_CMD(ident) \
+#define WASMCC_RUNTIME_SYSCALL_CMD(ident) \
+  "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -DELFC_WASI_ENV=1 -fno-exceptions -I../../../backend/remill/include -I../../../ -o " #ident \
+  ".test.wasm.o " \
+  "-c ../../../runtime/syscalls/" #ident ".cpp"
+#define WASMCC_UTILS_CMD(ident) \
   "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -DELFC_WASI_ENV=1 -fno-exceptions -I../../../backend/remill/include -I../../../ -o " #ident \
   ".test.wasm.o " \
   "-c ../../../utils/" #ident ".cpp"
-#define WASMCC_OPTION_WASM_O(bc_ident) \
-  "${WASI_SDK_PATH}/bin/clang++ --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -c " bc_ident ".bc" \
-  " -o " bc_ident ".wasm.o"
 #define RUNTIME_OBJS \
-  "Entry.test.wasm.o Memory.test.wasm.o Syscall.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
+  "Entry.test.wasm.o Memory.test.wasm.o SyscallWasi.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
 
 enum WASI_RUNTIME : uint8_t { WASMTIME, WASMEDGE };
 
@@ -42,9 +43,12 @@ class TestEnvironment : public ::testing::Environment {
 
 // compile `elfconv/runtime`
 void compile_runtime_emscripten() {
-  std::string cmds[] = {WASMCC_OPTION_HOST_CMD(Entry),   WASMCC_OPTION_HOST_CMD(Memory),
-                        WASMCC_OPTION_HOST_CMD(Syscall), WASMCC_OPTION_HOST_CMD(VmIntrinsics),
-                        WASMCC_OPTION_UTILS_CMD(Util),   WASMCC_OPTION_UTILS_CMD(elfconv)};
+  std::string cmds[] = {WASMCC_RUNTIME_CMD(Entry),
+                        WASMCC_RUNTIME_CMD(Memory),
+                        WASMCC_RUNTIME_SYSCALL_CMD(SyscallWasi),
+                        WASMCC_RUNTIME_CMD(VmIntrinsics),
+                        WASMCC_UTILS_CMD(Util),
+                        WASMCC_UTILS_CMD(elfconv)};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
     if (!pipe)

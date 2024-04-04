@@ -88,7 +88,13 @@ Memory *__remill_write_memory_f128(Memory *, addr_t, float128_t) {
 */
 Memory *__remill_syscall_tranpoline_call(State &state, Memory *memory) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
-  __svc_call();
+#if defined(ELFC_WASI_ENV)
+  __svc_wasi_call();
+#elif defined(ELFC_BROWSER_ENV)
+  __svc_browser_call();
+#else
+  __svc_native_call();
+#endif
   return nullptr;
 }
 
