@@ -157,7 +157,7 @@ void __svc_wasi_call(void) {
       break;
     case AARCH64_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
-      pid_t tid = gettid();
+      pid_t tid = 42;
       *reinterpret_cast<int *>(_ecv_translate_ptr(state_gpr.x0.qword)) = tid;
       state_gpr.x0.qword = tid;
     } break;
