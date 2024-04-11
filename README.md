@@ -9,7 +9,7 @@ and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (fo
     - Furthermore, a part of aarch64 instructions are not supported. If your ELF binary's instruction is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...)
 - No support for stripped binaries
 - No support for shared objects
-- a lot of Linux system calls are unimplemented (ref: [`runtime/syscalls`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
+- a lot of Linux system calls are unimplemented (ref: [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
 ## Quick Start
 You can try elfconv using the docker container (amd64 and arm64) by executing the commands as follows and can execute the WASM application on the both browser and host environment (WASI runtimes).
 > [!WARNING]
@@ -50,7 +50,11 @@ $ docker run -it --name elfconv-container elfconv-image
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Source code build
-### Dependencies
+### 1. Dev Container
+elfconv provides the Dev Container environment using the root [`Dockerfile`](https://github.com/yomaytk/elfconv/blob/main/Dockerfile) and [`.devcontainer.json`](https://github.com/yomaytk/elfconv/blob/main/.devcontainer.json), so you can develop without making the build environment if you can use Dev Container on your editor (Please refer to the official website of your editor for using Dev Container).
+The entry point of the elfconv container is [`./scripts/container-entry-point.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/container-entry-point.sh) that includes the building of elfconv.
+### 2. Local Environment
+#### Dependencies
 The libraries required for the build are almost the same as those for remill, and the main libraries are as follows. The other required libraries are automatically installed using [cxx-common](https://github.com/lifting-bits/cxx-common).
 
 | Name | Version |
@@ -66,16 +70,19 @@ The libraries required for the build are almost the same as those for remill, an
 | Unzip | Latest |
 | [ccache](https://ccache.dev/) | Latest |
 
-### Build
+#### Build
 If you prepare these libraries, you can easily build elfconv by executing [`scripts/build.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/build.sh) as follows.
 ```bash
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
 /elfconv$ ./scripts/build.sh
 ```
-After finishing the build, you can find the directory `elfconv/build`, and you can build the *'lifter'* (these source codes are mainly located in the [`backend/remill/`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and [`lifter/`](https://github.com/yomaytk/elfconv/tree/main/lifter)) by *ninja* after modifying the *'lifter'* codes.
+> [!NOTE]
+> If you fail to build elfconv, please feel free to submit an issue!
+### Develop
+After finishing the build, you can find the directory `elfconv/build/`, and you can build the *'lifter'* (*'lifter'* is the module that converts the ELF binary to LLVM bitcode and those source codes are mainly located in the [`backend/remill/`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and [`lifter/`](https://github.com/yomaytk/elfconv/tree/main/lifter)) by *ninja* after modifying the *'lifter'* codes.
 
-After that, you can compile the ELF binary to the WASM binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the WASM binary. when you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
+You can compile the ELF binary to the WASM binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation (ELF -> LLVM bitcode by *'lifter'*) and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the WASM binary. when you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
 ```bash
 ### Browser
 ~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
@@ -85,8 +92,6 @@ After that, you can compile the ELF binary to the WASM binary using [`scripts/de
 ~/elfconv/build# NEW_ROOT=/path/to/elfconv WASISDK=1 TARGET=wasm-host ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# wasmedge ./lifter/exe.wasm
 ```
-### Common build issues
-
 ## Acknowledgement
 elfconv uses or references some projects as following. Great thanks to its all developers!
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
