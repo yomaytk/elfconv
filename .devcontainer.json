@@ -1,6 +1,6 @@
 {
-	"name": "elfconv dev environment",
-	"dockerFile": "Dockerfile",
+  "name": "elfconv dev environment",
+  "dockerFile": "Dockerfile",
   "image": "elfconv-devcontainer",
   "postCreateCommand": "./scripts/container-entry-point.sh",
 
