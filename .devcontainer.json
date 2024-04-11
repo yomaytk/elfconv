@@ -2,7 +2,7 @@
   "name": "elfconv dev environment",
   "dockerFile": "Dockerfile",
   "image": "elfconv-devcontainer",
-  "postCreateCommand": "./scripts/container-entry-point.sh",
+  "postCreateCommand": "cd /root/elfconv && ./scripts/container-entry-point.sh",
 
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
