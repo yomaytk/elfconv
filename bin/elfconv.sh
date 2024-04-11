@@ -39,13 +39,13 @@ main() {
   fi
 
   # build runtime
-  SYSCALLCPP="syscall/SyscallBrowser.cpp"
+  SYSCALLCPP="syscalls/SyscallBrowser.cpp"
   echo -e "[\033[32mINFO\033[0m] Building elfconv-Runtime ..."
   if [ "$TARGET" = "wasm-host" ]; then
     WASMCC=$WASISDKCXX
     WASMCCFLAGS=$WASISDKFLAGS
     WASMAR=$WASISDKAR
-    SYSCALLCPP="syscall/SyscallWasi.cpp"
+    SYSCALLCPP="syscalls/SyscallWasi.cpp"
   fi
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
