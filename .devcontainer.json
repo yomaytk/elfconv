@@ -7,6 +7,9 @@
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash",
-	}
+	},
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/root/elfconv,type=bind,consistency=cached",
+  "workspaceFolder": "/root/elfconv"
 
 }
