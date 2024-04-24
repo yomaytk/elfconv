@@ -65,7 +65,8 @@ RUN git config --global user.email "41898282+github-actions[bot]@users.noreply.g
 
 WORKDIR ${ROOT_DIR}
 COPY ./ ./
-RUN [ -d "./build" ] && rm -rf ./build || true
-
-RUN chmod +x scripts/container-entry-point.sh
-ENTRYPOINT [ "./scripts/container-entry-point.sh" ]
+RUN ./scripts/build.sh
+RUN make -C  ~/elfconv/examples/eratosthenes_sieve
+RUN make -C  ~/elfconv/examples/hello
+ENTRYPOINT ["/bin/bash", "--login", "-c"]
+CMD ["/bin/bash"]
