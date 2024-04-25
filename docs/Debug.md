@@ -62,3 +62,11 @@ You can confirm the value and the change of the value stored in the target memor
 **How to use**
 
 Please see the comment of the `debug_memory_value` and `debug_memory_value_change` functions.
+
+#### 4-3. confirm the unsupported instructions
+To confirm the unsupported instructions, you can use the **WARNING_OUTPUT** macro variable. This macro outputs the warning message and the address of the instruction when lifting as follows.
+```bash
+[WARNING] Unsupported instruction at address: 0x0041cb14 (TryExtract)
+[WARNING] Unsupported instruction at address: 0x0041cb48 (TryExtract)
+...
+```
