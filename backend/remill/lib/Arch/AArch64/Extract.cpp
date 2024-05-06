@@ -16,8 +16,8 @@
 
 #include "Decode.h"
 
-#include <stdio.h>
 #include <remill/BC/HelperMacro.h>
+#include <stdio.h>
 
 namespace remill {
 namespace aarch64 {
@@ -31584,7 +31584,7 @@ static bool TryExtractSTR_64_LDST_POS(InstData &inst, uint32_t bits) {
 }
 
 static bool TryExtractINS_ASIMDINS_IV_V(InstData &inst, uint32_t bits) {
-  if (false && TryExtractMOV_INS_ASIMDINS_IV_V(inst, bits))
+  if (TryExtractMOV_INS_ASIMDINS_IV_V(inst, bits))
     return true;
 
   //   bits
