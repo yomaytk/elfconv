@@ -4249,6 +4249,113 @@ bool TryDecodeST1_ASISDLSE_R2_2V(const InstData &data, Instruction &inst) {
   return TryDecodeST1_ASISDLSE_R1_1V(data, inst);
 }
 
+// ST1  { <Vt>.B }[<index>], [<Xn|SP>]
+bool TryDecodeST1_ASISDLSO_B1_1B(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 3 | data.S << 2 | data.size;
+  AddImmOperand(inst, index);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 8, data.Rn, 0);
+  return false;
+}
+
+// ST1  { <Vt>.H }[<index>], [<Xn|SP>]
+bool TryDecodeST1_ASISDLSO_H1_1H(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 2 | data.S << 1 | data.size >> 1;
+  AddImmOperand(inst, index);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 16, data.Rn, 0);
+  return true;
+}
+
+// ST1  { <Vt>.S }[<index>], [<Xn|SP>]
+bool TryDecodeST1_ASISDLSO_S1_1S(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 1 | data.S;
+  AddImmOperand(inst, index);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 32, data.Rn, 0);
+  return true;
+}
+
+// ST1  { <Vt>.D }[<index>], [<Xn|SP>]
+bool TryDecodeST1_ASISDLSO_D1_1D(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q;
+  AddImmOperand(inst, index);
+  AddBasePlusOffsetMemOp(inst, kActionWrite, 64, data.Rn, 0);
+  return true;
+}
+
+// ST1  { <Vt>.B }[<index>], [<Xn|SP>], #1
+bool TryDecodeST1_ASISDLSOP_B1_I1B(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 3 | data.S << 2 | data.size;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 8, data.Rn, 1);
+  return true;
+}
+
+// ST1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeST1_ASISDLSOP_BX1_R1B(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 3 | data.S << 2 | data.size;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 8, data.Rn, data.Rm);
+  return true;
+}
+
+// ST1  { <Vt>.H }[<index>], [<Xn|SP>], #2
+bool TryDecodeST1_ASISDLSOP_H1_I1H(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 2 | data.S << 1 | data.size >> 1;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 16, data.Rn, 2);
+  return true;
+}
+
+// ST1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeST1_ASISDLSOP_HX1_R1H(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 2 | data.S << 1 | data.size >> 1;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 16, data.Rn, data.Rm);
+  return true;
+}
+
+// ST1  { <Vt>.S }[<index>], [<Xn|SP>], #4
+bool TryDecodeST1_ASISDLSOP_S1_I1S(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 1 | data.S;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 32, data.Rn, 4);
+  return true;
+}
+
+// ST1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeST1_ASISDLSOP_SX1_R1S(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q << 1 | data.S;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 32, data.Rn, data.Rm);
+  return true;
+}
+
+// ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
+bool TryDecodeST1_ASISDLSOP_D1_I1D(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 64, data.Rn, 8);
+  return true;
+}
+
+// ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeST1_ASISDLSOP_DX1_R1D(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rt);
+  auto index = data.Q;
+  AddImmOperand(inst, index);
+  AddPostIndexMemOp(inst, kActionWrite, 64, data.Rn, data.Rm);
+  return true;
+}
 
 // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 bool TryDecodeLD1_ASISDLSEP_I2_I2(const InstData &data, Instruction &inst) {
@@ -4728,6 +4835,30 @@ bool TryDecodeINS_ASIMDINS_IR_R(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rd);
   AddImmOperand(inst, data.imm5.uimm >> (size + 1));
   AddRegOperand(inst, kActionRead, (size == 3) ? kRegX : kRegW, kUseAsValue, data.Rn);
+  return true;
+}
+
+// MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
+bool TryDecodeMOV_INS_ASIMDINS_IV_V(const InstData &data, Instruction &inst) {
+  uint64_t size = 0;
+  if (!LeastSignificantSetBit(data.imm5.uimm, &size) || size > 3) {
+    return false;
+  }
+  std::stringstream ss;
+  ss << inst.function;
+  switch (size) {
+    case 0: ss << "_B"; break;
+    case 1: ss << "_H"; break;
+    case 2: ss << "_S"; break;
+    case 3: ss << "_D"; break;
+    default: return false;
+  }
+  inst.function = ss.str();
+
+  AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rd);
+  AddImmOperand(inst, data.imm5.uimm >> (size + 1));
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rn);
+  AddImmOperand(inst, data.imm4.uimm >> size);
   return true;
 }
 

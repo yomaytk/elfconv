@@ -234,7 +234,7 @@ void __svc_native_call(void) {
     case AARCH64_SYS_GETEUID: /* geteuid () */ state_gpr.x0.dword = geteuid(); break;
     case AARCH64_SYS_GETGID: /* getgid () */ state_gpr.x0.dword = getgid(); break;
     case AARCH64_SYS_GETEGID: /* getegid () */ state_gpr.x0.dword = getegid(); break;
-    case AARCH64_SYS_GETTID: /* getttid () */ state_gpr.x0.dword = gettid(); break;
+    case AARCH64_SYS_GETTID: /* gettid () */ state_gpr.x0.dword = gettid(); break;
     case AARCH64_SYS_BRK: /* brk (unsigned long brk) */
     {
       auto heap_memory = g_run_mgr->heap_memory;
