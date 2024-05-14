@@ -35,6 +35,8 @@ class MainLifter : public TraceLifter {
           g_addr_list_second_name("__g_fn_vmas_second"),
           debug_state_machine_name("debug_state_machine"),
           debug_state_machine_vectors_name("debug_state_machine_vectors"),
+          debug_llvmir_u64value_name("debug_llvmir_u64value"),
+          debug_llvmir_f64value_name("debug_llvmir_f64value"),
           debug_memory_value_name("debug_memory_value") {}
 
     virtual ~WrapImpl() override {}
@@ -61,6 +63,8 @@ class MainLifter : public TraceLifter {
     std::string g_addr_list_second_name;
     std::string debug_state_machine_name;
     std::string debug_state_machine_vectors_name;
+    std::string debug_llvmir_u64value_name;
+    std::string debug_llvmir_f64value_name;
     std::string debug_memory_value_name;
 
     // Set entry function pointer
