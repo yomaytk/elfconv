@@ -32,18 +32,9 @@ DEF_ISEL(HINT_2) = DoNOP;
 DEF_ISEL(HINT_3) = DoNOP;
 DEF_ISEL(NOP_HI_SYSTEM) = DoNOP;
 
-/* FIXME?? */
 DEF_ISEL(PRFM_P_LDST_POS) = DoNOP;
 
 namespace {
-
-DEF_SEM(UNDEF_CNT_ASIMDMISC_R) {
-  return memory;
-}
-
-DEF_SEM(UNDEF_CMGE_ASISDMISC_Z) {
-  return memory;
-}
 
 DEF_SEM(UNDEF_CNTB_X64_BITCOUNT) {
   return memory;
@@ -68,8 +59,6 @@ DEF_SEM(UNDEF_WHILELO_PREDICATE) {
 }  // namespace
 
 /* FIXME */
-DEF_ISEL(CNT_ASIMDMISC_R) = UNDEF_CNT_ASIMDMISC_R; /* CNT  <Vd>.<T>, <Vn>.<T> */
-DEF_ISEL(CMGE_ASISDMISC_Z) = UNDEF_CMGE_ASISDMISC_Z; /* CMGE  <V><d>, <V><n>, #0 */
 DEF_ISEL(CNTB_X64_BITCOUNT) = UNDEF_CNTB_X64_BITCOUNT; /* CNTB <Xd>{, <pattern>{, MUL #<imm>}} */
 DEF_ISEL(CNTD_X64_BITCOUNT) = UNDEF_CNTD_X64_BITCOUNT; /* CNTD <Xd>{, <pattern>{, MUL #<imm>}} */
 DEF_ISEL(CNTH_X64_BITCOUNT) = UNDEF_CNTH_X64_BITCOUNT; /* CNTH <Xd>{, <pattern>{, MUL #<imm>}} */

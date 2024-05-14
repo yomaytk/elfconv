@@ -392,7 +392,7 @@ DEF_SEM(FMSUB_D, V128W dst, V64 src1, V64 src2, V64 src3) {
   // BarrierReorder();
   // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
   // BarrierReorder();
-  auto res = FAdd64(factora, prod);
+  auto res = FSub64(factora, prod);
   // BarrierReorder();
   // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
   // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);

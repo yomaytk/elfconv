@@ -55,8 +55,8 @@ MAKE_FCSEL(64);
   DEF_ISEL(isel##_VS) = sem<CondVS, __VA_ARGS__>; \
   DEF_ISEL(isel##_VC) = sem<CondVC, __VA_ARGS__>; \
   DEF_ISEL(isel##_HI) = sem<CondHI, __VA_ARGS__>; \
-  DEF_ISEL(isel##_LS) = sem<CondLS, __VA_ARGS__>; \
-  DEF_ISEL(isel##_AL) = sem<CondAL, __VA_ARGS__>;
+  DEF_ISEL(isel##_LS) = sem<CondLS, __VA_ARGS__>;
+// DEF_ISEL(isel##_AL) = sem<CondAL, __VA_ARGS__>;
 
 DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL, R32W, R32, R32)
 DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64W, R64, R64)
