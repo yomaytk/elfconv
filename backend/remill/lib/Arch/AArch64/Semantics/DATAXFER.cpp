@@ -174,15 +174,19 @@ DEF_SEM(SWP_MEMOP, S1 src1, D1 dst1, S2 src2, D2 dst2) {
 
 template <typename S, typename D>
 DEF_SEM(LDADD_MEMOP, S src1, S src2, D dst) {
-  WriteZExt(src2, Read(dst));
-  WriteTrunc(dst, UAdd(Read(src1), Read(src2)));
+  using T = typename BaseType<S>::BT;
+  T dst_val = Read(dst);
+  WriteTrunc(dst, UAdd(dst_val, Read(src2)));
+  WriteZExt(src1, dst_val);
   return memory;
 }
 
 template <typename S, typename D>
 DEF_SEM(LDSET_MEMOP, S src1, S src2, D dst) {
-  WriteZExt(src2, Read(dst));
-  WriteTrunc(dst, UOr(Read(src1), Read(src2)));
+  using T = typename BaseType<S>::BT;
+  T dst_val = Read(dst);
+  WriteTrunc(dst, UOr(dst_val, Read(src2)));
+  WriteZExt(src1, dst_val);
   return memory;
 }
 
@@ -1003,9 +1007,9 @@ DEF_ISEL(ST1_ASISDLSEP_I2_I2_2D) = ST1_PAIR_POSTINDEX_128<MV128W>;
 
 namespace {
 #define MAKE_ST1_UNIT(esize) \
-  DEF_SEM(ST1_UNIT_V##esize, V##esize src, I32 index, M##esize##W dst_mem) { \
+  DEF_SEM(ST1_UNIT_V##esize, V128 src, I32 index, M##esize##W dst_mem) { \
     auto src_v = UReadV##esize(src); \
-    auto elem = UExtractV##esize(src_v, Read(index)); \
+    uint##esize##_t elem = UExtractV##esize(src_v, Read(index)); \
     WriteTrunc(dst_mem, elem); \
     return memory; \
   }  // namespace
@@ -1030,10 +1034,10 @@ DEF_ISEL(ST1_ASISDLSO_D1_1D) = ST1_UNIT_V64;
 
 namespace {
 #define MAKE_ST1_UNIT_POSTINDEX(esize) \
-  DEF_SEM(ST1_UNIT_POSTINDEX_V##esize, V##esize src, I32 index, M##esize##W dst_mem, R64W dst_reg, \
+  DEF_SEM(ST1_UNIT_POSTINDEX_V##esize, V128 src, I32 index, M##esize##W dst_mem, R64W dst_reg, \
           ADDR next_addr) { \
     auto src_v = UReadV##esize(src); \
-    auto elem = UExtractV##esize(src_v, Read(index)); \
+    uint##esize##_t elem = UExtractV##esize(src_v, Read(index)); \
     WriteTrunc(dst_mem, elem); \
     Write(dst_reg, Read(next_addr)); \
     return memory; \
@@ -1445,6 +1449,37 @@ DEF_ISEL(INS_ASIMDINS_IR_R_H) = INS_16<R32>;
 DEF_ISEL(INS_ASIMDINS_IR_R_S) = INS_32<R32>;
 DEF_ISEL(INS_ASIMDINS_IR_R_D) = INS_64<R64>;
 
+namespace {
+
+// LD1R  { <Vt>.<T> }, [<Xn|SP>]
+#define MAKE_LD1R(elem_size) \
+  template <typename D, typename T> \
+  DEF_SEM(LD1R_##elem_size, D dst, T mem) { \
+    auto mem_val = Read(mem); \
+    auto tmp_v = UReadV##elem_size(dst); \
+    _Pragma("unroll") for (auto &elem : tmp_v.elems) { \
+      elem = mem_val; \
+    } \
+    UWriteV##elem_size(dst, tmp_v); \
+    return memory; \
+  }  // namespace
+
+MAKE_LD1R(8)
+MAKE_LD1R(16)
+MAKE_LD1R(32)
+MAKE_LD1R(64)
+
+}  // namespace
+
+DEF_ISEL(LD1R_ASISDLSO_R1_8B) = LD1R_8<V64W, M8>;
+DEF_ISEL(LD1R_ASISDLSO_R1_16B) = LD1R_8<V128W, M8>;
+DEF_ISEL(LD1R_ASISDLSO_R1_4H) = LD1R_16<V64W, M16>;
+DEF_ISEL(LD1R_ASISDLSO_R1_8H) = LD1R_16<V128W, M16>;
+DEF_ISEL(LD1R_ASISDLSO_R1_2S) = LD1R_32<V64W, M32>;
+DEF_ISEL(LD1R_ASISDLSO_R1_4S) = LD1R_32<V128W, M32>;
+DEF_ISEL(LD1R_ASISDLSO_R1_1D) = LD1R_64<V64W, M64>;
+DEF_ISEL(LD1R_ASISDLSO_R1_2D) = LD1R_64<V128W, M64>;
+
 // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
 namespace {
 
@@ -1616,23 +1651,24 @@ DEF_SEM(CAS, S src1, S src2, D dst) {
   T org_val = Read(dst);
   T cmp_val = Read(src1);
   auto cond_eq = UCmpEq(org_val, cmp_val);
+  WriteTrunc(src1, org_val);
   auto new_val = Select<T>(cond_eq, Read(src2), org_val);
   WriteTrunc(dst, new_val);
   return memory;
 }
 }  // namespace
 
-DEF_ISEL(CAS_C32_LDSTEXCL) = CAS<R32, M32W>;
-DEF_ISEL(CAS_C64_LDSTEXCL) = CAS<R64, M64W>;
+DEF_ISEL(CAS_C32_LDSTEXCL) = CAS<R32W, M32W>;
+DEF_ISEL(CAS_C64_LDSTEXCL) = CAS<R64W, M64W>;
 
-DEF_ISEL(CASA_C32_LDSTEXCL) = CAS<R32, M32W>;
-DEF_ISEL(CASA_C64_LDSTEXCL) = CAS<R64, M64W>;
+DEF_ISEL(CASA_C32_LDSTEXCL) = CAS<R32W, M32W>;
+DEF_ISEL(CASA_C64_LDSTEXCL) = CAS<R64W, M64W>;
 
-DEF_ISEL(CASAL_C32_LDSTEXCL) = CAS<R32, M32W>;
-DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64, M64W>;
+DEF_ISEL(CASAL_C32_LDSTEXCL) = CAS<R32W, M32W>;
+DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64W, M64W>;
 
-DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32, M32W>;
-DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64, M64W>;
+DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32W, M32W>;
+DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64W, M64W>;
 
 namespace {
 
@@ -1648,3 +1684,29 @@ DEF_SEM(DC_ZVA, D dst_mem) {
 }  // namespace
 
 DEF_ISEL(DC_SYS_CR_SYSTEM) = DC_ZVA<M64W>; /* DC  <dc_op>, <Xt> */
+
+namespace {
+
+#define MAKE_CNT(total_size, elem_num) \
+  DEF_SEM(CNT_SIMD_V##total_size, V##total_size##W dst, V##total_size src) { \
+    auto d0 = UExtractV##total_size(UReadV##total_size(src), 0); \
+    uint8v##elem_num##_t tmp_v = {}; \
+    uint##total_size##_t cnt = d0 - ((d0 >> 1) & 0x5555555555555555); \
+    cnt = (cnt & 0x3333333333333333) + ((cnt >> 2) & 0x3333333333333333); \
+    cnt = (cnt + (cnt >> 4)) & 0x0f0f0f0f0f0f0f0f; \
+    _Pragma("unroll") for (int i = 0; i < elem_num; i++) { \
+      tmp_v.elems[i] = (uint8_t) ((cnt >> i * 8) & 0xff); \
+    } \
+    UWriteV8(dst, tmp_v); \
+    return memory; \
+  }
+
+MAKE_CNT(64, 8)
+MAKE_CNT(128, 8)
+
+#undef MAKE_CNT
+
+}  // namespace
+
+DEF_ISEL(CNT_ASIMDMISC_R_8B) = CNT_SIMD_V64;
+DEF_ISEL(CNT_ASIMDMISC_R_16B) = CNT_SIMD_V128;

@@ -153,8 +153,8 @@ DEF_ISEL(DUP_ASIMDINS_DR_R_2D) = DUP_64<uint64v2_t>;
 namespace {
 
 #define MAKE_DUP(size) \
-  template <typename V> \
-  DEF_SEM(DUP_DV_##size, V128W dst, V64 src, I32 imm) { \
+  template <typename V, typename SV> \
+  DEF_SEM(DUP_DV_##size, V128W dst, SV src, I32 imm) { \
     auto index = Read(imm); \
     auto val = TruncTo<uint##size##_t>(UExtractV##size(UReadV##size(src), index)); \
     V vec = {}; \
@@ -174,13 +174,13 @@ MAKE_DUP(64);
 
 }  // namespace
 
-DEF_ISEL(DUP_ASIMDINS_DV_V_8B) = DUP_DV_8<uint8v8_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_16B) = DUP_DV_8<uint8v16_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_4H) = DUP_DV_16<uint16v4_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_8H) = DUP_DV_16<uint16v8_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_2S) = DUP_DV_32<uint32v2_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_4S) = DUP_DV_32<uint32v4_t>;
-DEF_ISEL(DUP_ASIMDINS_DV_V_2D) = DUP_DV_64<uint64v2_t>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_8B) = DUP_DV_8<uint8v8_t, V64>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_16B) = DUP_DV_8<uint8v16_t, V128>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_4H) = DUP_DV_16<uint16v4_t, V64>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_8H) = DUP_DV_16<uint16v8_t, V128>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_2S) = DUP_DV_32<uint32v2_t, V64>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_4S) = DUP_DV_32<uint32v4_t, V128>;
+DEF_ISEL(DUP_ASIMDINS_DV_V_2D) = DUP_DV_64<uint64v2_t, V128>;
 
 namespace {
 
@@ -381,6 +381,22 @@ DEF_ISEL(CMGT_ASIMDMISC_Z_2D) = CMPGT_IMM_64<V128, uint64v2_t>;
 DEF_ISEL(CMGE_ASIMDMISC_Z_2D) = CMPGE_IMM_64<V128, uint64v2_t>;
 
 namespace {
+DEF_SEM(CMGE_ASISDMISC_ONLYD, V128W dst, V128 src) {
+  auto src_v = SReadV64(src);
+  uint64_t zeros = 0;
+  uint64_t ones = ~zeros;
+  uint64v2_t tmp_v = {};
+  _Pragma("unroll") for (int i = 0; i < 2; i++) {
+    tmp_v.elems[i] = src_v.elems[i] >= 0 ? ones : zeros;
+  }
+  UWriteV64(dst, tmp_v);
+  return memory;
+}
+}  // namespace
+
+DEF_ISEL(CMGE_ASISDMISC_Z) = CMGE_ASISDMISC_ONLYD;
+
+namespace {
 
 #define MAKE_CMP_BROADCAST(op, prefix, binop, size) \
   template <typename S, typename V> \
@@ -426,6 +442,8 @@ MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 64)
 
 MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 8)
 MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 16)
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 32)
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 64)
 
 #undef MAKE_CMP_BROADCAST
 
@@ -435,6 +453,7 @@ DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8B) = CMPEQ_8<V64, uint8v8_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_8B) = CMPGT_8<V64, uint8v8_t>;
 DEF_ISEL(CMGE_ASIMDSAME_ONLY_8B) = CMPGE_8<V64, uint8v8_t>;
 DEF_ISEL(CMTST_ASIMDSAME_ONLY_8B) = CMPTST_8<V64, uint8v8_t>;
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_8B) = CMPHS_8<V64, uint8v8_t>;
 
 DEF_ISEL(CMEQ_ASIMDSAME_ONLY_16B) = CMPEQ_8<V128, uint8v16_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_16B) = CMPGT_8<V128, uint8v16_t>;
@@ -446,6 +465,7 @@ DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4H) = CMPEQ_16<V64, uint16v4_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_4H) = CMPGT_16<V64, uint16v4_t>;
 DEF_ISEL(CMGE_ASIMDSAME_ONLY_4H) = CMPGE_16<V64, uint16v4_t>;
 DEF_ISEL(CMTST_ASIMDSAME_ONLY_4H) = CMPTST_16<V64, uint16v4_t>;
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_4H) = CMPHS_16<V64, uint16v4_t>;
 
 DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8H) = CMPEQ_16<V128, uint16v8_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_8H) = CMPGT_16<V128, uint16v8_t>;
@@ -457,16 +477,19 @@ DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2S) = CMPEQ_32<V64, uint32v2_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_2S) = CMPGT_32<V64, uint32v2_t>;
 DEF_ISEL(CMGE_ASIMDSAME_ONLY_2S) = CMPGE_32<V64, uint32v2_t>;
 DEF_ISEL(CMTST_ASIMDSAME_ONLY_2S) = CMPTST_32<V64, uint32v2_t>;
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_2S) = CMPHS_32<V64, uint32v2_t>;
 
 DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4S) = CMPEQ_32<V128, uint32v4_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_4S) = CMPGT_32<V128, uint32v4_t>;
 DEF_ISEL(CMGE_ASIMDSAME_ONLY_4S) = CMPGE_32<V128, uint32v4_t>;
 DEF_ISEL(CMTST_ASIMDSAME_ONLY_4S) = CMPTST_32<V128, uint32v4_t>;
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_4S) = CMPHS_32<V128, uint32v4_t>;
 
 DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2D) = CMPEQ_64<V128, uint64v2_t>;
 DEF_ISEL(CMGT_ASIMDSAME_ONLY_2D) = CMPGT_64<V128, uint64v2_t>;
 DEF_ISEL(CMGE_ASIMDSAME_ONLY_2D) = CMPGE_64<V128, uint64v2_t>;
 DEF_ISEL(CMTST_ASIMDSAME_ONLY_2D) = CMPTST_64<V128, uint64v2_t>;
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_2D) = CMPHS_64<V128, uint64v2_t>;
 
 namespace {
 
@@ -554,30 +577,30 @@ DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4S) = SMAXP_32<V128, int32v4_t>;
 namespace {
 
 template <typename V, typename B>
-ALWAYS_INLINE static auto Reduce2(const V &vec, B binop, size_t base = 0)
-    -> decltype(binop(vec.elems[0], vec.elems[1])) {
+ALWAYS_INLINE static auto Reduce2(const V &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
   return binop(vec.elems[base + 0], vec.elems[base + 1]);
 }
 
 template <typename V, typename B>
-ALWAYS_INLINE static auto Reduce4(const V &vec, B binop, size_t base = 0)
-    -> decltype(binop(vec.elems[0], vec.elems[1])) {
+ALWAYS_INLINE static auto Reduce4(const V &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
   auto lo = Reduce2(vec, binop, base + 0);
   auto hi = Reduce2(vec, binop, base + 2);
   return binop(lo, hi);
 }
 
 template <typename V, typename B>
-ALWAYS_INLINE static auto Reduce8(const V &vec, B binop, size_t base = 0)
-    -> decltype(binop(vec.elems[0], vec.elems[1])) {
+ALWAYS_INLINE static auto Reduce8(const V &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
   auto lo = Reduce4(vec, binop, base + 0);
   auto hi = Reduce4(vec, binop, base + 4);
   return binop(lo, hi);
 }
 
 template <typename V, typename B>
-ALWAYS_INLINE static auto Reduce16(const V &vec, B binop, size_t base = 0)
-    -> decltype(binop(vec.elems[0], vec.elems[1])) {
+ALWAYS_INLINE static auto Reduce16(const V &vec, B binop,
+                                   size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
   auto lo = Reduce8(vec, binop, base + 0);
   auto hi = Reduce8(vec, binop, base + 8);
   return binop(lo, hi);

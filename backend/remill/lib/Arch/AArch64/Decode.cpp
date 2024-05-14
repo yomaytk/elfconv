@@ -37545,44 +37545,6 @@ bool TryDecodeFRECPE_ASIMDMISC_R(const InstData &, Instruction &) {
   return false;
 }
 
-// LD1R LD1R_asisdlso_R1:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 x size     0
-//  11 x size     1
-//  12 0 S        0
-//  13 0 opcode   0
-//  14 1 opcode   1
-//  15 1 opcode   2
-//  16 0
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 0 R        0
-//  22 1 L        0
-//  23 0
-//  24 1
-//  25 0
-//  26 1
-//  27 1
-//  28 0
-//  29 0
-//  30 x Q        0
-//  31 0
-// LD1R  { <Vt>.<T> }, [<Xn|SP>]
-bool TryDecodeLD1R_ASISDLSO_R1(const InstData &, Instruction &) {
-  return false;
-}
-
 // LD1R LD1R_asisdlsop_R1_i:
 //   0 x Rt       0
 //   1 x Rt       1

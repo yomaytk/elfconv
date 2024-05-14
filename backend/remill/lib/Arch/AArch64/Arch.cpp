@@ -2237,7 +2237,7 @@ static bool TryDecodeLDUR_Vn_LDST_UNSCALED(const InstData &data, Instruction &in
   auto num_bits = ReadRegSize(val_class);
   AddRegOperand(inst, kActionWrite, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionRead, num_bits, data.Rn,
-                         static_cast<uint64_t>(data.imm12.uimm));
+                         static_cast<uint64_t>(data.imm9.simm9));
   return true;
 }
 
@@ -2323,7 +2323,7 @@ static bool TryDecodeSTUR_Vn_LDST_UNSCALED(const InstData &data, Instruction &in
   auto num_bits = ReadRegSize(val_class);
   AddRegOperand(inst, kActionRead, val_class, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionWrite, num_bits, data.Rn,
-                         static_cast<uint64_t>(data.imm12.uimm));
+                         static_cast<uint64_t>(data.imm9.simm9));
   return true;
 }
 
@@ -2940,7 +2940,6 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
   else
     inst.function += "_32";
   return TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegV, kRegV);
-  return true;
 }
 
 // FRINTA  <Dd>, <Dn>
@@ -4255,7 +4254,7 @@ bool TryDecodeST1_ASISDLSO_B1_1B(const InstData &data, Instruction &inst) {
   auto index = data.Q << 3 | data.S << 2 | data.size;
   AddImmOperand(inst, index);
   AddBasePlusOffsetMemOp(inst, kActionWrite, 8, data.Rn, 0);
-  return false;
+  return true;
 }
 
 // ST1  { <Vt>.H }[<index>], [<Xn|SP>]
@@ -4411,6 +4410,16 @@ bool TryDecodeCMGT_ASIMDMISC_Z(const InstData &data, Instruction &inst) {
 // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 bool TryDecodeCMGE_ASIMDMISC_Z(const InstData &data, Instruction &inst) {
   return TryDecodeCMEQ_ASIMDMISC_Z(data, inst);
+}
+
+// CMGE  <V><d>, <V><n>, #0
+bool TryDecodeCMGE_ASISDMISC_Z(const InstData &data, Instruction &inst) {
+  if (data.size != 0b11) {
+    return false;  // size must be 0b11
+  }
+  AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rn);
+  return true;
 }
 
 // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
@@ -4920,6 +4929,15 @@ bool TryDecodeLD2_ASISDLSEP_R2_R(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// LD1R  { <Vt>.<T> }, [<Xn|SP>]
+bool TryDecodeLD1R_ASISDLSO_R1(const InstData &data, Instruction &inst) {
+  AddRegOperand(inst, kActionWrite, data.Q ? kRegQ : kRegD, kUseAsValue, data.Rt);
+  auto elem_size = 8UL << data.size;
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, elem_size);
+  AddBasePlusOffsetMemOp(inst, kActionRead, elem_size, data.Rn, 0);
+  return true;
+}
+
 // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
 bool TryDecodeLD4_ASISDLSEP_I4_I(const InstData &, Instruction &) {
   return false;
@@ -5154,7 +5172,7 @@ bool TryDecodeUSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
 
 // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 bool TryDecodeCAS_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
-  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rs);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, kActionWrite, 8U << data.size, data.Rn, 0);
   return true;
@@ -5236,19 +5254,17 @@ bool TryDecodeSTXR_SR64_LDSTEXCL(const InstData &data, Instruction &inst) {
   return true;
 }
 
-// CNT  <Vd>.<T>, <Vn>.<T> /* FIXME */
-bool TryDecodeCNT_ASIMDMISC_R(const InstData &, Instruction &) {
+// CNT  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeCNT_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  AddArrangementSpecifier(inst, data.Q ? 128 : 64, 8);
+  AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegV, kUseAsValue, data.Rn);
   return true;
 }
 
 // DC  <dc_op>, <Xt> /* FIXME */
 bool TryDecodeDC_SYS_CR_SYSTEM(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
-  return true;
-}
-
-// CMGE  <V><d>, <V><n>, #0
-bool TryDecodeCMGE_ASISDMISC_Z(const InstData &, Instruction &) {
   return true;
 }
 
@@ -5284,8 +5300,8 @@ bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst) {
 
 }  // namespace aarch64
 
-auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
-    -> ArchPtr {
+auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_,
+                      ArchName arch_name_) -> ArchPtr {
   return std::make_unique<AArch64Arch>(context_, os_name_, arch_name_);
 }
 
