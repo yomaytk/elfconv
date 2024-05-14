@@ -66,9 +66,18 @@ extern "C" void debug_state_machine_vectors() {
   std::cout << "State.SIMD:" << std::endl;
   std::cout << std::hex;
   for (int i = 0; i < kNumVecRegisters /* = 32 */; i++) {
-    std::cout << "v." << std::to_string(i) << " = { [63:0]: 0x" << g_state.simd.v[i].qwords.elems[0]
-              << ", [127:64]: 0x" << g_state.simd.v[i].qwords.elems[1] << " }" << std::endl;
+    std::cout << "v." << std::to_string(i) << " = { [64:127]: 0x"
+              << g_state.simd.v[i].qwords.elems[1] << ", [0:63]: 0x"
+              << g_state.simd.v[i].qwords.elems[0] << " }" << std::endl;
   }
+}
+
+extern "C" void debug_llvmir_u64value(uint64_t val) {
+  std::cout << std::hex << "LLVM IR value: 0x" << val << std::endl;
+}
+
+extern "C" void debug_llvmir_f64value(double val) {
+  std::cout << "LLVM IR value: " << val << std::endl;
 }
 
 extern "C" void debug_memory_value_change() {
@@ -91,14 +100,12 @@ extern "C" void debug_memory_value_change() {
 
 extern "C" void debug_memory_value() {
   // step 1. set target vma
-  std::vector<uint64_t> target_vmas = {0x493230};
+  std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
-    *target_pma = 0xfbad2a84;
-    // std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
-    //           << " value: 0x" << *target_pma << std::endl;
+    auto target_pma = (double *) _ecv_translate_ptr(target_vma);
+    std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
 

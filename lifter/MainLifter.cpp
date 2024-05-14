@@ -279,6 +279,14 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_state_machine_vectors_name,
                          *module);
+  /* void debug_llvmir_u64value(uint64_t val) */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_llvmir_u64value_name, *module);
+  /* void debug_llvmir_f64vaule(double val) */
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getDoubleTy(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_llvmir_f64value_name, *module);
   /* void debug_call_stack_push() */
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
                                                  {llvm::Type::getInt64Ty(context)}, false),
