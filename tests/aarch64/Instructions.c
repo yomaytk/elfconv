@@ -150,144 +150,204 @@ void test_fcvtas_doubleword() {
 */
 // ST1  { <Vt>.D }[<index>], [<Xn|SP>]
 void test_st1_simd_d_index() {
-  double res_double = 0;
+  double res_f64 = 0;
   double a1 = 1.2f;
   double a2 = 12.3f;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
-  st1_simd_d_index(qt1, &res_double);
-  assert(12.3f == res_double);
+  st1_simd_d_index(qt1, &res_f64);
+  assert(12.3f == res_f64);
   printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>]   done.\n");
 }
 // ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
 void test_st1_simd_d_index_postimm() {
-  double res_double = 0;
+  double res_f64 = 0;
   double a1 = 1.2f;
   double a2 = 12.3f;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
-  double *mem_ptr_reg = &res_double;
+  double *mem_ptr_reg = &res_f64;
   st1_simd_d_index_postimm(qt1, &mem_ptr_reg);
-  assert(12.3f == res_double);
-  assert(&res_double + 1 == mem_ptr_reg);
+  assert(12.3f == res_f64);
+  assert(&res_f64 + 1 == mem_ptr_reg);
   printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8   done.\n");
 }
 // ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
 void test_st1_simd_d_index_postreg() {
-  double res_double = 0;
+  double res_f64 = 0;
   double a1 = 1.2f;
   double a2 = 12.3f;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
-  double *mem_ptr_reg = &res_double;
+  double *mem_ptr_reg = &res_f64;
   st1_simd_d_index_postreg(qt1, &mem_ptr_reg, 16);
-  assert(12.3f == res_double);
-  assert(&res_double + 2 == mem_ptr_reg);
+  assert(12.3f == res_f64);
+  assert(&res_f64 + 2 == mem_ptr_reg);
   printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>   done.\n");
 }
+// STR <Bt>, [<Xn|SP>], #<simm>
+void test_str_simd_b_simmpost() {
+  uint8x8_t bt = vcreate_u8(42);
+  uint8_t res_u8[10] = {0};
+  uint8_t *res_ptr = res_u8;
+  str_simd_b_simmpost(bt, &res_ptr);
+  assert(42 == res_u8[0]);
+  assert(res_u8 + 1 == res_ptr);
+  printf("STR <Bt>, [<Xn|SP>], #<simm>   done.\n");
+}
+// STR <Ht>, [<Xn|SP>], #<simm>
+void test_str_simd_h_simmpost() {
+  uint16x4_t ht = vcreate_u16(42);
+  uint16_t res_u16[10] = {0};
+  uint16_t *res_ptr = res_u16;
+  str_simd_h_simmpost(ht, &res_ptr);
+  assert(42 == res_u16[0]);
+  assert(res_u16 + 1 == res_ptr);
+  printf("STR <Ht>, [<Xn|SP>], #<simm>   done.\n");
+}
 // STR <St>, [<Xn|SP>], #<simm>
-void test_str_simd_s_simm() {
-  float res_float[1024] = {0};
-  double res_double[1024] = {0};
+void test_str_simd_s_simmpost() {
+  float res_f32[1024] = {0};
+  double res_f64[1024] = {0};
   {
-    float *res = res_float;
-    str_simd_s_simm(43.3f, &res);
-    assert(43.3f == res_float[0]);
-    assert(res_float + 1 == res);
+    float *res = res_f32;
+    str_simd_s_simmpost(43.3f, &res);
+    assert(43.3f == res_f32[0]);
+    assert(res_f32 + 1 == res);
   }
   {
-    float *res = res_float;
-    str_simd_s_simm(-43.3f, &res);
-    assert(-43.3f == res_float[0]);
+    float *res = res_f32;
+    str_simd_s_simmpost(-43.3f, &res);
+    assert(-43.3f == res_f32[0]);
   }
   {
-    float *res = res_float;
-    str_simd_s_simm(43, &res);
-    assert(43 == res_float[0]);
+    float *res = res_f32;
+    str_simd_s_simmpost(43, &res);
+    assert(43 == res_f32[0]);
   }
   printf("STR <St>, [<Xn|SP>], #<simm>   done.\n");
 }
 // STR <Dt>, [<Xn|SP>], #<simm>
-void test_str_simd_d_simm() {
-  float res_float[1024] = {0};
-  double res_double[1024] = {0};
+void test_str_simd_d_simmpost() {
+  float res_f32[1024] = {0};
+  double res_f64[1024] = {0};
   {
-    float *res = res_float;
-    str_simd_d_simm(43.3f, &res);
-    assert(43.3f == res_float[0]);
-    assert(res_float + 1 == res);
+    float *res = res_f32;
+    str_simd_d_simmpost(43.3f, &res);
+    assert(43.3f == res_f32[0]);
+    assert(res_f32 + 1 == res);
   }
   {
-    float *res = res_float;
-    str_simd_d_simm(-43.3f, &res);
-    assert(-43.3f == res_float[0]);
+    float *res = res_f32;
+    str_simd_d_simmpost(-43.3f, &res);
+    assert(-43.3f == res_f32[0]);
   }
   {
-    float *res = res_float;
-    str_simd_d_simm(43, &res);
-    assert(43 == res_float[0]);
+    float *res = res_f32;
+    str_simd_d_simmpost(43, &res);
+    assert(43 == res_f32[0]);
   }
   printf("STR <Dt>, [<Xn|SP>], #<simm>   done.\n");
 }
 // STR <Qt>, [<Xn|SP>], #<simm>
-void test_str_simd_q_simm() {
-  double res_double[100] = {0};
+void test_str_simd_q_simmpost() {
+  double res_f64[100] = {0};
   double a1 = 1.2f;
   double a2 = 12.3f;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
-  double *mem_ptr_reg = res_double;
-  str_simd_q_simm(qt1, &mem_ptr_reg);
-  assert(1.2f == res_double[0]);
-  assert(12.3f == res_double[1]);
-  assert(res_double + 1 == mem_ptr_reg);
+  double *mem_ptr_reg = res_f64;
+  str_simd_q_simmpost(qt1, &mem_ptr_reg);
+  assert(1.2f == res_f64[0]);
+  assert(12.3f == res_f64[1]);
+  assert(res_f64 + 1 == mem_ptr_reg);
   printf("STR <Qt>, [<Xn|SP>], #<simm>   done.\n");
+}
+// STR <Bt>, [<Xn|SP>, #<simm>]!
+void test_str_simd_b_simmpre() {
+  uint8x8_t bt = vcreate_u8(42);
+  uint8_t res_u8[10] = {0};
+  uint8_t *res_ptr = res_u8;
+  str_simd_b_simmpre(bt, &res_ptr);
+  assert(42 == res_u8[1]);
+  assert(res_u8 + 1 == res_ptr);
+  printf("STR <Bt>, [<Xn|SP>, #<simm>]!   done.\n");
+}
+// STR <Ht>, [<Xn|SP>, #<simm>]!
+void test_str_simd_h_simmpre() {
+  uint16x4_t ht = vcreate_u16(42);
+  uint16_t res_u16[10] = {0};
+  uint16_t *res_ptr = res_u16;
+  str_simd_h_simmpre(ht, &res_ptr);
+  assert(42 == res_u16[1]);
+  assert(res_u16 + 1 == res_ptr);
+  printf("STR <Ht>, [<Xn|SP>, #<simm>]!   done.\n");
+}
+// STR <St>, [<Xn|SP>, #<simm>]!
+void test_str_simd_s_simmpre() {
+  float st = 42.5f;
+  float res_f32[10] = {0};
+  float *res_ptr = res_f32;
+  str_simd_s_simmpre(st, &res_ptr);
+  assert(42.5f == res_f32[1]);
+  assert(res_f32 + 1 == res_ptr);
+  printf("STR <St>, [<Xn|SP>, #<simm>]!   done.\n");
+}
+// STR <Dt>, [<Xn|SP>, #<simm>]!
+void test_str_simd_d_simmpre() {
+  double dt = 42.5f;
+  double res_f64[10] = {0};
+  double *res_ptr = res_f64;
+  str_simd_d_simmpre(dt, &res_ptr);
+  assert(42.5f == res_f64[1]);
+  assert(res_f64 + 1 == res_ptr);
+  printf("STR <Dt>, [<Xn|SP>, #<simm>]!   done.\n");
 }
 // STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 void test_str_simd_s_regoff() {
-  float res_float[100] = {0};
+  float res_f32[100] = {0};
   // no option
   {
     uint64_t offset = sizeof(float) * 14;
-    str_simd_s_regoff(43.5f, res_float, offset);
-    assert(43.5f == res_float[14]);
-    res_float[14] = 0;
+    str_simd_s_regoff(43.5f, res_f32, offset);
+    assert(43.5f == res_f32[14]);
+    res_f32[14] = 0;
   }
   // lsl
   {
     uint64_t offset = 15;
-    str_simd_s_regoff_lsl(43.6f, res_float, offset);
-    assert(43.6f == res_float[15]);
-    res_float[15] = 0;
+    str_simd_s_regoff_lsl(43.6f, res_f32, offset);
+    assert(43.6f == res_f32[15]);
+    res_f32[15] = 0;
   }
   // sxtx
   {
     uint64_t offset = 16;
-    str_simd_s_regoff_lsl(43.7f, res_float, offset);
-    assert(43.7f == res_float[16]);
-    res_float[16] = 0;
+    str_simd_s_regoff_lsl(43.7f, res_f32, offset);
+    assert(43.7f == res_f32[16]);
+    res_f32[16] = 0;
   }
   printf("STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]   done.\n");
 }
 // STR <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 void test_str_simd_d_regoff() {
-  double res_double[100] = {0};
+  double res_f64[100] = {0};
   // no option
   {
     uint64_t offset = sizeof(double) * 11;
-    str_simd_d_regoff(43.2f, res_double, offset);
-    assert(43.2f == res_double[11]);
-    res_double[11] = 0;
+    str_simd_d_regoff(43.2f, res_f64, offset);
+    assert(43.2f == res_f64[11]);
+    res_f64[11] = 0;
   }
   // lsl
   {
     uint64_t offset = 12;
-    str_simd_d_regoff_lsl(43.3f, res_double, offset);
-    assert(43.3f == res_double[12]);
-    res_double[12] = 0;
+    str_simd_d_regoff_lsl(43.3f, res_f64, offset);
+    assert(43.3f == res_f64[12]);
+    res_f64[12] = 0;
   }
   // sxtx
   {
     uint64_t offset = 13;
-    str_simd_d_regoff_sxtx(43.4f, res_double, offset);
-    assert(43.4f == res_double[13]);
-    res_double[13] = 0;
+    str_simd_d_regoff_sxtx(43.4f, res_f64, offset);
+    assert(43.4f == res_f64[13]);
+    res_f64[13] = 0;
   }
   printf("STR <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]   done.\n");
 }
@@ -299,39 +359,39 @@ void test_stlr_x() {
   printf("STLR <Xt>, [<Xn|SP>{,#0}]   done.\n");
 }
 // STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
-void test_stp_q_imm() {
-  double res_double[100] = {0};
+void test_stp_q_immpre() {
+  double res_f64[100] = {0};
   double a1 = 43.8f;
   double a2 = 43.9f;
   double b1 = 44.0f;
   double b2 = 44.1f;
-  double *mem_ptr_reg = res_double;
+  double *mem_ptr_reg = res_f64;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
   uint64x2_t qt2 = vcombine_u64(vcreate_u64(*((uint64_t *) &b1)), vcreate_u64(*((uint64_t *) &b2)));
-  stp_q_imm(qt1, qt2, &mem_ptr_reg);
-  assert(43.8f == res_double[2]);
-  assert(43.9f == res_double[3]);
-  assert(44.0f == res_double[4]);
-  assert(44.1f == res_double[5]);
-  assert(res_double + 2 == mem_ptr_reg);
+  stp_q_immpre(qt1, qt2, &mem_ptr_reg);
+  assert(43.8f == res_f64[2]);
+  assert(43.9f == res_f64[3]);
+  assert(44.0f == res_f64[4]);
+  assert(44.1f == res_f64[5]);
+  assert(res_f64 + 2 == mem_ptr_reg);
   printf("STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!   done.\n");
 }
 // STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 void test_stp_q_imm_post() {
-  double res_double[100] = {0};
+  double res_f64[100] = {0};
   double a1 = 1.2f;
   double a2 = 12.3f;
   double b1 = 123.4f;
   double b2 = 1234.5f;
-  double *mem_ptr_reg = res_double;
+  double *mem_ptr_reg = res_f64;
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
   uint64x2_t qt2 = vcombine_u64(vcreate_u64(*((uint64_t *) &b1)), vcreate_u64(*((uint64_t *) &b2)));
   stp_q_imm_post(qt1, qt2, &mem_ptr_reg);
-  assert(1.2f == res_double[0]);
-  assert(12.3f == res_double[1]);
-  assert(123.4f == res_double[2]);
-  assert(1234.5f == res_double[3]);
-  assert(res_double + 2 == mem_ptr_reg);
+  assert(1.2f == res_f64[0]);
+  assert(12.3f == res_f64[1]);
+  assert(123.4f == res_f64[2]);
+  assert(1234.5f == res_f64[3]);
+  assert(res_f64 + 2 == mem_ptr_reg);
   printf("STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>   done.\n");
 }
 // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
@@ -1319,14 +1379,19 @@ int main() {
   test_st1_simd_d_index();
   test_st1_simd_d_index_postimm();
   test_st1_simd_d_index_postreg();
-  test_str_simd_s_simm();
-  test_str_simd_d_simm();
-  test_str_simd_q_simm();
+  test_str_simd_b_simmpost();
+  test_str_simd_h_simmpost();
+  test_str_simd_s_simmpost();
+  test_str_simd_d_simmpost();
+  test_str_simd_q_simmpost();
+  test_str_simd_b_simmpre();
+  test_str_simd_h_simmpre();
+  test_str_simd_s_simmpre();
+  test_str_simd_d_simmpre();
   test_str_simd_s_regoff();
   test_str_simd_d_regoff();
   test_stlr_x();
-  test_str_simd_q_simm();
-  test_stp_q_imm();
+  test_stp_q_immpre();
   test_stp_q_imm_post();
   test_mov_ins_v_v();
   test_swp_word();

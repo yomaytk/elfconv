@@ -20,17 +20,41 @@ void st1_simd_d_index_postreg(uint64x2_t qt1, double **res_ptr, uint64_t reg1) {
                    : [q1] "w"(qt1), [r1] "r"(reg1)
                    : "memory");
 }
+// STR <Bt>, [<Xn|SP>], #<simm>
+void str_simd_b_simmpost(uint8x8_t bt, uint8_t **res_ptr) {
+  asm __volatile__("STR %b1, [%0], #1" : "+r"(*res_ptr) : "w"(bt) : "memory");
+}
+// STR <Ht>, [<Xn|SP>], #<simm>
+void str_simd_h_simmpost(uint16x4_t ht, uint16_t **res_ptr) {
+  asm __volatile__("STR %h1, [%0], #2" : "+r"(*res_ptr) : "w"(ht) : "memory");
+}
 // STR <St>, [<Xn|SP>], #<simm>
-void str_simd_s_simm(float val, float **res_ptr) {
+void str_simd_s_simmpost(float val, float **res_ptr) {
   asm __volatile__("STR %s1, [%0], #4" : "+r"(*res_ptr) : "w"(val) : "memory");
 }
 // STR <Dt>, [<Xn|SP>], #<simm>
-void str_simd_d_simm(float val, float **res_ptr) {
+void str_simd_d_simmpost(float val, float **res_ptr) {
   asm __volatile__("STR %d1, [%0], #4" : "+r"(*res_ptr) : "w"(val) : "memory");
 }
 // STR <Qt>, [<Xn|SP>], #<simm>
-void str_simd_q_simm(uint64x2_t qt, double **res_ptr) {
+void str_simd_q_simmpost(uint64x2_t qt, double **res_ptr) {
   asm __volatile__("STR %q1, [%0], #8" : "+r"(*res_ptr) : "w"(qt) : "memory");
+}
+// STR <Bt>, [<Xn|SP>, #<simm>]!
+void str_simd_b_simmpre(uint8x8_t bt, uint8_t **res_ptr) {
+  asm __volatile__("STR %b1, [%0, #1]!" : "+r"(*res_ptr) : "w"(bt) : "memory");
+}
+// STR <Ht>, [<Xn|SP>, #<simm>]!
+void str_simd_h_simmpre(uint16x4_t ht, uint16_t **res_ptr) {
+  asm __volatile__("STR %h1, [%0, #2]!" : "+r"(*res_ptr) : "w"(ht) : "memory");
+}
+// STR <St>, [<Xn|SP>, #<simm>]!
+void str_simd_s_simmpre(float val, float **res_ptr) {
+  asm __volatile__("STR %d1, [%0, #4]!" : "+r"(*res_ptr) : "w"(val) : "memory");
+}
+// STR <Dt>, [<Xn|SP>, #<simm>]!
+void str_simd_d_simmpre(double val, double **res_ptr) {
+  asm __volatile__("STR %d1, [%0, #8]!" : "+r"(*res_ptr) : "w"(val) : "memory");
 }
 // STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 // no option
@@ -62,11 +86,39 @@ void str_simd_d_regoff_sxtx(double val, double *mem_ptr, uint64_t offset) {
 void stlr_x(uint64_t val, uint64_t *mem_ptr) {
   asm __volatile__("STLR %x0, [%1]" ::"r"(val), "r"(mem_ptr) : "memory");
 }
+// STP  <St1>, <St2>, [<Xn|SP>, #<imm>]!
+void stp_s_immpre(float st1, float st2, float **mem_ptr) {
+  asm __volatile__("STP %s[s1], %s[s2], [%[ptr], #8]!"
+                   : [ptr] "+r"(*mem_ptr)
+                   : [s1] "w"(st1), [s2] "w"(st2)
+                   : "memory");
+}
+// STP  <Dt1>, <Dt2>, [<Xn|SP>, #<imm>]!
+void stp_d_immpre(double dt1, double dt2, double **mem_ptr) {
+  asm __volatile__("STP %d[d1], %d[d2], [%[ptr], #16]!"
+                   : [ptr] "+r"(*mem_ptr)
+                   : [d1] "w"(dt1), [d2] "w"(dt2)
+                   : "memory");
+}
 // STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
-void stp_q_imm(uint64x2_t qt1, uint64x2_t qt2, double **mem_ptr) {
+void stp_q_immpre(uint64x2_t qt1, uint64x2_t qt2, double **mem_ptr) {
   asm __volatile__("STP %q[q1], %q[q2], [%[ptr], #16]!"
                    : [ptr] "+r"(*mem_ptr)
                    : [q1] "w"(qt1), [q2] "w"(qt2)
+                   : "memory");
+}
+// STP  <St1>, <St2>, [<Xn|SP>], #<imm>
+void stp_s_imm_post(float st1, float st2, float **mem_ptr) {
+  asm __volatile__("STP %s[s1], %s[s2], [%[ptr]], #8"
+                   : [ptr] "+r"(*mem_ptr)
+                   : [s1] "w"(st1), [s2] "w"(st2)
+                   : "memory");
+}
+// STP  <Dt1>, <Dt2>, [<Xn|SP>], #<imm>
+void stp_d_imm_post(double dt1, double dt2, double **mem_ptr) {
+  asm __volatile__("STP %s[d1], %s[d2], [%[ptr]], #16"
+                   : [ptr] "+r"(*mem_ptr)
+                   : [d1] "w"(dt1), [d2] "w"(dt2)
                    : "memory");
 }
 // STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
