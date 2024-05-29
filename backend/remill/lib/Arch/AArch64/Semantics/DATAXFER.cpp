@@ -34,6 +34,28 @@ DEF_SEM(StorePairUpdateIndex64, R64 src1, R64 src2, MV128W dst_mem, R64W dst_reg
   return memory;
 }
 
+DEF_SEM(StorePairUpdateIndexS, V32 src1, V32 src2, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
+  float32v2_t vec = {};
+  auto src1_vec = FReadV32(src1);
+  auto src2_vec = FReadV32(src2);
+  vec = FInsertV32(vec, 0, FExtractV32(src1_vec, 0));
+  vec = FInsertV32(vec, 1, FExtractV32(src2_vec, 0));
+  FWriteV32(dst_mem, vec);
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
+DEF_SEM(StorePairUpdateIndexD, V64 src1, V64 src2, MV128W dst_mem, R64W dst_reg, ADDR next_addr) {
+  float64v2_t vec = {};
+  auto src1_vec = FReadV64(src1);
+  auto src2_vec = FReadV64(src2);
+  vec = FInsertV64(vec, 0, FExtractV64(src1_vec, 0));
+  vec = FInsertV64(vec, 1, FExtractV64(src2_vec, 0));
+  FWriteV64(dst_mem, vec);
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
 DEF_SEM(StorePair32, R32 src1, R32 src2, MV64W dst) {
   uint32v2_t vec = {};
   UWriteV32(dst, UInsertV32(UInsertV32(vec, 0, Read(src1)), 1, Read(src2)));
@@ -95,6 +117,12 @@ DEF_ISEL(STP_32_LDSTPAIR_POST) = StorePairUpdateIndex32;
 DEF_ISEL(STP_64_LDSTPAIR_PRE) = StorePairUpdateIndex64;
 DEF_ISEL(STP_64_LDSTPAIR_POST) = StorePairUpdateIndex64;
 
+DEF_ISEL(STP_S_LDSTPAIR_PRE) = StorePairUpdateIndexS;
+DEF_ISEL(STP_S_LDSTPAIR_POST) = StorePairUpdateIndexS;
+
+DEF_ISEL(STP_D_LDSTPAIR_PRE) = StorePairUpdateIndexD;
+DEF_ISEL(STP_D_LDSTPAIR_POST) = StorePairUpdateIndexD;
+
 DEF_ISEL(STP_32_LDSTPAIR_OFF) = StorePair32;
 DEF_ISEL(STP_64_LDSTPAIR_OFF) = StorePair64;
 
@@ -110,6 +138,18 @@ namespace {
 template <typename S, typename D>
 DEF_SEM(StoreUpdateIndex, S src, D dst_mem, R64W dst_reg, ADDR next_addr) {
   WriteTrunc(dst_mem, Read(src));
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
+DEF_SEM(StoreUpdateIndex_S8, V8 src, MV8W dst_mem, R64W dst_reg, ADDR next_addr) {
+  SWriteV8(dst_mem, SReadV8(src));
+  Write(dst_reg, Read(next_addr));
+  return memory;
+}
+
+DEF_SEM(StoreUpdateIndex_S16, V16 src, MV16W dst_mem, R64W dst_reg, ADDR next_addr) {
+  SWriteV16(dst_mem, SReadV16(src));
   Write(dst_reg, Read(next_addr));
   return memory;
 }
@@ -198,8 +238,16 @@ DEF_ISEL(STR_32_LDST_IMMPOST) = StoreUpdateIndex<R32, M32W>;
 DEF_ISEL(STR_64_LDST_IMMPRE) = StoreUpdateIndex<R64, M64W>;
 DEF_ISEL(STR_64_LDST_IMMPOST) = StoreUpdateIndex<R64, M64W>;
 
+DEF_ISEL(STR_B_LDST_IMMPRE) = StoreUpdateIndex_S8;
+DEF_ISEL(STR_B_LDST_IMMPOST) = StoreUpdateIndex_S8;
+
+DEF_ISEL(STR_H_LDST_IMMPRE) = StoreUpdateIndex_S16;
+DEF_ISEL(STR_H_LDST_IMMPOST) = StoreUpdateIndex_S16;
+
+DEF_ISEL(STR_S_LDST_IMMPRE) = StoreUpdateIndex_F32;
 DEF_ISEL(STR_S_LDST_IMMPOST) = StoreUpdateIndex_F32;
 
+DEF_ISEL(STR_D_LDST_IMMPRE) = StoreUpdateIndex_F64;
 DEF_ISEL(STR_D_LDST_IMMPOST) = StoreUpdateIndex_F64;
 
 DEF_ISEL(STR_32_LDST_POS) = Store<R32, M32W>;
