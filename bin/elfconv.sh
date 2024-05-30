@@ -73,7 +73,7 @@ main() {
 
   # LLVM bc -> target file
   case "$TARGET" in
-    wasm-browser)
+    browser)
       echo -e "[\033[32mINFO\033[0m] Converting LLVM bitcode to WASM binary (for browser) ..."
       cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
         $WASMCC -c lift.bc -o lift.o && \
@@ -81,7 +81,7 @@ main() {
       echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
       return 0
     ;;
-    wasm-host)
+    wasi)
       echo -e "[\033[32mINFO\033[0m] Converting LLVM bitcode to WASM binary (for server) ..."
       cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
         $WASMCC -c lift.bc -o lift.o && \

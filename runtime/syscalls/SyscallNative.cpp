@@ -10,11 +10,13 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
 #include <utils/Util.h>
@@ -228,6 +230,9 @@ void __svc_native_call(void) {
       memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &_utsname, sizeof(utsname));
       state_gpr.x0.dword = ret;
     } break;
+    case AARCH64_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
+      state_gpr.x0.dword =
+          getrusage(state_gpr.x0.dword, (struct rusage *) _ecv_translate_ptr(state_gpr.x1.qword));
     case AARCH64_SYS_GETPID: /* getpid () */ state_gpr.x0.dword = getpid(); break;
     case AARCH64_SYS_GETPPID: /* getppid () */ state_gpr.x0.dword = getppid(); break;
     case AARCH64_SYS_GETTUID: /* getuid () */ state_gpr.x0.dword = getuid(); break;
@@ -275,6 +280,10 @@ void __svc_native_call(void) {
       state_gpr.x0.qword = 0;
       NOP_SYSCALL(AARCH64_SYS_MPROTECT);
       break;
+    case AARCH64_SYS_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
+      state_gpr.x0.dword =
+          wait4(state_gpr.x0.dword, (int *) _ecv_translate_ptr(state_gpr.x1.qword),
+                state_gpr.x2.dword, (struct rusage *) _ecv_translate_ptr(state_gpr.x3.qword));
     case AARCH64_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
       state_gpr.x0.qword = 0;
       NOP_SYSCALL(AARCH64_SYS_PRLIMIT64);
