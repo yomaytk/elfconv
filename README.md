@@ -30,7 +30,7 @@ elfconv/$ docker run -it --rm -p 8080:8080 --name elfconv-container elfconv-imag
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=wasm-browser ./elfconv.sh /path/to/ELF # e.g. ../examples/eratosthenes_sieve/a.out
+~/elfconv/bin# TARGET=browser ./elfconv.sh /path/to/ELF # e.g. ../examples/eratosthenes_sieve/a.out
 ~/elfconv/bin# emrun --no_browser --port 8080 exe.wasm.html
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
@@ -46,13 +46,12 @@ $ docker run -it --name elfconv-container elfconv-image
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=wasm-host ./elfconv.sh /path/to/ELF # e.g. ../examples/eratosthenes_sieve/a.out
+~/elfconv/bin# TARGET=wasi ./elfconv.sh /path/to/ELF # e.g. ../examples/eratosthenes_sieve/a.out
 ~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Source code build
 ### 1. Dev Container
-elfconv provides the Dev Container environment using the root [`Dockerfile`](https://github.com/yomaytk/elfconv/blob/main/Dockerfile) and [`.devcontainer.json`](https://github.com/yomaytk/elfconv/blob/main/.devcontainer.json), so you can develop without making the build environment if you can use Dev Container on your editor (Please refer to the official website of your editor for using Dev Container).
-The entry point of the elfconv container is [`./scripts/container-entry-point.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/container-entry-point.sh) that includes the building of elfconv.
+elfconv provides the Dev Container environment using the root [`Dockerfile`](https://github.com/yomaytk/elfconv/blob/main/Dockerfile) and [`.devcontainer.json`](https://github.com/yomaytk/elfconv/blob/main/.devcontainer.json), so you can develop without making the build environment if you can use Dev Container on your vscode (Please refer to the official website of vscode for basically using Dev Container).
 ### 2. Local Environment
 #### Dependencies
 The libraries required for the build are almost the same as those for remill, and the main libraries are as follows. The other required libraries are automatically installed using [cxx-common](https://github.com/lifting-bits/cxx-common).
@@ -85,15 +84,15 @@ After finishing the build, you can find the directory `elfconv/build/`, and you 
 You can compile the ELF binary to the WASM binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation (ELF -> LLVM bitcode by *'lifter'*) and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the WASM binary. when you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
 ```bash
 ### Browser
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasm-browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
 ~/elfconv/build# emrun --no_browser --port 8080 ./lifter/exe.wasm.html # execute the generated WASM binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
-~/elfconv/build# NEW_ROOT=/path/to/elfconv WASISDK=1 TARGET=wasm-host ../scripts/dev.sh path/to/ELF
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=wasi ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# wasmedge ./lifter/exe.wasm
 ```
 ## Acknowledgement
-elfconv uses or references some projects as following. Great thanks to its all developers!
+elfconv uses or references some projects as follows. Great thanks to its all developers!
 - remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
     - Original Source: https://github.com/lifting-bits/remill
     - elfconv uses remill in order to convert machine codes to LLVM IR instructions. the source code is contained in [`./backend/remill`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and is modified for using from front-end and supporting additional instructions.
@@ -103,4 +102,4 @@ elfconv uses or references some projects as following. Great thanks to its all d
 - MyAOT ([Apache Lisence 2.0](https://github.com/AkihiroSuda/myaot/blob/master/LICENSE))
     - Original Source: https://github.com/AkihiroSuda/myaot
     - An experimental AOT-ish compiler (Linux/riscv32 ELF → Linux/x86_64 ELF, Mach-O, WASM, ...)
-    - We refrenced the design of MyAOT for developing elfconv.
+    - We referenced the design of MyAOT for developing elfconv.
