@@ -151,8 +151,8 @@ llvm::Triple Arch::BasicTriple(void) const {
 }
 
 
-auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
-    -> ArchPtr {
+auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
+                         ArchName arch_name_) -> ArchPtr {
   switch (arch_name_) {
     case kArchInvalid: LOG(FATAL) << "Unrecognized architecture."; return nullptr;
 
@@ -238,8 +238,8 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
   }
 }
 
-auto Arch::GetUndefinedArch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
-    -> ArchPtr {
+auto Arch::GetUndefinedArch(llvm::LLVMContext *context_, OSName os_name_,
+                            ArchName arch_name_) -> ArchPtr {
   return nullptr;
 }
 
@@ -252,8 +252,8 @@ auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_nam
   return ret;
 }
 
-auto Arch::Get(llvm::LLVMContext &context, std::string_view os, std::string_view arch_name)
-    -> ArchPtr {
+auto Arch::Get(llvm::LLVMContext &context, std::string_view os,
+               std::string_view arch_name) -> ArchPtr {
   return Arch::Build(&context, GetOSName(os), GetArchName(arch_name));
 }
 
@@ -725,10 +725,7 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
 
   llvm::IRBuilder<> ir(block);
   ir.CreateAlloca(u8, nullptr, "BRANCH_TAKEN");
-  ir.CreateAlloca(addr, nullptr, "RETURN_PC");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
-  ir.CreateAlloca(u64, nullptr, "SWITCH_KEY");
-  ir.CreateAlloca(u64, nullptr, "INDIRECT_BR_ADDR");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.

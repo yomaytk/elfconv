@@ -3,14 +3,53 @@
 #include <remill/Arch/Arch.h>
 #include <remill/Arch/ArchBase.h>
 
-
 // clang-format off
 #define ADDRESS_SIZE 64
 #include <remill/Arch/AArch64/Runtime/State.h>
 // clang-format on
 
+#include <charconv>
+#include <glog/logging.h>
 #include <string>
+
 namespace remill {
+
+enum RegAction { kActionRead, kActionWrite, kActionReadWrite };
+
+class RegExp {
+  enum class RegType;
+
+ public:
+  RegExp(RegType __ecv_r_type, uint32_t __reg_num)
+      : _ecv_r_type(__ecv_r_type),
+        reg_num(__reg_num) {}
+
+  static RegExp str2RegExp(std::string_view reg_name) {
+    RegType __ecv_r_type;
+    uint32_t __reg_num;
+
+    switch (reg_name[0]) {
+      case 'X': __ecv_r_type = RegType::X; break;
+      case 'W': __ecv_r_type = RegType::W; break;
+      case 'B': __ecv_r_type = RegType::B; break;
+      case 'H': __ecv_r_type = RegType::H; break;
+      case 'S': __ecv_r_type = RegType::S; break;
+      case 'D': __ecv_r_type = RegType::D; break;
+      case 'Q': __ecv_r_type = RegType::Q; break;
+      case 'V': __ecv_r_type = RegType::V; break;
+      default: LOG(FATAL) << "Unexpected RegType at str2RegExp."; break;
+    }
+    auto conv_res =
+        std::from_chars(reg_name.data() + 1, reg_name.data() + reg_name.size(), __reg_num);
+    if (std::errc::invalid_argument == conv_res.ec) {
+      LOG(FATAL) << "Cannot convert to reg_num at str2RegExp.";
+    }
+    return RegExp(__ecv_r_type, __reg_num);
+  }
+
+  enum class RegType { X, W, B, H, S, D, Q, V } _ecv_r_type;
+  uint32_t reg_num;
+};
 
 class AArch64ArchBase : public virtual ArchBase {
  public:

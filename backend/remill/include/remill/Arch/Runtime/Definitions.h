@@ -42,6 +42,17 @@
 #  define aword dword
 #endif
 
+typedef struct {
+  uint64_t val1;
+  uint64_t val2;
+} PairI64;
+
+typedef struct {
+  uint64_t val1;
+  uint64_t val2;
+  uint64_t val3;
+} TupleI64;
+
 // Attributes that will force inlining of specific code.
 #define ALWAYS_INLINE [[gnu::always_inline]] inline
 
@@ -59,8 +70,23 @@
                                                              ##__VA_ARGS__)
 
 // Define a DEF_SEM that returns uint64_t.
-#define DEF_SEM_RETU64(name, ...) \
+#define DEF_SEM_U64(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(Memory *memory, State &state, \
+                                                              ##__VA_ARGS__)
+
+// Define a DEF_SEM that doesn't return.
+#define DEF_SEM_VOID(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static void name(Memory *memory, State &state, \
+                                                          ##__VA_ARGS__)
+
+// Define a DEF_SEM that return PairI64.
+#define DEF_SEM_PAIR(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static PairI64 name(Memory *memory, \
+                                                             State &state##__VA_ARGS__)
+
+// Define a DEF_SEM that return TupleI64.
+#define DEF_SEM_TUPLE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static TupleI64 name(Memory *memory, State &state, \
                                                               ##__VA_ARGS__)
 
 template <typename R, typename... Args>

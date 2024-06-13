@@ -472,6 +472,7 @@ void test_ldadd_word() {
   uint32_t wt = 12;
   uint32_t mem = 123;
   ldadd_word(&ws, wt, &mem);
+  assert(12 == wt);
   assert(123 == ws);
   assert(135 == mem);
   printf("LDADD  <Ws>, <Wt>, [<Xn|SP>]   done.\n");

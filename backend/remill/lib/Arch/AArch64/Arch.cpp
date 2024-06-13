@@ -143,8 +143,6 @@ enum RegUsage {
   kUseAsValue  // Interpret X31 == XZR and W31 == WZR.
 };
 
-enum Action { kActionRead, kActionWrite, kActionReadWrite };
-
 // Immediate integer type.
 enum ImmType { kUnsigned, kSigned };
 
@@ -218,7 +216,7 @@ static Operand::ShiftRegister::Shift GetOperandShift(Shift s) {
 }
 
 // Get the name of an integer register.
-static std::string RegNameXW(Action action, RegClass rclass, RegUsage rtype,
+static std::string RegNameXW(RegAction action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum number_) {
   auto number = static_cast<uint8_t>(number_);
   CHECK_LE(number, 31U);
@@ -252,7 +250,7 @@ static std::string RegNameXW(Action action, RegClass rclass, RegUsage rtype,
 }
 
 // Get the name of a floating point register.
-static std::string RegNameFP(Action action, RegClass rclass, RegUsage rtype,
+static std::string RegNameFP(RegAction action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum number_) {
   auto number = static_cast<uint8_t>(number_);
   CHECK_LE(number, 31U);
@@ -284,7 +282,8 @@ static std::string RegNameFP(Action action, RegClass rclass, RegUsage rtype,
   return ss.str();
 }
 
-static std::string RegName(Action action, RegClass rclass, RegUsage rtype, aarch64::RegNum number) {
+static std::string RegName(RegAction action, RegClass rclass, RegUsage rtype,
+                           aarch64::RegNum number) {
   switch (rclass) {
     case kRegX:
     case kRegW: return RegNameXW(action, rclass, rtype, number);
@@ -329,7 +328,7 @@ static uint64_t WriteRegSize(RegClass rclass) {
 // This gives us a register operand. If we have an operand like `<Xn|SP>`,
 // then the usage is `kTypeUsage`, otherwise (i.e. `<Xn>`), the usage is
 // a `kTypeValue`.
-static Operand::Register Reg(Action action, RegClass rclass, RegUsage rtype,
+static Operand::Register Reg(RegAction action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum reg_num) {
   Operand::Register reg;
   if (kActionWrite == action) {
@@ -344,7 +343,7 @@ static Operand::Register Reg(Action action, RegClass rclass, RegUsage rtype,
   return reg;
 }
 
-static void AddRegOperand(Instruction &inst, Action action, RegClass rclass, RegUsage rtype,
+static void AddRegOperand(Instruction &inst, RegAction action, RegClass rclass, RegUsage rtype,
                           aarch64::RegNum reg_num) {
   Operand op;
   op.type = Operand::kTypeRegister;
@@ -452,7 +451,7 @@ static void AddPCRegOp(Instruction &inst, Operand::Action action, int64_t disp,
 }
 
 // Emit a memory read or write operand of the form `[PC + disp]`.
-static void AddPCRegMemOp(Instruction &inst, Action action, int64_t disp) {
+static void AddPCRegMemOp(Instruction &inst, RegAction action, int64_t disp) {
   if (kActionRead == action) {
     AddPCRegOp(inst, Operand::kActionRead, disp, Operand::Address::kMemoryRead);
   } else if (kActionWrite == action) {
@@ -490,7 +489,7 @@ static void DecodeFallThroughPC(Instruction &inst) {
 // Which gets is:
 //    addr = Xn + imm
 //    ... deref addr and do stuff ...
-static void AddBasePlusOffsetMemOp(Instruction &inst, Action action, uint64_t access_size,
+static void AddBasePlusOffsetMemOp(Instruction &inst, RegAction action, uint64_t access_size,
                                    aarch64::RegNum base_reg, uint64_t disp) {
   Operand op;
   op.type = Operand::kTypeAddress;
@@ -527,7 +526,7 @@ static constexpr auto kInvalidReg = static_cast<aarch64::RegNum>(0xFF);
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm + imm).
-static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+static void AddPreIndexMemOp(Instruction &inst, RegAction action, uint64_t access_size,
                              aarch64::RegNum base_reg, uint64_t disp,
                              aarch64::RegNum dest_reg1 = kInvalidReg,
                              aarch64::RegNum dest_reg2 = kInvalidReg) {
@@ -569,7 +568,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm).
-static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+static void AddPostIndexMemOp(Instruction &inst, RegAction action, uint64_t access_size,
                               aarch64::RegNum base_reg, uint64_t disp,
                               aarch64::RegNum dest_reg1 = kInvalidReg,
                               aarch64::RegNum dest_reg2 = kInvalidReg) {
@@ -613,7 +612,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
 //
 // So we add in two operands: one that is a register write operand for Xn,
 // the other that is the value of (Xn + imm).
-static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_size,
+static void AddPostIndexMemOp(Instruction &inst, RegAction action, uint64_t access_size,
                               aarch64::RegNum base_reg, aarch64::RegNum disp_reg,
                               aarch64::RegNum dest_reg1 = kInvalidReg,
                               aarch64::RegNum dest_reg2 = kInvalidReg) {
@@ -830,30 +829,6 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
 #endif
     return false;
   }
-
-  // Control flow operands update the next program counter.
-  // if (inst.IsControlFlow()) {
-  //   inst.operands.emplace_back();
-  //   auto &dst_ret_pc = inst.operands.back();
-  //   dst_ret_pc.type = Operand::kTypeRegister;
-  //   dst_ret_pc.action = Operand::kActionWrite;
-  //   dst_ret_pc.size = address_size;
-  //   dst_ret_pc.reg.name = "NEXT_PC";
-  //   dst_ret_pc.reg.size = address_size;
-  // }
-
-  // The semantics will store the return address in `RETURN_PC`. This is to
-  // help synchronize program counters when lifting instructions on an ISA
-  // with delay slots.
-  // if (inst.IsFunctionCall()) {
-  //   inst.operands.emplace_back();
-  //   auto &dst_ret_pc = inst.operands.back();
-  //   dst_ret_pc.type = Operand::kTypeRegister;
-  //   dst_ret_pc.action = Operand::kActionWrite;
-  //   dst_ret_pc.size = address_size;
-  //   dst_ret_pc.reg.name = "RETURN_PC";
-  //   dst_ret_pc.reg.size = address_size;
-  // }
 
   return true;
 }

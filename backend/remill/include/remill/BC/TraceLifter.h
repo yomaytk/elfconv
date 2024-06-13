@@ -154,6 +154,23 @@ class TraceLifter::Impl {
     inst_bytes.reserve(max_inst_bytes);
   }
 
+  class WrittenRegsBasicBlock {
+   public:
+    WrittenRegsBasicBlock() : parents({}), changed_regs({}), searched(false) {}
+    WrittenRegsBasicBlock(std::set<llvm::BasicBlock *> __parents,
+                          std::unordered_map<RegExp, llvm::BasicBlock *> __changed_regs)
+        : parents(__parents),
+          changed_regs(__changed_regs),
+          searched(false) {}
+
+    // parents is the all parent basic block of this block
+    std::set<llvm::BasicBlock *> parents;
+    // map between all registers that will be changed and this block on the path to this block
+    std::unordered_map<RegExp, llvm::BasicBlock *> changed_regs;
+    // boolean to show finishing the search on the control flow graph.
+    bool searched;
+  };
+
   virtual ~Impl() {}
 
   // Lift one or more traces starting from `addr`. Calls `callback` with each
@@ -191,6 +208,14 @@ class TraceLifter::Impl {
   uint64_t PopTraceAddress(void);
 
   uint64_t PopInstructionAddress(void);
+
+  void DirectBranchWithRevCfg(llvm::BasicBlock *dst_block, llvm::BasicBlock *src_block);
+  void ConditionalBranchWithRevCfg(llvm::BasicBlock *true_block, llvm::BasicBlock *false_block,
+                                   llvm::Value *condition, llvm::BasicBlock *src_block);
+
+  // calculates the all virtual registers that is changed on the control flow at the specified basic block
+  std::unordered_map<RegExp, llvm::BasicBlock *> &
+  GetAllWrittenRegsOnCfg(llvm::BasicBlock *target_block);
 
   /* Global variable array definition helper (need override) */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(
@@ -235,6 +260,8 @@ class TraceLifter::Impl {
   DecoderWorkList dead_inst_work_list;
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
+
+  std::unordered_map<llvm::BasicBlock *, WrittenRegsBasicBlock> regs_block_cfg;
 
   std::string indirectbr_block_name;
   std::string g_get_jmp_block_address_func_name;

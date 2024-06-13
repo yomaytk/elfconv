@@ -20,6 +20,7 @@
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <map>
+#include <remill/Arch/AArch64/AArch64Base.h>
 #include <remill/Arch/Instruction.h>
 #include <remill/BC/HelperMacro.h>
 #include <remill/BC/IntrinsicTable.h>
@@ -187,6 +188,40 @@ void TraceLifter::Impl::AddTestFailedBlock() {
   abort();
 }
 
+void TraceLifter::Impl::DirectBranchWithRevCfg(llvm::BasicBlock *dst_block,
+                                               llvm::BasicBlock *src_block) {
+  auto &changed_regs_block = regs_block_cfg[dst_block];
+  changed_regs_block.parents.insert(src_block);
+  llvm::BranchInst::Create(dst_block, src_block);
+}
+
+void TraceLifter::Impl::ConditionalBranchWithRevCfg(llvm::BasicBlock *true_block,
+                                                    llvm::BasicBlock *false_block,
+                                                    llvm::Value *condition,
+                                                    llvm::BasicBlock *src_block) {
+
+  auto &true_changed_regs_block = regs_block_cfg[true_block];
+  auto &false_changed_regs_block = regs_block_cfg[false_block];
+  true_changed_regs_block.parents.insert(src_block);
+  false_changed_regs_block.parents.insert(src_block);
+  llvm::BranchInst::Create(true_block, false_block, condition, src_block);
+}
+
+std::unordered_map<RegExp, llvm::BasicBlock *> &
+TraceLifter::Impl::GetAllWrittenRegsOnCfg(llvm::BasicBlock *target_block) {
+
+  auto &changed_regs_target_block = regs_block_cfg[target_block];
+
+  // already searched
+  if (changed_regs_target_block.searched) {
+    return changed_regs_target_block.changed_regs;
+  }
+
+  // search every parent
+  for (auto parent : changed_regs_target_block.parents) {
+  }
+}
+
 /*
     TraceLifter methods
   */
@@ -240,6 +275,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   indirectbr_block = nullptr;
   inst.Reset();
   delayed_inst.Reset();
+  regs_block_cfg.clear();
 
   // Get a trace head that the manager knows about, or that we
   // will eventually tell the trace manager about.
@@ -304,7 +340,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
-      llvm::BranchInst::Create(GetOrCreateBlock(trace_addr), entry_block);
+      DirectBranchWithRevCfg(GetOrCreateBlock(trace_addr), entry_block);
+      // sets the ChangedRegsBasicBlock of entry block
+      auto changed_regs_entry_block = ChangedRegsBasicBlock();
+      changed_regs_entry_block.searched = true;
+      regs_block_cfg[entry_block] = changed_regs_entry_block;
+    } else {
+      LOG(FATAL) << "Cannot find the entry block at TraceLifter::Impl::Lift.";
     }
 
     CHECK(inst_work_list.empty());
@@ -353,6 +395,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       (void) new llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
                                  LoadProgramCounterRef(block), block);
 #endif
+
+      // sets the registers that will be changed
+      for (auto &op : inst.operands) {
+        CHECK(!changed_regs_map.contains(block));
+        auto &changed_regs_set = changed_regs_map[block];
+        if (RegAction::kActionWrite == op.action || RegAction::kActionReadWrite == op.action) {
+          changed_regs_set.emplace(RegExp::str2RegExp(op.reg.name));
+        }
+      }
 
       // Lift instruction
       auto lift_status =
@@ -412,7 +463,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         case Instruction::kCategoryNormal:
         case Instruction::kCategoryNoOp:
-          llvm::BranchInst::Create(GetOrCreateNextBlock(), block);
+          DirectBranchWithRevCfg(GetOrCreateNextBlock(), block);
           break;
 
         // Direct jumps could either be local or could be tail-calls. In the
@@ -423,7 +474,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // sacrifice in correctness is made.
         case Instruction::kCategoryDirectJump:
           try_add_delay_slot(true, block);
-          llvm::BranchInst::Create(GetOrCreateBranchTakenBlock(), block);
+          DirectBranchWithRevCfg(GetOrCreateBranchTakenBlock(), block);
           break;
 
         /* case: BR instruction (only BR in glibc) */
@@ -453,7 +504,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
           // indirect jump address is value of %Xzzz just before
           AddCall(block, intrinsics->function_call, *intrinsics, FindIndirectBrAddress(block));
-          llvm::BranchInst::Create(fall_through_block, block);
+          DirectBranchWithRevCfg(fall_through_block, block);
           block = fall_through_block;
           continue;
         }
@@ -473,10 +524,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithRevCfg(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithRevCfg(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
           AddCall(taken_block, intrinsics->function_call, *intrinsics);
 
@@ -530,10 +581,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithRevCfg(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithRevCfg(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
           trace_work_list.insert(inst.branch_taken_pc);
           auto target_trace = get_trace_decl(inst.branch_taken_pc);
@@ -557,8 +608,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // TODO(pag): Delay slots?
         case Instruction::kCategoryConditionalAsyncHyperCall: {
           auto do_hyper_call = llvm::BasicBlock::Create(context, "", func);
-          llvm::BranchInst::Create(do_hyper_call, GetOrCreateNextBlock(), LoadBranchTaken(block),
-                                   block);
+          ConditionalBranchWithRevCfg(do_hyper_call, GetOrCreateNextBlock(), LoadBranchTaken(block),
+                                      block);
           block = do_hyper_call;
           AddCall(block, intrinsics->async_hyper_call, *intrinsics,
                   llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
@@ -594,10 +645,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithRevCfg(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithRevCfg(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
           AddTerminatingTailCall(taken_block, intrinsics->function_return, *intrinsics, trace_addr);
           block = orig_not_taken_block;
@@ -619,14 +670,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, new_taken_block);
             try_add_delay_slot(false, new_not_taken_block);
 
-            llvm::BranchInst::Create(taken_block, new_taken_block);
-            llvm::BranchInst::Create(not_taken_block, new_not_taken_block);
+            DirectBranchWithRevCfg(taken_block, new_taken_block);
+            DirectBranchWithRevCfg(not_taken_block, new_not_taken_block);
 
             taken_block = new_taken_block;
             not_taken_block = new_not_taken_block;
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithRevCfg(taken_block, not_taken_block, LoadBranchTaken(block), block);
           break;
         }
         // no instruction in aarch64?
@@ -645,10 +696,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithRevCfg(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithRevCfg(taken_block, not_taken_block, LoadBranchTaken(block), block);
 
           AddTerminatingTailCall(taken_block, intrinsics->jump, *intrinsics, trace_addr);
           block = orig_not_taken_block;
@@ -719,6 +770,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       /* br_to_func_block */
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
     }
+
+    // replace all dummy virtual registers with true registers
+    auto &entry_block = func->getEntryBlock();
+
 
     for (auto &block : *func) {
       if (!block.getTerminator()) {

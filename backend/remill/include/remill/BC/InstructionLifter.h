@@ -80,6 +80,10 @@ class InstructionLifterIntf : public OperandLifter {
                                    llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) = 0;
 
+  virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
+                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   bool is_delayed = false) = 0;
+
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
@@ -108,6 +112,9 @@ class InstructionLifter : public InstructionLifterIntf {
                                    llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) override;
 
+  virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
+                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   bool id_delayed = false) override;
 
   // Load the address of a register.
   std::pair<llvm::Value *, llvm::Type *>
@@ -117,6 +124,10 @@ class InstructionLifter : public InstructionLifterIntf {
   // Load the value of a register.
   llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                             std::string_view reg_name) const override final;
+
+  // Load the value of a register with `dummy virtual register`.
+  llvm::Value *LoadRegValueWithDummy(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                     std::string_view reg_name_);
 
   // Clear out the cache of the current register values/addresses loaded.
   void ClearCache(void) const override;
@@ -182,6 +193,9 @@ class InstructionLifter : public InstructionLifterIntf {
   const std::unique_ptr<Impl> impl;
   const std::string debug_memory_value_change_name;
   const std::string debug_insn_name;
+
+ public:
+  static uint64_t dummy_random;
 };
 
 }  // namespace remill

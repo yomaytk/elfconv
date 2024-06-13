@@ -9,6 +9,7 @@
 #include <remill/BC/HelperMacro.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -204,7 +205,7 @@ void __svc_wasi_call(void) {
       break;
     case AARCH64_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
-      struct __my_utsname {
+      struct __ecv_utsname {
         char sysname[65];
         char nodename[65];
         char relase[65];
@@ -216,6 +217,9 @@ void __svc_wasi_call(void) {
       memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &new_utsname, sizeof(new_utsname));
       state_gpr.x0.dword = 0;
     } break;
+    case AARCH64_SYS_GETRUSAGE: /* int getrusage(int who, struct rusage *ru) */
+      state_gpr.x0.dword =
+          getrusage(state_gpr.x0.dword, (struct rusage *) _ecv_translate_ptr(state_gpr.x1.qword));
     case AARCH64_SYS_GETPID: /* getpid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETPPID: /* getppid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETTUID: /* getuid () */ state_gpr.x0.dword = 42; break;
@@ -262,6 +266,10 @@ void __svc_wasi_call(void) {
     case AARCH64_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       state_gpr.x0.qword = 0;
       NOP_SYSCALL(AARCH64_SYS_MPROTECT);
+      break;
+    case AARCH64_SYS_WAIT4: /* pid_t wait4(pid_t pid, int *status, int options, struct rusage *rusage) */
+      state_gpr.x0.qword = 0;
+      NOP_SYSCALL(AARCH64_SYS_WAIT4); /* FIXME */
       break;
     case AARCH64_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
       state_gpr.x0.qword = 0;

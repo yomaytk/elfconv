@@ -18,6 +18,8 @@
 
 #include "remill/BC/HelperMacro.h"
 
+#include <iostream>
+
 namespace remill {
 namespace {
 
@@ -184,7 +186,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   args[0] = ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref);
 
   // Call the function that implements the instruction semantics.
-  ir.CreateStore(ir.CreateCall(isel_func, args), mem_ptr_ref);
+  auto sema_fun_retval = ir.CreateCall(isel_func, args);
 
   // End an atomic block.
   if (arch_inst.is_atomic_read_modify_write) {
@@ -327,9 +329,38 @@ void InstructionLifter::ClearCache(void) const {
 // Load the value of a register.
 llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                              std::string_view reg_name) const {
+  std::cout << "[WARNING] InstructionLifter::LoadRegValue is called! isn't it ok? (with "
+            << reg_name << ")" << std::endl;
   auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
   CHECK_NOTNULL(ptr);
   return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), block);
+}
+
+// Sets dummy variable to every CPU registers
+// After deciding control flow of the target function, replace this instruction with PHI node.
+llvm::Value *InstructionLifter::LoadRegValueWithDummy(llvm::BasicBlock *block,
+                                                      llvm::Value *state_ptr,
+                                                      std::string_view reg_name_) {
+  auto func = block->getParent();
+  auto module = func->getParent();
+  auto &context = module->getContext();
+
+  if (func != impl->last_func) {
+    impl->reg_ptr_cache.clear();  // (FIXME) maybe not necessary
+    impl->last_func = func;
+
+    CHECK_EQ(module, impl->module);
+  }
+
+  std::string reg_name((char *) reg_name_.data(), reg_name_.size());
+
+  auto [_, reg_type] = LoadRegAddress(block, state_ptr, reg_name);
+
+  auto dummy_val = llvm::ConstantInt::get(reg_type, -1);
+  auto dummy_val_name = reg_name + "_dummy_" + std::to_string(++dummy_random);
+  dummy_val->setName(dummy_val_name);
+
+  return dummy_val;
 }
 
 // Return a register value, or zero.
@@ -341,7 +372,7 @@ InstructionLifter::LoadWordRegValOrZero(llvm::BasicBlock *block, llvm::Value *st
     return zero;
   }
 
-  auto val = LoadRegValue(block, state_ptr, reg_name);
+  auto val = LoadRegValueWithDummy(block, state_ptr, reg_name);
   auto val_type = llvm::dyn_cast_or_null<llvm::IntegerType>(val->getType());
   auto word_type = zero->getType();
 
@@ -373,7 +404,7 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
                                  << "for instruction at " << std::hex << inst.pc;
 
   const llvm::DataLayout data_layout(module);
-  auto reg = LoadRegValue(block, state_ptr, arch_reg.name);
+  auto reg = LoadRegValueWithDummy(block, state_ptr, arch_reg.name);
   auto reg_type = reg->getType();
   auto reg_size = data_layout.getTypeSizeInBits(reg_type).getFixedValue();
   auto word_size = impl->arch->address_size;
@@ -387,6 +418,7 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
 
   llvm::IRBuilder<> ir(block);
 
+  // sets extend data (e.g. `(<Wm>|<Xm>){, <extend> {<amount>}}`)
   auto curr_size = reg_size;
   if (Operand::ShiftRegister::kExtendInvalid != op.shift_reg.extend_op) {
 
@@ -427,6 +459,7 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
     curr_size = op.size;
   }
 
+  // sets shift data (e.g. `(<Wm>|<Xm>){, <extend> {<amount>}}`)
   if (Operand::ShiftRegister::kShiftInvalid != op.shift_reg.shift_op) {
 
     CHECK_LT(shift_size, op.size) << "Shift of size " << shift_size
@@ -550,7 +583,7 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
         << "Expected " << arch_reg.name << " to be an integral or float type "
         << "for instruction at " << std::hex << inst.pc;
 
-    auto val = LoadRegValue(block, state_ptr, arch_reg.name);
+    auto val = LoadRegValueWithDummy(block, state_ptr, arch_reg.name);
 
     const llvm::DataLayout data_layout(module);
     auto val_type = val->getType();
@@ -599,9 +632,9 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
   if (arch_op.size > impl->arch->address_size) {
     CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
         << "Argument to semantics function for instruction at " << std::hex << inst.pc
-        << " is not an integer. This may not be surprising because "
-        << "the immediate operand is " << arch_op.size << " bits, but the "
-        << "machine word size is " << impl->arch->address_size << " bits.";
+        << " is not an integer. This may not be surprising because " << "the immediate operand is "
+        << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
+        << " bits.";
 
     CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
                               << "Operand structure encodes a truncated " << arch_op.size << " bit "
@@ -651,8 +684,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     if (val_size < arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
+            << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
@@ -671,8 +704,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     } else if (val_size > arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
+            << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
