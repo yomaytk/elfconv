@@ -65,8 +65,8 @@ class InstructionLifter::Impl {
   // Machine word type for this architecture.
   llvm::Type *const word_type;
 
-  // Type of the memory pointer.
-  llvm::Type *const memory_ptr_type;
+  // Type of the runtime pointer.
+  llvm::Type *const runtime_ptr_type;
 
   // Cache of looked up registers inside of `last_func`.
   std::unordered_map<std::string, std::pair<llvm::Value *, llvm::Type *>> reg_ptr_cache;

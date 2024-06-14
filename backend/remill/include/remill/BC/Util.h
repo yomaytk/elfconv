@@ -124,22 +124,8 @@ void StoreProgramCounter(llvm::BasicBlock *block, llvm::Value *pc);
 // Update the next program counter in the state struct with a new value.
 void StoreNextProgramCounter(llvm::BasicBlock *block, llvm::Value *pc);
 
-// Return the memory pointer argument.
-llvm::Value *LoadMemoryPointerArg(llvm::Function *func);
-
 // Return the program counter argument.
 llvm::Value *LoadProgramCounterArg(llvm::Function *function);
-
-// Return the current memory pointer.
-llvm::Value *LoadMemoryPointer(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
-
-llvm::Value *LoadMemoryPointer(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
-
-// Return a reference to the memory pointer.
-llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block);
-
-/* Return a reference to the indirect br addr ref. */
-llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block);
 
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
 // or not a conditional branch is taken.
@@ -147,6 +133,17 @@ llvm::Value *LoadBranchTaken(llvm::IRBuilder<> &builder);
 llvm::Value *LoadBranchTaken(llvm::BasicBlock *block);
 
 llvm::Value *LoadBranchTakenRef(llvm::BasicBlock *block);
+
+// Return the runtime pointer argument.
+llvm::Value *LoadRuntimePointerArg(llvm::Function *func);
+
+// Return the current runtime pointer.
+llvm::Value *LoadRuntimePointer(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
+
+llvm::Value *LoadRuntimePointer(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
+
+// Return a reference to the runtime pointer.
+llvm::Value *LoadRuntimePointerRef(llvm::BasicBlock *block);
 
 // Find a function with name `name` in the module `M`.
 llvm::Function *FindFunction(llvm::Module *M, std::string_view name);

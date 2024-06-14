@@ -148,8 +148,8 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       state_ptr_type(llvm::dyn_cast<llvm::PointerType>(
           lifted_function_type->getParamType(kStatePointerArgNum))),
       pc_type(llvm::dyn_cast<llvm::IntegerType>(lifted_function_type->getParamType(kPCArgNum))),
-      mem_ptr_type(llvm::dyn_cast<llvm::PointerType>(
-          lifted_function_type->getParamType(kMemoryPointerArgNum))) {
+      runtime_ptr_type(llvm::dyn_cast<llvm::PointerType>(
+          lifted_function_type->getParamType(kRuntimePointerArgNum))) {
 
 
   // Make sure to set the correct attributes on this to make sure that

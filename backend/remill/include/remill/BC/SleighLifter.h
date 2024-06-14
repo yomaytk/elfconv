@@ -107,7 +107,7 @@ class SleighLifterWithState final : public InstructionLifterIntf {
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const override;
 
-  virtual llvm::Type *GetMemoryType() override;
+  virtual llvm::Type *GetRuntimeType() override;
 
   virtual void ClearCache(void) const override;
 

@@ -65,7 +65,7 @@ class OperandLifter {
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const = 0;
 
-  virtual llvm::Type *GetMemoryType() = 0;
+  virtual llvm::Type *GetRuntimeType() = 0;
 
   virtual void ClearCache(void) const = 0;
 };
@@ -122,7 +122,7 @@ class InstructionLifter : public InstructionLifterIntf {
   void ClearCache(void) const override;
 
 
-  virtual llvm::Type *GetMemoryType() override final;
+  virtual llvm::Type *GetRuntimeType() override final;
 
  protected:
   // Lift an operand to an instruction.

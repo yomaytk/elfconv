@@ -103,7 +103,7 @@ class IntrinsicTable {
   llvm::FunctionType *const lifted_function_type;
   llvm::PointerType *const state_ptr_type;
   llvm::IntegerType *const pc_type;
-  llvm::PointerType *const mem_ptr_type;
+  llvm::PointerType *const runtime_ptr_type;
 
 
  private:
