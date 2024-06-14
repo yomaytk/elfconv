@@ -548,11 +548,11 @@ bool StoreModuleIRToFile(llvm::Module *module, std::string_view file_name_, bool
 
 namespace {
 
-#ifndef REMILL_BUILD_SEMANTICS_DIR_X86
-#  error \
-      "Macro `REMILL_BUILD_SEMANTICS_DIR_X86` must be defined to support X86 and AMD64 architectures."
-#  define REMILL_BUILD_SEMANTICS_DIR_X86
-#endif  // REMILL_BUILD_SEMANTICS_DIR_X86
+// #ifndef REMILL_BUILD_SEMANTICS_DIR_X86
+// #  error \
+//       "Macro `REMILL_BUILD_SEMANTICS_DIR_X86` must be defined to support X86 and AMD64 architectures."
+// #  define REMILL_BUILD_SEMANTICS_DIR_X86
+// #endif  // REMILL_BUILD_SEMANTICS_DIR_X86
 
 // #ifndef REMILL_BUILD_SEMANTICS_DIR_AARCH32
 // #  error \
@@ -597,7 +597,7 @@ using paths_t = std::vector<std::filesystem::path>;
 
 const paths_t &DefaultSemanticsSearchPaths() {
   static const paths_t paths = {
-      REMILL_BUILD_SEMANTICS_DIR_X86,
+      // REMILL_BUILD_SEMANTICS_DIR_X86,
       // REMILL_BUILD_SEMANTICS_DIR_AARCH32,
       REMILL_BUILD_SEMANTICS_DIR_AARCH64,
       // REMILL_BUILD_SEMANTICS_DIR_SPARC32,
