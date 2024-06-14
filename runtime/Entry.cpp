@@ -1,4 +1,4 @@
-#include "Memory.h"
+#include "Runtime.h"
 
 #include <cstdint>
 #include <cstring>
@@ -16,7 +16,6 @@
 #include <stdio.h>
 
 State g_state = State();
-RuntimeManager *g_run_mgr;
 
 int main(int argc, char *argv[]) {
 
@@ -53,17 +52,18 @@ int main(int argc, char *argv[]) {
   g_state.sr.midr_el1 = {.qword = 0xf0510};
   g_state.sr.ctr_el0 = {.qword = 0x80038003};
   g_state.sr.dczid_el0 = {.qword = 0x4};
-  /* set global RuntimeManager */
-  g_run_mgr = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
-  g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
+  /* set RuntimeManager */
+  auto runtime_manager = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
+  runtime_manager->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
   /* set lifted function pointer table */
   for (int i = 0; __g_fn_vmas[i] && __g_fn_ptr_table[i]; i++) {
-    g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
+    runtime_manager->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
   }
 #if defined(LIFT_CALLSTACK_DEBUG)
   /* set lifted function symbol table (for debug) */
   for (int i = 0; __g_fn_vmas_second[i] && __g_fn_symbol_table[i]; i++) {
-    g_run_mgr->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char *) __g_fn_symbol_table[i];
+    runtime_manager->addr_fn_symbol_map[__g_fn_vmas_second[i]] =
+        (const char *) __g_fn_symbol_table[i];
   }
 #endif
   /* set global block address data array */
@@ -74,12 +74,12 @@ int main(int argc, char *argv[]) {
     auto t_block_address_vmas = __g_block_address_vmas_array[i];
     for (int j = 0; j < bb_num; j++)
       vma_bb_map[t_block_address_vmas[j]] = t_block_address_ptrs[j];
-    g_run_mgr->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
+    runtime_manager->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
   }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
-  __g_entry_func(&g_state, __g_entry_pc, nullptr);
+  __g_entry_func(&g_state, __g_entry_pc, runtime_manager);
 
-  delete (g_run_mgr);
+  delete (runtime_manager);
 
   return 0;
 }
