@@ -33,6 +33,7 @@
 struct State;
 struct Memory;
 struct RegisterWindow;
+class RuntimeManager;
 
 // Address in the source architecture type. We don't use a `uintptr_t` because
 // that might be specific to the destination architecture type.
@@ -56,7 +57,7 @@ typedef int16_t addr_diff_t;
 #endif
 
 // Entry function of the original ELF
-typedef unsigned long (*LiftedFunc)(State *state, addr_t pc, Memory *memory);
+typedef unsigned long (*LiftedFunc)(State *state, addr_t pc, RuntimeManager *runtime_manager);
 
 // Note: We are re-defining the `std::is_signed` type trait because we can't
 //       always explicitly specialize it inside of the `std` namespace.

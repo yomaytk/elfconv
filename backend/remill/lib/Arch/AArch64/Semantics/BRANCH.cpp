@@ -127,37 +127,27 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
-DEF_SEM(DoDirectBranch, PC target_pc) {
-  return memory;
-}
+DEF_SEM(DoDirectBranch, PC target_pc) {}
 
 template <typename S>
-DEF_SEM(DoIndirectBranch, S dst) {
-  return memory;
-}
+DEF_SEM(DoIndirectBranch, S dst) {}
 
 template <bool (*check_cond)(const State &)>
 DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
   uint8_t take_branch = check_cond(state);
   Write(cond, take_branch);
-
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
   uint8_t take_branch = UCmpEq(Read(src), 0);
   Write(cond, take_branch);
-
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
   uint8_t take_branch = UCmpNeq(Read(src), 0);
   Write(cond, take_branch);
-
-  return memory;
 }
 
 
@@ -168,8 +158,6 @@ DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
   auto take_branch = UCmpEq(bit_set, 0);
   Write(cond, take_branch);
-
-  return memory;
 }
 
 template <typename S>
@@ -179,8 +167,6 @@ DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
   auto take_branch = UCmpNeq(bit_set, 0);
   Write(cond, take_branch);
-
-  return memory;
 }
 
 }  // namespace

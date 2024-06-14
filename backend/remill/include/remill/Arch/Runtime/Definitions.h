@@ -55,8 +55,8 @@
 
 // Define a semantics implementing function.
 #define DEF_SEM(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static Memory *name(Memory *memory, State &state, \
-                                                             ##__VA_ARGS__)
+  ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *runtime_manager, \
+                                                          State &state, ##__VA_ARGS__)
 
 // Define a DEF_SEM that returns uint64_t.
 #define DEF_SEM_RETU64(name, ...) \

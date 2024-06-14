@@ -45,7 +45,8 @@
 
 #include "remill/Arch/Runtime/Intrinsics.h"
 
-Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name call) {
+void __remill_sync_hyper_call(State &state, RuntimeManager *runtime_manager,
+                              SyncHyperCall::Name call) {
 
 #if REMILL_HYPERCALL_X86
   register uint32_t esp asm("esp") = state.gpr.rsp.dword;

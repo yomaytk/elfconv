@@ -20,9 +20,7 @@ extern "C" void debug_state_machine();
 
 namespace {
 
-DEF_SEM(DoNOP) {
-  return memory;
-}
+DEF_SEM(DoNOP) {}
 
 }  // namespace
 
@@ -36,25 +34,15 @@ DEF_ISEL(PRFM_P_LDST_POS) = DoNOP;
 
 namespace {
 
-DEF_SEM(UNDEF_CNTB_X64_BITCOUNT) {
-  return memory;
-}
+DEF_SEM(UNDEF_CNTB_X64_BITCOUNT) {}
 
-DEF_SEM(UNDEF_CNTD_X64_BITCOUNT) {
-  return memory;
-}
+DEF_SEM(UNDEF_CNTD_X64_BITCOUNT) {}
 
-DEF_SEM(UNDEF_CNTH_X64_BITCOUNT) {
-  return memory;
-}
+DEF_SEM(UNDEF_CNTH_X64_BITCOUNT) {}
 
-DEF_SEM(UNDEF_CNTW_X64_BITCOUNT) {
-  return memory;
-}
+DEF_SEM(UNDEF_CNTW_X64_BITCOUNT) {}
 
-DEF_SEM(UNDEF_WHILELO_PREDICATE) {
-  return memory;
-}
+DEF_SEM(UNDEF_WHILELO_PREDICATE) {}
 
 }  // namespace
 

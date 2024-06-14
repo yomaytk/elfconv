@@ -19,13 +19,13 @@
 namespace {
 
 // Read a register directly. Sometimes this is needed for suppressed operands.
-ALWAYS_INLINE static addr_t _Read(Memory *, Reg reg) {
+ALWAYS_INLINE static addr_t _Read(RuntimeManager *, Reg reg) {
   return reg.aword;
 }
 
 // Write directly to a register. This is sometimes needed for suppressed
 // register operands.
-ALWAYS_INLINE static void _Write(Memory *, Reg &reg, addr_t val) {
+ALWAYS_INLINE static void _Write(RuntimeManager *, Reg &reg, addr_t val) {
   reg.aword = val;
 }
 

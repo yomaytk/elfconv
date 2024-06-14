@@ -92,13 +92,13 @@ namespace {
 
 // Takes the place of an unsupported instruction.
 DEF_SEM(HandleUnsupported) {
-  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kAArch64EmulateInstruction);
+  return __remill_sync_hyper_call(state, runtime_manager,
+                                  SyncHyperCall::kAArch64EmulateInstruction);
 }
 
 // Takes the place of an invalid instruction.
 DEF_SEM(HandleInvalidInstruction) {
   HYPER_CALL = AsyncHyperCall::kInvalidInstruction;
-  return memory;
 }
 
 }  // namespace

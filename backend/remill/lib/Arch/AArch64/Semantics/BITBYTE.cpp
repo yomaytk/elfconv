@@ -22,7 +22,6 @@ namespace {
 template <typename D, typename S1, typename S2>
 DEF_SEM(UBFM, D dst, S1 src1, S2 mask) {
   WriteZExt(dst, UAnd(Read(src1), Read(mask)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -43,7 +42,6 @@ DEF_SEM(SBFM, D dst, S1 src1, S2 src2, S2 src3, S2 src4, S2 src5) {
 
   // Combine extension bits and result bits.
   WriteZExt(dst, UOr(UAnd(top, UNot(tmask)), UAnd(bot, tmask)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -60,7 +58,6 @@ DEF_SEM(BFM, D dst, S1 src1, S2 src2, S2 src3, S2 src4) {
 
   // Combine extension bits and result bits.
   WriteZExt(dst, UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask)));
-  return memory;
 }
 
 }  // namespace
@@ -88,7 +85,6 @@ DEF_SEM(EXTR, D dst, S src1, S src2, I src3) {
     auto operand2 = UShr(Read(src2), lsb);
     WriteZExt(dst, UOr(operand1, operand2));
   }
-  return memory;
 }
 
 }  // namespace
@@ -102,7 +98,6 @@ template <typename D, typename S>
 DEF_SEM(CLZ, D dst, S src) {
   auto count = CountLeadingZeros(Read(src));
   WriteZExt(dst, count);
-  return memory;
 }
 }  // namespace
 
@@ -118,7 +113,6 @@ DEF_SEM(REV16_32, R32W dst, R32 src) {
     word = __builtin_bswap16(word);
   }
   WriteZExt(dst, v.dwords.elems[0]);
-  return memory;
 }
 
 DEF_SEM(REV16_64, R64W dst, R64 src) {
@@ -128,12 +122,10 @@ DEF_SEM(REV16_64, R64W dst, R64 src) {
     word = __builtin_bswap16(word);
   }
   Write(dst, v.qwords.elems[0]);
-  return memory;
 }
 
 DEF_SEM(REV32_32, R32W dst, R32 src) {
   WriteZExt(dst, __builtin_bswap32(Read(src)));
-  return memory;
 }
 
 DEF_SEM(REV32_64, R64W dst, R64 src) {
@@ -143,12 +135,10 @@ DEF_SEM(REV32_64, R64W dst, R64 src) {
     dword = __builtin_bswap32(dword);
   }
   Write(dst, v.qwords.elems[0]);
-  return memory;
 }
 
 DEF_SEM(REV64, R64W dst, R64 src) {
   Write(dst, __builtin_bswap64(Read(src)));
-  return memory;
 }
 
 template <typename T, size_t n>
@@ -166,7 +156,6 @@ ALWAYS_INLINE static T ReverseBits(T v) {
 
 DEF_SEM(RBIT32, R32W dst, R32 src) {
   WriteZExt(dst, __builtin_bitreverse32(Read(src)));
-  return memory;
 }
 
 
@@ -176,7 +165,6 @@ DEF_SEM(RBIT32, R32W dst, R32 src) {
 
 DEF_SEM(RBIT64, R64W dst, R64 src) {
   Write(dst, __builtin_bitreverse64(Read(src)));
-  return memory;
 }
 
 }  // namespace

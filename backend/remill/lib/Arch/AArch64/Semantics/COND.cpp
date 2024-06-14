@@ -21,7 +21,6 @@ template <bool (*check_cond)(const State &), typename D, typename S1, typename S
 DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
   auto val = check_cond(state) ? Read(src1) : Read(src2);
   WriteZExt(dst, val);
-  return memory;
 }
 
 // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
@@ -32,7 +31,7 @@ DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
     auto src2_val = FExtractV##elem_size(FReadV##elem_size(src2), 0); \
     auto val = check_cond(state) ? src1_val : src2_val; \
     FWriteV##elem_size(dst, val); \
-    return memory; \
+\
   }  // namespace
 
 MAKE_FCSEL(64);
@@ -68,7 +67,6 @@ namespace {
 template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSNEG, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S2>(1))));
-  return memory;
 }
 
 }  // namespace
@@ -82,7 +80,6 @@ namespace {
 template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSINC, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(Read(src2), 1)));
-  return memory;
 }
 }  // namespace
 
@@ -94,7 +91,6 @@ namespace {
 template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
 DEF_SEM(CSINV, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, Select(check_cond(state), Read(src1), UNot(Read(src2))));
-  return memory;
 }
 }  // namespace
 
@@ -114,7 +110,6 @@ DEF_SEM(CCMP, S1 src1, S2 src2, S2 nzcv) {
     FLAG_Z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
     FLAG_N = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
   }
-  return memory;
 }
 
 template <bool (*check_cond)(const State &), typename S1, typename S2>
@@ -129,7 +124,6 @@ DEF_SEM(CCMN, S1 src1, S2 src2, S2 nzcv) {
     FLAG_Z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
     FLAG_N = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
   }
-  return memory;
 }
 }  // namespace
 

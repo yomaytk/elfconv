@@ -19,13 +19,11 @@ namespace {
 template <typename D, typename S1, typename S2>
 DEF_SEM(SUB, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, USub(Read(src1), Read(src2)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(ADD, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UAdd(Read(src1), Read(src2)));
-  return memory;
 }
 }  // namespace
 
@@ -65,7 +63,6 @@ DEF_SEM(SUBS, D dst, S1 src1, S2 src2) {
   auto rhs = Read(src2);
   auto res = AddWithCarryNZCV(state, lhs, UNot(rhs), rhs, T(1));
   WriteZExt(dst, res);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -75,7 +72,6 @@ DEF_SEM(ADDS, D dst, S1 src1, S2 src2) {
   auto rhs = Read(src2);
   auto res = AddWithCarryNZCV(state, lhs, rhs, rhs, T(0));
   WriteZExt(dst, res);
-  return memory;
 }
 }  // namespace
 
@@ -97,12 +93,10 @@ namespace {
 
 DEF_SEM(UMADDL, R64W dst, R32 src1, R32 src2, R64 src3) {
   Write(dst, UAdd(Read(src3), UMul(ZExt(Read(src1)), ZExt(Read(src2)))));
-  return memory;
 }
 
 DEF_SEM(UMSUBL, R64W dst, R32 src1, R32 src2, R64 src3) {
   Write(dst, USub(Read(src3), UMul(ZExt(Read(src1)), ZExt(Read(src2)))));
-  return memory;
 }
 
 DEF_SEM(SMADDL, R64W dst, R32 src1, R32 src2, R64 src3) {
@@ -110,7 +104,6 @@ DEF_SEM(SMADDL, R64W dst, R32 src1, R32 src2, R64 src3) {
   auto operand2 = SExt(Signed(Read(src2)));
   auto operand3 = Signed(Read(src3));
   Write(dst, Unsigned(SAdd(operand3, SMul(operand1, operand2))));
-  return memory;
 }
 
 DEF_SEM(UMULH, R64W dst, R64 src1, R64 src2) {
@@ -118,7 +111,6 @@ DEF_SEM(UMULH, R64W dst, R64 src1, R64 src2) {
   uint128_t rhs = ZExt(Read(src2));
   uint128_t res = UMul(lhs, rhs);
   Write(dst, Trunc(UShr(res, 64)));
-  return memory;
 }
 
 DEF_SEM(SMULH, R64W dst, R64 src1, R64 src2) {
@@ -126,7 +118,6 @@ DEF_SEM(SMULH, R64W dst, R64 src1, R64 src2) {
   int128_t rhs = SExt(Signed(Read(src2)));
   uint128_t res = Unsigned(SMul(lhs, rhs));
   Write(dst, Trunc(UShr(res, 64)));
-  return memory;
 }
 
 template <typename D, typename S>
@@ -139,7 +130,6 @@ DEF_SEM(UDIV, D dst, S src1, S src2) {
   } else {
     WriteZExt(dst, UDiv(lhs, rhs));
   }
-  return memory;
 }
 
 template <typename D, typename S>
@@ -152,19 +142,16 @@ DEF_SEM(SDIV, D dst, S src1, S src2) {
   } else {
     WriteZExt(dst, Unsigned(SDiv(lhs, rhs)));
   }
-  return memory;
 }
 
 template <typename D, typename S>
 DEF_SEM(MADD, D dst, S src1, S src2, S src3) {
   WriteZExt(dst, UAdd(Read(src3), UMul(Read(src1), Read(src2))));
-  return memory;
 }
 
 template <typename D, typename S>
 DEF_SEM(MSUB, D dst, S src1, S src2, S src3) {
   WriteZExt(dst, USub(Read(src3), UMul(Read(src1), Read(src2))));
-  return memory;
 }
 
 }  // namespace
@@ -195,7 +182,6 @@ template <typename D, typename S>
 DEF_SEM(SBC, D dst, S src1, S src2) {
   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
   WriteZExt(dst, UAdd(UAdd(Read(src1), UNot(Read(src2))), carry));
-  return memory;
 }
 
 template <typename D, typename S>
@@ -203,14 +189,12 @@ DEF_SEM(SBCS, D dst, S src1, S src2) {
   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
   auto res = AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2), carry);
   WriteZExt(dst, res);
-  return memory;
 }
 
 template <typename D, typename S>
 DEF_SEM(ADC, D dst, S src1, S src2) {
   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
   WriteZExt(dst, UAdd(UAdd(Read(src1), Read(src2)), carry));
-  return memory;
 }
 
 // template <typename D, typename S>
@@ -219,7 +203,7 @@ DEF_SEM(ADC, D dst, S src1, S src2) {
 //   auto res =
 //       AddWithCarryNZCV(state, Read(src1), Read(src2), Read(src2), carry);
 //   WriteZExt(dst, res);
-//   return memory;
+//
 // }
 
 }  // namespace
@@ -240,7 +224,6 @@ DEF_SEM(FADD_Scalar32, V128W dst, V32 src1, V32 src2) {
   auto val2 = FExtractV32(FReadV32(src2), 0);
   auto sum = CheckedFloatBinOp(state, FAdd32, val1, val2);
   FWriteV32(dst, sum);
-  return memory;
 }
 
 DEF_SEM(FADD_Scalar64, V128W dst, V64 src1, V64 src2) {
@@ -248,7 +231,6 @@ DEF_SEM(FADD_Scalar64, V128W dst, V64 src1, V64 src2) {
   auto val2 = FExtractV64(FReadV64(src2), 0);
   auto sum = CheckedFloatBinOp(state, FAdd64, val1, val2);
   FWriteV64(dst, sum);
-  return memory;
 }
 
 DEF_SEM(FSUB_Scalar32, V128W dst, V32 src1, V32 src2) {
@@ -256,7 +238,6 @@ DEF_SEM(FSUB_Scalar32, V128W dst, V32 src1, V32 src2) {
   auto val2 = FExtractV32(FReadV32(src2), 0);
   auto sum = CheckedFloatBinOp(state, FSub32, val1, val2);
   FWriteV32(dst, sum);
-  return memory;
 }
 
 DEF_SEM(FSUB_Scalar64, V128W dst, V64 src1, V64 src2) {
@@ -264,14 +245,12 @@ DEF_SEM(FSUB_Scalar64, V128W dst, V64 src1, V64 src2) {
   auto val2 = FExtractV64(FReadV64(src2), 0);
   auto sum = CheckedFloatBinOp(state, FSub64, val1, val2);
   FWriteV64(dst, sum);
-  return memory;
 }
 DEF_SEM(FMUL_Scalar32, V128W dst, V32 src1, V32 src2) {
   auto val1 = FExtractV32(FReadV32(src1), 0);
   auto val2 = FExtractV32(FReadV32(src2), 0);
   auto prod = CheckedFloatBinOp(state, FMul32, val1, val2);
   FWriteV32(dst, prod);
-  return memory;
 }
 
 DEF_SEM(FMUL_Scalar64, V128W dst, V64 src1, V64 src2) {
@@ -279,7 +258,6 @@ DEF_SEM(FMUL_Scalar64, V128W dst, V64 src1, V64 src2) {
   auto val2 = FExtractV64(FReadV64(src2), 0);
   auto prod = CheckedFloatBinOp(state, FMul64, val1, val2);
   FWriteV64(dst, prod);
-  return memory;
 }
 
 DEF_SEM(FDIV_Scalar32, V128W dst, V32 src1, V32 src2) {
@@ -287,7 +265,6 @@ DEF_SEM(FDIV_Scalar32, V128W dst, V32 src1, V32 src2) {
   auto val2 = FExtractV32(FReadV32(src2), 0);
   auto prod = CheckedFloatBinOp(state, FDiv32, val1, val2);
   FWriteV32(dst, prod);
-  return memory;
 }
 
 DEF_SEM(FMADD_S, V128W dst, V32 src1, V32 src2, V32 src3) {
@@ -316,7 +293,6 @@ DEF_SEM(FMADD_S, V128W dst, V32 src1, V32 src2, V32 src3) {
   }
 
   FWriteV32(dst, res);
-  return memory;
 }
 
 DEF_SEM(FMADD_D, V128W dst, V64 src1, V64 src2, V64 src3) {
@@ -345,7 +321,6 @@ DEF_SEM(FMADD_D, V128W dst, V64 src1, V64 src2, V64 src3) {
   }
 
   FWriteV64(dst, res);
-  return memory;
 }
 
 // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
@@ -375,7 +350,6 @@ DEF_SEM(FMSUB_S, V128W dst, V32 src1, V32 src2, V32 src3) {
   }
 
   FWriteV32(dst, res);
-  return memory;
 }
 
 // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
@@ -405,7 +379,6 @@ DEF_SEM(FMSUB_D, V128W dst, V64 src1, V64 src2, V64 src3) {
   }
 
   FWriteV64(dst, res);
-  return memory;
 }
 
 DEF_SEM(FDIV_Scalar64, V128W dst, V64 src1, V64 src2) {
@@ -413,7 +386,6 @@ DEF_SEM(FDIV_Scalar64, V128W dst, V64 src1, V64 src2) {
   auto val2 = FExtractV64(FReadV64(src2), 0);
   auto prod = CheckedFloatBinOp(state, FDiv64, val1, val2);
   FWriteV64(dst, prod);
-  return memory;
 }
 
 template <typename S>
@@ -465,84 +437,72 @@ DEF_SEM(FCMPE_S, V32 src1, V32 src2) {
   auto val1 = FExtractV32(FReadV32(src1), 0);
   auto val2 = FExtractV32(FReadV32(src2), 0);
   FCompare(state, val1, val2);
-  return memory;
 }
 
 DEF_SEM(FCMPE_SZ, V32 src1) {
   auto val1 = FExtractV32(FReadV32(src1), 0);
   float32_t float_zero = 0.0;
   FCompare(state, val1, float_zero);
-  return memory;
 }
 
 DEF_SEM(FCMP_S, V32 src1, V32 src2) {
   auto val1 = FExtractV32(FReadV32(src1), 0);
   auto val2 = FExtractV32(FReadV32(src2), 0);
   FCompare(state, val1, val2, false);
-  return memory;
 }
 
 DEF_SEM(FCMP_SZ, V32 src1) {
   auto val1 = FExtractV32(FReadV32(src1), 0);
   float32_t float_zero = 0.0;
   FCompare(state, val1, float_zero, false);
-  return memory;
 }
 
 DEF_SEM(FCMPE_D, V64 src1, V64 src2) {
   auto val1 = FExtractV64(FReadV64(src1), 0);
   auto val2 = FExtractV64(FReadV64(src2), 0);
   FCompare(state, val1, val2);
-  return memory;
 }
 
 DEF_SEM(FCMPE_DZ, V64 src1) {
   auto val1 = FExtractV64(FReadV64(src1), 0);
   float64_t float_zero = 0.0;
   FCompare(state, val1, float_zero);
-  return memory;
 }
 
 DEF_SEM(FCMP_D, V64 src1, V64 src2) {
   auto val1 = FExtractV64(FReadV64(src1), 0);
   auto val2 = FExtractV64(FReadV64(src2), 0);
   FCompare(state, val1, val2, false);
-  return memory;
 }
 
 DEF_SEM(FCMP_DZ, V64 src1) {
   auto val1 = FExtractV64(FReadV64(src1), 0);
   float64_t float_zero = 0.0;
   FCompare(state, val1, float_zero, false);
-  return memory;
 }
 
 DEF_SEM(FABS_S, V128W dst, V32 src) {
   auto val = FExtractV32(FReadV32(src), 0);
   auto result = static_cast<float32_t>(fabs(val));
   FWriteV32(dst, result);
-  return memory;
 }
 
 DEF_SEM(FABS_D, V128W dst, V64 src) {
   auto val = FExtractV64(FReadV64(src), 0);
   auto result = static_cast<float64_t>(fabs(val));
   FWriteV64(dst, result);
-  return memory;
 }
 
 DEF_SEM(FNEG_S, V128W dst, V32 src) {
   auto val = FExtractV32(FReadV32(src), 0);
   auto result = -val;
   FWriteV32(dst, result);
-  return memory;
 }
 
 DEF_SEM(FNEG_D, V128W dst, V64 src) {
   auto val = FExtractV64(FReadV64(src), 0);
   auto result = -val;
   FWriteV64(dst, result);
-  return memory;
 }
 
 }  // namespace
