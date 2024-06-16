@@ -319,13 +319,13 @@ int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
   return clear_mask;
 }
 
-Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &) {
-  UNDEFINED_INTRINSICS("__remill_read_memory_f80");
-  return nullptr;
-}
-Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &) {
-  UNDEFINED_INTRINSICS("__remill_") return nullptr;
-}
+// Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &) {
+//   UNDEFINED_INTRINSICS("__remill_read_memory_f80");
+//   return nullptr;
+// }
+// Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &) {
+//   UNDEFINED_INTRINSICS("__remill_") return nullptr;
+// }
 
 uint8_t __remill_undefined_8(void) {
   UNDEFINED_INTRINSICS("__remill_undefined_8");

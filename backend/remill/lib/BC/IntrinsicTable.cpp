@@ -100,12 +100,12 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
 
       read_memory_f32(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f32"))),
       read_memory_f64(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f64"))),
-      read_memory_f80(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f80"))),
+      // read_memory_f80(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f80"))),
       read_memory_f128(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f128"))),
 
       write_memory_f32(FindPureIntrinsic(module, "__remill_write_memory_f32")),
       write_memory_f64(FindPureIntrinsic(module, "__remill_write_memory_f64")),
-      write_memory_f80(FindPureIntrinsic(module, "__remill_write_memory_f80")),
+      // write_memory_f80(FindPureIntrinsic(module, "__remill_write_memory_f80")),
       write_memory_f128(FindPureIntrinsic(module, "__remill_write_memory_f128")),
 
       // Memory barriers.

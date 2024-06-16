@@ -43,8 +43,8 @@ extern "C" {
 
 [[gnu::used, gnu::pure]] extern float64_t __remill_read_memory_f64(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::pure]] extern Memory *__remill_read_memory_f80(Memory *, addr_t,
-                                                                 native_float80_t &);
+// [[gnu::used, gnu::pure]] extern Memory *__remill_read_memory_f80(Memory *, addr_t,
+//                                                                  native_float80_t &);
 
 [[gnu::used, gnu::pure]] extern float128_t __remill_read_memory_f128(RuntimeManager *, addr_t);
 
@@ -52,8 +52,8 @@ extern "C" {
 
 [[gnu::used]] extern void __remill_write_memory_f64(RuntimeManager *, addr_t, float64_t);
 
-[[gnu::used]] extern void __remill_write_memory_f80(RuntimeManager *, addr_t,
-                                                    const native_float80_t &);
+// [[gnu::used]] extern void __remill_write_memory_f80(RuntimeManager *, addr_t,
+//                                                     const native_float80_t &);
 
 [[gnu::used]] extern void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t);
 

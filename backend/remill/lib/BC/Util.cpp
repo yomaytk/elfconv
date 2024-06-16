@@ -1851,8 +1851,8 @@ llvm::Value *LoadFromMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> 
 
     case llvm::Type::X86_FP80TyID: {
       auto res = ir.CreateAlloca(type);
-      llvm::Value *args_3[3] = {args_2[0], args_2[1], res};
-      ir.CreateCall(intrinsics.read_memory_f80, args_3);
+      // llvm::Value *args_3[3] = {args_2[0], args_2[1], res};
+      // ir.CreateCall(intrinsics.read_memory_f80, args_3);
       return ir.CreateLoad(type, res);
     }
 
@@ -2009,7 +2009,8 @@ llvm::Value *StoreToMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> &
       auto fp80_value = ir.CreateFPTrunc(val_to_store, fp80_type);
       (void) ir.CreateStore(fp80_value, res);
       args_3[2] = res;
-      return ir.CreateCall(intrinsics.write_memory_f80, args_3);
+      // (FIXME) fix for not using write_memory_f80. f64 is dummy.
+      return ir.CreateCall(intrinsics.write_memory_f64, args_3);
     }
 
     case llvm::Type::X86_MMXTyID: {

@@ -60,12 +60,12 @@ class IntrinsicTable {
 
   llvm::Function *const read_memory_f32;
   llvm::Function *const read_memory_f64;
-  llvm::Function *const read_memory_f80;
+  // llvm::Function *const read_memory_f80;
   llvm::Function *const read_memory_f128;
 
   llvm::Function *const write_memory_f32;
   llvm::Function *const write_memory_f64;
-  llvm::Function *const write_memory_f80;
+  // llvm::Function *const write_memory_f80;
   llvm::Function *const write_memory_f128;
 
   // Memory barriers.
