@@ -141,8 +141,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 #endif
 
   // Begin an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    LOG(FATAL) << "Unexpected to enter the `is_atomic_read_modiry_write`.";
     // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
   }
@@ -188,8 +188,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   ir.CreateCall(isel_func, args);
 
   // End an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    LOG(FATAL) << "Unexpected to enter the `is_atomic_read_modify_write`";
     // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
     // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
   }
@@ -216,8 +216,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     auto _debug_insn_fn = module->getFunction(debug_insn_name);
     auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
     CHECK(_debug_insn_fn && _debug_memory_value_change_fn);
+    auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
     __debug_ir.CreateCall(_debug_insn_fn);
-    __debug_ir.CreateCall(_debug_memory_value_change_fn);
+    __debug_ir.CreateCall(_debug_memory_value_change_fn,
+                          {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
+                                                 runtime_manager_ptr)});
   }
 
   return status;

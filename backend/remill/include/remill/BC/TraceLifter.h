@@ -145,8 +145,9 @@ class TraceLifter::Impl {
         switch_inst(nullptr),
         // TODO(Ian): The trace lfiter is not supporting contexts
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+        runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
-        g_get_jmp_block_address_func_name("__g_get_indirectbr_block_address"),
+        g_get_indirectbr_block_address_func_name("__g_get_indirectbr_block_address"),
         debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),
         debug_call_stack_push_name("debug_call_stack_push"),
@@ -192,6 +193,8 @@ class TraceLifter::Impl {
 
   uint64_t PopInstructionAddress(void);
 
+  llvm::Value *GetRuntimePtrOnEntry();
+
   /* Global variable array definition helper (need override) */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(
       llvm::Type *, std::vector<llvm::Constant *> &, const llvm::Twine &Name = "",
@@ -236,8 +239,10 @@ class TraceLifter::Impl {
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
 
+  std::string runtime_manager_name;
+
   std::string indirectbr_block_name;
-  std::string g_get_jmp_block_address_func_name;
+  std::string g_get_indirectbr_block_address_func_name;
   std::string debug_memory_value_change_name;
   std::string debug_insn_name;
   std::string debug_call_stack_push_name;

@@ -686,15 +686,15 @@ llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_, llvm::Module
   auto func =
       llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, 0u, name, module);
 
-  auto memory = remill::NthArgument(func, kRuntimePointerArgNum);
+  auto runtime_manager = remill::NthArgument(func, kRuntimePointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
   auto pc = remill::NthArgument(func, kPCArgNum);
-  memory->setName("memory");
+  runtime_manager->setName("runtime_manager");
   state->setName("state");
   pc->setName("program_counter");
 
   AddNoAliasToArgument(state);
-  AddNoAliasToArgument(memory);
+  AddNoAliasToArgument(runtime_manager);
 
   return func;
 }

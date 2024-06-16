@@ -55,6 +55,7 @@ int main(int argc, char *argv[]) {
 
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
+  main_lifter.SetRuntimeManagerClass();
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 

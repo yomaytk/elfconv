@@ -16,7 +16,8 @@ class RuntimeManager {
       delete (memory);
   }
   /* translate vma address to the actual mapped memory address */
-  inline void *TranslateVMA(addr_t vma_addr);
+  void *TranslateVMA(addr_t vma_addr);
+
   void DebugEmulatedMemorys() {
     for (auto memory : mapped_memorys)
       memory->DebugEmulatedMemory();

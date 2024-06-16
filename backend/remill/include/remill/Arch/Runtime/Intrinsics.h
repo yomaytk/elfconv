@@ -22,42 +22,40 @@
 extern "C" {
 
 // Memory read intrinsics.
-[[gnu::used, gnu::const]] extern uint8_t __remill_read_memory_8(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern uint8_t __remill_read_memory_8(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint16_t __remill_read_memory_16(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern uint16_t __remill_read_memory_16(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint32_t __remill_read_memory_32(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern uint32_t __remill_read_memory_32(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint64_t __remill_read_memory_64(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern uint64_t __remill_read_memory_64(RuntimeManager *, addr_t);
 
 // Memory write intrinsics.
-[[gnu::used, gnu::const]] extern void __remill_write_memory_8(RuntimeManager *, addr_t, uint8_t);
+[[gnu::used]] extern void __remill_write_memory_8(RuntimeManager *, addr_t, uint8_t);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_16(RuntimeManager *, addr_t, uint16_t);
+[[gnu::used]] extern void __remill_write_memory_16(RuntimeManager *, addr_t, uint16_t);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_32(RuntimeManager *, addr_t, uint32_t);
+[[gnu::used]] extern void __remill_write_memory_32(RuntimeManager *, addr_t, uint32_t);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_64(RuntimeManager *, addr_t, uint64_t);
+[[gnu::used]] extern void __remill_write_memory_64(RuntimeManager *, addr_t, uint64_t);
 
-[[gnu::used, gnu::const]] extern float32_t __remill_read_memory_f32(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern float32_t __remill_read_memory_f32(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern float64_t __remill_read_memory_f64(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern float64_t __remill_read_memory_f64(RuntimeManager *, addr_t);
 
-[[gnu::used]] extern void __remill_read_memory_f80(RuntimeManager *, addr_t, native_float80_t &);
+[[gnu::used, gnu::pure]] extern Memory *__remill_read_memory_f80(Memory *, addr_t,
+                                                                 native_float80_t &);
 
-[[gnu::used, gnu::const]] extern float128_t __remill_read_memory_f128(RuntimeManager *, addr_t);
+[[gnu::used, gnu::pure]] extern float128_t __remill_read_memory_f128(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_f32(RuntimeManager *, addr_t,
-                                                                float32_t);
+[[gnu::used]] extern void __remill_write_memory_f32(RuntimeManager *, addr_t, float32_t);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_f64(RuntimeManager *, addr_t,
-                                                                float64_t);
+[[gnu::used]] extern void __remill_write_memory_f64(RuntimeManager *, addr_t, float64_t);
 
 [[gnu::used]] extern void __remill_write_memory_f80(RuntimeManager *, addr_t,
                                                     const native_float80_t &);
 
-[[gnu::used, gnu::const]] extern void __remill_write_memory_f128(RuntimeManager *, addr_t,
-                                                                 float128_t);
+[[gnu::used]] extern void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t);
 
 [[gnu::used, gnu::const]] extern uint8_t __remill_undefined_8(void);
 

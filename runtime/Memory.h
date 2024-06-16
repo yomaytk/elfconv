@@ -51,12 +51,6 @@ extern const uint64_t __g_block_address_fn_vma_array[];
 extern const uint64_t __g_block_address_array_size;
 }
 
-/* get mapped memory address of vma */
-template <typename T>
-T *getMemoryAddr(addr_t vma_addr) {
-  return reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
-}
-
 enum class MemoryAreaType : uint8_t {
   STACK,
   HEAP,

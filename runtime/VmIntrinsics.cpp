@@ -220,6 +220,37 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
   }
 }
 
+// observe the value change of runtime memory
+extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
+  // step 1. set target vma
+  static uint64_t target_vma = 0x493258;
+  if (0 == target_vma)
+    return;
+  static uint64_t old_value = 0;
+  // step 2. set the data type of target value
+  auto target_pma = (uint64_t *) runtime_manager->TranslateVMA(target_vma);
+  auto new_value = *target_pma;
+  if (old_value != new_value) {
+    std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
+              << std::endl
+              << "\told value: 0x" << old_value << std::endl
+              << "\tnew value: 0x" << new_value << std::endl;
+    old_value = new_value;
+  }
+}
+
+// observe the value of runtime memory
+extern "C" void debug_memory_value(RuntimeManager *runtime_manager) {
+  // step 1. set target vma
+  std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
+  // step 2. set the data type of target values
+  std::cout << "[Memory Debug]" << std::endl;
+  for (auto &target_vma : target_vmas) {
+    auto target_pma = (double *) runtime_manager->TranslateVMA(target_vma);
+    std::cout << "*target_pma: " << *target_pma << std::endl;
+  }
+}
+
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {
   uint64_t *pma = (uint64_t *) runtime_manager->TranslateVMA(f_flags_vma);

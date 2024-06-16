@@ -200,7 +200,7 @@ llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Val
   }
 #endif
 
-  ir.CreateRet(call_target_instr);
+  ir.CreateRetVoid();
   return call_target_instr;
 }
 

@@ -224,6 +224,26 @@ bool TraceLifter::Lift(uint64_t addr, const char *fn_name,
   return impl->Lift(addr, fn_name, callback);
 }
 
+llvm::Value *TraceLifter::Impl::GetRuntimePtrOnEntry() {
+  llvm::StringRef runtime_name(kRuntimeVariableName);
+  llvm::Value *runtime_manager_ptr = nullptr;
+  if (!func->empty()) {
+    for (auto &instr : func->getEntryBlock()) {
+      if (instr.getName() == runtime_name) {
+        if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
+          runtime_manager_ptr = alloca;
+        }
+      }
+    }
+  }
+
+  if (!runtime_manager_ptr) {
+    LOG(FATAL) << "Cannot find `RUNTIME` at the entry block of the Lifted function.";
+  }
+
+  return runtime_manager_ptr;
+}
+
 // Lift one or more traces starting from `addr`.
 bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                              std::function<void(uint64_t, llvm::Function *)> callback) {
@@ -294,8 +314,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         printf("[ERROR] debug_call_stack_fn is undeclared.\n");
         abort();
       }
+      auto runtime_manager_ptr = GetRuntimePtrOnEntry();
       std::vector<llvm::Value *> args = {
-          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)};
+          __debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr)
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)};
       __debug_ir.CreateCall(_debug_call_stack_push_fn, args);
     } while (false);
 #endif
@@ -363,7 +385,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
         auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
-        std::vector<llvm::Value *> args = {ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
+        auto runtime_manager_ptr = GetRuntimePtrOnEntry();
+        std::vector<llvm::Value *> args = {
+            ir.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr),
+            ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
         auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
         ir.CreateCall(tmp_patch_fn, args);
         tmp_patch_fn_check = true;
@@ -698,8 +723,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       /* indirectbr_block */
       llvm::IRBuilder<> ir_1(indirectbr_block);
       /* calculate the target block address */
-      auto g_get_jmp_helper_fn =
-          module->getFunction(g_get_jmp_block_address_func_name); /* return type: uint64_t* */
+      auto g_get_jmp_helper_fn = module->getFunction(
+          g_get_indirectbr_block_address_func_name); /* return type: uint64_t* */
       CHECK(g_get_jmp_helper_fn);
       auto br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
       for (auto &br_pair : br_blocks) {
@@ -707,9 +732,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         auto dest_addr = br_pair.second;
         br_vma_phi->addIncoming(dest_addr, br_block);
       }
+      auto runtime_manager_ptr = GetRuntimePtrOnEntry();
       auto target_bb_i64 = ir_1.CreateCall(
           g_get_jmp_helper_fn,
-          {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), br_vma_phi});
+          {ir_1.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr),
+           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), br_vma_phi});
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());

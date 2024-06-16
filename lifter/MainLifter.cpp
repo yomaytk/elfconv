@@ -4,6 +4,11 @@
 #include <remill/BC/ABI.h>
 #include <utils/Util.h>
 
+// Set RuntimeManager class to the global context
+void MainLifter::SetRuntimeManagerClass() {
+  static_cast<WrapImpl *>(impl.get())->SetRuntimeManagerClass();
+}
+
 /* Set entry function pointer */
 void MainLifter::SetEntryPoint(std::string &entry_func_name) {
   static_cast<WrapImpl *>(impl.get())->SetEntryPoint(entry_func_name);
@@ -63,6 +68,10 @@ void MainLifter::DeclareDebugFunction() {
 /* Set lifted function symbol name table */
 void MainLifter::SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map) {
   static_cast<WrapImpl *>(impl.get())->SetFuncSymbolNameTable(addr_fn_map);
+}
+
+void MainLifter::WrapImpl::SetRuntimeManagerClass() {
+  llvm::StructType::create(context, runtime_manager_name);
 }
 
 /* Set entry function pointer */
@@ -241,12 +250,13 @@ llvm::GlobalVariable *MainLifter::WrapImpl::GenGlobalArrayHelper(
 
 /* declare helper function in the lifted LLVM bitcode */
 void MainLifter::WrapImpl::DeclareHelperFunction() {
-  /* uint64_t *__g_get_jmp_block_address(uint64_t, uint64_t) */
+  /* uint64_t *__g_get_jmp_block_address(RuntimeManager*,  uint64_t, uint64_t) */
   llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
-                              {llvm::Type::getInt64Ty(context), llvm::Type::getInt64Ty(context)},
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
                               false),
-      llvm::Function::ExternalLinkage, g_get_jmp_block_address_func_name, *module);
+      llvm::Function::ExternalLinkage, g_get_indirectbr_block_address_func_name, *module);
 }
 
 /* Prepare the virtual machine for instruction test */
@@ -272,6 +282,7 @@ void MainLifter::WrapImpl::SetControlFlowDebugList(
 
 /* Declare debug function */
 llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
+  auto runtime_manager_ptr_type = llvm::Type::getInt64PtrTy(context);
   /* void debug_state_machine() */
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_state_machine_name, *module);
@@ -288,23 +299,28 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
                                                  {llvm::Type::getDoubleTy(context)}, false),
                          llvm::Function::ExternalLinkage, debug_llvmir_f64value_name, *module);
   /* void debug_call_stack_push() */
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
-                                                 {llvm::Type::getInt64Ty(context)}, false),
-                         llvm::Function::ExternalLinkage, debug_call_stack_push_name, *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {runtime_manager_ptr_type, llvm::Type::getInt64Ty(context)}, false),
+      llvm::Function::ExternalLinkage, debug_call_stack_push_name, *module);
   /* void debug_call_stack_pop() */
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
-                                                 {llvm::Type::getInt64Ty(context)}, false),
-                         llvm::Function::ExternalLinkage, debug_call_stack_pop_name, *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {runtime_manager_ptr_type, llvm::Type::getInt64Ty(context)}, false),
+      llvm::Function::ExternalLinkage, debug_call_stack_pop_name, *module);
   // void debug_memory_value_change()
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_memory_value_change_name, *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context), {runtime_manager_ptr_type}, false),
+      llvm::Function::ExternalLinkage, debug_memory_value_change_name, *module);
   // void debug_memory_value()
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                         llvm::Function::ExternalLinkage, debug_memory_value_name, *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context), {runtime_manager_ptr_type}, false),
+      llvm::Function::ExternalLinkage, debug_memory_value_name, *module);
   // temporary patch fun
-  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
-                                                 {llvm::Type::getInt64Ty(context)}, false),
-                         llvm::Function::ExternalLinkage, "temp_patch_f_flags", *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {runtime_manager_ptr_type, llvm::Type::getInt64Ty(context)}, false),
+      llvm::Function::ExternalLinkage, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   return llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                                 llvm::Function::ExternalLinkage, debug_insn_name, *module);

@@ -10,7 +10,6 @@
   std::cout << std::hex << "x" << #index << ": 0x" << g_state.gpr.x##index.qword << std::endl;
 
 extern State g_state;
-extern void *_ecv_translate_ptr(addr_t vma_addr);
 
 /* debug func */
 extern "C" void debug_state_machine() {
@@ -78,35 +77,6 @@ extern "C" void debug_llvmir_u64value(uint64_t val) {
 
 extern "C" void debug_llvmir_f64value(double val) {
   std::cout << "LLVM IR value: " << val << std::endl;
-}
-
-extern "C" void debug_memory_value_change() {
-  // step 1. set target vma
-  static uint64_t target_vma = 0x493258;
-  if (0 == target_vma)
-    return;
-  static uint64_t old_value = 0;
-  // step 2. set the data type of target value
-  auto target_pma = (uint64_t *) _ecv_translate_ptr(target_vma);
-  auto new_value = *target_pma;
-  if (old_value != new_value) {
-    std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
-              << std::endl
-              << "\told value: 0x" << old_value << std::endl
-              << "\tnew value: 0x" << new_value << std::endl;
-    old_value = new_value;
-  }
-}
-
-extern "C" void debug_memory_value() {
-  // step 1. set target vma
-  std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
-  // step 2. set the data type of target values
-  std::cout << "[Memory Debug]" << std::endl;
-  for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) _ecv_translate_ptr(target_vma);
-    std::cout << "*target_pma: " << *target_pma << std::endl;
-  }
 }
 
 extern "C" void debug_insn() {
