@@ -108,7 +108,8 @@ extern "C" {
 // Control-flow intrinsics.
 [[gnu::used]] extern void __remill_function_call(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern void __remill_function_return(State &, addr_t addr, RuntimeManager *);
+[[gnu::used, gnu::const]] extern void __remill_function_return(State &, addr_t addr,
+                                                               RuntimeManager *);
 
 [[gnu::used]] extern void __remill_jump(State &, addr_t addr, RuntimeManager *);
 
@@ -133,21 +134,19 @@ extern "C" {
 //  http://g.oswego.edu/dl/jmm/cookbook.html
 //  http://preshing.com/20120913/acquire-and-release-semantics/
 //  http://preshing.com/20120710/memory-barriers-are-like-source-control-operations/
-[[gnu::used, gnu::const]] extern void __remill_barrier_load_load(RuntimeManager *);
+[[gnu::used]] extern void __remill_barrier_load_load(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern void
-__remill_barrier_load_store(RuntimeManager *);  // Load acquire.
+[[gnu::used]] extern void __remill_barrier_load_store(RuntimeManager *);  // Load acquire.
 
-[[gnu::used, gnu::const]] extern void __remill_barrier_store_load(RuntimeManager *);
+[[gnu::used]] extern void __remill_barrier_store_load(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern void
-__remill_barrier_store_store(RuntimeManager *);  // Store release.
+[[gnu::used]] extern void __remill_barrier_store_store(RuntimeManager *);  // Store release.
 
 // Atomic operations. The address/size are hints, but the granularity of the
 // access can be bigger. These have implicit StoreLoad semantics.
-[[gnu::used, gnu::const]] extern void __remill_atomic_begin(RuntimeManager *);
+[[gnu::used]] extern void __remill_atomic_begin(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern void __remill_atomic_end(RuntimeManager *);
+[[gnu::used]] extern void __remill_atomic_end(RuntimeManager *);
 
 // Used to signal the begin/ending of an instruction executed within a delay
 // slot.
@@ -297,7 +296,7 @@ __remill_compare_exchange_memory_64(Memory *, addr_t addr, uint64_t &expected, u
 
 [[gnu::used, gnu::const]] extern Memory *__remill_amd64_set_control_reg_8(Memory *);
 
-[[gnu::used, gnu::const]] extern void __remill_aarch64_emulate_instruction(RuntimeManager *);
+[[gnu::used]] extern void __remill_aarch64_emulate_instruction(RuntimeManager *);
 
 [[gnu::used, gnu::const]] extern Memory *__remill_aarch32_emulate_instruction(Memory *);
 

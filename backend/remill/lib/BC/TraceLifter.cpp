@@ -332,6 +332,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     CHECK(inst_work_list.empty());
     inst_work_list.insert(trace_addr);
 
+    // func->addFnAttr(llvm::Attribute::NoReturn);
+
   // Decode instructions.
   inst_lifting_start:
     while (!inst_work_list.empty()) {
