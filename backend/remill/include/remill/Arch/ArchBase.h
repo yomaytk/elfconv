@@ -85,8 +85,8 @@ class ArchBase : public remill::Arch {
   // able to update this in-place.
   mutable llvm::StructType *state_type{nullptr};
 
-  // Memory pointer type.
-  mutable llvm::PointerType *memory_type{nullptr};
+  // Runtime pointer type.
+  mutable llvm::PointerType *runtime_type{nullptr};
 
   // Lifted function type.
   mutable llvm::FunctionType *lifted_function_type{nullptr};

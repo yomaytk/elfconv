@@ -20,13 +20,11 @@ template <typename S>
 DEF_SEM(CALL, S target_addr, PC ret_addr) {
   const auto return_pc = Read(ret_addr);
   Write(REG_LP, return_pc);
-  return memory;
 }
 
 DEF_SEM(RET, R64 target_pc) {
   const auto new_pc = Read(target_pc);
   Write(REG_PC, new_pc);
-  return memory;
 }
 
 }  // namespace

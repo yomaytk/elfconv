@@ -18,13 +18,12 @@ namespace {
 
 DEF_SEM(CallSupervisor, I32) {
   HYPER_CALL = AsyncHyperCall::kAArch64SupervisorCall;
-  __remill_syscall_tranpoline_call(state, memory);
-  return memory;
+  __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 
 DEF_SEM(Breakpoint, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
-  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kAArch64Breakpoint);
+  return __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_FPSR, R64W dest) {
@@ -36,7 +35,6 @@ DEF_SEM(DoMRS_RS_SYSTEM_FPSR, R64W dest) {
   //fpsr.idc = state.sr.idc;  // TODO(garret): fix the saving of the idc bit before reenabling (issue #188)
   fpsr.ioc = state.sr.ioc;
   WriteZExt(dest, fpsr.flat);
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_FPSR, R64 src) {
@@ -51,13 +49,11 @@ DEF_SEM(DoMSR_SR_SYSTEM_FPSR, R64 src) {
   state.sr.ufc = fpsr.ufc;
 
   //state.sr.idc = fpsr.idc;  // TODO(garret): fix the saving of the idc bit before reenabling (issue #188)
-  return memory;
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_FPCR, R64W dest) {
   auto fpcr = state.fpcr;
   WriteZExt(dest, fpcr.flat);
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_FPCR, R64 src) {
@@ -66,54 +62,45 @@ DEF_SEM(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   fpcr._res0 = 0;
   fpcr._res1 = 0;
   state.fpcr = fpcr;
-  return memory;
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_TPIDR_EL0, R64W dest) {
   WriteZExt(dest, Read(state.sr.tpidr_el0));
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
   WriteZExt(state.sr.tpidr_el0.qword, Read(src));
-  return memory;
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_CTR_EL0, R64W dest) {
   WriteZExt(dest, Read(state.sr.ctr_el0));
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
   WriteZExt(state.sr.ctr_el0.qword, Read(src));
-  return memory;
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_DCZID_EL0, R64W dest) {
   WriteZExt(dest, Read(state.sr.dczid_el0));
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
   WriteZExt(state.sr.dczid_el0.qword, Read(src));
-  return memory;
 }
 
 DEF_SEM(DoMRS_RS_SYSTEM_MIDR_EL1, R64W dest) {
   WriteZExt(dest, Read(state.sr.midr_el1));
-  return memory;
 }
 
 DEF_SEM(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
   WriteZExt(state.sr.midr_el1.qword, Read(src));
-  return memory;
 }
 
 DEF_SEM(DataMemoryBarrier) {
 
   // TODO(pag): Full-system data memory barrier probably requires a synchronous
   //            hypercall if it behaves kind of like Linux's `sys_membarrier`.
-  return __remill_barrier_store_store(memory);
+  return __remill_barrier_store_store(runtime_manager);
 }
 
 }  // namespace

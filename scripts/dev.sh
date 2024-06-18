@@ -48,7 +48,7 @@ aarch64_test() {
 
   # generate execute file (lift_test.aarch64)
   ${CXX} "${CLANGFLAGS}" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o lift_test.aarch64 aarch64_test.ll "${AARCH64_TEST_DIR}"/Test.cpp "${AARCH64_TEST_DIR}"/TestHelper.cpp \
-  "${AARCH64_TEST_DIR}"/TestInstructions.cpp "${RUNTIME_DIR}"/Memory.cpp "${RUNTIME_DIR}"/syscalls/SyscallNative.cpp "${RUNTIME_DIR}"/VmIntrinsics.cpp "${UTILS_DIR}"/Util.cpp "${UTILS_DIR}"/elfconv.cpp
+  "${AARCH64_TEST_DIR}"/TestInstructions.cpp "${RUNTIME_DIR}"/Runtime.cpp "${RUNTIME_DIR}"/Memory.cpp "${RUNTIME_DIR}"/syscalls/SyscallNative.cpp "${RUNTIME_DIR}"/VmIntrinsics.cpp "${UTILS_DIR}"/Util.cpp "${UTILS_DIR}"/elfconv.cpp
   echo -e "[\033[32mINFO\033[0m] Generate lift_test.aarch64"
 
 }
@@ -90,7 +90,7 @@ main() {
   case "${TARGET}" in
     native)
       cd ${BUILD_LIFTER_DIR} && \
-      ${CXX} ${CLANGFLAGS} -o exe.aarch64 lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/syscalls/SyscallNative.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
+      ${CXX} ${CLANGFLAGS} -o exe.aarch64 lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/syscalls/SyscallNative.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
       echo -e "[\033[32mINFO\033[0m] Generate native binary."
       return 0
     ;;
@@ -98,13 +98,14 @@ main() {
       ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
       cd "${BUILD_LIFTER_DIR}" && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.wasm.o -c ${RUNTIME_DIR}/Entry.cpp && \
+      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Runtime.wasm.o -c ${RUNTIME_DIR}/Runtime.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.wasm.o -c ${RUNTIME_DIR}/Memory.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.wasm.o -c ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.wasm.o -c ${RUNTIME_DIR}/VmIntrinsics.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
       $WASMCC -c lift.ll -o lift.wasm.o
-      $WASMCC -o exe.wasm.html -sWASM -sALLOW_MEMORY_GROWTH lift.wasm.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o \
+      $WASMCC -o exe.wasm.html -sWASM -sALLOW_MEMORY_GROWTH lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o \
                               VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
       echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
       # delete obj
@@ -118,13 +119,14 @@ main() {
       ELFCONV_MACROS="${ELFCONV_MACROS} -fno-exceptions"
       cd "${BUILD_LIFTER_DIR}" && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.wasm.o -c ${RUNTIME_DIR}/Entry.cpp && \
+      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Runtime.wasm.o -c ${RUNTIME_DIR}/Runtime.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.wasm.o -c ${RUNTIME_DIR}/Memory.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.wasm.o -c ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.wasm.o -c ${RUNTIME_DIR}/VmIntrinsics.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
       $WASMCC -O3 -c lift.ll -o lift.wasm.o
-      $WASMCC -O3  $WASISDK_LINKFLAGS -o exe.wasm lift.wasm.o Entry.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
+      $WASMCC -O3  $WASISDK_LINKFLAGS -o exe.wasm lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
       echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
       # delete obj
       cd "${BUILD_LIFTER_DIR}" && rm *.o

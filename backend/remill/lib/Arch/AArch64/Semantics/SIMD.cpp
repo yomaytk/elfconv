@@ -22,19 +22,16 @@ namespace {
 template <typename S>
 DEF_SEM(ORR_Vec, V128W dst, S src1, S src2) {
   UWriteV64(dst, UOrV64(UReadV64(src1), UReadV64(src2)));
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(AND_Vec, V128W dst, S src1, S src2) {
   UWriteV64(dst, UAndV64(UReadV64(src1), UReadV64(src2)));
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(BIC_Vec, V128W dst, S src1, S src2) {
   UWriteV64(dst, UAndV64(UReadV64(src1), UNotV64(UReadV64(src2))));
-  return memory;
 }
 
 template <typename S>
@@ -44,7 +41,6 @@ DEF_SEM(EOR_Vec, V128W dst, S src1, S src2) {
   auto operand2 = UClearV64(operand4);
   auto operand3 = UNotV64(operand2);
   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand2, operand4), operand3)));
-  return memory;
 }
 
 template <typename S>
@@ -53,7 +49,6 @@ DEF_SEM(BIT_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand1 = UReadV64(dst_src);
   auto operand3 = UReadV64(src2);
   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-  return memory;
 }
 
 template <typename S>
@@ -62,7 +57,6 @@ DEF_SEM(BIF_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand1 = UReadV64(dst_src);
   auto operand3 = UNotV64(UReadV64(src2));
   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-  return memory;
 }
 
 template <typename S>
@@ -71,7 +65,6 @@ DEF_SEM(BSL_Vec, V128W dst, S dst_src, S src1, S src2) {
   auto operand1 = UReadV64(src2);
   auto operand3 = UReadV64(dst_src);
   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-  return memory;
 }
 
 }  // namespace
@@ -102,7 +95,6 @@ namespace {
 DEF_SEM(FMOV_VectorToUInt64, R64W dst, V128 src) {
   auto val = UExtractV64(UReadV64(src), 1);
   WriteZExt(dst, val);
-  return memory;
 }
 
 DEF_SEM(FMOV_UInt64ToVector, V128W dst, R64 src) {
@@ -111,7 +103,6 @@ DEF_SEM(FMOV_UInt64ToVector, V128W dst, R64 src) {
   tmpv = UInsertV64(tmpv, 0, UExtractV64(UReadV64(dst), 0));
   tmpv = UInsertV64(tmpv, 1, val);
   UWriteV64(dst, tmpv);
-  return memory;
 }
 }  // namespace
 
@@ -129,7 +120,6 @@ namespace {
       element = val; \
     } \
     UWriteV##size(dst, vec); \
-    return memory; \
   }
 
 MAKE_DUP(8)
@@ -162,7 +152,6 @@ namespace {
       element = val; \
     } \
     UWriteV##size(dst, vec); \
-    return memory; \
   }
 
 MAKE_DUP(8);
@@ -208,7 +197,6 @@ ALWAYS_INLINE static T UMax(T lhs, T rhs) {
           prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec2, i)); \
     } \
     prefix##WriteV##size(dst, sum); \
-    return memory; \
   }
 
 MAKE_BROADCAST(ADD, U, Add, 8)
@@ -300,7 +288,6 @@ namespace {
       res.elems[i] = Select(prefix##binop(prefix##ExtractV##size(vec1, i), cmp_val), ones, zeros); \
     } \
     UWriteV##size(dst, res); \
-    return memory; \
   }
 
 MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 8)
@@ -390,7 +377,6 @@ DEF_SEM(CMGE_ASISDMISC_ONLYD, V128W dst, V128 src) {
     tmp_v.elems[i] = src_v.elems[i] >= 0 ? ones : zeros;
   }
   UWriteV64(dst, tmp_v);
-  return memory;
 }
 }  // namespace
 
@@ -412,7 +398,6 @@ namespace {
                  ones, zeros); \
     } \
     UWriteV##size(dst, res); \
-    return memory; \
   }
 
 template <typename T>
@@ -510,7 +495,6 @@ namespace {
           prefix##binop(prefix##ExtractV##size(vec2, i), prefix##ExtractV##size(vec2, i + 1)); \
     } \
     prefix##WriteV##size(dst, res); \
-    return memory; \
   }
 
 MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 8)
@@ -621,21 +605,18 @@ template <typename S>
 DEF_SEM(ADDV_8_Reduce, V128W dst, S src) {
   auto vec = SReadV8(src);
   UWriteV8(dst, Unsigned(Reduce(vec, SAdd8)));
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(ADDV_16_Reduce, V128W dst, S src) {
   auto vec = SReadV16(src);
   UWriteV16(dst, Unsigned(Reduce(vec, SAdd16)));
-  return memory;
 }
 
 template <typename S>
 DEF_SEM(ADDV_32_Reduce, V128W dst, S src) {
   auto vec = SReadV32(src);
   UWriteV32(dst, Unsigned(Reduce(vec, SAdd32)));
-  return memory;
 }
 
 template <typename S>
@@ -646,7 +627,6 @@ DEF_SEM(UMINV_8, V128W dst, S src) {
     val = UMin(elem, val);
   }
   UWriteV8(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -657,7 +637,6 @@ DEF_SEM(UMINV_16, V128W dst, S src) {
     val = UMin(elem, val);
   }
   UWriteV16(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -668,7 +647,6 @@ DEF_SEM(UMINV_32, V128W dst, S src) {
     val = UMin(elem, val);
   }
   UWriteV32(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -679,7 +657,6 @@ DEF_SEM(SMINV_8, V128W dst, S src) {
     val = SMin(elem, val);
   }
   SWriteV8(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -690,7 +667,6 @@ DEF_SEM(SMINV_16, V128W dst, S src) {
     val = SMin(elem, val);
   }
   SWriteV16(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -701,7 +677,6 @@ DEF_SEM(SMINV_32, V128W dst, S src) {
     val = SMin(elem, val);
   }
   SWriteV32(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -712,7 +687,6 @@ DEF_SEM(UMAXV_8, V128W dst, S src) {
     val = UMax(elem, val);
   }
   UWriteV8(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -723,7 +697,6 @@ DEF_SEM(UMAXV_16, V128W dst, S src) {
     val = UMax(elem, val);
   }
   UWriteV16(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -734,7 +707,6 @@ DEF_SEM(UMAXV_32, V128W dst, S src) {
     val = UMax(elem, val);
   }
   UWriteV32(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -745,7 +717,6 @@ DEF_SEM(SMAXV_8, V128W dst, S src) {
     val = SMax(elem, val);
   }
   SWriteV8(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -756,7 +727,6 @@ DEF_SEM(SMAXV_16, V128W dst, S src) {
     val = SMax(elem, val);
   }
   SWriteV16(dst, val);
-  return memory;
 }
 
 template <typename S>
@@ -767,7 +737,6 @@ DEF_SEM(SMAXV_32, V128W dst, S src) {
     val = SMax(elem, val);
   }
   SWriteV32(dst, val);
-  return memory;
 }
 
 }  // namespace
@@ -860,13 +829,11 @@ ALWAYS_INLINE static T FloatMax(T lhs, T rhs) {
 DEF_SEM(FMINV_32_Reduce, V128W dst, V128 src) {
   auto vec = FReadV32(src);
   FWriteV32(dst, Reduce4(vec, FloatMin<float32_t, int32_t>));
-  return memory;
 }
 
 DEF_SEM(FMAXV_32_Reduce, V128W dst, V128 src) {
   auto vec = FReadV32(src);
   FWriteV32(dst, Reduce4(vec, FloatMax<float32_t, int32_t>));
-  return memory;
 }
 
 }  // namespace
@@ -881,7 +848,6 @@ DEF_SEM(NOT_8, V128W dst, S src) {
   auto vec = UReadV8(src);
   auto res = UNotV8(vec);
   UWriteV8(dst, res);
-  return memory;
 }
 
 }  // namespace
@@ -904,7 +870,6 @@ DEF_SEM(EXT, V128W dst, T src1, T src2, I32 src3) {
     result.elems[count - 1 - i] = UExtractV8(vn, i - lsb);
   }
   UWriteV8(dst, result);
-  return memory;
 }
 
 }  //  namespace
@@ -929,7 +894,6 @@ DEF_SEM(USHR_64B, V128W dst, V128W src, I64 shift) {
   tmpv = UInsertV64(tmpv, 1, 0);
   tmpv = UInsertV64(tmpv, 0, (uint64_t) shifted);
   UWriteV64(dst, tmpv);
-  return memory;
 }
 
 DEF_ISEL(USHR_ASISDSHF_R) = USHR_64B;
@@ -957,7 +921,7 @@ namespace {
                                         FExtractV##elem_size(tmpv, i)); \
     } \
     FWriteV##elem_size(dst, tmpv); \
-    return memory; \
+\
   }  // namespace
 
 // no support of float16
@@ -990,7 +954,7 @@ namespace {
                                         FExtractV##elem_size(srcv2, i)); \
     } \
     FWriteV##elem_size(dst, tmpv); \
-    return memory; \
+\
   }  // namespace
 
 // no support of float16
@@ -1029,7 +993,6 @@ namespace {
           CheckedFloatBinOp(state, F##op##elem_size, FExtractV##elem_size(srcv1, i), v2_val); \
     } \
     FWriteV##elem_size(dst, tmpv); \
-    return memory; \
   }
 
 // no support of float16

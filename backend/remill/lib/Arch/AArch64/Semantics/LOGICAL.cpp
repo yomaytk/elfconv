@@ -19,37 +19,31 @@ namespace {
 template <typename D, typename S1, typename S2>
 DEF_SEM(ORN, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UOr(Read(src1), UNot(Read(src2))));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(EOR, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UXor(Read(src1), Read(src2)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(EON, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UXor(Read(src1), UNot(Read(src2))));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(AND, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UAnd(Read(src1), Read(src2)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(ORR, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UOr(Read(src1), Read(src2)));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
 DEF_SEM(BIC, D dst, S1 src1, S2 src2) {
   WriteZExt(dst, UAnd(Read(src1), UNot(Read(src2))));
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -60,7 +54,6 @@ DEF_SEM(BICS, D dst, S1 src1, S2 src2) {
   FLAG_Z = ZeroFlag(res, src1, src2);
   FLAG_C = false;
   FLAG_V = false;
-  return memory;
 }
 
 }  // namespace
@@ -103,7 +96,6 @@ DEF_SEM(ANDS, D dst, S1 src1, S2 src2) {
   FLAG_Z = ZeroFlag(res, src1, src2);
   FLAG_C = false;
   FLAG_V = false;
-  return memory;
 }
 
 }  // namespace
@@ -121,7 +113,6 @@ DEF_SEM(LSLV, D dst, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
   WriteZExt(dst, UShl(Read(src1), URem(Read(src2), size)));
-  return memory;
 }
 
 template <typename D, typename S>
@@ -129,7 +120,6 @@ DEF_SEM(LSRV, D dst, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
   WriteZExt(dst, UShr(Read(src1), URem(Read(src2), size)));
-  return memory;
 }
 
 template <typename D, typename S>
@@ -137,7 +127,6 @@ DEF_SEM(ASRV, D dst, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
   WriteZExt(dst, Unsigned(SShr(Signed(Read(src1)), Signed(URem(Read(src2), size)))));
-  return memory;
 }
 
 template <typename D, typename S>
@@ -145,7 +134,6 @@ DEF_SEM(RORV, D dst, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
   WriteZExt(dst, Ror(Read(src1), URem(Read(src2), size)));
-  return memory;
 }
 }  // namespace
 

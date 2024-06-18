@@ -22,7 +22,6 @@ DEF_SEM(StorePairUpdateIndex32, R32 src1, R32 src2, MV64W dst_mem, R64W dst_reg,
   vec = UInsertV32(vec, 1, Read(src2));
   UWriteV32(dst_mem, vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StorePairUpdateIndex64, R64 src1, R64 src2, MV128W dst_mem, R64W dst_reg, ADDR next_addr) {
@@ -31,7 +30,6 @@ DEF_SEM(StorePairUpdateIndex64, R64 src1, R64 src2, MV128W dst_mem, R64W dst_reg
   vec = UInsertV64(vec, 1, Read(src2));
   UWriteV64(dst_mem, vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StorePairUpdateIndexS, V32 src1, V32 src2, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
@@ -42,7 +40,6 @@ DEF_SEM(StorePairUpdateIndexS, V32 src1, V32 src2, MV64W dst_mem, R64W dst_reg, 
   vec = FInsertV32(vec, 1, FExtractV32(src2_vec, 0));
   FWriteV32(dst_mem, vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StorePairUpdateIndexD, V64 src1, V64 src2, MV128W dst_mem, R64W dst_reg, ADDR next_addr) {
@@ -53,19 +50,16 @@ DEF_SEM(StorePairUpdateIndexD, V64 src1, V64 src2, MV128W dst_mem, R64W dst_reg,
   vec = FInsertV64(vec, 1, FExtractV64(src2_vec, 0));
   FWriteV64(dst_mem, vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StorePair32, R32 src1, R32 src2, MV64W dst) {
   uint32v2_t vec = {};
   UWriteV32(dst, UInsertV32(UInsertV32(vec, 0, Read(src1)), 1, Read(src2)));
-  return memory;
 }
 
 DEF_SEM(StorePair64, R64 src1, R64 src2, MV128W dst) {
   uint64v2_t vec = {};
   UWriteV64(dst, UInsertV64(UInsertV64(vec, 0, Read(src1)), 1, Read(src2)));
-  return memory;
 }
 
 DEF_SEM(STP_S, V32 src1, V32 src2, MV64W dst) {
@@ -75,7 +69,6 @@ DEF_SEM(STP_S, V32 src1, V32 src2, MV64W dst) {
   tmp_vec = FInsertV32(tmp_vec, 0, FExtractV32(src1_vec, 0));
   tmp_vec = FInsertV32(tmp_vec, 1, FExtractV32(src2_vec, 0));
   FWriteV32(dst, tmp_vec);
-  return memory;
 }
 
 DEF_SEM(STP_D, V64 src1, V64 src2, MV128W dst) {
@@ -85,7 +78,6 @@ DEF_SEM(STP_D, V64 src1, V64 src2, MV128W dst) {
   tmp_vec = FInsertV64(tmp_vec, 0, FExtractV64(src1_vec, 0));
   tmp_vec = FInsertV64(tmp_vec, 1, FExtractV64(src2_vec, 0));
   FWriteV64(dst, tmp_vec);
-  return memory;
 }
 
 DEF_SEM(STP_Q, V128 src1, V128 src2, MV256W dst) {
@@ -95,7 +87,6 @@ DEF_SEM(STP_Q, V128 src1, V128 src2, MV256W dst) {
   tmp_vec = UInsertV128(tmp_vec, 0, UExtractV128(src1_vec, 0));
   tmp_vec = UInsertV128(tmp_vec, 1, UExtractV128(src2_vec, 0));
   UWriteV128(dst, tmp_vec);
-  return memory;
 }
 
 DEF_SEM(STP_Q_UPDATE_ADDR, V128 src1, V128 src2, MV256W dst, R64W dst_reg, ADDR next_addr) {
@@ -106,7 +97,6 @@ DEF_SEM(STP_Q_UPDATE_ADDR, V128 src1, V128 src2, MV256W dst, R64W dst_reg, ADDR 
   tmp_vec = UInsertV128(tmp_vec, 1, UExtractV128(src2_vec, 0));
   UWriteV128(dst, tmp_vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 }  // namespace
@@ -139,60 +129,50 @@ template <typename S, typename D>
 DEF_SEM(StoreUpdateIndex, S src, D dst_mem, R64W dst_reg, ADDR next_addr) {
   WriteTrunc(dst_mem, Read(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StoreUpdateIndex_S8, V8 src, MV8W dst_mem, R64W dst_reg, ADDR next_addr) {
   SWriteV8(dst_mem, SReadV8(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StoreUpdateIndex_S16, V16 src, MV16W dst_mem, R64W dst_reg, ADDR next_addr) {
   SWriteV16(dst_mem, SReadV16(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StoreUpdateIndex_F32, V32 src, MV32W dst_mem, R64W dst_reg, ADDR next_addr) {
   FWriteV32(dst_mem, FReadV32(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(StoreUpdateIndex_F64, V64 src, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
   FWriteV64(dst_mem, FReadV64(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 template <typename S, typename D>
 DEF_SEM(Store, S src, D dst) {
   WriteTrunc(dst, Read(src));
-  return memory;
 }
 
 template <typename S, typename D>
 DEF_SEM(StoreToOffset, S src, D base, ADDR offset) {
   WriteTrunc(DisplaceAddress(base, Read(offset)), Read(src));
-  return memory;
 }
 
 DEF_SEM(StoreWordToOffset, V32 src, MV32W base, ADDR offset) {
   FWriteV32(DisplaceAddress(base, Read(offset)), FReadV32(src));
-  return memory;
 }
 
 DEF_SEM(StoreDoubleToOffset, V64 src, MV64W base, ADDR offset) {
   FWriteV64(DisplaceAddress(base, Read(offset)), FReadV64(src));
-  return memory;
 }
 
 template <typename S, typename D>
 DEF_SEM(StoreRelease, S src, D dst) {
   WriteTrunc(dst, Read(src));
-  memory = __remill_barrier_store_store(memory);
-  return memory;
+  __remill_barrier_store_store(runtime_manager);
 }
 
 DEF_SEM(STR_Q_UPDATE_ADDR, V128 src, MV128W dst, R64W dst_reg, ADDR next_addr) {
@@ -201,7 +181,6 @@ DEF_SEM(STR_Q_UPDATE_ADDR, V128 src, MV128W dst, R64W dst_reg, ADDR next_addr) {
   tmp_vec = UInsertV128(tmp_vec, 0, UExtractV128(src_vec, 0));
   UWriteV128(dst, tmp_vec);
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 /* S1: <W|X>.s, D1: <W|X>.t, S2: Xn, D2: Xn */
@@ -209,7 +188,6 @@ template <typename S1, typename D1, typename S2, typename D2>
 DEF_SEM(SWP_MEMOP, S1 src1, D1 dst1, S2 src2, D2 dst2) {
   WriteZExt(dst1, Read(src2));
   WriteTrunc(dst2, Read(src1));
-  return memory;
 }
 
 template <typename S, typename D>
@@ -218,7 +196,6 @@ DEF_SEM(LDADD_MEMOP, S src1, S src2, D dst) {
   T dst_val = Read(dst);
   WriteTrunc(dst, UAdd(dst_val, Read(src2)));
   WriteZExt(src1, dst_val);
-  return memory;
 }
 
 template <typename S, typename D>
@@ -227,7 +204,6 @@ DEF_SEM(LDSET_MEMOP, S src1, S src2, D dst) {
   T dst_val = Read(dst);
   WriteTrunc(dst, UOr(dst_val, Read(src2)));
   WriteZExt(src1, dst_val);
-  return memory;
 }
 
 }  // namespace
@@ -312,7 +288,6 @@ DEF_SEM(LoadPairUpdateIndex32, R32W dst1, R32W dst2, MV64 src_mem, R64W dst_reg,
   WriteZExt(dst1, UExtractV32(vec, 0));
   WriteZExt(dst2, UExtractV32(vec, 1));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LoadPairUpdateIndex64, R64W dst1, R64W dst2, MV128 src_mem, R64W dst_reg, ADDR next_addr) {
@@ -320,7 +295,6 @@ DEF_SEM(LoadPairUpdateIndex64, R64W dst1, R64W dst2, MV128 src_mem, R64W dst_reg
   Write(dst1, UExtractV64(vec, 0));
   Write(dst2, UExtractV64(vec, 1));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 }  // namespace
@@ -337,14 +311,12 @@ DEF_SEM(LoadPair32, R32W dst1, R32W dst2, MV64 src_mem) {
   auto vec = UReadV32(src_mem);
   WriteZExt(dst1, UExtractV32(vec, 0));
   WriteZExt(dst2, UExtractV32(vec, 1));
-  return memory;
 }
 
 DEF_SEM(LoadPair64, R64W dst1, R64W dst2, MV128 src_mem) {
   auto vec = UReadV64(src_mem);
   Write(dst1, UExtractV64(vec, 0));
   Write(dst2, UExtractV64(vec, 1));
-  return memory;
 }
 
 }  // namespace
@@ -358,7 +330,6 @@ DEF_SEM(LoadSignedPair64, R64W dst1, R64W dst2, MV64 src_mem) {
   auto vec = SReadV32(src_mem);
   WriteZExt(dst1, SExtTo<int64_t>(SExtractV32(vec, 0)));
   WriteZExt(dst2, SExtTo<int64_t>(SExtractV32(vec, 1)));
-  return memory;
 }
 
 DEF_SEM(LoadSignedPairUpdateIndex64, R64W dst1, R64W dst2, MV64 src_mem, R64W dst_reg,
@@ -367,7 +338,6 @@ DEF_SEM(LoadSignedPairUpdateIndex64, R64W dst1, R64W dst2, MV64 src_mem, R64W ds
   WriteZExt(dst1, SExtTo<int64_t>(SExtractV32(vec, 0)));
   WriteZExt(dst2, SExtTo<int64_t>(SExtractV32(vec, 1)));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 }  // namespace
@@ -381,20 +351,17 @@ namespace {
 template <typename D, typename S>
 DEF_SEM(Load, D dst, S src) {
   WriteZExt(dst, Read(src));
-  return memory;
 }
 
 template <typename D, typename S>
 DEF_SEM(LoadUpdateIndex, D dst, S src, R64W dst_reg, ADDR next_addr) {
   WriteZExt(dst, Read(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 template <typename D, typename M>
 DEF_SEM(LoadFromOffset, D dst, M base, ADDR offset) {
   WriteZExt(dst, Read(DisplaceAddress(base, Read(offset))));
-  return memory;
 }
 }  // namespace
 
@@ -441,15 +408,13 @@ template <typename D, typename S>
 DEF_SEM(LDXR, D dst, S src, R64W monitor) {
   WriteZExt(dst, Read(src));
   Write(monitor, AddressOf(src));
-  return memory;
 }
 
 template <typename D, typename S>
 DEF_SEM(LDAXR, D dst, S src, R64W monitor) {
-  memory = __remill_barrier_load_store(memory);
+  __remill_barrier_load_store(runtime_manager);
   WriteZExt(dst, Read(src));
   Write(monitor, AddressOf(src));
-  return memory;
 }
 
 template <typename S, typename D>
@@ -462,8 +427,7 @@ DEF_SEM(STLXR, R32W dst1, S src1, D dst2, R64W monitor) {
     WriteZExt(dst1, 1_u32);  // Store failed.
   }
   Write(monitor, 0_u64);
-  memory = __remill_barrier_store_store(memory);
-  return memory;
+  __remill_barrier_store_store(runtime_manager);
 }
 
 template <typename S, typename D>
@@ -476,8 +440,7 @@ DEF_SEM(STXR, R32W dst1, S src1, D dst2, R64W monitor) {
     WriteZExt(dst1, 1_u32);  // Store failed.
   }
   Write(monitor, 0_u64);
-  memory = __remill_barrier_store_store(memory);
-  return memory;
+  __remill_barrier_store_store(runtime_manager);
 }
 
 }  // namespace
@@ -496,20 +459,17 @@ namespace {
 template <typename D, typename S, typename InterType>
 DEF_SEM(LoadSExt, D dst, S src) {
   WriteZExt(dst, SExtTo<InterType>(Read(src)));
-  return memory;
 }
 
 template <typename D, typename S, typename InterType>
 DEF_SEM(LoadSExtUpdateIndex, D dst, S src, R64W dst_reg, ADDR next_addr) {
   WriteZExt(dst, SExtTo<InterType>(Read(src)));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 template <typename D, typename M, typename InterType>
 DEF_SEM(LoadSExtFromOffset, D dst, M base, ADDR offset) {
   WriteZExt(dst, SExtTo<InterType>(Read(DisplaceAddress(base, Read(offset)))));
-  return memory;
 }
 
 }  // namespace
@@ -554,55 +514,46 @@ DEF_SEM(MoveWithKeep, D dst, S src, I64 imm, I8 shift_) {
   auto mask = UNot(UShl((0xFFFFULL), shift));
   auto reg = ZExtTo<uint64_t>(Read(src));
   WriteZExt(dst, UOr(UAnd(reg, mask), val));
-  return memory;
 }
 
 DEF_SEM(FMOV_Imm32, V128W dst, F32 imm) {
   auto val = Read(imm);
   FWriteV32(dst, val);
-  return memory;
 }
 
 DEF_SEM(FMOV_Imm64, V128W dst, F64 imm) {
   auto val = Read(imm);
   FWriteV64(dst, val);
-  return memory;
 }
 
 DEF_SEM(FMOV_I32ToF32, V128W dst, R32 src) {
   auto val = Read(src);
   UWriteV32(dst, val);
-  return memory;
 }
 
 DEF_SEM(FMOV_F32ToI32, R32W dst, V32 src) {
   auto float_val = FExtractV32(FReadV32(src), 0);
   WriteZExt(dst, reinterpret_cast<uint32_t &>(float_val));
-  return memory;
 }
 
 DEF_SEM(FMOV_I64ToF64, V128W dst, R64 src) {
   auto val = Read(src);
   UWriteV64(dst, val);
-  return memory;
 }
 
 DEF_SEM(FMOV_F64ToI64, R64W dst, V64 src) {
   auto float_val = FExtractV64(FReadV64(src), 0);
   WriteZExt(dst, reinterpret_cast<uint64_t &>(float_val));
-  return memory;
 }
 
 DEF_SEM(FMOV_S, V128W dst, V32 src) {
   auto reg = FReadV32(src);
   FWriteV32(dst, reg);
-  return memory;
 }
 
 DEF_SEM(FMOV_D, V128W dst, V64 src) {
   auto reg = FReadV64(src);
   FWriteV64(dst, reg);
-  return memory;
 }
 }  // namespace
 
@@ -638,7 +589,6 @@ DEF_SEM(ADRP, R64W dst, PC label) {
   // the semantics just needs to fix up for PC not being page aligned
   auto label_page = UAnd(UNot(static_cast<uint64_t>(4095)), label_addr);
   Write(dst, label_page);
-  return memory;
 }
 
 }  // namespace
@@ -651,82 +601,67 @@ namespace {
 
 DEF_SEM(LDR_B, V128W dst, MV8 src) {
   UWriteV8(dst, UReadV8(src));
-  return memory;
 }
 
 DEF_SEM(LDR_H, V128W dst, MV16 src) {
   UWriteV16(dst, UReadV16(src));
-  return memory;
 }
 
 DEF_SEM(LDR_S, V128W dst, MV32 src) {
   FWriteV32(dst, FReadV32(src));
-  return memory;
 }
 
 DEF_SEM(LDR_D, V128W dst, MV64 src) {
   FWriteV64(dst, FReadV64(src));
-  return memory;
 }
 
 DEF_SEM(LDR_Q, V128W dst, MV128 src) {
   UWriteV128(dst, UReadV128(src));
-  return memory;
 }
 
 DEF_SEM(LDR_B_UpdateIndex, V128W dst, MV8 src, R64W dst_reg, ADDR next_addr) {
   UWriteV8(dst, UReadV8(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDR_H_UpdateIndex, V128W dst, MV16 src, R64W dst_reg, ADDR next_addr) {
   UWriteV16(dst, UReadV16(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDR_S_UpdateIndex, V128W dst, MV32W src, R64W dst_reg, ADDR next_addr) {
   FWriteV32(dst, FReadV32(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDR_D_UpdateIndex, V128W dst, MV64 src, R64W dst_reg, ADDR next_addr) {
   FWriteV64(dst, FReadV64(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDR_Q_UpdateIndex, V128W dst, MV128 src, R64W dst_reg, ADDR next_addr) {
   UWriteV128(dst, UReadV128(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDR_B_FromOffset, V128W dst, MV8 src, ADDR offset) {
   UWriteV8(dst, UReadV8(DisplaceAddress(src, Read(offset))));
-  return memory;
 }
 
 DEF_SEM(LDR_H_FromOffset, V128W dst, MV16 src, ADDR offset) {
   UWriteV16(dst, UReadV16(DisplaceAddress(src, Read(offset))));
-  return memory;
 }
 
 DEF_SEM(LDR_S_FromOffset, V128W dst, MV32 src, ADDR offset) {
   FWriteV32(dst, FReadV32(DisplaceAddress(src, Read(offset))));
-  return memory;
 }
 
 DEF_SEM(LDR_D_FromOffset, V128W dst, MV64 src, ADDR offset) {
   FWriteV64(dst, FReadV64(DisplaceAddress(src, Read(offset))));
-  return memory;
 }
 
 DEF_SEM(LDR_Q_FromOffset, V128W dst, MV128 src, ADDR offset) {
   UWriteV128(dst, UReadV128(DisplaceAddress(src, Read(offset))));
-  return memory;
 }
 
 }  // namespace
@@ -772,21 +707,18 @@ DEF_SEM(LDP_S, V128W dst1, V128W dst2, MV64 src) {
   auto src_vec = FReadV32(src);
   FWriteV32(dst1, FExtractV32(src_vec, 0));
   FWriteV32(dst2, FExtractV32(src_vec, 1));
-  return memory;
 }
 
 DEF_SEM(LDP_D, V128W dst1, V128W dst2, MV128 src) {
   auto src_vec = FReadV64(src);
   FWriteV64(dst1, FExtractV64(src_vec, 0));
   FWriteV64(dst2, FExtractV64(src_vec, 1));
-  return memory;
 }
 
 DEF_SEM(LDP_Q, V128W dst1, V128W dst2, MV256 src) {
   auto src_vec = UReadV128(src);
   UWriteV128(dst1, UExtractV128(src_vec, 0));
   UWriteV128(dst2, UExtractV128(src_vec, 1));
-  return memory;
 }
 
 DEF_SEM(LDP_S_UpdateIndex, V128W dst1, V128W dst2, MV64 src, R64W dst_reg, ADDR next_addr) {
@@ -794,7 +726,6 @@ DEF_SEM(LDP_S_UpdateIndex, V128W dst1, V128W dst2, MV64 src, R64W dst_reg, ADDR 
   FWriteV32(dst1, FExtractV32(src_vec, 0));
   FWriteV32(dst2, FExtractV32(src_vec, 1));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDP_D_UpdateIndex, V128W dst1, V128W dst2, MV128 src, R64W dst_reg, ADDR next_addr) {
@@ -802,7 +733,6 @@ DEF_SEM(LDP_D_UpdateIndex, V128W dst1, V128W dst2, MV128 src, R64W dst_reg, ADDR
   FWriteV64(dst1, FExtractV64(src_vec, 0));
   FWriteV64(dst2, FExtractV64(src_vec, 1));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(LDP_Q_UpdateIndex, V128W dst1, V128W dst2, MV256 src, R64W dst_reg, ADDR next_addr) {
@@ -810,7 +740,6 @@ DEF_SEM(LDP_Q_UpdateIndex, V128W dst1, V128W dst2, MV256 src, R64W dst_reg, ADDR
   UWriteV128(dst1, UExtractV128(src_vec, 0));
   UWriteV128(dst2, UExtractV128(src_vec, 1));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 }  // namespace
@@ -831,38 +760,31 @@ namespace {
 
 DEF_SEM(STR_B, V8 src, MV8W dst) {
   UWriteV8(dst, UReadV8(src));
-  return memory;
 }
 
 DEF_SEM(STR_H, V16 src, MV16W dst) {
   UWriteV16(dst, UReadV16(src));
-  return memory;
 }
 
 DEF_SEM(STR_S, V32 src, MV32W dst) {
   FWriteV32(dst, FReadV32(src));
-  return memory;
 }
 
 DEF_SEM(STR_D, V64 src, MV64W dst) {
   FWriteV64(dst, FReadV64(src));
-  return memory;
 }
 
 DEF_SEM(STR_Q, V128 src, MV128W dst) {
   UWriteV128(dst, UReadV128(src));
-  return memory;
 }
 
 DEF_SEM(STR_Q_UpdateIndex, V128 src, MV128W dst, R64W dst_reg, ADDR next_addr) {
   UWriteV128(dst, UReadV128(src));
   Write(dst_reg, Read(next_addr));
-  return memory;
 }
 
 DEF_SEM(STR_Q_FromOffset, V128 src, MV128W dst, ADDR offset) {
   UWriteV128(DisplaceAddress(dst, Read(offset)), UReadV128(src));
-  return memory;
 }
 }  // namespace
 
@@ -887,9 +809,8 @@ namespace {
 
 template <typename D, typename S>
 DEF_SEM(LoadAcquire, D dst, S src) {
-  memory = __remill_barrier_load_store(memory);
+  __remill_barrier_load_store(runtime_manager);
   WriteZExt(dst, Read(src));
-  return memory;
 }
 
 }  // namespace
@@ -906,7 +827,6 @@ namespace {
   DEF_SEM(ST1_SINGLE_##esize, V##esize src1, D dst) { \
     auto elems1 = UReadV##esize(src1); \
     UWriteV##esize(dst, elems1); \
-    return memory; \
   }
 
 MAKE_ST1(64)
@@ -935,7 +855,6 @@ namespace {
   DEF_SEM(LD1_SINGLE_##esize, V128W dst1, S src) { \
     auto elems1 = UReadV##esize(src); \
     UWriteV##esize(dst1, elems1); \
-    return memory; \
   }
 
 MAKE_LD1(8)
@@ -968,7 +887,6 @@ namespace {
     auto elems2 = UReadV##esize(GetElementPtr(src, 1U)); \
     UWriteV##esize(dst1, elems1); \
     UWriteV##esize(dst2, elems2); \
-    return memory; \
   }
 
 MAKE_LD1(8)
@@ -1001,7 +919,6 @@ namespace {
     auto elems2 = UReadV##esize(src2); \
     UWriteV##esize(dst, elems1); \
     UWriteV##esize(GetElementPtr(dst, 1U), elems2); \
-    return memory; \
   }
 
 MAKE_ST1(64)
@@ -1029,9 +946,8 @@ namespace {
   template <typename D> \
   DEF_SEM(ST1_PAIR_POSTINDEX_##esize, V##esize src1, V##esize src2, D dst, R64W addr_reg, \
           ADDR next_addr) { \
-    memory = ST1_PAIR_##esize(memory, state, src1, src2, dst); \
+    ST1_PAIR_##esize(runtime_manager, state, src1, src2, dst); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_ST1_POSTINDEX(64)
@@ -1059,7 +975,7 @@ namespace {
     auto src_v = UReadV##esize(src); \
     uint##esize##_t elem = UExtractV##esize(src_v, Read(index)); \
     WriteTrunc(dst_mem, elem); \
-    return memory; \
+\
   }  // namespace
 
 MAKE_ST1_UNIT(8)
@@ -1088,7 +1004,7 @@ namespace {
     uint##esize##_t elem = UExtractV##esize(src_v, Read(index)); \
     WriteTrunc(dst_mem, elem); \
     Write(dst_reg, Read(next_addr)); \
-    return memory; \
+\
   }  // namespace
 
 MAKE_ST1_UNIT_POSTINDEX(8)
@@ -1128,7 +1044,6 @@ namespace {
     UWriteV##esize(dst1, elems1); \
     UWriteV##esize(dst2, elems2); \
     UWriteV##esize(dst3, elems3); \
-    return memory; \
   }
 
 MAKE_LD1(8)
@@ -1165,7 +1080,6 @@ namespace {
     UWriteV##esize(dst2, elems2); \
     UWriteV##esize(dst3, elems3); \
     UWriteV##esize(dst4, elems4); \
-    return memory; \
   }
 
 MAKE_LD1(8)
@@ -1194,9 +1108,8 @@ namespace {
 #define MAKE_LD1_POSTINDEX(esize) \
   template <typename S> \
   DEF_SEM(LD1_SINGLE_POSTINDEX_##esize, V128W dst1, S src, R64W addr_reg, ADDR next_addr) { \
-    memory = LD1_SINGLE_##esize(memory, state, dst1, src); \
+    LD1_SINGLE_##esize(runtime_manager, state, dst1, src); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_LD1_POSTINDEX(8)
@@ -1226,9 +1139,8 @@ namespace {
   template <typename S> \
   DEF_SEM(LD1_PAIR_POSTINDEX_##esize, V128W dst1, V128W dst2, S src, R64W addr_reg, \
           ADDR next_addr) { \
-    memory = LD1_PAIR_##esize(memory, state, dst1, dst2, src); \
+    LD1_PAIR_##esize(runtime_manager, state, dst1, dst2, src); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_LD1_POSTINDEX(8)
@@ -1258,9 +1170,8 @@ namespace {
   template <typename S> \
   DEF_SEM(LD1_TRIPLE_POSTINDEX_##esize, V128W dst1, V128W dst2, V128W dst3, S src, R64W addr_reg, \
           ADDR next_addr) { \
-    memory = LD1_TRIPLE_##esize(memory, state, dst1, dst2, dst3, src); \
+    LD1_TRIPLE_##esize(runtime_manager, state, dst1, dst2, dst3, src); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_LD1_POSTINDEX(8)
@@ -1290,9 +1201,8 @@ namespace {
   template <typename S> \
   DEF_SEM(LD1_QUAD_POSTINDEX_##esize, V128W dst1, V128W dst2, V128W dst3, V128W dst4, S src, \
           R64W addr_reg, ADDR next_addr) { \
-    memory = LD1_QUAD_##esize(memory, state, dst1, dst2, dst3, dst4, src); \
+    LD1_QUAD_##esize(runtime_manager, state, dst1, dst2, dst3, dst4, src); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_LD1_POSTINDEX(8)
@@ -1330,7 +1240,6 @@ namespace {
     } \
     UWriteV##size(dst1, dst1_vec); \
     UWriteV##size(dst2, dst2_vec); \
-    return memory; \
   }
 
 MAKE_LD2(8)
@@ -1343,9 +1252,8 @@ MAKE_LD2(64)
 #define MAKE_LD2(size) \
   template <typename S> \
   DEF_SEM(LD2_##size##_POSTINDEX, V128W dst1, V128W dst2, S src, R64W addr_reg, ADDR next_addr) { \
-    memory = LD2_##size(memory, state, dst1, dst2, src); \
+    LD2_##size(runtime_manager, state, dst1, dst2, src); \
     Write(addr_reg, Read(next_addr)); \
-    return memory; \
   }
 
 MAKE_LD2(8)
@@ -1403,7 +1311,6 @@ namespace {
     UWriteV##size(dst1, dst1_vec); \
     UWriteV##size(dst2, dst2_vec); \
     UWriteV##size(dst3, dst3_vec); \
-    return memory; \
   }
 
 MAKE_LD3(8)
@@ -1450,7 +1357,6 @@ namespace {
     UWriteV##size(dst2, dst2_vec); \
     UWriteV##size(dst3, dst3_vec); \
     UWriteV##size(dst4, dst4_vec); \
-    return memory; \
   }
 
 MAKE_LD4(8)
@@ -1480,7 +1386,6 @@ namespace {
     auto val = Read(src); \
     vec = UInsertV##size(vec, index, TruncTo<uint##size##_t>(val)); \
     UWriteV##size(dst, vec); \
-    return memory; \
   }
 
 INS_VEC(8)
@@ -1509,7 +1414,7 @@ namespace {
       elem = mem_val; \
     } \
     UWriteV##elem_size(dst, tmp_v); \
-    return memory; \
+\
   }  // namespace
 
 MAKE_LD1R(8)
@@ -1539,7 +1444,6 @@ namespace {
     auto src_vec = UReadV##size(src); \
     vec = UInsertV##size(vec, index_1, TruncTo<uint##size##_t>(src_vec.elems[index_2])); \
     UWriteV##size(dst, vec); \
-    return memory; \
   }
 
 INS_MOV_VEC(8)
@@ -1562,7 +1466,6 @@ namespace {
   template <typename D, typename T> \
   DEF_SEM(prefix##MovFromVec##size, D dst, V128 src, I64 index) { \
     WriteZExt(dst, ext_op<T>(prefix##ExtractV##size(prefix##ReadV##size(src), Read(index)))); \
-    return memory; \
   }
 
 EXTRACT_VEC(U, 8, ZExtTo)
@@ -1598,7 +1501,6 @@ DEF_SEM(MOVI_D2, V128W dst, I64 src) {
   res = UInsertV64(res, 0, imm);
   res = UInsertV64(res, 1, imm);
   UWriteV64(dst, res);
-  return memory;
 }
 
 template <typename V, typename VNW>
@@ -1609,7 +1511,6 @@ DEF_SEM(MOVI_N_B, VNW dst, I8 src) {
     elem = imm;
   }
   UWriteV8(dst, res);
-  return memory;
 }
 
 template <typename V, typename VNW>
@@ -1620,7 +1521,6 @@ DEF_SEM(MOVI_L_HL, VNW dst, I16 src) {
     elem = imm;
   }
   UWriteV16(dst, res);
-  return memory;
 }
 
 template <typename V, typename VNW>
@@ -1631,7 +1531,6 @@ DEF_SEM(MOVI_L_SL, VNW dst, I32 src) {
     elem = imm;
   }
   UWriteV32(dst, res);
-  return memory;
 }
 
 DEF_SEM(MOVI_DS, V128W dst, I64 src) {
@@ -1639,7 +1538,6 @@ DEF_SEM(MOVI_DS, V128W dst, I64 src) {
   auto res = UClearV64(UReadV64(dst));
   res = UInsertV64(res, 0, imm);
   UWriteV64(dst, res);
-  return memory;
 }
 
 template <typename V, typename VNW>
@@ -1651,7 +1549,6 @@ DEF_SEM(BIC_L_HL, VNW dst, I16 src) {
     res.elems[i] = src_vec.elems[i] & (~imm);
   }
   UWriteV16(dst, res);
-  return memory;
 }
 
 template <typename V, typename VNW>
@@ -1663,7 +1560,6 @@ DEF_SEM(BIC_L_SL, VNW dst, I32 src) {
     res.elems[i] = src_vec.elems[i] & (~imm);
   }
   UWriteV32(dst, res);
-  return memory;
 }
 
 }  // namespace
@@ -1702,7 +1598,6 @@ DEF_SEM(CAS, S src1, S src2, D dst) {
   WriteTrunc(src1, org_val);
   auto new_val = Select<T>(cond_eq, Read(src2), org_val);
   WriteTrunc(dst, new_val);
-  return memory;
 }
 }  // namespace
 
@@ -1726,7 +1621,6 @@ DEF_SEM(DC_ZVA, D dst_mem) {
   for (size_t i = 0; i < static_cast<size_t>(pow(2.0, static_cast<double>(bs))); i++) {
     Write_Dc_Zva(dst_mem, sizeof(uint32_t) * i, 0);
   }
-  return memory;
 }
 
 }  // namespace
@@ -1746,7 +1640,6 @@ namespace {
       tmp_v.elems[i] = (uint8_t) ((cnt >> i * 8) & 0xff); \
     } \
     UWriteV8(dst, tmp_v); \
-    return memory; \
   }
 
 MAKE_CNT(64, 8)

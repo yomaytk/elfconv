@@ -45,7 +45,8 @@
 
 #include "remill/Arch/Runtime/Intrinsics.h"
 
-Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name call) {
+void __remill_sync_hyper_call(State &state, RuntimeManager *runtime_manager,
+                              SyncHyperCall::Name call) {
 
 #if REMILL_HYPERCALL_X86
   register uint32_t esp asm("esp") = state.gpr.rsp.dword;
@@ -227,7 +228,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
 #elif REMILL_HYPERCALL_AARCH64
 
     case SyncHyperCall::kAArch64EmulateInstruction:
-      mem = __remill_aarch64_emulate_instruction(mem);
+      // mem = __remill_aarch64_emulate_instruction(mem);
       break;
 
     case SyncHyperCall::kAArch64Breakpoint: /* TODO asm volatile("BRK #0" :); */ break;
@@ -300,6 +301,4 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
 
     default: __builtin_unreachable(); break;
   }
-
-  return mem;
 }

@@ -20,7 +20,7 @@ using ::testing::UnitTest;
   "clang++ -I../../../backend/remill/include -I../../../ -o " #ident ".test.aarch64.o " \
   "-c ../../../utils/" #ident ".cpp"
 #define RUNTIME_OBJS \
-  "Entry.test.aarch64.o Memory.test.aarch64.o SyscallNative.test.aarch64.o VmIntrinsics.test.aarch64.o Util.test.aarch64.o elfconv.test.aarch64.o"
+  "Entry.test.aarch64.o Memory.test.aarch64.o Runtime.test.aarch64.o SyscallNative.test.aarch64.o VmIntrinsics.test.aarch64.o Util.test.aarch64.o elfconv.test.aarch64.o"
 
 void compile_runtime();
 void compile_test_elf();
@@ -30,7 +30,7 @@ class TestEnvironment : public ::testing::Environment {
  public:
   ~TestEnvironment() override {}
   void TearDown() override {
-    // clean_up();
+    clean_up();
   }
 };
 
@@ -45,11 +45,9 @@ void cmd_check(int status, const char *cmd) {
 
 // compile `elfconv/runtime`
 void compile_runtime() {
-  std::string cmds[] = {CLANG_RUNTIME_CMD(Entry),
-                        CLANG_RUNTIME_CMD(Memory),
-                        CLAGN_RUNTIME_SYSCALL_CMD(SyscallNative),
-                        CLANG_RUNTIME_CMD(VmIntrinsics),
-                        CLANG_UTILS_CMD(Util),
+  std::string cmds[] = {CLANG_RUNTIME_CMD(Entry),        CLANG_RUNTIME_CMD(Memory),
+                        CLANG_RUNTIME_CMD(Runtime),      CLAGN_RUNTIME_SYSCALL_CMD(SyscallNative),
+                        CLANG_RUNTIME_CMD(VmIntrinsics), CLANG_UTILS_CMD(Util),
                         CLANG_UTILS_CMD(elfconv)};
   for (auto &cmd : cmds)
     cmd_check(system(cmd.c_str()), cmd.c_str());

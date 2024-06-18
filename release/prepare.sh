@@ -61,12 +61,13 @@ main() {
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
+    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Runtime.o -c Runtime.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $EMAR rcs libelfconvbrowser.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
+    $EMAR rcs libelfconvbrowser.a Entry.o Runtime.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     if mv libelfconvbrowser.a ${RELEASE_DIR}/lib; then
       echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
     else
@@ -79,12 +80,13 @@ main() {
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
+    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Runtime.o -c Runtime.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallWasi.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $WASISDKAR rcs libelfconvwasi.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
+    $WASISDKAR rcs libelfconvwasi.a Entry.o Runtime.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     if mv libelfconvwasi.a ${RELEASE_DIR}/lib; then
       echo -e "[\033[32mINFO\033[0m] Set libelfconvwasi.a."
     else

@@ -441,13 +441,13 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
   ParamPtr CreateMemoryAddress(llvm::Value *offset) {
     const auto mem_ptr_ref = this->insn_lifter_parent.LoadRegAddress(
-        this->target_block, this->state_pointer, kMemoryVariableName);
+        this->target_block, this->state_pointer, kRuntimeVariableName);
     // compute pointer into memory at offset
 
 
     return Memory::CreateMemory(mem_ptr_ref.first, offset,
                                 this->insn_lifter_parent.GetIntrinsicTable(),
-                                this->insn_lifter_parent.GetMemoryType());
+                                this->insn_lifter_parent.GetRuntimeType());
   }
 
   std::optional<ParamPtr> LiftNormalRegister(llvm::IRBuilder<> &bldr, std::string reg_name) {
@@ -1244,13 +1244,13 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       if (other_func_name == kSysCallName && insn.arch_name == ArchName::kArchPPC) {
         DLOG(INFO) << "Invoking syscall";
 
-        const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
+        const auto runtime_ptr_ref = LoadRuntimePointerRef(bldr.GetInsertBlock());
 
         // Get a LLVM value for the sync hyper call enumeration.
         auto hyper_call_int = static_cast<uint32_t>(SyncHyperCall::Name::kPPCSysCall);
         auto hyper_call =
             llvm::ConstantInt::get(llvm::IntegerType::get(this->context, 32), hyper_call_int);
-        std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr_ref, hyper_call};
+        std::array<llvm::Value *, 3> args = {state_pointer, runtime_ptr_ref, hyper_call};
 
         bldr.CreateCall(insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
 
@@ -1416,8 +1416,9 @@ std::map<OpCode, SleighLifter::PcodeToLLVMEmitIntoBlock::BinaryOperator>
                return bldr.CreateMul(lhs, rhs);
              }},
             {OpCode::CPUI_INT_DIV,
-             [](llvm::Value *lhs, llvm::Value *rhs,
-                llvm::IRBuilder<> &bldr) { return bldr.CreateUDiv(lhs, rhs); }},
+             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
+               return bldr.CreateUDiv(lhs, rhs);
+             }},
             {OpCode::CPUI_INT_SDIV,
              [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
                return bldr.CreateSDiv(lhs, rhs);
@@ -1553,7 +1554,7 @@ SleighLifter::LiftIntoInternalBlockWithSleighState(Instruction &inst, llvm::Modu
 
 
   exit_builder.CreateRet(
-      remill::LoadMemoryPointer(exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
+      remill::LoadRuntimePointer(exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
 
 
   //TODO(Ian): make a safe to use sleighinstruction context that wraps a context with an arch to preform reset reinits
@@ -1639,11 +1640,11 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::B
 
 
   std::array<llvm::Value *, 4> args = {
-      state_ptr, remill::LoadMemoryPointer(block, *this->GetIntrinsicTable()),
+      state_ptr, remill::LoadRuntimePointer(block, *this->GetIntrinsicTable()),
       remill::LoadBranchTakenRef(block), remill::LoadNextProgramCounterRef(block)};
 
   intoblock_builer.CreateStore(intoblock_builer.CreateCall(target_func, args),
-                               remill::LoadMemoryPointerRef(block));
+                               remill::LoadRuntimePointerRef(block));
 
   //NOTE(Ian): If we made it past decoding we should be able to decode the bytes again
   DLOG(INFO) << res.first;
@@ -1685,8 +1686,8 @@ llvm::Value *SleighLifterWithState::LoadRegValue(llvm::BasicBlock *block, llvm::
   return this->lifter->LoadRegValue(block, state_ptr, reg_name);
 }
 
-llvm::Type *SleighLifterWithState::GetMemoryType() {
-  return this->lifter->GetMemoryType();
+llvm::Type *SleighLifterWithState::GetRuntimeType() {
+  return this->lifter->GetRuntimeType();
 }
 
 void SleighLifterWithState::ClearCache(void) const {

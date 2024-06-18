@@ -50,12 +50,13 @@ main() {
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.o -c Entry.cpp && \
+    $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Runtime.o -c Runtime.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.o -c Memory.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.o -c $SYSCALLCPP && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
     $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $WASMAR rcs libelfconv.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
+    $WASMAR rcs libelfconv.a Entry.o Runtime.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
     mv libelfconv.a "${BIN_DIR}/"
 		rm *.o
   echo -e "[\033[32mINFO\033[0m] Generate libelfconv.a."

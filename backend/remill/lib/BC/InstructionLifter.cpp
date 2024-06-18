@@ -47,8 +47,8 @@ InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsic
     : arch(arch_),
       intrinsics(intrinsics_),
       word_type(remill::NthArgument(intrinsics->async_hyper_call, remill::kPCArgNum)->getType()),
-      memory_ptr_type(
-          remill::NthArgument(intrinsics->async_hyper_call, remill::kMemoryPointerArgNum)
+      runtime_ptr_type(
+          remill::NthArgument(intrinsics->async_hyper_call, remill::kRuntimePointerArgNum)
               ->getType()),
       module(intrinsics->async_hyper_call->getParent()),
       invalid_instruction(GetInstructionFunction(module, kInvalidInstructionISelName)),
@@ -110,10 +110,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 #endif
   }
 
-  llvm::IRBuilder<> ir(block);
-  const auto [mem_ptr_ref, mem_ptr_ref_type] =
-      LoadRegAddress(block, state_ptr, kMemoryVariableName);
-
   // If this instruction appears within a delay slot, then we're going to assume
   // that the prior instruction updated `PC` to the target of the CTI, and that
   // the value in `NEXT_PC` on entry to this instruction represents the actual
@@ -122,8 +118,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // TODO(pag): An alternate approach may be to call some kind of `DELAY_SLOT`
   //            semantics function.
   if (is_delayed) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
+    LOG(FATAL) << "Unexpected to enter the `is_delayed`.";
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
   }
 
 #if defined(LIFT_INSN_DEBUG)
@@ -144,9 +141,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 #endif
 
   // Begin an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
   }
 
   std::vector<llvm::Value *> args;
@@ -180,16 +178,20 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     args.push_back(operand);
   }
 
+  llvm::IRBuilder<> ir(block);
+  const auto [runtime_ptr_ref, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
+
   // Pass in current value of the memory pointer.
-  args[0] = ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref);
+  args[0] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
 
   // Call the function that implements the instruction semantics.
-  ir.CreateStore(ir.CreateCall(isel_func, args), mem_ptr_ref);
+  ir.CreateCall(isel_func, args);
 
   // End an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
   }
 
   // Restore the true target of the delayed branch.
@@ -203,19 +205,23 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // `arch->MaxInstructionSize()`), and for normal instructions, before they
     // are lifted, we do the `PC = NEXT_PC + size`, so this is fine.
     // ir.CreateStore(next_pc, next_pc_ref);
-
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
+    LOG(FATAL) << "Unexpected to enter the `is_delayed`.";
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
   }
 
   /* append debug_insn function call */
   if (UINT64_MAX != debug_insn_addr) {
     llvm::IRBuilder<> __debug_ir(block);
     auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
-    CHECK(_debug_insn_fn && _debug_memory_value_change_fn);
     __debug_ir.CreateCall(_debug_insn_fn);
-    __debug_ir.CreateCall(_debug_memory_value_change_fn);
+#if defined(LIFT_MEMORY_VALUE_CHANGE)
+    auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
+    auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
+    __debug_ir.CreateCall(_debug_memory_value_change_fn,
+                          {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
+                                                 runtime_manager_ptr)});
+#endif
   }
 
   return status;
@@ -599,9 +605,9 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
   if (arch_op.size > impl->arch->address_size) {
     CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
         << "Argument to semantics function for instruction at " << std::hex << inst.pc
-        << " is not an integer. This may not be surprising because "
-        << "the immediate operand is " << arch_op.size << " bits, but the "
-        << "machine word size is " << impl->arch->address_size << " bits.";
+        << " is not an integer. This may not be surprising because " << "the immediate operand is "
+        << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
+        << " bits.";
 
     CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
                               << "Operand structure encodes a truncated " << arch_op.size << " bit "
@@ -651,8 +657,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     if (val_size < arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
+            << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
@@ -671,8 +677,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     } else if (val_size > arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type "
-            << "for instruction at " << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
+            << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
@@ -857,8 +863,8 @@ llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock 
 llvm::Type *InstructionLifter::GetWordType() {
   return this->impl->word_type;
 }
-llvm::Type *InstructionLifter::GetMemoryType() {
-  return this->impl->memory_ptr_type;
+llvm::Type *InstructionLifter::GetRuntimeType() {
+  return this->impl->runtime_ptr_type;
 }
 
 const IntrinsicTable *InstructionLifter::GetIntrinsicTable() {

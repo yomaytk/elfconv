@@ -154,9 +154,9 @@ llvm::CallInst *AddCall(llvm::IRBuilder<> &ir, llvm::BasicBlock *source_block,
   } else {
     llvm::Type *arg_types[kNumBlockArgs];
     arg_types[kStatePointerArgNum] = args[kStatePointerArgNum]->getType();
-    arg_types[kMemoryPointerArgNum] = args[kMemoryPointerArgNum]->getType();
+    arg_types[kRuntimePointerArgNum] = args[kRuntimePointerArgNum]->getType();
     arg_types[kPCArgNum] = args[kPCArgNum]->getType();
-    auto func_type = llvm::FunctionType::get(arg_types[kMemoryPointerArgNum], arg_types, false);
+    auto func_type = llvm::FunctionType::get(arg_types[kRuntimePointerArgNum], arg_types, false);
     llvm::FunctionCallee callee(func_type, dest_func);
     return ir.CreateCall(callee, args);
   }
@@ -200,7 +200,7 @@ llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Val
   }
 #endif
 
-  ir.CreateRet(call_target_instr);
+  ir.CreateRetVoid();
   return call_target_instr;
 }
 
@@ -255,17 +255,6 @@ llvm::Value *LoadStatePointer(llvm::Function *function) {
   return NthArgument(function, kStatePointerArgNum);
 }
 
-// Return the memory pointer argument.
-llvm::Value *LoadMemoryPointerArg(llvm::Function *function) {
-  CHECK(HasRemillLiftedFunctionParams(function))
-      << "Invalid block-like function. Expected three arguments: state "
-      << "pointer, program counter, and memory pointer in function " << function->getName().str();
-
-  static_assert(2 == kMemoryPointerArgNum, "Expected state pointer to be the first operand.");
-
-  return NthArgument(function, kMemoryPointerArgNum);
-}
-
 // Return the program counter argument.
 llvm::Value *LoadProgramCounterArg(llvm::Function *function) {
   CHECK(HasRemillLiftedFunctionParams(function))
@@ -312,11 +301,6 @@ llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kReturnPCVariableName).first;
 }
 
-/* Return a reference to the switch key. */
-llvm::Value *LoadIndirectBrAddrRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kIndirectBrAddrName).first;
-}
-
 // Update the program counter in the state struct with a new value.
 void StoreProgramCounter(llvm::BasicBlock *block, llvm::Value *pc) {
   (void) new llvm::StoreInst(pc, LoadProgramCounterRef(block), block);
@@ -331,16 +315,6 @@ void StoreNextProgramCounter(llvm::BasicBlock *block, llvm::Value *pc) {
 void StoreProgramCounter(llvm::BasicBlock *block, uint64_t pc, const IntrinsicTable &intrinsics) {
   auto pc_ptr = LoadProgramCounterRef(block);
   (void) new llvm::StoreInst(llvm::ConstantInt::get(intrinsics.pc_type, pc), pc_ptr, block);
-}
-
-// Return the current memory pointer.
-llvm::Value *LoadMemoryPointer(llvm::BasicBlock *block, const IntrinsicTable &intrinsics) {
-  llvm::IRBuilder<> ir(block);
-  return LoadMemoryPointer(ir, intrinsics);
-}
-
-llvm::Value *LoadMemoryPointer(llvm::IRBuilder<> &ir, const IntrinsicTable &intrinsics) {
-  return ir.CreateLoad(intrinsics.mem_ptr_type, LoadMemoryPointerRef(ir.GetInsertBlock()));
 }
 
 // Return an `llvm::Value *` that is an `i1` (bool type) representing whether
@@ -364,9 +338,28 @@ llvm::Value *LoadBranchTakenRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kBranchTakenVariableName).first;
 }
 
-// Return a reference to the memory pointer.
-llvm::Value *LoadMemoryPointerRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kMemoryVariableName).first;
+// Return the runtime pointer argument.
+llvm::Value *LoadRuntimePointerArg(llvm::Function *function) {
+  CHECK(HasRemillLiftedFunctionParams(function))
+      << "Invalid block-like function. Expected three arguments: state "
+      << "pointer, program counter, and memory pointer in function " << function->getName().str();
+
+  return NthArgument(function, kRuntimePointerArgNum);
+}
+
+// Return the current runtime pointer.
+llvm::Value *LoadRuntimePointer(llvm::BasicBlock *block, const IntrinsicTable &intrinsics) {
+  llvm::IRBuilder<> ir(block);
+  return LoadRuntimePointer(ir, intrinsics);
+}
+
+llvm::Value *LoadRuntimePointer(llvm::IRBuilder<> &ir, const IntrinsicTable &intrinsics) {
+  return ir.CreateLoad(intrinsics.runtime_ptr_type, LoadRuntimePointerRef(ir.GetInsertBlock()));
+}
+
+// Return a reference to the runtime pointer.
+llvm::Value *LoadRuntimePointerRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kRuntimeVariableName).first;
 }
 
 // Find a function with name `name` in the module `M`.
@@ -548,11 +541,11 @@ bool StoreModuleIRToFile(llvm::Module *module, std::string_view file_name_, bool
 
 namespace {
 
-#ifndef REMILL_BUILD_SEMANTICS_DIR_X86
-#  error \
-      "Macro `REMILL_BUILD_SEMANTICS_DIR_X86` must be defined to support X86 and AMD64 architectures."
-#  define REMILL_BUILD_SEMANTICS_DIR_X86
-#endif  // REMILL_BUILD_SEMANTICS_DIR_X86
+// #ifndef REMILL_BUILD_SEMANTICS_DIR_X86
+// #  error \
+//       "Macro `REMILL_BUILD_SEMANTICS_DIR_X86` must be defined to support X86 and AMD64 architectures."
+// #  define REMILL_BUILD_SEMANTICS_DIR_X86
+// #endif  // REMILL_BUILD_SEMANTICS_DIR_X86
 
 // #ifndef REMILL_BUILD_SEMANTICS_DIR_AARCH32
 // #  error \
@@ -597,7 +590,7 @@ using paths_t = std::vector<std::filesystem::path>;
 
 const paths_t &DefaultSemanticsSearchPaths() {
   static const paths_t paths = {
-      REMILL_BUILD_SEMANTICS_DIR_X86,
+      // REMILL_BUILD_SEMANTICS_DIR_X86,
       // REMILL_BUILD_SEMANTICS_DIR_AARCH32,
       REMILL_BUILD_SEMANTICS_DIR_AARCH64,
       // REMILL_BUILD_SEMANTICS_DIR_SPARC32,
@@ -689,11 +682,11 @@ std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *bl
   std::array<llvm::Value *, kNumBlockArgs> args;
 
   if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kMemoryPointerArgNum] = LoadMemoryPointer(block, intrinsics);
+    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
     args[kStatePointerArgNum] = LoadStatePointer(block);
     args[kPCArgNum] = LoadProgramCounter(block, intrinsics);
   } else {
-    args[kMemoryPointerArgNum] = NthArgument(func, kMemoryPointerArgNum);
+    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
     args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
     args[kPCArgNum] = NthArgument(func, kPCArgNum);
   }
@@ -710,11 +703,11 @@ LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &int
   std::array<llvm::Value *, kNumBlockArgs> args;
 
   if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kMemoryPointerArgNum] = LoadMemoryPointer(block, intrinsics);
+    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
     args[kStatePointerArgNum] = LoadStatePointer(block);
     args[kPCArgNum] = pc_value;
   } else {
-    args[kMemoryPointerArgNum] = NthArgument(func, kMemoryPointerArgNum);
+    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
     args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
     args[kPCArgNum] = pc_value;
   }
@@ -1858,8 +1851,8 @@ llvm::Value *LoadFromMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> 
 
     case llvm::Type::X86_FP80TyID: {
       auto res = ir.CreateAlloca(type);
-      llvm::Value *args_3[3] = {args_2[0], args_2[1], res};
-      ir.CreateCall(intrinsics.read_memory_f80, args_3);
+      // llvm::Value *args_3[3] = {args_2[0], args_2[1], res};
+      // ir.CreateCall(intrinsics.read_memory_f80, args_3);
       return ir.CreateLoad(type, res);
     }
 
@@ -2016,7 +2009,8 @@ llvm::Value *StoreToMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> &
       auto fp80_value = ir.CreateFPTrunc(val_to_store, fp80_type);
       (void) ir.CreateStore(fp80_value, res);
       args_3[2] = res;
-      return ir.CreateCall(intrinsics.write_memory_f80, args_3);
+      // (FIXME) fix for not using write_memory_f80. f64 is dummy.
+      return ir.CreateCall(intrinsics.write_memory_f64, args_3);
     }
 
     case llvm::Type::X86_MMXTyID: {

@@ -16,22 +16,6 @@ const uint64_t HEAP_UNIT_SIZE = 1 * 1024 * 1024 * 1024; /* 1 GiB */
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
-class MappedMemory;
-class RuntimeManager;
-
-/* own implementation of syscall emulation */
-extern void __svc_native_call();
-extern void __svc_browser_call();
-extern void __svc_wasi_call();
-/* translate the address of the original ELF to the actual address of mapped space */
-extern void *_ecv_translate_ptr(addr_t vma_addr);
-extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);
-
-/* get mapped memory address of vma */
-template <typename T>
-T *getMemoryAddr(addr_t vma_addr) {
-  return reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
-}
 
 extern "C" {
 /* State machine which represents all CPU registers */
@@ -110,39 +94,3 @@ class MappedMemory {
   bool bytes_on_heap;  // whether or not bytes is allocated on the heap memory
   uint64_t heap_cur; /* for Heap */
 };
-
-class RuntimeManager {
- public:
-  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__mapped_stack,
-                 MappedMemory *__mapped_heap)
-      : mapped_memorys(__mapped_memorys),
-        stack_memory(__mapped_stack),
-        heap_memory(__mapped_heap),
-        addr_fn_map({}) {}
-  RuntimeManager() {}
-  ~RuntimeManager() {
-    for (auto memory : mapped_memorys)
-      delete (memory);
-  }
-  /* translate vma address to the actual mapped memory address */
-  void *TranslateVMA(addr_t vma_addr);
-  void DebugEmulatedMemorys() {
-    for (auto memory : mapped_memorys)
-      memory->DebugEmulatedMemory();
-  }
-
-  std::vector<MappedMemory *> mapped_memorys;
-  MappedMemory *stack_memory;
-  MappedMemory *heap_memory;
-  /* heap area manage */
-  addr_t heaps_end_addr;
-  std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
-  std::unordered_map<addr_t, const char *> addr_fn_symbol_map;
-  std::map<addr_t, std::map<uint64_t, uint64_t *>> addr_block_addrs_map;
-  std::vector<addr_t> call_stacks;
-
-  int cnt = 0;
-  std::unordered_map<std::string, uint64_t> sec_map;
-};
-
-extern RuntimeManager *g_run_mgr;

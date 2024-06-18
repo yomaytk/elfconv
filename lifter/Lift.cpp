@@ -48,13 +48,15 @@ int main(int argc, char *argv[]) {
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
   auto arch_name = remill::GetArchName(FLAGS_arch);
-  auto arch = remill::Arch::Build(&context, os_name, arch_name);
+  auto arch =
+      remill::Arch::Build(&context, os_name, arch_name);  // arch = std::unique_ptr<AArch64Arch>
   auto module = FLAGS_bitcode_path.empty()
                     ? remill::LoadArchSemantics(arch.get())
                     : remill::LoadArchSemantics(arch.get(), {FLAGS_bitcode_path.c_str()});
 
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
+  main_lifter.SetRuntimeManagerClass();
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 

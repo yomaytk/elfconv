@@ -38,17 +38,17 @@ add_library(remill_arch_sleigh STATIC
 
   Arch.h
   Thumb.h
-  PPC.h
+  # PPC.h
   Arch.cpp
-  X86Arch.cpp
-  Thumb2Arch.cpp
-  PPCArch.cpp
+  # X86Arch.cpp
+  # Thumb2Arch.cpp
+  # PPCArch.cpp
   ControlFlowStructuring.cpp
   ControlFlowStructuring.h
 
-  AArch32Arch.cpp
-  AArch32Arch.h
-  ARMBase.cpp
+  # AArch32Arch.cpp
+  # AArch32Arch.h
+  # ARMBase.cpp
 
   AArch64Arch.cpp
   AArch64Arch.h

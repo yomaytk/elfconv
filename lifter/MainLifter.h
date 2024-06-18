@@ -67,6 +67,9 @@ class MainLifter : public TraceLifter {
     std::string debug_llvmir_f64value_name;
     std::string debug_memory_value_name;
 
+    // Set RuntimeManager class to global context
+    void SetRuntimeManagerClass();
+
     // Set entry function pointer
     llvm::GlobalVariable *SetEntryPoint(std::string &entry_func_name);
 
@@ -128,6 +131,7 @@ class MainLifter : public TraceLifter {
   /* called derived class */
   MainLifter(WrapImpl *__wrap_impl) : TraceLifter(static_cast<TraceLifter::Impl *>(__wrap_impl)) {}
 
+  void SetRuntimeManagerClass();
   void SetEntryPoint(std::string &entry_func_name);
   void SetEntryPC(uint64_t pc);
   void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);

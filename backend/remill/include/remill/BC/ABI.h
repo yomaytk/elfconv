@@ -27,19 +27,16 @@ namespace remill {
 enum : size_t {
   kStatePointerArgNum = 0,
   kPCArgNum = 1,
-  kMemoryPointerArgNum = 2,
+  kRuntimePointerArgNum = 2,
   kNumBlockArgs = 3
 };
 
-extern const std::string_view kMemoryVariableName;
 extern const std::string_view kStateVariableName;
 extern const std::string_view kPCVariableName;
 extern const std::string_view kNextPCVariableName;
 extern const std::string_view kReturnPCVariableName;
 extern const std::string_view kBranchTakenVariableName;
-extern const std::string_view kIndirectBrAddrName;
-extern const std::string_view kFunctionVMASName;
-extern const std::string_view kFunctionVMAEName;
+extern const std::string_view kRuntimeVariableName;
 
 extern const std::string_view kInvalidInstructionISelName;
 extern const std::string_view kUnsupportedInstructionISelName;
