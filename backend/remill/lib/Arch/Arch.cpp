@@ -179,42 +179,42 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
 
     case kArchX86: {
       DLOG(INFO) << "Using architecture: X86";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchX86_SLEIGH: {
       DLOG(INFO) << "Using architecture: X86_Sleigh";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetSleighX86(context_, os_name_, arch_name_);
     }
 
     case kArchAMD64_SLEIGH: {
       DLOG(INFO) << "Using architecture: X86_Sleigh";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetSleighX86(context_, os_name_, arch_name_);
     }
 
     case kArchX86_AVX: {
       DLOG(INFO) << "Using architecture: X86, feature set: AVX";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchX86_AVX512: {
       DLOG(INFO) << "Using architecture: X86, feature set: AVX512";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchAMD64: {
       DLOG(INFO) << "Using architecture: AMD64";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchAMD64_AVX: {
       DLOG(INFO) << "Using architecture: AMD64, feature set: AVX";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchAMD64_AVX512: {
       DLOG(INFO) << "Using architecture: AMD64, feature set: AVX512";
-      return GetUndefinedArch(context_, os_name_, arch_name_);
+      return GetX86(context_, os_name_, arch_name_);
     }
 
     case kArchSparc32: {

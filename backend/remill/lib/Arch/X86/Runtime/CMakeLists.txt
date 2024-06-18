@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.6)
 project(x86_runtime)
 
 set(X86RUNTIME_SOURCEFILES
-  Instructions.cpp
+  # Instructions.cpp
   BasicBlock.cpp
 
   "${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp"
