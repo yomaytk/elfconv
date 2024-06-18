@@ -88,20 +88,20 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       syscall_tranpoline_call(FindIntrinsic(module, "__remill_syscall_tranpoline_call")),
 
       // Memory access.
-      read_memory_8(FindPureIntrinsic(module, "__remill_read_memory_8")),
-      read_memory_16(FindPureIntrinsic(module, "__remill_read_memory_16")),
-      read_memory_32(FindPureIntrinsic(module, "__remill_read_memory_32")),
-      read_memory_64(FindPureIntrinsic(module, "__remill_read_memory_64")),
+      read_memory_8(FindIntrinsic(module, "__remill_read_memory_8")),
+      read_memory_16(FindIntrinsic(module, "__remill_read_memory_16")),
+      read_memory_32(FindIntrinsic(module, "__remill_read_memory_32")),
+      read_memory_64(FindIntrinsic(module, "__remill_read_memory_64")),
 
       write_memory_8(FindIntrinsic(module, "__remill_write_memory_8")),
       write_memory_16(FindIntrinsic(module, "__remill_write_memory_16")),
       write_memory_32(FindIntrinsic(module, "__remill_write_memory_32")),
       write_memory_64(FindIntrinsic(module, "__remill_write_memory_64")),
 
-      read_memory_f32(FindPureIntrinsic(module, "__remill_read_memory_f32")),
-      read_memory_f64(FindPureIntrinsic(module, "__remill_read_memory_f64")),
+      read_memory_f32(FindIntrinsic(module, "__remill_read_memory_f32")),
+      read_memory_f64(FindIntrinsic(module, "__remill_read_memory_f64")),
       // read_memory_f80(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f80"))),
-      read_memory_f128(FindPureIntrinsic(module, "__remill_read_memory_f128")),
+      read_memory_f128(FindIntrinsic(module, "__remill_read_memory_f128")),
 
       write_memory_f32(FindIntrinsic(module, "__remill_write_memory_f32")),
       write_memory_f64(FindIntrinsic(module, "__remill_write_memory_f64")),

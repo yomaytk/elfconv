@@ -23,18 +23,18 @@ using ::testing::UnitTest;
   ".test.wasm.o " \
   "-c ../../../utils/" #ident ".cpp"
 #define RUNTIME_OBJS \
-  "Entry.test.wasm.o Memory.test.wasm.o SyscallWasi.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
+  "Entry.test.wasm.o Memory.test.wasm.o Runtime.test.wasm.o SyscallWasi.test.wasm.o VmIntrinsics.test.wasm.o Util.test.wasm.o elfconv.test.wasm.o"
 
 enum WASI_RUNTIME : uint8_t { WASMTIME, WASMEDGE };
 
-void compile_runtime_emscripten();
+void compile_runtime_wasi();
 void clean_up();
 
 class TestEnvironment : public ::testing::Environment {
  public:
   ~TestEnvironment() override {}
   void SetUp() override {
-    compile_runtime_emscripten();
+    compile_runtime_wasi();
   }
   void TearDown() override {
     clean_up();
@@ -42,12 +42,10 @@ class TestEnvironment : public ::testing::Environment {
 };
 
 // compile `elfconv/runtime`
-void compile_runtime_emscripten() {
-  std::string cmds[] = {WASMCC_RUNTIME_CMD(Entry),
-                        WASMCC_RUNTIME_CMD(Memory),
-                        WASMCC_RUNTIME_SYSCALL_CMD(SyscallWasi),
-                        WASMCC_RUNTIME_CMD(VmIntrinsics),
-                        WASMCC_UTILS_CMD(Util),
+void compile_runtime_wasi() {
+  std::string cmds[] = {WASMCC_RUNTIME_CMD(Entry),        WASMCC_RUNTIME_CMD(Memory),
+                        WASMCC_RUNTIME_CMD(Runtime),      WASMCC_RUNTIME_SYSCALL_CMD(SyscallWasi),
+                        WASMCC_RUNTIME_CMD(VmIntrinsics), WASMCC_UTILS_CMD(Util),
                         WASMCC_UTILS_CMD(elfconv)};
   for (auto &cmd : cmds) {
     FILE *pipe = popen(cmd.c_str(), "r");
@@ -142,20 +140,12 @@ void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNT
   EXPECT_STREQ(expected, stdout_res.c_str());
 }
 
-TEST(TestWasmtime, IntegrationExamplesTest) {
-  unit_test_wasi_runtime(
-      "eratosthenes_sieve",
-      "2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,521,523,541\n",
-      WASMTIME);
-  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME);
-}
-
 TEST(TestWasmedge, IntegrationExamplesTest) {
   unit_test_wasi_runtime(
       "eratosthenes_sieve",
       "2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,521,523,541\n",
       WASMEDGE);
-  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME);
+  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMEDGE);
 }
 
 int main(int argc, char **argv) {

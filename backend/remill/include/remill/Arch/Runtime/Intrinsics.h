@@ -108,8 +108,7 @@ extern "C" {
 // Control-flow intrinsics.
 [[gnu::used]] extern void __remill_function_call(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern void __remill_function_return(State &, addr_t addr,
-                                                               RuntimeManager *);
+[[gnu::used]] extern void __remill_function_return(State &, addr_t addr, RuntimeManager *);
 
 [[gnu::used]] extern void __remill_jump(State &, addr_t addr, RuntimeManager *);
 
