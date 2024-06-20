@@ -187,6 +187,24 @@ void TraceLifter::Impl::AddTestFailedBlock() {
   abort();
 }
 
+void TraceLifter::Impl::DirectBranchWithSaveParents(llvm::BasicBlock *dst_bb,
+                                                    llvm::BasicBlock *src_bb) {
+  auto &parents = bb_parents[dst_bb];
+  parents.insert(src_bb);
+  llvm::BranchInst::Create(dst_bb, src_bb);
+}
+
+void TraceLifter::Impl::ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb,
+                                                         llvm::BasicBlock *false_bb,
+                                                         llvm::Value *condition,
+                                                         llvm::BasicBlock *src_bb) {
+  auto &true_parents = bb_parents[true_bb];
+  auto &false_parents = bb_parents[false_bb];
+  true_parents.insert(src_bb);
+  false_parents.insert(src_bb);
+  llvm::BranchInst::Create(true_bb, false_bb, condition, src_bb);
+}
+
 /*
     TraceLifter methods
   */
@@ -277,6 +295,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   };
 
   trace_work_list.insert(addr);
+
   while (!trace_work_list.empty()) {
     const auto trace_addr = PopTraceAddress();
     __trace_addr = trace_addr;
@@ -326,7 +345,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
-      llvm::BranchInst::Create(GetOrCreateBlock(trace_addr), entry_block);
+      DirectBranchWithSaveParents(GetOrCreateBlock(trace_addr), entry_block);
     }
 
     CHECK(inst_work_list.empty());
@@ -439,7 +458,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         case Instruction::kCategoryNormal:
         case Instruction::kCategoryNoOp:
-          llvm::BranchInst::Create(GetOrCreateNextBlock(), block);
+          DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
           break;
 
         // Direct jumps could either be local or could be tail-calls. In the
@@ -450,7 +469,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // sacrifice in correctness is made.
         case Instruction::kCategoryDirectJump:
           try_add_delay_slot(true, block);
-          llvm::BranchInst::Create(GetOrCreateBranchTakenBlock(), block);
+          DirectBranchWithSaveParents(GetOrCreateBranchTakenBlock(), block);
           break;
 
         /* case: BR instruction (only BR in glibc) */
@@ -458,10 +477,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           try_add_delay_slot(true, block);
           /* indirectbr entry block */
           indirectbr_block = GetOrCreateIndirectJmpBlock();
-          llvm::IRBuilder<> ir(block);
           br_blocks.push_back({block, FindIndirectBrAddress(block)});
           /* jmp to indirectbr block */
-          ir.CreateBr(indirectbr_block);
+          DirectBranchWithSaveParents(indirectbr_block, block);
           break;
         }
 
@@ -475,12 +493,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           try_add_delay_slot(true, block);
           const auto fall_through_block = llvm::BasicBlock::Create(context, "", func);
 
-          llvm::IRBuilder<> ir(fall_through_block);
-          ir.CreateBr(GetOrCreateBranchNotTakenBlock());
+          DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), fall_through_block);
 
           // indirect jump address is value of %Xzzz just before
           AddCall(block, intrinsics->function_call, *intrinsics, FindIndirectBrAddress(block));
-          llvm::BranchInst::Create(fall_through_block, block);
+          DirectBranchWithSaveParents(fall_through_block, block);
           block = fall_through_block;
           continue;
         }
@@ -500,10 +517,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithSaveParents(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
+                                           block);
 
           AddCall(taken_block, intrinsics->function_call, *intrinsics);
 
@@ -511,7 +529,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           const auto next_pc_ref = LoadNextProgramCounterRef(taken_block);
           llvm::IRBuilder<> ir(taken_block);
           ir.CreateStore(ir.CreateLoad(word_type, ret_pc_ref), next_pc_ref);
-          ir.CreateBr(orig_not_taken_block);
+          DirectBranchWithSaveParents(orig_not_taken_block, taken_block);
           block = orig_not_taken_block;
           continue;
         }
@@ -533,8 +551,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             AddCall(block, target_trace, *intrinsics,
                     llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
           }
-          llvm::IRBuilder<> ir(block);
-          ir.CreateBr(GetOrCreateBranchNotTakenBlock());
+          DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), block);
           continue;
         }
 
@@ -557,10 +574,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithSaveParents(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
+                                           block);
 
           trace_work_list.insert(inst.branch_taken_pc);
           auto target_trace = get_trace_decl(inst.branch_taken_pc);
@@ -568,8 +586,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           AddCall(taken_block, intrinsics->function_call, *intrinsics);
           AddCall(taken_block, target_trace, *intrinsics);
 
-          llvm::IRBuilder<> ir(taken_block);
-          ir.CreateBr(orig_not_taken_block);
+          DirectBranchWithSaveParents(orig_not_taken_block, taken_block);
           block = orig_not_taken_block;
           continue;
         }
@@ -584,8 +601,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // TODO(pag): Delay slots?
         case Instruction::kCategoryConditionalAsyncHyperCall: {
           auto do_hyper_call = llvm::BasicBlock::Create(context, "", func);
-          llvm::BranchInst::Create(do_hyper_call, GetOrCreateNextBlock(), LoadBranchTaken(block),
-                                   block);
+          ConditionalBranchWithSaveParents(do_hyper_call, GetOrCreateNextBlock(),
+                                           LoadBranchTaken(block), block);
           block = do_hyper_call;
           AddCall(block, intrinsics->async_hyper_call, *intrinsics,
                   llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
@@ -594,8 +611,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         check_call_return:
           do {
-            llvm::IRBuilder<> ir(block);
-            ir.CreateBr(GetOrCreateNextBlock());
+            DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
             // WARNING: if there is no next instruction in this function, this create the branch instruction
             // to the invalid instruction of next address.
           } while (false);
@@ -621,10 +637,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithSaveParents(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
+                                           block);
 
           AddTerminatingTailCall(taken_block, intrinsics->function_return, *intrinsics, trace_addr);
           block = orig_not_taken_block;
@@ -646,14 +663,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, new_taken_block);
             try_add_delay_slot(false, new_not_taken_block);
 
-            llvm::BranchInst::Create(taken_block, new_taken_block);
-            llvm::BranchInst::Create(not_taken_block, new_not_taken_block);
+            DirectBranchWithSaveParents(taken_block, new_taken_block);
+            DirectBranchWithSaveParents(not_taken_block, new_not_taken_block);
 
             taken_block = new_taken_block;
             not_taken_block = new_not_taken_block;
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
+                                           block);
           break;
         }
         // no instruction in aarch64?
@@ -672,10 +690,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             try_add_delay_slot(true, taken_block);
             try_add_delay_slot(false, not_taken_block);
 
-            llvm::BranchInst::Create(orig_not_taken_block, not_taken_block);
+            DirectBranchWithSaveParents(orig_not_taken_block, not_taken_block);
           }
 
-          llvm::BranchInst::Create(taken_block, not_taken_block, LoadBranchTaken(block), block);
+          ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
+                                           block);
 
           AddTerminatingTailCall(taken_block, intrinsics->jump, *intrinsics, trace_addr);
           block = orig_not_taken_block;
@@ -733,6 +752,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         auto br_block = br_pair.first;
         auto dest_addr = br_pair.second;
         br_vma_phi->addIncoming(dest_addr, br_block);
+        bb_parents[br_block].insert(indirectbr_block);
       }
       auto runtime_manager_ptr = GetRuntimePtrOnEntry();
       auto target_bb_i64 = ir_1.CreateCall(
@@ -747,12 +767,95 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
+    } else {
+
+      for (auto &block : *func) {
+        if (!block.getTerminator()) {
+          AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
+        }
+      }
+
+      // flatten the control flow graph
+      llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
+      std::queue<llvm::BasicBlock *> bb_queue;
+      std::unordered_map<llvm::BasicBlock *, bool> visited;
+      auto entry_bb = &func->getEntryBlock();
+      auto entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
+      CHECK(nullptr != entry_terminator_br)
+          << "entry block of the lifted function must have the terminator instruction.";
+      CHECK(1 == entry_terminator_br->getNumSuccessors())
+          << "entry block terminator must have the one jump basic block.";
+      target_bb = entry_bb;
+      bb_queue.push(target_bb);
+
+      auto push_successor_bb_queue = [&bb_queue, &visited](llvm::BasicBlock *successor_bb) {
+        if (!visited[successor_bb]) {
+          bb_queue.push(successor_bb);
+        }
+      };
+
+      while (!bb_queue.empty()) {
+        auto target_bb = bb_queue.front();
+        bb_queue.pop();
+        visited[target_bb] = true;
+        auto target_terminator = target_bb->getTerminator();
+        auto child_num = target_terminator->getNumSuccessors();
+        if (2 < child_num) {
+          LOG(FATAL)
+              << "Every block of the lifted function by elfconv must not have the child blocks more than two.";
+        } else if (2 == child_num) {
+          push_successor_bb_queue(target_terminator->getSuccessor(0));
+          push_successor_bb_queue(target_terminator->getSuccessor(1));
+        } else if (1 == child_num) {
+          auto candidate_bb = target_terminator->getSuccessor(0);
+          auto &candidate_bb_parents = bb_parents[candidate_bb];
+          if (1 == candidate_bb_parents.size()) {
+            // join candidate_bb to the target_bb
+            auto joined_bb = candidate_bb;
+            auto target_terminator = target_bb->getTerminator();
+            CHECK(llvm::dyn_cast<llvm::BranchInst>(target_terminator))
+                << "The parent basic block of the lifted function must terminate by the branch instruction.";
+            // delete the branch instruction of the target_bb and joined_bb
+            target_terminator->eraseFromParent();
+            // transfer the all instructions (target_bb == target_bb & joined_bb)
+            target_bb->splice(target_bb->end(), joined_bb);
+            // update bb_parents
+            bb_parents.erase(joined_bb);
+            target_terminator = target_bb->getTerminator();
+            if (llvm::dyn_cast<llvm::BranchInst>(target_terminator)) {
+              // joined_bb has childs
+              for (uint32_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
+                bb_parents[target_terminator->getSuccessor(i)].erase(joined_bb);
+                bb_parents[target_terminator->getSuccessor(i)].insert(target_bb);
+              }
+              bb_queue.push(target_bb);
+            }
+            // delete the joined block
+            joined_bb->eraseFromParent();
+            for (auto &inst : *block) {
+              if (block->getTerminator() == &inst) {
+                break;
+              }
+              if (llvm::dyn_cast<llvm::BranchInst>(&inst)) {
+                llvm::outs() << "func: " << func->getName().str().c_str() << " inst: " << inst
+                             << "\n";
+              }
+            }
+          } else {
+            push_successor_bb_queue(candidate_bb);
+          }
+        } else /* if (0 == child_num)*/ {
+          CHECK(llvm::dyn_cast<llvm::ReturnInst>(target_terminator))
+              << "The basic block which doesn't have the successors must be ReturnInst.";
+        }
+      }
     }
 
     for (auto &block : *func) {
       if (!block.getTerminator()) {
         AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
       }
+      auto terminator = block.getTerminator();
     }
 
     callback(trace_addr, func);

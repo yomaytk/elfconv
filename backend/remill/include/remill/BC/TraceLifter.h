@@ -20,6 +20,7 @@
 #include "remill/BC/Lifter.h"
 
 #include <functional>
+#include <queue>
 #include <unordered_map>
 
 namespace remill {
@@ -213,6 +214,11 @@ class TraceLifter::Impl {
   /* add L_test_failed (need override) */
   virtual void AddTestFailedBlock();
 
+  // save the basic block parents on the new direct branch
+  void DirectBranchWithSaveParents(llvm::BasicBlock *dst_bb, llvm::BasicBlock *src_bb);
+  // save the basic block paretns on the new conditional branch
+  void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
+                                        llvm::Value *condition, llvm::BasicBlock *src_bb);
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
   llvm::Type *word_type;
@@ -238,6 +244,8 @@ class TraceLifter::Impl {
   DecoderWorkList dead_inst_work_list;
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
+
+  std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
 
   std::string runtime_manager_name;
 
