@@ -4,7 +4,8 @@ elfconv converts an original ELF binary to the LLVM bitcode using [remill](https
 and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (for browser) or [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) (for WASI runtimes) to generate the WASM binary from the LLVM bitcode file.
 
 ## Status
-"**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Current limitations are as follows.
+> [!WARNING]
+> "**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Current limitations are as follows.
 - Only support of aarch64 ELF binary as an input binary
     - Furthermore, a part of aarch64 instructions are not supported. If your ELF binary's instruction is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...)
 - No support for stripped binaries
