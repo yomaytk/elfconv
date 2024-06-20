@@ -832,15 +832,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             }
             // delete the joined block
             joined_bb->eraseFromParent();
-            for (auto &inst : *block) {
-              if (block->getTerminator() == &inst) {
-                break;
-              }
-              if (llvm::dyn_cast<llvm::BranchInst>(&inst)) {
-                llvm::outs() << "func: " << func->getName().str().c_str() << " inst: " << inst
-                             << "\n";
-              }
-            }
           } else {
             push_successor_bb_queue(candidate_bb);
           }
