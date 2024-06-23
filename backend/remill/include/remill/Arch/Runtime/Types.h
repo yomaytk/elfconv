@@ -482,6 +482,13 @@ struct VnW final {
   void *const val_ref;
 };
 
+// vector register which doesn't use memory.
+// T is used to deciding the accessed memory bit width.
+template <typename T>
+struct VI final {
+  const uint128_t val;
+};
+
 // Used to figure out the "base type" of an aggregate type (e.g. vector of BT)
 // or of an integral/float type.
 template <typename T>

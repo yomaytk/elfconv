@@ -80,37 +80,37 @@ MAKE_SIGNED_MEM_ACCESS(128)
 #endif
 
 // Read a value directly.
-ALWAYS_INLINE static bool _Read(RuntimeManager *, bool val) {
+ALWAYS_INLINE static bool _Read(bool val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint8_t _Read(RuntimeManager *, uint8_t val) {
+ALWAYS_INLINE static uint8_t _Read(uint8_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint16_t _Read(RuntimeManager *, uint16_t val) {
+ALWAYS_INLINE static uint16_t _Read(uint16_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint32_t _Read(RuntimeManager *, uint32_t val) {
+ALWAYS_INLINE static uint32_t _Read(uint32_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint64_t _Read(RuntimeManager *, uint64_t val) {
+ALWAYS_INLINE static uint64_t _Read(uint64_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static float32_t _Read(RuntimeManager *, float32_t val) {
+ALWAYS_INLINE static float32_t _Read(float32_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static float64_t _Read(RuntimeManager *, float64_t val) {
+ALWAYS_INLINE static float64_t _Read(float64_t val) {
   return val;
 }
 
@@ -118,11 +118,11 @@ ALWAYS_INLINE static float64_t _Read(RuntimeManager *, float64_t val) {
 //   return val;
 // }
 
-ALWAYS_INLINE static float32_t _Read(RuntimeManager *, In<float32_t> imm) {
+ALWAYS_INLINE static float32_t _Read(In<float32_t> imm) {
   return reinterpret_cast<const float32_t &>(imm.val);
 }
 
-ALWAYS_INLINE static float64_t _Read(RuntimeManager *, In<float64_t> imm) {
+ALWAYS_INLINE static float64_t _Read(In<float64_t> imm) {
   return reinterpret_cast<const float64_t &>(imm.val);
 }
 
@@ -131,29 +131,29 @@ ALWAYS_INLINE static float64_t _Read(RuntimeManager *, In<float64_t> imm) {
 // }
 
 template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, In<T> imm) {
+ALWAYS_INLINE static T _Read(In<T> imm) {
   return static_cast<T>(imm.val);
 }
 
 template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, Rn<T> reg) {
+ALWAYS_INLINE static T _Read(Rn<T> reg) {
   return static_cast<T>(reg.val);
 }
 
 template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, RnW<T> reg) {
+ALWAYS_INLINE static T _Read(RnW<T> reg) {
   return static_cast<T>(*(reg.val_ref));
 }
 
 // Make read operators for reading integral values from memory.
 #define MAKE_MREAD(size, ret_size, type_prefix, access_suffix) \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(RuntimeManager *&runtime_manager, \
-                                                       Mn<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+                                                          Mn<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
   } \
 \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(RuntimeManager *&runtime_manager, \
-                                                       MnW<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+                                                          MnW<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
   }
 
@@ -227,6 +227,7 @@ MAKE_MWRITE(64, 64, float, float, f64)
 
 #undef MAKE_MWRITE
 
+// not used in the aarch64 semantics
 #define MAKE_READRV(prefix, size, accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, RVnW<T> vec) \
@@ -256,16 +257,17 @@ MAKE_READRV(F, 64, doubles, float64_t)
 
 #undef MAKE_READRV
 
+// read the num from the vector register
+// _UReadV(<VnW | Vn> vec), _FReadV(<VnW | Vn> vec), ...
+// return type: dwords (uin32v2_t, uint32v4_t, ...), qwords (uint64v1_t, uint64v2_t, ...), ...
 #define MAKE_READV(prefix, size, accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, VnW<T> vec) \
-      ->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(VnW<T> vec)->decltype(T().accessor) { \
     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, Vn<T> vec) \
-      ->decltype(T().accessor) { \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(Vn<T> vec)->decltype(T().accessor) { \
     return reinterpret_cast<const T *>(vec.val)->accessor; \
   }
 
@@ -607,7 +609,10 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 // For the sake of esthetics and hiding the small-step semantics of memory
 // operands, we use this macros to implicitly pass in the `memory` operand,
 // which we know will be defined in semantics functions.
-#define Read(op) _Read(runtime_manager, op)
+// ReadMem(op) accesses the runtime memory so that it needs RuntimeManager* for the argument
+#define ReadMem(op) _ReadMem(runtime_manager, op)
+// Read(op) doesn't access the runtime memory
+#define Read(op) _Read(op)
 
 // Write a source value to a destination operand, where the sizes of the
 // values must match.
@@ -990,6 +995,9 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 #define FReadV32(op) _FReadV32(runtime_manager, op)
 #define FReadV64(op) _FReadV64(runtime_manager, op)
 
+#define FReadVI32(op) _FReadVI32(op)
+#define FReadVI64(op) _FReadVI64(op)
+
 // Useful for stubbing out an operator.
 #define MAKE_NOP(...)
 
@@ -1207,7 +1215,8 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 }
 
 // Access the Nth element of an aggregate vector.
-// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32<T>(const T &vec, size_t n)
+// T: uint32v2_t, float32v4_t, ...
 #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
   template <typename T> \
   ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
@@ -1238,6 +1247,36 @@ MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
 // MAKE_EXTRACTV(80, float80_t, tdoubles, Identity, F)
 
 #undef MAKE_EXTRACTV
+
+#define MAKE_EXTRACTVI(size, base_type, out, prefix, mask) \
+  ALWAYS_INLINE static base_type prefix##ExtractVI##size(VI##size vec, size_t id) { \
+    uint128_t shifted_vec = vec.val >> (size * id); \
+    uint##size##_t int_exp_res = static_cast<uint##size##_t>(shifted_vec & mask); \
+    return out(*reinterpret_cast<base_type *>(&int_exp_res)); \
+  }
+
+MAKE_EXTRACTVI(8, uint8_t, Unsigned, U, 0xFF)
+MAKE_EXTRACTVI(16, uint16_t, Unsigned, U, 0xFFFF)
+MAKE_EXTRACTVI(32, uint32_t, Unsigned, U, 0xFFFF'FFFF)
+MAKE_EXTRACTVI(64, uint64_t, Unsigned, U, 0xFFFF'FFFF'FFFF'FFFF)
+
+MAKE_EXTRACTVI(8, int8_t, Signed, S, 0xFF)
+MAKE_EXTRACTVI(16, int16_t, Signed, S, 0xFFFF)
+MAKE_EXTRACTVI(32, int32_t, Signed, S, 0xFFFF'FFFF)
+MAKE_EXTRACTVI(64, int64_t, Signed, S, 0xFFFF'FFFF'FFFF'FFFF)
+
+MAKE_EXTRACTVI(32, float32_t, Identity, F, 0xFFFF'FFFF)
+MAKE_EXTRACTVI(64, float64_t, Identity, F, 0xFFFF'FFFF'FFFF'FFFF)
+
+#if !defined(REMILL_DISABLE_INT128)
+ALWAYS_INLINE static uint128_t UExtractVI128(VI128 vec, size_t id) {
+  return Unsigned(vec.val);
+}
+ALWAYS_INLINE static int128_t SExtractVI128(VI128 vec, size_t id) {
+  uint128_t int_exp_res = static_cast<uint128_t>(vec.val);
+  return Signed(*reinterpret_cast<int128_t *>(&int_exp_res));
+}
+#endif
 
 ALWAYS_INLINE static int8_t SAbs(int8_t val) {
   return val < 0 ? -val : val;

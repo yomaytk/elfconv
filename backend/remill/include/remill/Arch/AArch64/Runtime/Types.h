@@ -40,6 +40,14 @@ typedef VnW<vec64_t> V64W;
 typedef Vn<vec128_t> V128;
 typedef VnW<vec128_t> V128W;
 
+typedef VI<uint8_t> VI8;
+typedef VI<uint16_t> VI16;
+typedef VI<uint32_t> VI32;
+typedef VI<uint64_t> VI64;
+typedef VI<uint128_t> VI128;
+typedef VI<float32_t> VIF32;
+typedef VI<float64_t> VIF64;
+
 typedef MnW<uint8_t> M8W;
 typedef MnW<uint16_t> M16W;
 typedef MnW<uint32_t> M32W;
