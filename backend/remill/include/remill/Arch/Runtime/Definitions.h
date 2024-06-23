@@ -42,6 +42,16 @@
 #  define aword dword
 #endif
 
+typedef struct {
+  uint64_t r1;
+  uint64_t r2;
+} U64U64;
+
+typedef struct {
+  uint32_t r1;
+  uint64_t r2;
+} U32U64;
+
 // Attributes that will force inlining of specific code.
 #define ALWAYS_INLINE [[gnu::always_inline]] inline
 
@@ -58,10 +68,65 @@
   ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *runtime_manager, \
                                                           State &state, ##__VA_ARGS__)
 
-// Define a DEF_SEM that returns uint64_t.
-#define DEF_SEM_RETU64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(Memory *memory, State &state, \
-                                                              ##__VA_ARGS__)
+#define DEF_SEM_U32(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint32_t name(##__VA_ARGS__)
+
+#define DEF_SEM_U32_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint32_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U32_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint32_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_U64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(##__VA_ARGS__)
+
+#define DEF_SEM_U64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_U64U64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U64U64 name(##__VA_ARGS__)
+
+#define DEF_SEM_U64U64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U64U64 name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U64U64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U64U64 name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_U32U64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U64 name(##__VA_ARGS__)
+
+#define DEF_SEM_U32U64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U64 name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U32U64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U64 name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_F32(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float32_t name(##__VA_ARGS__)
+
+#define DEF_SEM_F32_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float32_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_F32_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float32_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_F64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float64_t name(##__VA_ARGS__)
+
+#define DEF_SEM_F64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float64_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_F64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float64_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
 template <typename R, typename... Args>
 inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*)(Args...) {
