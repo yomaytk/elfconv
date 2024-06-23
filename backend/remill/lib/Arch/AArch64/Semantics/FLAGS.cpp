@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "FLAGS.h"
+
 namespace {
 
 // Used to select specializations of flags computations based on what operator
@@ -169,8 +171,8 @@ ALWAYS_INLINE static void SetFPSRStatusFlags(State &state, int mask) {
 }
 
 template <typename F, typename T>
-ALWAYS_INLINE static auto CheckedFloatUnaryOp(State &state, F func, T arg1)
-    -> decltype(func(arg1)) {
+ALWAYS_INLINE static auto CheckedFloatUnaryOp(State &state, F func,
+                                              T arg1) -> decltype(func(arg1)) {
 
   //state.sr.idc |= IsDenormal(arg1);
   // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
@@ -183,8 +185,8 @@ ALWAYS_INLINE static auto CheckedFloatUnaryOp(State &state, F func, T arg1)
 }
 
 template <typename F, typename T>
-ALWAYS_INLINE static auto CheckedFloatBinOp(State &state, F func, T arg1, T arg2)
-    -> decltype(func(arg1, arg2)) {
+ALWAYS_INLINE static auto CheckedFloatBinOp(State &state, F func, T arg1,
+                                            T arg2) -> decltype(func(arg1, arg2)) {
 
   //state.sr.idc |= IsDenormal(arg1) | IsDenormal(arg2);
   // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);

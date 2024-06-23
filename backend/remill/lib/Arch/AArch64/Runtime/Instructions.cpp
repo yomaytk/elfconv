@@ -84,6 +84,8 @@ State __remill_state;
 #define FLAG_V state.sr.v  // Overflow.
 #define FLAG_N state.sr.n  // Negative.
 
+#define FLAG_NZCV state.sr_nzcv  // new system register flag of nzcv
+
 #define HYPER_CALL state.hyper_call
 #define INTERRUPT_VECTOR state.hyper_call_vector
 #define HYPER_CALL_VECTOR state.hyper_call_vector
