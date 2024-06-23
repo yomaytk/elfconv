@@ -767,8 +767,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
+      for (auto &block : *func) {
+        if (!block.getTerminator()) {
+          AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
+        }
+      }
     } else {
 
+      // add terminator to the all basic block to avoid error on CFG flat
       for (auto &block : *func) {
         if (!block.getTerminator()) {
           AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
@@ -840,13 +846,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               << "The basic block which doesn't have the successors must be ReturnInst.";
         }
       }
-    }
-
-    for (auto &block : *func) {
-      if (!block.getTerminator()) {
-        AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
-      }
-      auto terminator = block.getTerminator();
     }
 
     callback(trace_addr, func);
