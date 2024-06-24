@@ -64,9 +64,10 @@ typedef struct {
 #define DEF_COND(name) extern "C" constexpr auto COND_##name [[gnu::used]]
 
 // Define a semantics implementing function.
-#define DEF_SEM(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *runtime_manager, \
-                                                          State &state, ##__VA_ARGS__)
+#define DEF_SEM_VOID(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static void name(##__VA_ARGS__)
+
+#define DEF_SEM_T(name, ...) ALWAYS_INLINE __attribute__((flatten)) static RETT name(##__VA_ARGS__)
 
 #define DEF_SEM_U32(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint32_t name(##__VA_ARGS__)

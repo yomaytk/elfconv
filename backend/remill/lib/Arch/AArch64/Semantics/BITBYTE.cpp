@@ -32,118 +32,96 @@ namespace {
 // operand for `src1`, and combines the `wmask` and `tmask` into a single
 // `mask`.
 
-#define MAKE_UBFM(esize) \
-  DEF_SEM_U##esize(UBFM_##esize, R##esize src1, I##esize mask) { \
-    return UAnd(Read(src1), Read(mask)); \
-  }
+template <typename RETT, typename RT, typename IT>
+DEF_SEM_T(UBFM, RT src1, IT mask) {
+  same_type_assert<RETT, RT>();
+  return UAnd(Read(src1), Read(mask));
+}
 
-MAKE_UBFM(32)
-MAKE_UBFM(64)
+template <typename RETT, typename RT, typename IT>
+DEF_SEM_T(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
+  same_type_assert<RETT, RT>();
+  using T = typename BaseType<IT>::BT;
+  auto src = Read(src1);
+  auto R = Read(src2);
+  auto S = Read(src3);
+  auto wmask = Read(src4);
+  auto tmask = Read(src5);
 
-#undef MAKE_UBFM
+  /* Perform bitfield move on low bits. */
+  auto bot = UAnd(Ror(src, R), wmask);
 
-#define MAKE_SBFM(esize) \
-  DEF_SEM_U##esize(SBFM_##esize, R##esize src1, I##esize src2, I##esize src3, I##esize src4, \
-                   I##esize src5) { \
-    using T = typename BaseType<I##esize>::BT; \
-    auto src = Read(src1); \
-    auto R = Read(src2); \
-    auto S = Read(src3); \
-    auto wmask = Read(src4); \
-    auto tmask = Read(src5); \
-\
-    /* Perform bitfield move on low bits. */ \
-    auto bot = UAnd(Ror(src, R), wmask); \
-\
-    /* Determine extension bits (sign, zero or dest register). */ \
-    constexpr auto shift_max = T(sizeof(T) * 8 - 1); \
-    auto top = Unsigned(SShr(Signed(UShl(src, USub(shift_max, S))), shift_max)); \
-\
-    /* Combine extension bits and result bits.*/ \
-    return UOr(UAnd(top, UNot(tmask)), UAnd(bot, tmask)); \
-  }
+  /* Determine extension bits (sign, zero or dest register). */
+  constexpr auto shift_max = T(sizeof(T) * 8 - 1);
+  auto top = Unsigned(SShr(Signed(UShl(src, USub(shift_max, S))), shift_max));
 
-MAKE_SBFM(32)
-MAKE_SBFM(64)
+  /* Combine extension bits and result bits.*/
+  return UOr(UAnd(top, UNot(tmask)), UAnd(bot, tmask));
+}
 
-#undef MAKE_SBFM
+template <typename RETT, typename RT, typename IT>
+DEF_SEM_T(BFM, RT src1, IT src2, IT src3, IT src4) {
+  same_type_assert<RETT, RT>();
+  using T = typename BaseType<IT>::BT;
+  auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */
+  auto src = Read(src1);
+  auto R = Read(src2);
+  auto wmask = Read(src3);
+  auto tmask = Read(src4);
 
+  /* Perform bitfield move on low bits.*/
+  auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask));
 
-#define MAKE_BFM(esize) \
-  DEF_SEM_##esize(BFM_##esize, R##esize src1, I##esize src2, I##esize src3, I##esize src4) { \
-    using T = typename BaseType<I##esize>::BT; \
-    auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */ \
-    auto src = Read(src1); \
-    auto R = Read(src2); \
-    auto wmask = Read(src3); \
-    auto tmask = Read(src4); \
-\
-    /* Perform bitfield move on low bits.*/ \
-    auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask)); \
-\
-    /* Combine extension bits and result bits. */ \
-    return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask)); \
-  }
-
-MAKE_BFM(32)
-MAKE_BFM(64)
-
-#undef MAKE_BFM
+  /* Combine extension bits and result bits. */
+  return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask));
+}
 
 }  // namespace
 
-DEF_ISEL(UBFM_32M_BITFIELD) = UBFM_32;
-DEF_ISEL(UBFM_64M_BITFIELD) = UBFM_64;
+DEF_ISEL(UBFM_32M_BITFIELD) = UBFM<uint32_t, R32, I32>;
+DEF_ISEL(UBFM_64M_BITFIELD) = UBFM<uint64_t, R64, I64>;
 
-DEF_ISEL(SBFM_32M_BITFIELD) = SBFM_32;
-DEF_ISEL(SBFM_64M_BITFIELD) = SBFM_64;
+DEF_ISEL(SBFM_32M_BITFIELD) = SBFM<uint32_t, R32, I32>;
+DEF_ISEL(SBFM_64M_BITFIELD) = SBFM<uint64_t, R64, I64>;
 
-DEF_ISEL(BFM_32M_BITFIELD) = BFM_32;
-DEF_ISEL(BFM_64M_BITFIELD) = BFM_64;
+DEF_ISEL(BFM_32M_BITFIELD) = BFM<uint32_t, R32, I32>;
+DEF_ISEL(BFM_64M_BITFIELD) = BFM<uint32_t, R64, I64>;
 
 namespace {
 
-#define MAKE_EXTR(esize) \
-  DEF_SEM_U##esize(EXTR_##esize, R##esize src1, R##esize src2, I##esize src3) { \
-    using T = typename BaseType<R##esize>::BT; \
-    constexpr auto size = T(sizeof(T) * 8); \
-    auto lsb = Read(src3); \
-    if (!lsb) { \
-      return Read(src2); \
-    } else { \
-      auto operand1 = UShl(Read(src1), USub(size, lsb)); \
-      auto operand2 = UShr(Read(src2), lsb); \
-      return UOr(operand1, operand2); \
-    } \
+template <typename RETT, typename RT, typename IT>
+DEF_SEM_T(EXTR, RT src1, RT src2, IT src3) {
+  same_type_assert<RETT, RT>();
+  using T = typename BaseType<RT>::BT;
+  constexpr auto size = T(sizeof(T) * 8);
+  auto lsb = Read(src3);
+  if (!lsb) {
+    return Read(src2);
+  } else {
+    auto operand1 = UShl(Read(src1), USub(size, lsb));
+    auto operand2 = UShr(Read(src2), lsb);
+    return UOr(operand1, operand2);
   }
-
-MAKE_EXTR(32)
-MAKE_EXTR(64)
-
-#undef MAKE_EXTR
+}
 
 }  // namespace
 
-DEF_ISEL(EXTR_32_EXTRACT) = EXTR_32;
-DEF_ISEL(EXTR_64_EXTRACT) = EXTR_64;
+DEF_ISEL(EXTR_32_EXTRACT) = EXTR<uint32_t, R32, I32>;
+DEF_ISEL(EXTR_64_EXTRACT) = EXTR<uint64_t, R64, I64>;
 
 namespace {
 
-#define MAKE_CLZ(esize) \
-  DEF_SEM_U##esize(CLZ_##esize, R##esize src) { \
-    auto count = CountLeadingZeros(Read(src)); \
-    return count; \
-  }
-
-MAKE_CLZ(32)
-MAKE_CLZ(64)
-
-#undef MAKE_CLZ
+template <typename RETT, typename RT>
+DEF_SEM_T(CLZ, RT src) {
+  same_type_assert<RETT, RT>();
+  auto count = CountLeadingZeros(Read(src));
+  return count;
+}
 
 }  // namespace
 
-DEF_ISEL(CLZ_32_DP_1SRC) = CLZ_32;
-DEF_ISEL(CLZ_64_DP_1SRC) = CLZ_64;
+DEF_ISEL(CLZ_32_DP_1SRC) = CLZ<uint32_t, R32>;
+DEF_ISEL(CLZ_64_DP_1SRC) = CLZ<uint64_t, R64>;
 
 namespace {
 

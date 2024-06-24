@@ -155,59 +155,43 @@ DEF_SEM_U64(SMULH, R64 src1, R64 src2) {
   return Trunc(UShr(res, 64));
 }
 
-#define MAKE_UDIV(esize) \
-  DEF_SEM_U##esize##(UDIV_##esize, R##esize src1, R##esize src2) { \
-    using T = typename BaseType<R##esize>::BT; \
-    auto lhs = Read(src1); \
-    auto rhs = Read(src2); \
-    if (!rhs) { \
-      return T(0); \
-    } else { \
-      return UDiv(lhs, rhs); \
-    } \
+template <typename RETT, typename RT>
+DEF_SEM_T(UDIV, RT src1, RT src2) {
+  same_type_assert<RETT, RT>();
+  using T = typename BaseType<RT>::BT;
+  auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  if (!rhs) {
+    return T(0);
+  } else {
+    return UDiv(lhs, rhs);
   }
+}
 
-MAKE_UDIV(32)
-MAKE_UDIV(64)
-
-#undef MAKE_UDIV
-
-#define MAKE_SDIV(esize) \
-  DEF_SEM_U##esize##(SDIV_##esize, R##esize src1, R##esize src2) { \
-    using T = typename BaseType<R##esize>::BT; \
-    auto lhs = Signed(Read(src1)); \
-    auto rhs = Signed(Read(src2)); \
-    if (!rhs) { \
-      return T(0); \
-    } else { \
-      return Unsigned(SDiv(lhs, rhs)); \
-    } \
+template <typename RETT, typename RT>
+DEF_SEM_T(SDIV, RT src1, RT src2) {
+  same_type_assert<RETT, RT>();
+  using T = typename BaseType<RT>::BT;
+  auto lhs = Signed(Read(src1));
+  auto rhs = Signed(Read(src2));
+  if (!rhs) {
+    return T(0);
+  } else {
+    return Unsigned(SDiv(lhs, rhs));
   }
+}
 
-MAKE_SDIV(32)
-MAKE_SDIV(64)
+template <typename RETT, typename RT>
+DEF_SEM_T(MADD, RT src1, RT src2, RT src3) {
+  same_type_assert<RETT, RT>();
+  return UAdd(Read(src3), UMul(Read(src1), Read(src2)));
+}
 
-#undef MAKE_SDIV
-
-#define MAKE_MADD(esize) \
-  DEF_SEM_U##esize##(MADD_##esize, R##esize src1, R##esize src2, R##esize src3) { \
-    return UAdd(Read(src3), UMul(Read(src1), Read(src2))); \
-  }
-
-MAKE_MADD(32)
-MAKE_MADD(64)
-
-#undef MAKE_MADD
-
-#define MAKE_MSUB(esize) \
-  DEF_SEM_U##esize##(MSUB_##esize, R##esize src1, R##esize src2, R##esize src3) { \
-    return USub(Read(src3), UMul(Read(src1), Read(src2))); \
-  }
-
-MAKE_MSUB(32)
-MAKE_MSUB(64)
-
-#undef MAKE_MSUB
+template <typename RETT, typename RT>
+DEF_SEM_T(MSUB, RT src1, RT src2, RT src3) {
+  same_type_assert<REETT, RT>();
+  return USub(Read(src3), UMul(Read(src1), Read(src2)));
+}
 
 }  // namespace
 
@@ -219,34 +203,33 @@ DEF_ISEL(UMSUBL_64WA_DP_3SRC) = UMSUBL;
 DEF_ISEL(UMULH_64_DP_3SRC) = UMULH;
 DEF_ISEL(SMULH_64_DP_3SRC) = SMULH;
 
-DEF_ISEL(UDIV_32_DP_2SRC) = UDIV_32;
-DEF_ISEL(UDIV_64_DP_2SRC) = UDIV_64;
+DEF_ISEL(UDIV_32_DP_2SRC) = UDIV<uint32_t, R32>;
+DEF_ISEL(UDIV_64_DP_2SRC) = UDIV<uint64_t, R64>;
 
-DEF_ISEL(SDIV_32_DP_2SRC) = SDIV_32;
-DEF_ISEL(SDIV_64_DP_2SRC) = SDIV_64;
+DEF_ISEL(SDIV_32_DP_2SRC) = SDIV<uint32_t, R32>;
+DEF_ISEL(SDIV_64_DP_2SRC) = SDIV<uint64_t, R64>;
 
-DEF_ISEL(MADD_32A_DP_3SRC) = MADD_32;
-DEF_ISEL(MADD_64A_DP_3SRC) = MADD_64;
+DEF_ISEL(MADD_32A_DP_3SRC) = MADD<uint32_t, R32>;
+DEF_ISEL(MADD_64A_DP_3SRC) = MADD<uint64_t, R64>;
 
-DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB_32;
-DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB_64;
+DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB<uint32_t, R32>;
+DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<uint64_t, R64>;
 
 namespace {
 
-#define MAKE_SBC(esize) \
-  DEF_SEM_U##esize##(SBC_##esize, R##esize src1, R##esize src2, I8 flag_c) { \
-    auto carry = ZExtTo<R##esize>(Unsigned(Read(flag_c))); \
-    return UAdd(UAdd(Read(src1), UNot(Read(src2))), carry); \
-  }
 
-MAKE_SBC(32)
-MAKE_SBC(64)
-
-#undef MAKE_SBC
+template <typename RETT, typename RT>
+DEF_SEM_T(SBC, RT src1, RT src2, I8 flag_c) {
+  same_type_assert<RETT, RT>();
+  auto carry = ZExtTo<RT>(Unsigned(Read(flag_c)));
+  return UAdd(UAdd(Read(src1), UNot(Read(src2))), carry);
+}
 
 #define MAKE_SBCS(esize) \
-  DEF_SEM_U##esize##U64(SBCS_##esize, R##esize src1, R##esize src2, I8 flag_c) { \
-    auto carry = ZExtTo<R##esize>(Unsigned(flag_c)); \
+  template <typename RETT, typename RT> \
+  DEF_SEM_T(SBCS_##esize, RT src1, RT src2, I8 flag_c) { \
+    same_type_assert<RETT, RT>(); \
+    auto carry = ZExtTo<RT>(Unsigned(flag_c)); \
     return AddWithCarryNZCV_##esize(Read(src1), UNot(Read(src2)), Read(src2), carry); \
   }
 
@@ -255,16 +238,11 @@ MAKE_SBCS(64)
 
 #undef MAKE_SBCS
 
-#define MAKE_ADC(esize) \
-  DEF_SEM_U##esize##(ADC_##esize, R##esize src1, R##esize src2, I8 flag_c) { \
-    auto carry = ZExtTo<R##esize>(Unsigned(flag_c)); \
-    return UAdd(UAdd(Read(src1), Read(src2)), carry); \
-  }
-
-MAKE_ADC(32)
-MAKE_ADC(64)
-
-#undef MAKE_ADC
+template <typename RETT, typename RT>
+DEF_SEM_T(ADC, RT src1, RT src2, I8 flag_c) {
+  auto carry = ZExtTo<RT>(Unsigned(flag_c));
+  return UAdd(UAdd(Read(src1), Read(src2)), carry);
+}
 
 // template <typename D, typename S>
 // DEF_SEM(ADCS, D dst, S src1, S src2) {
@@ -277,14 +255,14 @@ MAKE_ADC(64)
 
 }  // namespace
 
-DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC_32;
-DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC_64;
+DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<uint32_t, R32>;
+DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<uint32_t, R64>;
 
 DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS_32;
 DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS_64;
 
-DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC_32;
-DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC_64;
+DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<uint32_t, R32>;
+DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<uint64_t, R64>;
 
 namespace {
 

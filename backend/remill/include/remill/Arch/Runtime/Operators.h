@@ -25,6 +25,12 @@ class RuntimeManager;
 
 namespace {
 
+template <typename PT, typename WRT>
+void same_type_assert() {
+  static_assert(std::is_same<PT, typename BaseType<WRT>::BT>::value,
+                "Expected that `PT` is same to the BaseType `WRT`.");
+}
+
 #if !defined(REMILL_DISABLE_INT128)
 ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
                                                         addr_t addr);
