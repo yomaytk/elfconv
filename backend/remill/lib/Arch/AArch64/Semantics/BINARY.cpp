@@ -28,101 +28,79 @@
 
 namespace {
 
-DEF_SEM_U32(SUB_32, R32 src1, I32 src2) {
-  return ZExtTo<R32>(USub(Read(src1), Read(src2)));
-}
-
-DEF_SEM_U64(SUB_64, R32 src1, I32 src2) {
+template <typename S1, typename S2>
+DEF_SEM_U64(SUB, S1 src1, S2 src2) {
   return ZExtTo<R64>(USub(Read(src1), Read(src2)));
 }
 
-DEF_SEM_U32(ADD_32, R32 src1, I32 src2) {
-  return ZExtTo<R32>(UAdd(Read(src1), Read(src2)));
-}
-
-DEF_SEM_U64(ADD_64, R32 src1, I32 src2) {
+template <typename S1, typename S2>
+DEF_SEM_U64(ADD, S1 src1, S2 src2) {
   return ZExtTo<R64>(UAdd(Read(src1), Read(src2)));
 }
 
 }  // namespace
 
-DEF_ISEL(ADD_32_ADDSUB_IMM) = ADD_32;
-DEF_ISEL(ADD_64_ADDSUB_IMM) = ADD_64;
-DEF_ISEL(ADD_32_ADDSUB_SHIFT) = ADD_32;
-DEF_ISEL(ADD_64_ADDSUB_SHIFT) = ADD_64;
-DEF_ISEL(ADD_32_ADDSUB_EXT) = ADD_32;
-DEF_ISEL(ADD_64_ADDSUB_EXT) = ADD_64;
+DEF_ISEL(ADD_32_ADDSUB_IMM) = ADD<R32, I32>;
+DEF_ISEL(ADD_64_ADDSUB_IMM) = ADD<R64, I64>;
+DEF_ISEL(ADD_32_ADDSUB_SHIFT) = ADD<R32, I32>;
+DEF_ISEL(ADD_64_ADDSUB_SHIFT) = ADD<R64, I64>;
+DEF_ISEL(ADD_32_ADDSUB_EXT) = ADD<R32, I32>;
+DEF_ISEL(ADD_64_ADDSUB_EXT) = ADD<R64, I64>;
 
-DEF_ISEL(SUB_32_ADDSUB_IMM) = SUB_32;
-DEF_ISEL(SUB_64_ADDSUB_IMM) = SUB_64;
-DEF_ISEL(SUB_32_ADDSUB_SHIFT) = SUB_32;
-DEF_ISEL(SUB_64_ADDSUB_SHIFT) = SUB_64;
-DEF_ISEL(SUB_32_ADDSUB_EXT) = SUB_32;
-DEF_ISEL(SUB_64_ADDSUB_EXT) = SUB_64;
+DEF_ISEL(SUB_32_ADDSUB_IMM) = SUB<R32, I32>;
+DEF_ISEL(SUB_64_ADDSUB_IMM) = SUB<R64, I64>;
+DEF_ISEL(SUB_32_ADDSUB_SHIFT) = SUB<R32, I32>;
+DEF_ISEL(SUB_64_ADDSUB_SHIFT) = SUB<R64, I64>;
+DEF_ISEL(SUB_32_ADDSUB_EXT) = SUB<R32, I32>;
+DEF_ISEL(SUB_64_ADDSUB_EXT) = SUB<R64, I64>;
 
 namespace {
 
-
-#define ADD_WITH_CARRY_NZCV(elem_size) \
-  U##elem_size##U64 AddWithCarryNZCV_##elem_size(uint##elem_size##_t lhs, uint##elem_size##_t rhs, \
-                                                 uint##elem_size##_t actual_rhs, \
-                                                 uint##elem_size##_t carry) { \
-    auto unsigned_result = UAdd(UAdd(ZExt(lhs), ZExt(rhs)), ZExt(carry)); \
-    auto signed_result = SAdd(SAdd(SExt(lhs), SExt(rhs)), Signed(ZExt(carry))); \
-    auto result = TruncTo<uint##elem_size##_t>(unsigned_result); \
-    uint64_t flag_n = ZExtTo<uint64_t>(SignFlag(result, lhs, actual_rhs)); \
-    uint64_t flag_z = ZExtTo<uint64_t>(ZeroFlag(result, lhs, actual_rhs)); \
-    uint64_t flag_c = ZExtTo<uint64_t>(UCmpNeq(ZExt(result), unsigned_result)); \
-    uint64_t flag_v = ZExtTo<uint64_t>(__remill_flag_computation_overflow( \
-        SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result)); \
-    uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v); \
-    return {result, flag_nzcv}; \
-  }
-
-ADD_WITH_CARRY_NZCV(32)
-ADD_WITH_CARRY_NZCV(64)
-
-#undef ADD_WITH_CARRY_NZCV
-
-DEF_SEM_U32U64(SUBS_32, R32 src1, I32 src2) {
-  auto lhs = Read(src1);
-  auto rhs = Read(src2);
-  return AddWithCarryNZCV_32(lhs, UNot(rhs), rhs, uint32_t(1));
+template <typename T>
+U64U64 AddWithCarryNZCV(T lhs, T rhs, T actual_rhs, T carry) {
+  auto unsigned_result = UAdd(UAdd(ZExt(lhs), ZExt(rhs)), ZExt(carry));
+  auto signed_result = SAdd(SAdd(SExt(lhs), SExt(rhs)), Signed(ZExt(carry)));
+  auto result = TruncTo<T>(unsigned_result);
+  uint64_t flag_n = ZExtTo<uint64_t>(SignFlag(result, lhs, actual_rhs));
+  uint64_t flag_z = ZExtTo<uint64_t>(ZeroFlag(result, lhs, actual_rhs));
+  uint64_t flag_c = ZExtTo<uint64_t>(UCmpNeq(ZExt(result), unsigned_result));
+  uint64_t flag_v = ZExtTo<uint64_t>(__remill_flag_computation_overflow(
+      SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result));
+  uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v);
+  return {static_cast<uint64_t>(result), flag_nzcv};
 }
 
-DEF_SEM_U64U64(SUBS_64, R64 src1, I64 src2) {
+template <typename S1, typename S2>
+DEF_SEM_U64U64(SUBS, S1 src1, S2 src2) {
+  using T = typename BaseType<S2>::BT;
   auto lhs = Read(src1);
   auto rhs = Read(src2);
-  return AddWithCarryNZCV_64(lhs, UNot(rhs), rhs, uint64_t(1));
+  return AddWithCarryNZCV(lhs, UNot(rhs), rhs, T(1));
 }
 
-DEF_SEM_U32U64(ADDS_32, R32 src1, I32 src2) {
+template <typename S1, typename S2>
+DEF_SEM_U64U64(ADDS, S1 src1, S2 src2) {
+  using T = typename BaseType<S2>::BT;
   auto lhs = Read(src1);
   auto rhs = Read(src2);
-  return AddWithCarryNZCV_32(lhs, rhs, rhs, uint32_t(0));
-}
-
-DEF_SEM_U64U64(ADDS_64, R64 src1, I64 src2) {
-  auto lhs = Read(src1);
-  auto rhs = Read(src2);
-  return AddWithCarryNZCV_64(lhs, rhs, rhs, uint64_t(0));
+  return AddWithCarryNZCV(lhs, rhs, rhs, T(0));
 }
 
 }  // namespace
 
-DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS_32;
-DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS_64;
-DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS_32;
-DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS_64;
-DEF_ISEL(SUBS_32S_ADDSUB_EXT) = SUBS_32;
-DEF_ISEL(SUBS_64S_ADDSUB_EXT) = SUBS_64;
+DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS<R32, I32>;
+DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS<R64, I64>;
+DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS<R32, I32>;
+DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS<R64, I64>;
+DEF_ISEL(SUBS_32S_ADDSUB_EXT) = SUBS<R32, I32>;
+DEF_ISEL(SUBS_64S_ADDSUB_EXT) = SUBS<R64, I64>;
 
-DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS_32;
-DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS_64;
-DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS_32;
-DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS_64;
-DEF_ISEL(ADDS_32S_ADDSUB_EXT) = ADDS_32;
-DEF_ISEL(ADDS_64S_ADDSUB_EXT) = ADDS_64;
+DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS<R32, I32>;
+DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS<R64, I64>;
+DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS<R32, I32>;
+DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS<R64, I64>;
+DEF_ISEL(ADDS_32S_ADDSUB_EXT) = ADDS<R32, I32>;
+DEF_ISEL(ADDS_64S_ADDSUB_EXT) = ADDS<R64, I64>;
 
 namespace {
 
@@ -155,9 +133,8 @@ DEF_SEM_U64(SMULH, R64 src1, R64 src2) {
   return Trunc(UShr(res, 64));
 }
 
-template <typename RETT, typename RT>
-DEF_SEM_T(UDIV, RT src1, RT src2) {
-  same_type_assert<RETT, RT>();
+template <typename RT>
+DEF_SEM_U64(UDIV, RT src1, RT src2) {
   using T = typename BaseType<RT>::BT;
   auto lhs = Read(src1);
   auto rhs = Read(src2);
@@ -168,9 +145,8 @@ DEF_SEM_T(UDIV, RT src1, RT src2) {
   }
 }
 
-template <typename RETT, typename RT>
-DEF_SEM_T(SDIV, RT src1, RT src2) {
-  same_type_assert<RETT, RT>();
+template <typename RT>
+DEF_SEM_I64(SDIV, RT src1, RT src2) {
   using T = typename BaseType<RT>::BT;
   auto lhs = Signed(Read(src1));
   auto rhs = Signed(Read(src2));
@@ -181,15 +157,13 @@ DEF_SEM_T(SDIV, RT src1, RT src2) {
   }
 }
 
-template <typename RETT, typename RT>
-DEF_SEM_T(MADD, RT src1, RT src2, RT src3) {
-  same_type_assert<RETT, RT>();
+template <typename RT>
+DEF_SEM_U64(MADD, RT src1, RT src2, RT src3) {
   return UAdd(Read(src3), UMul(Read(src1), Read(src2)));
 }
 
-template <typename RETT, typename RT>
-DEF_SEM_T(MSUB, RT src1, RT src2, RT src3) {
-  same_type_assert<REETT, RT>();
+template <typename RT>
+DEF_SEM_U64(MSUB, RT src1, RT src2, RT src3) {
   return USub(Read(src3), UMul(Read(src1), Read(src2)));
 }
 
@@ -203,112 +177,104 @@ DEF_ISEL(UMSUBL_64WA_DP_3SRC) = UMSUBL;
 DEF_ISEL(UMULH_64_DP_3SRC) = UMULH;
 DEF_ISEL(SMULH_64_DP_3SRC) = SMULH;
 
-DEF_ISEL(UDIV_32_DP_2SRC) = UDIV<uint32_t, R32>;
-DEF_ISEL(UDIV_64_DP_2SRC) = UDIV<uint64_t, R64>;
+DEF_ISEL(UDIV_32_DP_2SRC) = UDIV<R32>;
+DEF_ISEL(UDIV_64_DP_2SRC) = UDIV<R64>;
 
-DEF_ISEL(SDIV_32_DP_2SRC) = SDIV<uint32_t, R32>;
-DEF_ISEL(SDIV_64_DP_2SRC) = SDIV<uint64_t, R64>;
+DEF_ISEL(SDIV_32_DP_2SRC) = SDIV<R32>;
+DEF_ISEL(SDIV_64_DP_2SRC) = SDIV<R64>;
 
-DEF_ISEL(MADD_32A_DP_3SRC) = MADD<uint32_t, R32>;
-DEF_ISEL(MADD_64A_DP_3SRC) = MADD<uint64_t, R64>;
+DEF_ISEL(MADD_32A_DP_3SRC) = MADD<R32>;
+DEF_ISEL(MADD_64A_DP_3SRC) = MADD<R64>;
 
-DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB<uint32_t, R32>;
-DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<uint64_t, R64>;
+DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB<R32>;
+DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;
 
 namespace {
 
 
-template <typename RETT, typename RT>
-DEF_SEM_T(SBC, RT src1, RT src2, I8 flag_c) {
-  same_type_assert<RETT, RT>();
-  auto carry = ZExtTo<RT>(Unsigned(Read(flag_c)));
+template <typename RT>
+DEF_SEM_U64(SBC, RT src1, RT src2, I8 flag_c) {
+  auto carry = ZExtTo<R64>(Unsigned(Read(flag_c)));
   return UAdd(UAdd(Read(src1), UNot(Read(src2))), carry);
 }
 
-#define MAKE_SBCS(esize) \
-  template <typename RETT, typename RT> \
-  DEF_SEM_T(SBCS_##esize, RT src1, RT src2, I8 flag_c) { \
-    same_type_assert<RETT, RT>(); \
-    auto carry = ZExtTo<RT>(Unsigned(flag_c)); \
-    return AddWithCarryNZCV_##esize(Read(src1), UNot(Read(src2)), Read(src2), carry); \
-  }
+template <typename S>
+DEF_SEM_U64U64(SBCS, S src1, S src2, I8 flag_c) {
+  auto carry = ZExtTo<R64>(Unsigned(Read(flag_c)));
+  return AddWithCarryNZCV(Read(src1), UNot(Read(src2)), Read(src2), carry);
+}
 
-MAKE_SBCS(32)
-MAKE_SBCS(64)
-
-#undef MAKE_SBCS
-
-template <typename RETT, typename RT>
-DEF_SEM_T(ADC, RT src1, RT src2, I8 flag_c) {
-  auto carry = ZExtTo<RT>(Unsigned(flag_c));
+template <typename RT>
+DEF_SEM_U64(ADC, RT src1, RT src2, I8 flag_c) {
+  auto carry = ZExtTo<R64>(Unsigned(Read(flag_c)));
   return UAdd(UAdd(Read(src1), Read(src2)), carry);
 }
 
 // template <typename D, typename S>
-// DEF_SEM(ADCS, D dst, S src1, S src2) {
+// DEF_SEM(ADCS, D S src1, S src2) {
 //   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
 //   auto res =
 //       AddWithCarryNZCV(state, Read(src1), Read(src2), Read(src2), carry);
-//   WriteZExt(dst, res);
+//   WriteZExt(res);
 //
 // }
 
 }  // namespace
 
-DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<uint32_t, R32>;
-DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<uint32_t, R64>;
+DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<R32>;
+DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<R64>;
 
-DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS_32;
-DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS_64;
+DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS<R32>;
+DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS<R64>;
 
-DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<uint32_t, R32>;
-DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<uint64_t, R64>;
+DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<R32>;
+DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;
 
 namespace {
 
-DEF_SEM_F32_STATE(FADD_Scalar32, VI32 src1, VI32 src2) {
+DEF_SEM_V128_STATE(FADD_Scalar32, VI32 src1, VI32 src2) {
   auto val1 = FExtractVI32(src1, 0);
   auto val2 = FExtractVI32(src2, 0);
-  return CheckedFloatBinOp(state, FAdd32, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FAdd32, val1, val2), 0);
 }
 
-DEF_SEM_F64_STATE(FADD_Scalar64, VI64 src1, VI64 src2) {
+DEF_SEM_V128_STATE(FADD_Scalar64, VI64 src1, VI64 src2) {
   auto val1 = FExtractVI64(src1, 0);
   auto val2 = FExtractVI64(src2, 0);
-  return CheckedFloatBinOp(state, FAdd64, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FAdd64, val1, val2), 0);
 }
 
-DEF_SEM_F32_STATE(FSUB_Scalar32, VI32 src1, VI32 src2) {
+DEF_SEM_V128_STATE(FSUB_Scalar32, VI32 src1, VI32 src2) {
   auto val1 = FExtractVI32(src1, 0);
   auto val2 = FExtractVI32(src2, 0);
-  return CheckedFloatBinOp(state, FSub32, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FSub32, val1, val2), 0);
 }
 
-DEF_SEM_F64_STATE(FSUB_Scalar64, VI64 src1, VI64 src2) {
+DEF_SEM_V128_STATE(FSUB_Scalar64, VI64 src1, VI64 src2) {
   auto val1 = FExtractVI64(src1, 0);
   auto val2 = FExtractV64(src2, 0);
-  return CheckedFloatBinOp(state, FSub64, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FSub64, val1, val2), 0);
 }
 
-DEF_SEM_F32_STATE(FMUL_Scalar32, VI32 src1, VI32 src2) {
+DEF_SEM_V128_STATE(FMUL_Scalar32, VI32 src1, VI32 src2) {
   auto val1 = FExtractVI32(src1, 0);
   auto val2 = FExtractVI32(src2, 0);
-  return CheckedFloatBinOp(state, FMul32, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FMul32, val1, val2), 0);
 }
 
-DEF_SEM_F64_STATE(FMUL_Scalar64, VI64 src1, VI64 src2) {
+DEF_SEM_V128_STATE(FMUL_Scalar64, VI64 src1, VI64 src2) {
   auto val1 = FExtractVI64(src1, 0);
   auto val2 = FExtractVI64(src2, 0);
-  return CheckedFloatBinOp(state, FMul64, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FMul64, val1, val2), 0);
 }
 
-DEF_SEM_F32_STATE(FDIV_Scalar32, VI32 src1, VI32 src2) {
+DEF_SEM_V128_STATE(FDIV_Scalar32, VI32 src1, VI32 src2) {
   auto val1 = FExtractVI32(src1, 0);
   auto val2 = FExtractVI32(src2, 0);
-  return CheckedFloatBinOp(state, FDiv32, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FDiv32, val1, val2), 0);
 }
 
-DEF_SEM_F32_STATE(FMADD_S, VI32 src1, VI32 src2, VI32 src3) {
+DEF_SEM_V128_STATE(FMADD_S, VI32 src1, VI32 src2, VI32 src3) {
   auto factor1 = FExtractVI32(src1, 0);
   auto factor2 = FExtractVI32(src2, 0);
   auto add = FExtractVI32(src3, 0);
@@ -333,10 +299,10 @@ DEF_SEM_F32_STATE(FMADD_S, VI32 src1, VI32 src2, VI32 src3) {
     }
   }
 
-  return res;
+  return BackTo128Vector(res, 0);
 }
 
-DEF_SEM_F64_STATE(FMADD_D, VI64 src1, VI64 src2, VI64 src3) {
+DEF_SEM_V128_STATE(FMADD_D, VI64 src1, VI64 src2, VI64 src3) {
   auto factor1 = FExtractVI64(src1, 0);
   auto factor2 = FExtractVI64(src2, 0);
   auto add = FExtractVI64(src3, 0);
@@ -361,11 +327,11 @@ DEF_SEM_F64_STATE(FMADD_D, VI64 src1, VI64 src2, VI64 src3) {
     }
   }
 
-  return res;
+  return BackTo128Vector(res, 0);
 }
 
 // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
-DEF_SEM_F32_STATE(FMSUB_S, VI32 src1, VI32 src2, VI32 src3) {
+DEF_SEM_V128_STATE(FMSUB_S, VI32 src1, VI32 src2, VI32 src3) {
   auto factor1 = FExtractVI32(src1, 0);
   auto factor2 = FExtractVI32(src2, 0);
   auto factora = FExtractVI32(src3, 0);
@@ -390,11 +356,11 @@ DEF_SEM_F32_STATE(FMSUB_S, VI32 src1, VI32 src2, VI32 src3) {
     }
   }
 
-  return res;
+  return BackTo128Vector(res, 0);
 }
 
 // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
-DEF_SEM_F64_STATE(FMSUB_D, VI64 src1, VI64 src2, VI64 src3) {
+DEF_SEM_V128_STATE(FMSUB_D, VI64 src1, VI64 src2, VI64 src3) {
   auto factor1 = FExtractVI64(src1, 0);
   auto factor2 = FExtractVI64(src2, 0);
   auto factora = FExtractVI64(src3, 0);
@@ -419,13 +385,13 @@ DEF_SEM_F64_STATE(FMSUB_D, VI64 src1, VI64 src2, VI64 src3) {
     }
   }
 
-  return res;
+  return BackTo128Vector(res, 0);
 }
 
-DEF_SEM_F64_STATE(FDIV_Scalar64, VI64 src1, VI64 src2) {
+DEF_SEM_V128_STATE(FDIV_Scalar64, VI64 src1, VI64 src2) {
   auto val1 = FExtractVI64(src1, 0);
   auto val2 = FExtractVI64(src2, 0);
-  return CheckedFloatBinOp(state, FDiv64, val1, val2);
+  return BackTo128Vector(CheckedFloatBinOp(state, FDiv64, val1, val2), 0);
 }
 
 template <typename S>
@@ -525,28 +491,28 @@ DEF_SEM_U64(FCMP_DZ, VI64 src1) {
   return FCompare(val1, float_zero, false);
 }
 
-DEF_SEM_F32(FABS_S, VI32 src) {
+DEF_SEM_V128(FABS_S, VI32 src) {
   auto val = FExtractVI32(src, 0);
   auto result = static_cast<float32_t>(fabs(val));
-  return result;
+  return BackTo128Vector(result, 0);
 }
 
-DEF_SEM_F64(FABS_D, VI64 src) {
+DEF_SEM_V128(FABS_D, VI64 src) {
   auto val = FExtractVI64(src, 0);
   auto result = static_cast<float64_t>(fabs(val));
-  return result;
+  return BackTo128Vector(result, 0);
 }
 
-DEF_SEM_F32(FNEG_S, VI32 src) {
+DEF_SEM_V128(FNEG_S, VI32 src) {
   auto val = FExtractVI32(src, 0);
   auto result = -val;
-  return result;
+  return BackTo128Vector(result, 0);
 }
 
-DEF_SEM_F64(FNEG_D, VI64 src) {
+DEF_SEM_V128(FNEG_D, VI64 src) {
   auto val = FExtractVI64(src, 0);
   auto result = -val;
-  return result;
+  return BackTo128Vector(result, 0);
 }
 
 }  // namespace

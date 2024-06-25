@@ -14,89 +14,103 @@
  * limitations under the License.
  */
 
+#include "remill/Arch/AArch64/Runtime/Operators.h"
+#include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/Arch/AArch64/Runtime/Types.h"
+#include "remill/Arch/Name.h"
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/Runtime/Intrinsics.h"
+#include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Types.h"
+
 namespace {
 
+#define SR_NZCV__N ((sr_nzcv & 0b1000) >> 3)
+#define SR_NZCV__Z ((sr_nzcv & 0b100) >> 2)
+#define SR_NZCV__C ((sr_nzcv & 0b10) >> 1)
+#define SR_NZCV__V (sr_nzcv & 0b1)
+
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-static inline bool CondGE(const State &state) {
-  return FLAG_N == FLAG_V;
+static inline bool CondGE(uint64_t sr_nzcv) {
+  return SR_NZCV__N == SR_NZCV__V;
   // return __remill_compare_sge(FLAG_N == FLAG_V);
 }
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-static inline bool CondLT(const State &state) {
-  return FLAG_N != FLAG_V;
+static inline bool CondLT(uint64_t sr_nzcv) {
+  return SR_NZCV__N != SR_NZCV__V;
   // return __remill_compare_slt(FLAG_N != FLAG_V);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-static inline bool CondEQ(const State &state) {
-  return FLAG_Z;
+static inline bool CondEQ(uint64_t sr_nzcv) {
+  return SR_NZCV__Z;
   // return __remill_compare_eq(FLAG_Z);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-static inline bool CondNE(const State &state) {
-  return !FLAG_Z;
+static inline bool CondNE(uint64_t sr_nzcv) {
+  return !SR_NZCV__Z;
   // return __remill_compare_neq(!FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-static inline bool CondGT(const State &state) {
-  return (FLAG_N == FLAG_V) && !FLAG_Z;
+static inline bool CondGT(uint64_t sr_nzcv) {
+  return (SR_NZCV__N == SR_NZCV__V) && !SR_NZCV__Z;
   // return __remill_compare_sgt((FLAG_N == FLAG_V) && !FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-static inline bool CondLE(const State &state) {
-  return (FLAG_N != FLAG_V) || FLAG_Z;
+static inline bool CondLE(uint64_t sr_nzcv) {
+  return (SR_NZCV__N != SR_NZCV__V) || SR_NZCV__Z;
   // return __remill_compare_sle((FLAG_N != FLAG_V) || FLAG_Z);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-static inline bool CondCS(const State &state) {
-  return FLAG_C;
+static inline bool CondCS(uint64_t sr_nzcv) {
+  return SR_NZCV__C;
   // return __remill_compare_uge(FLAG_C);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-static inline bool CondCC(const State &state) {
-  return !FLAG_C;
+static inline bool CondCC(uint64_t sr_nzcv) {
+  return !SR_NZCV__C;
   // return __remill_compare_ult(!FLAG_C);
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-static inline bool CondMI(const State &state) {
-  return FLAG_N;
+static inline bool CondMI(uint64_t sr_nzcv) {
+  return SR_NZCV__N;
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-static inline bool CondPL(const State &state) {
-  return !FLAG_N;
+static inline bool CondPL(uint64_t sr_nzcv) {
+  return !SR_NZCV__N;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-static inline bool CondVS(const State &state) {
-  return FLAG_V;
+static inline bool CondVS(uint64_t sr_nzcv) {
+  return SR_NZCV__V;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-static inline bool CondVC(const State &state) {
-  return !FLAG_V;
+static inline bool CondVC(uint64_t sr_nzcv) {
+  return !SR_NZCV__V;
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-static inline bool CondHI(const State &state) {
-  return FLAG_C && !FLAG_Z;
+static inline bool CondHI(uint64_t sr_nzcv) {
+  return SR_NZCV__C && !SR_NZCV__Z;
   // return __remill_compare_ugt(FLAG_C && !FLAG_Z);
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-static inline bool CondLS(const State &state) {
-  return !FLAG_C || FLAG_Z;
+static inline bool CondLS(uint64_t sr_nzcv) {
+  return !SR_NZCV__C || SR_NZCV__Z;
   // return __remill_compare_ule(!FLAG_C || FLAG_Z);
 }
 
-static inline bool CondAL(const State &state) {
+static inline bool CondAL(uint64_t sr_nzcv) {
   return true;
 }
 
@@ -127,51 +141,45 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
-DEF_SEM(DoDirectBranch, PC target_pc) {}
+DEF_SEM_VOID(DoDirectBranch) {}
 
-template <typename S>
-DEF_SEM(DoIndirectBranch, S dst) {}
+DEF_SEM_VOID(DoIndirectBranch) {}
 
-template <bool (*check_cond)(const State &)>
-DEF_SEM(DirectCondBranch, R8W cond, PC taken, PC not_taken) {
-  uint8_t take_branch = check_cond(state);
-  Write(cond, take_branch);
+template <bool (*check_cond)(uint64_t sr_nzcv)>
+DEF_SEM_U64(DirectCondBranch, R64 sr_nzcv_src) {
+  return check_cond(Read(sr_nzcv_src));
 }
 
 template <typename S>
-DEF_SEM(CBZ, R8W cond, PC taken, PC not_taken, S src) {
-  uint8_t take_branch = UCmpEq(Read(src), 0);
-  Write(cond, take_branch);
+DEF_SEM_U64(CBZ, S src) {
+  return UCmpEq(Read(src), 0);
 }
 
 template <typename S>
-DEF_SEM(CBNZ, R8W cond, PC taken, PC not_taken, S src) {
-  uint8_t take_branch = UCmpNeq(Read(src), 0);
-  Write(cond, take_branch);
+DEF_SEM_U64(CBNZ, S src) {
+  return UCmpNeq(Read(src), 0);
 }
 
 
 template <typename S>
-DEF_SEM(TBZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM_U64(TBZ, I8 bit_pos, S src) {
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
-  auto take_branch = UCmpEq(bit_set, 0);
-  Write(cond, take_branch);
+  return UCmpEq(bit_set, 0);
 }
 
 template <typename S>
-DEF_SEM(TBNZ, I8 bit_pos, R8W cond, PC taken, PC not_taken, S src) {
+DEF_SEM_U64(TBNZ, I8 bit_pos, S src) {
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
-  auto take_branch = UCmpNeq(bit_set, 0);
-  Write(cond, take_branch);
+  return UCmpNeq(bit_set, 0);
 }
 
 }  // namespace
 
-DEF_ISEL(BR_64_BRANCH_REG) = DoIndirectBranch<R64>;
+DEF_ISEL(BR_64_BRANCH_REG) = DoIndirectBranch;
 
 DEF_ISEL(B_ONLY_BRANCH_IMM) = DoDirectBranch;
 
@@ -199,5 +207,6 @@ DEF_ISEL(CBNZ_32_COMPBRANCH) = CBNZ<R32>;
 
 DEF_ISEL(TBZ_ONLY_TESTBRANCH_64) = TBZ<R64>;
 DEF_ISEL(TBZ_ONLY_TESTBRANCH_32) = TBZ<R32>;
+
 DEF_ISEL(TBNZ_ONLY_TESTBRANCH_64) = TBNZ<R64>;
 DEF_ISEL(TBNZ_ONLY_TESTBRANCH_32) = TBNZ<R32>;

@@ -14,17 +14,28 @@
  * limitations under the License.
  */
 
+#include "remill/Arch/AArch64/Runtime/Operators.h"
+#include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/Arch/AArch64/Runtime/Types.h"
+#include "remill/Arch/Name.h"
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/Runtime/Intrinsics.h"
+#include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Types.h"
+
 namespace {
 
+// BLR  <Xn>
+// x30 will be changed.
 template <typename S>
-DEF_SEM(CALL, S target_addr, PC ret_addr) {
-  const auto return_pc = Read(ret_addr);
-  Write(REG_LP, return_pc);
+DEF_SEM_U64(CALL, PC ret_addr) {
+  return Read(ret_addr);
 }
 
-DEF_SEM(RET, R64 target_pc) {
-  const auto new_pc = Read(target_pc);
-  Write(REG_PC, new_pc);
+// RET  {<Xn>}
+// pc will be changed.
+DEF_SEM_U64(RET, R64 target_pc) {
+  return Read(target_pc);
 }
 
 }  // namespace

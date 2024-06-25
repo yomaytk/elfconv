@@ -14,32 +14,38 @@
  * limitations under the License.
  */
 
+#include "FLAGS.h"
+#include "remill/Arch/AArch64/Runtime/Operators.h"
+#include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/Arch/AArch64/Runtime/Types.h"
+#include "remill/Arch/Name.h"
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/Runtime/Intrinsics.h"
+#include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Types.h"
+
 namespace {
 
-DEF_SEM(StorePairUpdateIndex32, R32 src1, R32 src2, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
-  uint32v2_t vec = {};
-  vec = UInsertV32(vec, 0, Read(src1));
-  vec = UInsertV32(vec, 1, Read(src2));
-  UWriteV32(dst_mem, vec);
-  Write(dst_reg, Read(next_addr));
+DEF_SEM_U64_RUN(StorePairUpdateIndex32, R32 src1, R32 src2, MVI64W dst_mem, ADDR next_addr) {
+  _ecv_u32v2_t vec = {Read(src1), Read(src2)};
+  UWriteVI32(dst_mem, vec);
+  return Read(next_addr);
 }
 
-DEF_SEM(StorePairUpdateIndex64, R64 src1, R64 src2, MV128W dst_mem, R64W dst_reg, ADDR next_addr) {
-  uint64v2_t vec = {};
-  vec = UInsertV64(vec, 0, Read(src1));
-  vec = UInsertV64(vec, 1, Read(src2));
-  UWriteV64(dst_mem, vec);
-  Write(dst_reg, Read(next_addr));
+DEF_SEM_U64_RUN(StorePairUpdateIndex64, R64 src1, R64 src2, MVI128W dst_mem, ADDR next_addr) {
+  _ecv_u64v2_t vec = {Read(src1), Read(src2)};
+  UWriteVI64(dst_mem, vec);
+  return Read(next_addr);
 }
 
-DEF_SEM(StorePairUpdateIndexS, V32 src1, V32 src2, MV64W dst_mem, R64W dst_reg, ADDR next_addr) {
+DEF_SEM_U64_RUN(StorePairUpdateIndexS, V32 src1, V32 src2, MV64W dst_mem, ADDR next_addr) {
   float32v2_t vec = {};
   auto src1_vec = FReadV32(src1);
   auto src2_vec = FReadV32(src2);
   vec = FInsertV32(vec, 0, FExtractV32(src1_vec, 0));
   vec = FInsertV32(vec, 1, FExtractV32(src2_vec, 0));
   FWriteV32(dst_mem, vec);
-  Write(dst_reg, Read(next_addr));
+  return Read(next_addr);
 }
 
 DEF_SEM(StorePairUpdateIndexD, V64 src1, V64 src2, MV128W dst_mem, R64W dst_reg, ADDR next_addr) {

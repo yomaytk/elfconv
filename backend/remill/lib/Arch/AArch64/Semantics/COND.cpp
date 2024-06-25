@@ -15,23 +15,31 @@
  */
 
 
+#include "BRANCH.h"
+#include "remill/Arch/AArch64/Runtime/Operators.h"
+#include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/Arch/AArch64/Runtime/Types.h"
+#include "remill/Arch/Name.h"
+#include "remill/Arch/Runtime/Float.h"
+#include "remill/Arch/Runtime/Intrinsics.h"
+#include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Types.h"
+
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
-DEF_SEM(CSEL, D dst, S1 src1, S2 src2) {
-  auto val = check_cond(state) ? Read(src1) : Read(src2);
-  WriteZExt(dst, val);
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CSEL, S1 src1, S2 src2, R64 sr_nzcv_src) {
+  return check_cond(Read(sr_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
 // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
-#define MAKE_FCSEL(elem_size) \
-  template <bool (*check_cond)(const State &), typename D, typename S1, typename S2> \
-  DEF_SEM(FCSEL, D dst, S1 src1, S2 src2) { \
-    auto src1_val = FExtractV##elem_size(FReadV##elem_size(src1), 0); \
-    auto src2_val = FExtractV##elem_size(FReadV##elem_size(src2), 0); \
-    auto val = check_cond(state) ? src1_val : src2_val; \
-    FWriteV##elem_size(dst, val); \
-\
+#define MAKE_FCSEL(esize) \
+  template <bool (*check_cond)(uint64_t sr_nzcv), typename D, typename S1, typename S2> \
+  DEF_SEM_V128(FCSEL, D dst, S1 src1, S2 src2, R64 sr_nzcv_src) { \
+    auto src1_val = FExtractVI##esize(src1, 0); \
+    auto src2_val = FExtractVI##esize(src2, 0); \
+    auto val = check_cond(Read(sr_nzcv_src)) ? src1_val : src2_val; \
+    return BackTo128Vector(dst, val, 0); \
   }  // namespace
 
 MAKE_FCSEL(64);
@@ -57,72 +65,76 @@ MAKE_FCSEL(64);
   DEF_ISEL(isel##_LS) = sem<CondLS, __VA_ARGS__>;
 // DEF_ISEL(isel##_AL) = sem<CondAL, __VA_ARGS__>;
 
-DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL, R32W, R32, R32)
-DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64W, R64, R64)
+DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL, R32, R32)
+DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64, R64)
 
-DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL, V64W, V64, V64)
+DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL, VI64, VI64, VI64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
-DEF_SEM(CSNEG, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S2>(1))));
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CSNEG, S1 src1, S2 src2, R64 sr_nzcv_src) {
+  return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S1>(1)));
 }
 
 }  // namespace
 
 
-DEF_COND_ISEL(CSNEG_32_CONDSEL, CSNEG, R32W, R32, R32)
-DEF_COND_ISEL(CSNEG_64_CONDSEL, CSNEG, R64W, R64, R64)
+DEF_COND_ISEL(CSNEG_32_CONDSEL, CSNEG, R32, R32)
+DEF_COND_ISEL(CSNEG_64_CONDSEL, CSNEG, R64, R64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
-DEF_SEM(CSINC, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, Select(check_cond(state), Read(src1), UAdd(Read(src2), 1)));
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CSINC, S1 src1, S2 src2, R64 sr_nzcv_src) {
+  return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UAdd(Read(src2), 1));
 }
 }  // namespace
 
-DEF_COND_ISEL(CSINC_32_CONDSEL, CSINC, R32W, R32, R32)
-DEF_COND_ISEL(CSINC_64_CONDSEL, CSINC, R64W, R64, R64)
+DEF_COND_ISEL(CSINC_32_CONDSEL, CSINC, R32, R32)
+DEF_COND_ISEL(CSINC_64_CONDSEL, CSINC, R64, R64)
 
 namespace {
 
-template <bool (*check_cond)(const State &), typename D, typename S1, typename S2>
-DEF_SEM(CSINV, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, Select(check_cond(state), Read(src1), UNot(Read(src2))));
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CSINV, S1 src1, S2 src2, R64 sr_nzcv_src) {
+  return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UNot(Read(src2)));
 }
 }  // namespace
 
-DEF_COND_ISEL(CSINV_32_CONDSEL, CSINV, R32W, R32, R32)
-DEF_COND_ISEL(CSINV_64_CONDSEL, CSINV, R64W, R64, R64)
+DEF_COND_ISEL(CSINV_32_CONDSEL, CSINV, R32, R32)
+DEF_COND_ISEL(CSINV_64_CONDSEL, CSINV, R64, R64)
 
 namespace {
-template <bool (*check_cond)(const State &), typename S1, typename S2>
-DEF_SEM(CCMP, S1 src1, S2 src2, S2 nzcv) {
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CCMP, S1 src1, S2 src2, S2 nzcv, R64 sr_nzcv_src) {
   using T = typename BaseType<S1>::BT;
-  if (check_cond(state)) {
-    (void) AddWithCarryNZCV(state, Read(src1), UNot(Read(src2)), Read(src2), T(1));
+  if (check_cond(Read(sr_nzcv_src))) {
+    auto [_, flag_nzcv] = AddWithCarryNZCV(Read(src1), UNot(Read(src2)), Read(src2), T(1));
+    return flag_nzcv;
   } else {
     auto nzcv_val = Read(nzcv);
-    FLAG_V = UCmpNeq(UAnd(nzcv_val, T(1)), T(0));
-    FLAG_C = UCmpNeq(UAnd(nzcv_val, T(2)), T(0));
-    FLAG_Z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
-    FLAG_N = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
+    uint64_t flag_v = UCmpNeq(UAnd(nzcv_val, T(1)), T(0));
+    uint64_t flag_c = UCmpNeq(UAnd(nzcv_val, T(2)), T(0));
+    uint64_t flag_z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
+    uint64_t flag_n = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
+    return (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
   }
 }
 
-template <bool (*check_cond)(const State &), typename S1, typename S2>
-DEF_SEM(CCMN, S1 src1, S2 src2, S2 nzcv) {
+template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
+DEF_SEM_U64(CCMN, S1 src1, S2 src2, S2 nzcv) {
   using T = typename BaseType<S1>::BT;
-  if (check_cond(state)) {
-    (void) AddWithCarryNZCV(state, Read(src1), Read(src2), Read(src2), T(0));
+  if (check_cond(Read(sr_nzcv))) {
+    auto [_, flag_nzcv] = AddWithCarryNZCV(Read(src1), Read(src2), Read(src2), T(0));
+    return flag_nzcv;
   } else {
     auto nzcv_val = Read(nzcv);
-    FLAG_V = UCmpNeq(UAnd(nzcv_val, T(1)), T(0));
-    FLAG_C = UCmpNeq(UAnd(nzcv_val, T(2)), T(0));
-    FLAG_Z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
-    FLAG_N = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
+    uint64_t flag_v = UCmpNeq(UAnd(nzcv_val, T(1)), T(0));
+    uint64_t flag_c = UCmpNeq(UAnd(nzcv_val, T(2)), T(0));
+    uint64_t flag_z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0));
+    uint64_t flag_n = UCmpNeq(UAnd(nzcv_val, T(8)), T(0));
+    return (flag_n << 3) | (flang_z << 2) | (flag_c << 1) | flag_v;
   }
 }
 }  // namespace
