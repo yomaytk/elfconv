@@ -26,7 +26,7 @@ class RuntimeManager;
 namespace {
 
 template <typename PT, typename WRT>
-void same_type_assert() {
+void same_base_type_assert() {
   static_assert(std::is_same<PT, typename BaseType<WRT>::BT>::value,
                 "Expected that `PT` is same to the BaseType `WRT`.");
 }
@@ -263,7 +263,7 @@ MAKE_READRV(F, 64, doubles, float64_t)
 
 #undef MAKE_READRV
 
-// read the num from the vector register
+// read the val from the vector register
 // _UReadV(<VnW | Vn> vec), _FReadV(<VnW | Vn> vec), ...
 // return type: dwords (uin32v2_t, uint32v4_t, ...), qwords (uint64v1_t, uint64v2_t, ...), ...
 #define MAKE_READV(prefix, size, accessor) \
@@ -980,6 +980,67 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     _FWriteV64(runtime_manager, op, (val)); \
   } while (false)
 
+#define SWriteVI8(op, val) \
+  do { \
+    _SWriteVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI8(op, val) \
+  do { \
+    _UWriteVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI16(op, val) \
+  do { \
+    _SWriteVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI16(op, val) \
+  do { \
+    _UWriteVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI32(op, val) \
+  do { \
+    _SWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI32(op, val) \
+  do { \
+    _UWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI64(op, val) \
+  do { \
+    _SWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI64(op, val) \
+  do { \
+    _UWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SWriteVI128(op, val) \
+    do { \
+      _SWriteVI128(runtime_manager, op, (val)); \
+    } while (false)
+
+#  define UWriteVI128(op, val) \
+    do { \
+      _UWriteVI128(runtime_manager, op, (val)); \
+    } while (false)
+#endif
+
+#define FWriteVI32(op, val) \
+  do { \
+    _FWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define FWriteVI64(op, val) \
+  do { \
+    _FWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
 
 #define SReadV8(op) _SReadV8(runtime_manager, op)
 #define UReadV8(op) _UReadV8(runtime_manager, op)
@@ -1254,35 +1315,102 @@ MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
 
 #undef MAKE_EXTRACTV
 
-#define MAKE_EXTRACTVI(size, base_type, out, prefix, mask) \
-  ALWAYS_INLINE static base_type prefix##ExtractVI##size(VI##size vec, size_t id) { \
-    uint128_t shifted_vec = vec.val >> (size * id); \
-    uint##size##_t int_exp_res = static_cast<uint##size##_t>(shifted_vec & mask); \
-    return out(*reinterpret_cast<base_type *>(&int_exp_res)); \
+// MAKE MACRO of FExtractVI(...) etc...
+#define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
+  template <typename T> \
+  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
+    same_base_type_assert<base_type, EcvBaseType<T, bool>::BT>(); \
+    T bit_casted_vec = *reinterpret_cast<T *>(&vec.val); \
+    return out(bit_casted_vec[id]); \
   }
 
-MAKE_EXTRACTVI(8, uint8_t, Unsigned, U, 0xFF)
-MAKE_EXTRACTVI(16, uint16_t, Unsigned, U, 0xFFFF)
-MAKE_EXTRACTVI(32, uint32_t, Unsigned, U, 0xFFFF'FFFF)
-MAKE_EXTRACTVI(64, uint64_t, Unsigned, U, 0xFFFF'FFFF'FFFF'FFFF)
+MAKE_EXTRACTVI(8, uint8_t, Unsigned, U)
+MAKE_EXTRACTVI(16, uint16_t, Unsigned, U)
+MAKE_EXTRACTVI(32, uint32_t, Unsigned, U)
+MAKE_EXTRACTVI(64, uint64_t, Unsigned, U)
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_EXTRACTVI(128, uint128_t, Unsigned, U)
+#endif
 
-MAKE_EXTRACTVI(8, int8_t, Signed, S, 0xFF)
-MAKE_EXTRACTVI(16, int16_t, Signed, S, 0xFFFF)
-MAKE_EXTRACTVI(32, int32_t, Signed, S, 0xFFFF'FFFF)
-MAKE_EXTRACTVI(64, int64_t, Signed, S, 0xFFFF'FFFF'FFFF'FFFF)
+MAKE_EXTRACTVI(8, int8_t, Signed, S)
+MAKE_EXTRACTVI(16, int16_t, Signed, S)
+MAKE_EXTRACTVI(32, int32_t, Signed, S)
+MAKE_EXTRACTVI(64, int64_t, Signed, S)
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_EXTRACTVI(128, int128_t, Signed, S)
+#endif
 
-MAKE_EXTRACTVI(32, float32_t, Identity, F, 0xFFFF'FFFF)
-MAKE_EXTRACTVI(64, float64_t, Identity, F, 0xFFFF'FFFF'FFFF'FFFF)
+MAKE_EXTRACTVI(32, float32_t, Identity, F)
+MAKE_EXTRACTVI(64, float64_t, Identity, F)
+
+#undef MAKE_EXTRACTVI
+
+#define MAKE_MWRITEVI(prefix, size, mem_accessor, base_type) \
+  template <typename VT> \
+  ALWAYS_INLINE static void _##prefix##WriteVI##size(RuntimeManager *runtime_manager, \
+                                                     MVIW<VT> mem, base_type val) { \
+    VT vec{}; \
+    const addr_t el_size = sizeof(base_type); \
+    vec[0] = val; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+                                           vec.vec_accessor.elems[i]); \
+    } \
+  } \
+\
+  template <typename VT1, typename VT2> /* _UWriteV32(runtime_manager, dstv, srcv) */ \
+  ALWAYS_INLINE static void _##prefix##WriteVI##size(RuntimeManager *runtime_manager, \
+                                                     MVIW<VT1> mem, const VT2 &vec) { \
+    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVnW."); \
+    static_assert(std::is_same<EcvBaseType<VT1, bool>::BT, EcvBaseType<VT2, bool>::BT>::value, \
+                  "Incompatible types to a write to a vector register"); \
+    const addr_t el_size = sizeof(base_type); \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+\
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+                                           vec.elems[i]); \
+    } \
+  }
+
+MAKE_MWRITEVI(U, 8, 8, uint8_t)
+MAKE_MWRITEVI(U, 16, 16, uint16_t)
+MAKE_MWRITEVI(U, 32, 32, uint32_t)
+MAKE_MWRITEVI(U, 64, 64, uint64_t)
 
 #if !defined(REMILL_DISABLE_INT128)
-ALWAYS_INLINE static uint128_t UExtractVI128(VI128 vec, size_t id) {
-  return Unsigned(vec.val);
-}
-ALWAYS_INLINE static int128_t SExtractVI128(VI128 vec, size_t id) {
-  uint128_t int_exp_res = static_cast<uint128_t>(vec.val);
-  return Signed(*reinterpret_cast<int128_t *>(&int_exp_res));
-}
+MAKE_MWRITEVI(U, 128, 128, uint128_t)
 #endif
+
+MAKE_MWRITEVI(S, 8, s8, int8_t)
+MAKE_MWRITEVI(S, 16, s16, int16_t)
+MAKE_MWRITEVI(S, 32, s32, int32_t)
+MAKE_MWRITEVI(S, 64, s64, int64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_MWRITEVI(S, 128, s128, int128_t)
+#endif
+
+MAKE_MWRITEVI(F, 32, f32, float32_t)
+MAKE_MWRITEVI(F, 64, f64, float64_t)
+// MAKE_MWRITEV(F, 80, tdoubles, f80, float80_t)
+
+#undef MAKE_MWRITEV
+
+// MAKE MACRO of of BackTo128Vector(...)
+template <typename BT>
+ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(BT new_val, size_t id) {
+  using VT = typename EcvVector128Type<BT, bool>::V128T;
+  VT vec = {0};
+  vec[id] = new_val;
+  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec);
+  return bit_casted_vec;
+}
+
+template <typename T>
+ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(T &vec) {
+  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec.val);
+  return bit_casted_vec;
+}
 
 ALWAYS_INLINE static int8_t SAbs(int8_t val) {
   return val < 0 ? -val : val;
