@@ -27,17 +27,18 @@ namespace {
 
 template <typename PT, typename WRT>
 void same_base_type_assert() {
-  static_assert(std::is_same<PT, typename BaseType<WRT>::BT>::value,
+  static_assert(std::is_same<PT, typename EcvBaseType<WRT>::BT>::value,
                 "Expected that `PT` is same to the BaseType `WRT`.");
 }
 
-#if !defined(REMILL_DISABLE_INT128)
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
-                                                        addr_t addr);
+// Note. assume the environment which can uses 128bit type
+// #if !defined(REMILL_DISABLE_INT128)
+// ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
+//                                                         addr_t addr);
 
-ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
-                                                    uint128_t val);
-#endif
+// ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
+//                                                     uint128_t val);
+// #endif
 
 #define MAKE_UNDEF(n) \
   ALWAYS_INLINE static uint##n##_t Undefined(uint##n##_t) { \
@@ -353,6 +354,74 @@ MAKE_MREADV(F, 64, doubles, f64)
 
 #undef MAKE_MREADV
 
+#define MAKE_READVI(prefix, size, base_type) \
+  template <typename T> \
+  ALWAYS_INLINE static T _##prefix##ReadVI##size(VI<T> vec) { \
+    same_base_type_assert<base_type, T>(); \
+    return *reinterpret_cast<T *>(&vec.vec_bit); \
+  }
+
+MAKE_READVI(U, 8, uint8_t)
+MAKE_READVI(U, 16, uint16_t)
+MAKE_READVI(U, 32, uint32_t)
+MAKE_READVI(U, 64, uint64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READVI(U, 128, uint128_t)
+#endif
+
+MAKE_READVI(S, 8, int8_t)
+MAKE_READVI(S, 16, int16_t)
+MAKE_READVI(S, 32, int32_t)
+MAKE_READVI(S, 64, int64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READVI(S, 128, int128_t)
+#endif
+
+MAKE_READVI(F, 32, float32_t)
+MAKE_READVI(F, 64, float64_t)
+// MAKE_READV(F, 80, tdouble)
+
+#undef MAKE_READVI
+
+#define MAKE_READMVI(prefix, size, base_type, mem_accessor) \
+  template <typename T> \
+  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, \
+                                                     MVIW<T> mem) { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizoef(base_type)>::VT; \
+    vector_type vec = {}; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
+                                                   mem.addr + (i * sizeof(base_type))); \
+    } \
+    return vec; \
+  }
+
+MAKE_READMVI(U, 8, uint8_t, 8)
+MAKE_READMVI(U, 16, uint16_t, 16)
+MAKE_READMVI(U, 32, uint32_t, 32)
+MAKE_READMVI(U, 64, uint64_t, 64)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READMVI(U, 128, uint128_t, 128)
+#endif
+
+MAKE_READMVI(S, 8, int8_t, 8)
+MAKE_READMVI(S, 16, int16_t, 16)
+MAKE_READMVI(S, 32, int32_t, 32)
+MAKE_READMVI(S, 64, int64_t, 64)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READMVI(S, 128, int128_t, 128)
+#endif
+
+MAKE_READMVI(F, 32, float32_t, f32)
+MAKE_READMVI(F, 64, float64_t, f64)
+// MAKE_MREADV(F, 80, tdoubles, f80)
+
+#undef MAKE_READMVI
+
 // MAKE_WRITEV(U, 16, words, VnW, uint16_t)
 // e.g. _UWriteV16(runtime_manager, vec, value), _FWriteV32(runtime_manager, vec, value), ...
 // -> vec = {value, 0, 0, ...}
@@ -481,6 +550,56 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
 // MAKE_MWRITEV(F, 80, tdoubles, f80, float80_t)
 
 #undef MAKE_MWRITEV
+
+#define MAKE_WRITEMVI(prefix, size, mem_accessor, base_type) \
+  template <typename VT> \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
+                                                      MVIW<VT> mem, base_type val) { \
+    static_assert(sizeof(VT) >= sizeof(base_type)); \
+    using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>; \
+    vector_type vec{}; \
+    vec[0] = val; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
+                                           vec[i]); \
+    } \
+  } \
+\
+  template <typename VT1, typename VT2> /* _UWriteV32(runtime_manager, dstv, srcv) */ \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
+                                                      MVIW<VT1> mem, const VT2 &vec) { \
+    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVIW."); \
+    static_assert(std::is_same<base_type, typename EcvBaseType<VT2>::BT>::value, \
+                  "Incompatible types to a write to a vector register"); \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
+                                           vec[i]); \
+    } \
+  }
+
+MAKE_WRITEMVI(U, 8, 8, uint8_t)
+MAKE_WRITEMVI(U, 16, 16, uint16_t)
+MAKE_WRITEMVI(U, 32, 32, uint32_t)
+MAKE_WRITEMVI(U, 64, 64, uint64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_WRITEMVI(U, 128, 128, uint128_t)
+#endif
+
+MAKE_WRITEMVI(S, 8, s8, int8_t)
+MAKE_WRITEMVI(S, 16, s16, int16_t)
+MAKE_WRITEMVI(S, 32, s32, int32_t)
+MAKE_WRITEMVI(S, 64, s64, int64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_WRITEMVI(S, 128, s128, int128_t)
+#endif
+
+MAKE_WRITEMVI(F, 32, f32, float32_t)
+MAKE_WRITEMVI(F, 64, f64, float64_t)
+// MAKE_WRITEMVI(F, 80, tdoubles, f80, float80_t)
+
+#undef MAKE_WRITEMVI
 
 #define MAKE_WRITE_REF(type) \
   ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, type &ref, type val) { \
@@ -1042,6 +1161,68 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     _FWriteVI64(runtime_manager, op, (val)); \
   } while (false)
 
+#define SWriteMVI8(op, val) \
+  do { \
+    _SWriteMVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI8(op, val) \
+  do { \
+    _UWriteMVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI16(op, val) \
+  do { \
+    _SWriteMVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI16(op, val) \
+  do { \
+    _UWriteMVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI32(op, val) \
+  do { \
+    _SWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI32(op, val) \
+  do { \
+    _UWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI64(op, val) \
+  do { \
+    _SWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI64(op, val) \
+  do { \
+    _UWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SWriteMVI128(op, val) \
+    do { \
+      _SWriteMVI128(runtime_manager, op, (val)); \
+    } while (false)
+
+#  define UWriteMVI128(op, val) \
+    do { \
+      _UWriteMVI128(runtime_manager, op, (val)); \
+    } while (false)
+#endif
+
+#define FWriteMVI32(op, val) \
+  do { \
+    _FWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define FWriteMVI64(op, val) \
+  do { \
+    _FWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
+
 #define SReadV8(op) _SReadV8(runtime_manager, op)
 #define UReadV8(op) _UReadV8(runtime_manager, op)
 
@@ -1062,8 +1243,45 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 #define FReadV32(op) _FReadV32(runtime_manager, op)
 #define FReadV64(op) _FReadV64(runtime_manager, op)
 
+#define SReadVI8(op) _SReadVI8(op)
+#define UReadVI8(op) _UReadVI8(op)
+
+#define SReadVI16(op) _SReadVI16(op)
+#define UReadVI16(op) _UReadVI16(op)
+
+#define SReadVI32(op) _SReadVI32(op)
+#define UReadVI32(op) _UReadVI32(op)
+
+#define SReadVI64(op) _SReadVI64(op)
+#define UReadVI64(op) _UReadVI64(op)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SReadVI128(op) _SReadVI128(op)
+#  define UReadVI128(op) _UReadVI128(op)
+#endif
+
 #define FReadVI32(op) _FReadVI32(op)
 #define FReadVI64(op) _FReadVI64(op)
+
+#define SReadMVI8(op) _SReadMVI8(runtime_manager, op)
+#define UReadMVI8(op) _UReadMVI8(runtime_manager, op)
+
+#define SReadMVI16(op) _SReadMVI16(runtime_manager, op)
+#define UReadMVI16(op) _UReadMVI16(runtime_manager, op)
+
+#define SReadMVI32(op) _SReadMVI32(runtime_manager, op)
+#define UReadMVI32(op) _UReadMVI32(runtime_manager, op)
+
+#define SReadMVI64(op) _SReadMVI64(runtime_manager, op)
+#define UReadMVI64(op) _UReadMVI64(runtime_manager, op)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SReadMVI128(op) _SReadMVI128(runtime_manager, op)
+#  define UReadMVI128(op) _UReadMVI128(runtime_manager, op)
+#endif
+
+#define FReadMVI32(op) _FReadMVI32(runtime_manager, op)
+#define FReadMVI64(op) _FReadMVI64(runtime_manager, op)
 
 // Useful for stubbing out an operator.
 #define MAKE_NOP(...)
@@ -1316,6 +1534,7 @@ MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
 #undef MAKE_EXTRACTV
 
 // MAKE MACRO of FExtractVI(...) etc...
+// assume that vec is the VI<T>, so it is necessary to be 128bit data.
 #define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
   template <typename T> \
   ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
@@ -1345,61 +1564,10 @@ MAKE_EXTRACTVI(64, float64_t, Identity, F)
 
 #undef MAKE_EXTRACTVI
 
-#define MAKE_MWRITEVI(prefix, size, mem_accessor, base_type) \
-  template <typename VT> \
-  ALWAYS_INLINE static void _##prefix##WriteVI##size(RuntimeManager *runtime_manager, \
-                                                     MVIW<VT> mem, base_type val) { \
-    VT vec{}; \
-    const addr_t el_size = sizeof(base_type); \
-    vec[0] = val; \
-    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
-                                           vec.vec_accessor.elems[i]); \
-    } \
-  } \
-\
-  template <typename VT1, typename VT2> /* _UWriteV32(runtime_manager, dstv, srcv) */ \
-  ALWAYS_INLINE static void _##prefix##WriteVI##size(RuntimeManager *runtime_manager, \
-                                                     MVIW<VT1> mem, const VT2 &vec) { \
-    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVnW."); \
-    static_assert(std::is_same<EcvBaseType<VT1, bool>::BT, EcvBaseType<VT2, bool>::BT>::value, \
-                  "Incompatible types to a write to a vector register"); \
-    const addr_t el_size = sizeof(base_type); \
-    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-\
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
-                                           vec.elems[i]); \
-    } \
-  }
-
-MAKE_MWRITEVI(U, 8, 8, uint8_t)
-MAKE_MWRITEVI(U, 16, 16, uint16_t)
-MAKE_MWRITEVI(U, 32, 32, uint32_t)
-MAKE_MWRITEVI(U, 64, 64, uint64_t)
-
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_MWRITEVI(U, 128, 128, uint128_t)
-#endif
-
-MAKE_MWRITEVI(S, 8, s8, int8_t)
-MAKE_MWRITEVI(S, 16, s16, int16_t)
-MAKE_MWRITEVI(S, 32, s32, int32_t)
-MAKE_MWRITEVI(S, 64, s64, int64_t)
-
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_MWRITEVI(S, 128, s128, int128_t)
-#endif
-
-MAKE_MWRITEVI(F, 32, f32, float32_t)
-MAKE_MWRITEVI(F, 64, f64, float64_t)
-// MAKE_MWRITEV(F, 80, tdoubles, f80, float80_t)
-
-#undef MAKE_MWRITEV
-
 // MAKE MACRO of of BackTo128Vector(...)
 template <typename BT>
 ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(BT new_val, size_t id) {
-  using VT = typename EcvVector128Type<BT, bool>::V128T;
+  using VT = typename EcvVector128Type<BT>::VT;
   VT vec = {0};
   vec[id] = new_val;
   _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec);
@@ -1408,7 +1576,7 @@ ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(BT new_val, size_t id) {
 
 template <typename T>
 ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(T &vec) {
-  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec.val);
+  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec.vec_val);
   return bit_casted_vec;
 }
 
@@ -1756,25 +1924,25 @@ ALWAYS_INLINE static T Select(bool cond, T if_true, T if_false) {
 #define UUndefined32 __remill_undefined_32
 #define UUndefined64 __remill_undefined_64
 
-
-#if !defined(REMILL_DISABLE_INT128)
+// Note. assume the environment which can uses 128bit type
+// #if !defined(REMILL_DISABLE_INT128)
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
-                                                        addr_t addr) {
-  uint128_t low_qword = ZExt(__remill_read_memory_64(runtime_manager, addr));
-  uint128_t high_qword = ZExt(__remill_read_memory_64(runtime_manager, addr + 8));
-  return UOr(UShl(high_qword, 64), low_qword);
-}
+// ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
+//                                                         addr_t addr) {
+//   uint128_t low_qword = ZExt(__remill_read_memory_64(runtime_manager, addr));
+//   uint128_t high_qword = ZExt(__remill_read_memory_64(runtime_manager, addr + 8));
+//   return UOr(UShl(high_qword, 64), low_qword);
+// }
 
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
-                                                    uint128_t val) {
-  uint64_t low_qword = Trunc(val);
-  uint64_t high_qword = Trunc(UShr(val, 64));
-  __remill_write_memory_64(runtime_manager, addr, low_qword);
-  __remill_write_memory_64(runtime_manager, addr + 8, high_qword);
-}
-#endif
+// ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
+//                                                     uint128_t val) {
+//   uint64_t low_qword = Trunc(val);
+//   uint64_t high_qword = Trunc(UShr(val, 64));
+//   __remill_write_memory_64(runtime_manager, addr, low_qword);
+//   __remill_write_memory_64(runtime_manager, addr + 8, high_qword);
+// }
+// #endif
 
 // Issue #374: https://github.com/lifting-bits/remill/issues/374
 //

@@ -16,17 +16,17 @@
 
 namespace {
 
-DEF_SEM(CallSupervisor, I32) {
+DEF_SEM_VOID(CallSupervisor, I32) {
   HYPER_CALL = AsyncHyperCall::kAArch64SupervisorCall;
   __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 
-DEF_SEM(Breakpoint, I32 imm) {
+DEF_SEM_VOID(Breakpoint, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
-  return __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
+  __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_FPSR, R64W dest) {
+DEF_SEM_U64(DoMRS_RS_SYSTEM_FPSR) {
   auto fpsr = state.fpsr;
   fpsr.ixc = state.sr.ixc;
   fpsr.ofc = state.sr.ofc;
@@ -34,10 +34,10 @@ DEF_SEM(DoMRS_RS_SYSTEM_FPSR, R64W dest) {
 
   //fpsr.idc = state.sr.idc;  // TODO(garret): fix the saving of the idc bit before reenabling (issue #188)
   fpsr.ioc = state.sr.ioc;
-  WriteZExt(dest, fpsr.flat);
+  return fpsr.flat;
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_FPSR, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPSR, R64 src) {
   FPSR fpsr;
   WriteZExt(fpsr.flat, Read(src));
   fpsr._res0 = 0;
@@ -51,12 +51,12 @@ DEF_SEM(DoMSR_SR_SYSTEM_FPSR, R64 src) {
   //state.sr.idc = fpsr.idc;  // TODO(garret): fix the saving of the idc bit before reenabling (issue #188)
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_FPCR, R64W dest) {
+DEF_SEM_U64(DoMRS_RS_SYSTEM_FPCR) {
   auto fpcr = state.fpcr;
-  WriteZExt(dest, fpcr.flat);
+  return fpcr.flat;
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_FPCR, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   FPCR fpcr;
   WriteZExt(fpcr.flat, Read(src));
   fpcr._res0 = 0;
@@ -64,66 +64,78 @@ DEF_SEM(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   state.fpcr = fpcr;
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_TPIDR_EL0, R64W dest) {
-  WriteZExt(dest, Read(state.sr.tpidr_el0));
+DEF_SEM_U64(DoMRS_RS_SYSTEM_TPIDR_EL0) {
+  return Read(state.sr.tpidr_el0);
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
   WriteZExt(state.sr.tpidr_el0.qword, Read(src));
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_CTR_EL0, R64W dest) {
-  WriteZExt(dest, Read(state.sr.ctr_el0));
+DEF_SEM_U64(DoMRS_RS_SYSTEM_CTR_EL0) {
+  return Read(state.sr.ctr_el0);
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
   WriteZExt(state.sr.ctr_el0.qword, Read(src));
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_DCZID_EL0, R64W dest) {
-  WriteZExt(dest, Read(state.sr.dczid_el0));
+DEF_SEM_U64(DoMRS_RS_SYSTEM_DCZID_EL0) {
+  return Read(state.sr.dczid_el0);
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
   WriteZExt(state.sr.dczid_el0.qword, Read(src));
 }
 
-DEF_SEM(DoMRS_RS_SYSTEM_MIDR_EL1, R64W dest) {
-  WriteZExt(dest, Read(state.sr.midr_el1));
+DEF_SEM_U64(DoMRS_RS_SYSTEM_MIDR_EL1) {
+  return Read(state.sr.midr_el1);
 }
 
-DEF_SEM(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
+DEF_SEM_VOID(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
   WriteZExt(state.sr.midr_el1.qword, Read(src));
 }
 
-DEF_SEM(DataMemoryBarrier) {
+DEF_SEM_VOID(DataMemoryBarrier) {
 
   // TODO(pag): Full-system data memory barrier probably requires a synchronous
   //            hypercall if it behaves kind of like Linux's `sys_membarrier`.
-  return __remill_barrier_store_store(runtime_manager);
+  __remill_barrier_store_store(runtime_manager);
 }
 
 }  // namespace
 
-DEF_ISEL(SVC_EX_EXCEPTION) = CallSupervisor;
-DEF_ISEL(BRK_EX_EXCEPTION) = Breakpoint;
+DEF_ISEL(SVC_EX_EXCEPTION) = CallSupervisor;  // SVC  #<imm>
+DEF_ISEL(BRK_EX_EXCEPTION) = Breakpoint;  // BRK  #<imm>
 
-DEF_ISEL(MRS_RS_SYSTEM_FPSR) = DoMRS_RS_SYSTEM_FPSR;
-DEF_ISEL(MSR_SR_SYSTEM_FPSR) = DoMSR_SR_SYSTEM_FPSR;
+DEF_ISEL(MRS_RS_SYSTEM_FPSR) =
+    DoMRS_RS_SYSTEM_FPSR;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_FPSR) =
+    DoMSR_SR_SYSTEM_FPSR;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(MRS_RS_SYSTEM_FPCR) = DoMRS_RS_SYSTEM_FPCR;
-DEF_ISEL(MSR_SR_SYSTEM_FPCR) = DoMSR_SR_SYSTEM_FPCR;
+DEF_ISEL(MRS_RS_SYSTEM_FPCR) =
+    DoMRS_RS_SYSTEM_FPCR;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_FPCR) =
+    DoMSR_SR_SYSTEM_FPCR;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(MRS_RS_SYSTEM_TPIDR_EL0) = DoMRS_RS_SYSTEM_TPIDR_EL0;
-DEF_ISEL(MSR_SR_SYSTEM_TPIDR_EL0) = DoMSR_SR_SYSTEM_TPIDR_EL0;
+DEF_ISEL(MRS_RS_SYSTEM_TPIDR_EL0) =
+    DoMRS_RS_SYSTEM_TPIDR_EL0;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_TPIDR_EL0) =
+    DoMSR_SR_SYSTEM_TPIDR_EL0;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(MRS_RS_SYSTEM_CTR_EL0) = DoMRS_RS_SYSTEM_CTR_EL0;
-DEF_ISEL(MSR_SR_SYSTEM_CTR_EL0) = DoMSR_SR_SYSTEM_CTR_EL0;
+DEF_ISEL(MRS_RS_SYSTEM_CTR_EL0) =
+    DoMRS_RS_SYSTEM_CTR_EL0;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_CTR_EL0) =
+    DoMSR_SR_SYSTEM_CTR_EL0;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(MRS_RS_SYSTEM_DCZID_EL0) = DoMRS_RS_SYSTEM_DCZID_EL0;
-DEF_ISEL(MSR_SR_SYSTEM_DCZID_EL0) = DoMSR_SR_SYSTEM_DCZID_EL0;
+DEF_ISEL(MRS_RS_SYSTEM_DCZID_EL0) =
+    DoMRS_RS_SYSTEM_DCZID_EL0;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_DCZID_EL0) =
+    DoMSR_SR_SYSTEM_DCZID_EL0;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(MRS_RS_SYSTEM_MIDR_EL1) = DoMRS_RS_SYSTEM_MIDR_EL1;
-DEF_ISEL(MSR_SR_SYSTEM_MIDR_EL1) = DoMSR_SR_SYSTEM_MIDR_EL1;
+DEF_ISEL(MRS_RS_SYSTEM_MIDR_EL1) =
+    DoMRS_RS_SYSTEM_MIDR_EL1;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
+DEF_ISEL(MSR_SR_SYSTEM_MIDR_EL1) =
+    DoMSR_SR_SYSTEM_MIDR_EL1;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
 
-DEF_ISEL(DMB_BO_SYSTEM) = DataMemoryBarrier;
+DEF_ISEL(DMB_BO_SYSTEM) = DataMemoryBarrier;  // DMB  <option>|#<imm>

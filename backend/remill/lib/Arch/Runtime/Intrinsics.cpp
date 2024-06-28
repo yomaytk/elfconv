@@ -50,11 +50,13 @@ extern "C" [[gnu::used]] void __remill_intrinsics(void) {
   USED(__remill_read_memory_16);
   USED(__remill_read_memory_32);
   USED(__remill_read_memory_64);
+  USED(__remill_read_memory_128);
 
   USED(__remill_write_memory_8);
   USED(__remill_write_memory_16);
   USED(__remill_write_memory_32);
   USED(__remill_write_memory_64);
+  USED(__remill_write_memory_128);
 
   USED(__remill_read_memory_f32);
   USED(__remill_read_memory_f64);

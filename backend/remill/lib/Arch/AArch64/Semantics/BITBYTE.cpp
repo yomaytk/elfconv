@@ -32,13 +32,15 @@ namespace {
 // operand for `src1`, and combines the `wmask` and `tmask` into a single
 // `mask`.
 
+// UBFM  <Wd>, <Wn>, #<immr>, #<imms>
 template <typename RT, typename IT>
-DEF_SEM_U64(UBFM, RT src1, IT mask) {
+DEF_SEM_T(UBFM, RT src1, IT mask) {
   return UAnd(Read(src1), Read(mask));
 }
 
+// SBFM  <Wd>, <Wn>, #<immr>, #<imms>
 template <typename RT, typename IT>
-DEF_SEM_U64(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
+DEF_SEM_T(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
   using T = typename BaseType<IT>::BT;
   auto src = Read(src1);
   auto R = Read(src2);
@@ -57,8 +59,9 @@ DEF_SEM_U64(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
   return UOr(UAnd(top, UNot(tmask)), UAnd(bot, tmask));
 }
 
+// BFM  <Wd>, <Wn>, #<immr>, #<imms>
 template <typename RT, typename IT>
-DEF_SEM_U64(BFM, RT src1, IT src2, IT src3, IT src4) {
+DEF_SEM_T(BFM, RT src1, IT src2, IT src3, IT src4) {
   using T = typename BaseType<IT>::BT;
   auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */
   auto src = Read(src1);
@@ -86,8 +89,9 @@ DEF_ISEL(BFM_64M_BITFIELD) = BFM<R64, I64>;
 
 namespace {
 
+// EXTR  <Wd>, <Wn>, <Wm>, #<lsb>
 template <typename RT, typename IT>
-DEF_SEM_U64(EXTR, RT src1, RT src2, IT src3) {
+DEF_SEM_T(EXTR, RT src1, RT src2, IT src3) {
   using T = typename BaseType<RT>::BT;
   constexpr auto size = T(sizeof(T) * 8);
   auto lsb = Read(src3);
@@ -107,8 +111,9 @@ DEF_ISEL(EXTR_64_EXTRACT) = EXTR<R64, I64>;
 
 namespace {
 
+// CLZ  <Wd>, <Wn>
 template <typename RT>
-DEF_SEM_U64(CLZ, RT src) {
+DEF_SEM_T(CLZ, RT src) {
   auto count = CountLeadingZeros(Read(src));
   return count;
 }
@@ -121,39 +126,42 @@ DEF_ISEL(CLZ_64_DP_1SRC) = CLZ<R64>;
 namespace {
 
 // REV16 <Wd>, <Wn>
-DEF_SEM_U64(REV16_32, R32 src) {
+DEF_SEM_U32(REV16_32, R32 src) {
   uint32_t src_num = Read(src);
-  auto first_half = src_num >> (uint32_t) 16;
+  auto first_half = src_num >> 16;
   auto second_half = src_num & 0xFFFF;
-  return ((uint32_t(__builtin_bswap16(first_half))) << uint32_t(16)) |
+  return ((uint32_t(__builtin_bswap16(first_half))) << 16) |
          uint32_t(__builtin_bswap16(second_half));
 }
 
 // REV16 <Xd>, <Xn>
 DEF_SEM_U64(REV16_64, R64 src) {
   uint64_t src_num = Read(src);
-  uint16_t first_quarter = src_num >> (uint64_t) 48;
-  uint16_t second_quarter = (src_num >> (uint64_t) 32) & 0xFFFF;
-  uint16_t third_quarter = (src_num >> (uint64_t) 16) & 0xFFFF;
+  uint16_t first_quarter = src_num >> 48;
+  uint16_t second_quarter = (src_num >> 32) & 0xFFFF;
+  uint16_t third_quarter = (src_num >> 16) & 0xFFFF;
   uint16_t forth_quarter = src_num & 0xFFFF;
-  return ((uint64_t(__builtin_bswap16(first_quarter))) << uint64_t(48)) |
-         ((uint64_t(__builtin_bswap16(second_quarter))) << uint64_t(32)) |
-         ((uint64_t(__builtin_bswap16(third_quarter)) << uint64_t(16))) |
+  return ((uint64_t(__builtin_bswap16(first_quarter))) << 48) |
+         ((uint64_t(__builtin_bswap16(second_quarter))) << 32) |
+         ((uint64_t(__builtin_bswap16(third_quarter)) << 16)) |
          uint64_t(__builtin_bswap16(forth_quarter));
 }
 
-DEF_SEM_U64(REV32_32, R32 src) {
+// REV  <Wd>, <Wn>
+DEF_SEM_U32(REV32_32, R32 src) {
   return __builtin_bswap32(Read(src));
 }
 
+// REV32  <Xd>, <Xn>
 DEF_SEM_U64(REV32_64, R64 src) {
-  uint32_t src_num = Read(src);
-  auto first_half = src_num >> (uint64_t) 32;
+  uint64_t src_num = Read(src);
+  auto first_half = src_num >> 32;
   auto second_half = src_num & 0xFFFFFFFF;
-  return ((uint32_t(__builtin_bswap32(first_half))) << uint32_t(32)) |
-         uint32_t(__builtin_bswap32(second_half));
+  return ((uint64_t(__builtin_bswap32(first_half))) << uint32_t(32)) |
+         uint64_t(__builtin_bswap32(second_half));
 }
 
+// REV  <Xd>, <Xn>
 DEF_SEM_U64(REV64, R64 src) {
   return __builtin_bswap64(Read(src));
 }
@@ -171,15 +179,16 @@ ALWAYS_INLINE static T ReverseBits(T v) {
 #  define __builtin_bitreverse32(x) ReverseBits<uint32_t, 32>(x)
 #endif
 
-DEF_SEM_U64(RBIT32, R32 src) {
+// RBIT  <Wd>, <Wn>
+DEF_SEM_U32(RBIT32, R32 src) {
   return __builtin_bitreverse32(Read(src));
 }
-
 
 #if !__has_builtin(__builtin_bitreverse64)
 #  define __builtin_bitreverse64(x) ReverseBits<uint64_t, 64>(x)
 #endif
 
+// RBIT  <Xd>, <Xn>
 DEF_SEM_U64(RBIT64, R64 src) {
   return __builtin_bitreverse64(Read(src));
 }

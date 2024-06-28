@@ -31,16 +31,16 @@ uint64_t __remill_read_memory_64(RuntimeManager *runtime_manager, addr_t addr) {
   return *(uint64_t *) runtime_manager->TranslateVMA(addr);
 }
 
+uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager, addr_t addr) {
+  return *(uint128_t *) runtime_manager->TranslateVMA(addr);
+}
+
 float32_t __remill_read_memory_f32(RuntimeManager *runtime_manager, addr_t addr) {
   return *(float32_t *) runtime_manager->TranslateVMA(addr);
 }
 
 float64_t __remill_read_memory_f64(RuntimeManager *runtime_manager, addr_t addr) {
   return *(float64_t *) runtime_manager->TranslateVMA(addr);
-}
-
-float128_t __remill_read_memory_f128(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(float128_t *) runtime_manager->TranslateVMA(addr);
 }
 
 void __remill_write_memory_8(RuntimeManager *runtime_manager, addr_t addr, uint8_t src) {
@@ -60,6 +60,11 @@ void __remill_write_memory_32(RuntimeManager *runtime_manager, addr_t addr, uint
 
 void __remill_write_memory_64(RuntimeManager *runtime_manager, addr_t addr, uint64_t src) {
   auto dst = (uint64_t *) runtime_manager->TranslateVMA(addr);
+  *dst = src;
+}
+
+void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr, uint128_t src) {
+  auto dst = (uint128_t *) runtime_manager->TranslateVMA(addr);
   *dst = src;
 }
 
@@ -326,6 +331,10 @@ int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
 // Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &) {
 //   UNDEFINED_INTRINSICS("__remill_") return nullptr;
 // }
+
+float128_t __remill_read_memory_f128(RuntimeManager *runtime_manager, addr_t addr) {
+  UNDEFINED_INTRINSICS("__remill_read_memory_f128");
+}
 
 uint8_t __remill_undefined_8(void) {
   UNDEFINED_INTRINSICS("__remill_undefined_8");

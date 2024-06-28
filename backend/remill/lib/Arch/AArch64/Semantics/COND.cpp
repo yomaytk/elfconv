@@ -27,20 +27,18 @@
 
 namespace {
 
+// CSEL  <Wd>, <Wn>, <Wm>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
-DEF_SEM_U64(CSEL, S1 src1, S2 src2, R64 sr_nzcv_src) {
+DEF_SEM_T(CSEL, S1 src1, S2 src2, R64 sr_nzcv_src) {
   return check_cond(Read(sr_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
 // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
 #define MAKE_FCSEL(esize) \
   template <bool (*check_cond)(uint64_t sr_nzcv), typename D, typename S1, typename S2> \
-  DEF_SEM_V128(FCSEL, D dst, S1 src1, S2 src2, R64 sr_nzcv_src) { \
-    auto src1_val = FExtractVI##esize(src1, 0); \
-    auto src2_val = FExtractVI##esize(src2, 0); \
-    auto val = check_cond(Read(sr_nzcv_src)) ? src1_val : src2_val; \
-    return BackTo128Vector(dst, val, 0); \
-  }  // namespace
+  DEF_SEM_V128(FCSEL, S1 src1, S2 src2, R64 sr_nzcv_src) { \
+    return check_cond(Read(sr_nzcv_src)) ? Read(src1) : Read(src2); \
+  }
 
 MAKE_FCSEL(64);
 
@@ -68,25 +66,26 @@ MAKE_FCSEL(64);
 DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL, R32, R32)
 DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL, R64, R64)
 
-DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL, VI64, VI64, VI64)
+DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL, RF64, Rf64)
 
 namespace {
 
+// CSNEG  <Wd>, <Wn>, <Wm>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
-DEF_SEM_U64(CSNEG, S1 src1, S2 src2, R64 sr_nzcv_src) {
+DEF_SEM_T(CSNEG, S1 src1, S2 src2, R64 sr_nzcv_src) {
   return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S1>(1)));
 }
 
 }  // namespace
-
 
 DEF_COND_ISEL(CSNEG_32_CONDSEL, CSNEG, R32, R32)
 DEF_COND_ISEL(CSNEG_64_CONDSEL, CSNEG, R64, R64)
 
 namespace {
 
+// CSINC  <Wd>, <Wn>, <Wm>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
-DEF_SEM_U64(CSINC, S1 src1, S2 src2, R64 sr_nzcv_src) {
+DEF_SEM_T(CSINC, S1 src1, S2 src2, R64 sr_nzcv_src) {
   return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UAdd(Read(src2), 1));
 }
 }  // namespace
@@ -96,8 +95,9 @@ DEF_COND_ISEL(CSINC_64_CONDSEL, CSINC, R64, R64)
 
 namespace {
 
+// CSINV  <Wd>, <Wn>, <Wm>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
-DEF_SEM_U64(CSINV, S1 src1, S2 src2, R64 sr_nzcv_src) {
+DEF_SEM_T(CSINV, S1 src1, S2 src2, R64 sr_nzcv_src) {
   return Select(check_cond(Read(sr_nzcv_src)), Read(src1), UNot(Read(src2)));
 }
 }  // namespace
@@ -106,6 +106,8 @@ DEF_COND_ISEL(CSINV_32_CONDSEL, CSINV, R32, R32)
 DEF_COND_ISEL(CSINV_64_CONDSEL, CSINV, R64, R64)
 
 namespace {
+
+// CCMP  <Wn>, #<imm>, #<nzcv>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
 DEF_SEM_U64(CCMP, S1 src1, S2 src2, S2 nzcv, R64 sr_nzcv_src) {
   using T = typename BaseType<S1>::BT;
@@ -122,6 +124,7 @@ DEF_SEM_U64(CCMP, S1 src1, S2 src2, S2 nzcv, R64 sr_nzcv_src) {
   }
 }
 
+// CCMN  <Wn>, #<imm>, #<nzcv>, <cond>
 template <bool (*check_cond)(uint64_t sr_nzcv), typename S1, typename S2>
 DEF_SEM_U64(CCMN, S1 src1, S2 src2, S2 nzcv) {
   using T = typename BaseType<S1>::BT;

@@ -1865,6 +1865,7 @@ llvm::Value *LoadFromMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> 
         case 2: return ir.CreateCall(intrinsics.read_memory_16, args_2);
         case 4: return ir.CreateCall(intrinsics.read_memory_32, args_2);
         case 8: return ir.CreateCall(intrinsics.read_memory_64, args_2);
+        case 16: return ir.CreateCall(intrinsics.read_memory_128, args_2);
         default: break;
       }
       [[clang::fallthrough]];
@@ -2025,6 +2026,7 @@ llvm::Value *StoreToMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> &
         case 2: return ir.CreateCall(intrinsics.write_memory_16, args_3);
         case 4: return ir.CreateCall(intrinsics.write_memory_32, args_3);
         case 8: return ir.CreateCall(intrinsics.write_memory_64, args_3);
+        case 16: return ir.CreateCall(intrinsics.write_memory_128, args_3);
         default: break;
       }
       [[clang::fallthrough]];

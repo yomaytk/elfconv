@@ -1100,7 +1100,7 @@ bool TryDecodeLDP_64_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   return true;
 }
 
-//LDPSW <Xt1>, <Xt2>, [<Xn|SP>], #<imm>
+// LDPSW <Xt1>, <Xt2>, [<Xn|SP>], #<imm>
 bool TryDecodeLDPSW_64_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   if (data.Rt == data.Rt2) {
     return false;

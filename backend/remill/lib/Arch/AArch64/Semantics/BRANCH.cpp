@@ -31,86 +31,86 @@ namespace {
 #define SR_NZCV__V (sr_nzcv & 0b1)
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-static inline bool CondGE(uint64_t sr_nzcv) {
+static inline uint8_t CondGE(uint64_t sr_nzcv) {
   return SR_NZCV__N == SR_NZCV__V;
   // return __remill_compare_sge(FLAG_N == FLAG_V);
 }
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-static inline bool CondLT(uint64_t sr_nzcv) {
+static inline uint8_t CondLT(uint64_t sr_nzcv) {
   return SR_NZCV__N != SR_NZCV__V;
   // return __remill_compare_slt(FLAG_N != FLAG_V);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-static inline bool CondEQ(uint64_t sr_nzcv) {
+static inline uint8_t CondEQ(uint64_t sr_nzcv) {
   return SR_NZCV__Z;
   // return __remill_compare_eq(FLAG_Z);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-static inline bool CondNE(uint64_t sr_nzcv) {
+static inline uint8_t CondNE(uint64_t sr_nzcv) {
   return !SR_NZCV__Z;
   // return __remill_compare_neq(!FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-static inline bool CondGT(uint64_t sr_nzcv) {
+static inline uint8_t CondGT(uint64_t sr_nzcv) {
   return (SR_NZCV__N == SR_NZCV__V) && !SR_NZCV__Z;
   // return __remill_compare_sgt((FLAG_N == FLAG_V) && !FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-static inline bool CondLE(uint64_t sr_nzcv) {
+static inline uint8_t CondLE(uint64_t sr_nzcv) {
   return (SR_NZCV__N != SR_NZCV__V) || SR_NZCV__Z;
   // return __remill_compare_sle((FLAG_N != FLAG_V) || FLAG_Z);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-static inline bool CondCS(uint64_t sr_nzcv) {
+static inline uint8_t CondCS(uint64_t sr_nzcv) {
   return SR_NZCV__C;
   // return __remill_compare_uge(FLAG_C);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-static inline bool CondCC(uint64_t sr_nzcv) {
+static inline uint8_t CondCC(uint64_t sr_nzcv) {
   return !SR_NZCV__C;
   // return __remill_compare_ult(!FLAG_C);
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-static inline bool CondMI(uint64_t sr_nzcv) {
+static inline uint8_t CondMI(uint64_t sr_nzcv) {
   return SR_NZCV__N;
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-static inline bool CondPL(uint64_t sr_nzcv) {
+static inline uint8_t CondPL(uint64_t sr_nzcv) {
   return !SR_NZCV__N;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-static inline bool CondVS(uint64_t sr_nzcv) {
+static inline uint8_t CondVS(uint64_t sr_nzcv) {
   return SR_NZCV__V;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-static inline bool CondVC(uint64_t sr_nzcv) {
+static inline uint8_t CondVC(uint64_t sr_nzcv) {
   return !SR_NZCV__V;
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-static inline bool CondHI(uint64_t sr_nzcv) {
+static inline uint8_t CondHI(uint64_t sr_nzcv) {
   return SR_NZCV__C && !SR_NZCV__Z;
   // return __remill_compare_ugt(FLAG_C && !FLAG_Z);
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-static inline bool CondLS(uint64_t sr_nzcv) {
+static inline uint8_t CondLS(uint64_t sr_nzcv) {
   return !SR_NZCV__C || SR_NZCV__Z;
   // return __remill_compare_ule(!FLAG_C || FLAG_Z);
 }
 
-static inline bool CondAL(uint64_t sr_nzcv) {
+static inline uint8_t CondAL(uint64_t sr_nzcv) {
   return true;
 }
 
@@ -141,36 +141,42 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
+// BR  <Xn>
 DEF_SEM_VOID(DoDirectBranch) {}
 
+// B  <label>
 DEF_SEM_VOID(DoIndirectBranch) {}
 
-template <bool (*check_cond)(uint64_t sr_nzcv)>
+// B.<cond>  <label>
+template <uint8_t (*check_cond)(uint64_t sr_nzcv)>
 DEF_SEM_U64(DirectCondBranch, R64 sr_nzcv_src) {
   return check_cond(Read(sr_nzcv_src));
 }
 
+// CBZ  <Xt>, <label>
 template <typename S>
-DEF_SEM_U64(CBZ, S src) {
+DEF_SEM_T(CBZ, S src) {
   return UCmpEq(Read(src), 0);
 }
 
+// CBNZ  <Wt>, <label>
 template <typename S>
-DEF_SEM_U64(CBNZ, S src) {
+DEF_SEM_T(CBNZ, S src) {
   return UCmpNeq(Read(src), 0);
 }
 
-
+// TBZ  <R><t>, #<imm>, <label>
 template <typename S>
-DEF_SEM_U64(TBZ, I8 bit_pos, S src) {
+DEF_SEM_T(TBZ, I8 bit_pos, S src) {
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
   return UCmpEq(bit_set, 0);
 }
 
+// TBNZ  <R><t>, #<imm>, <label>
 template <typename S>
-DEF_SEM_U64(TBNZ, I8 bit_pos, S src) {
+DEF_SEM_T(TBNZ, I8 bit_pos, S src) {
   auto bit_n = ZExtTo<S>(Read(bit_pos));
   auto reg_val = ZExtTo<S>(Read(src));
   auto bit_set = UAnd(reg_val, UShl(ZExtTo<S>(1), bit_n));
