@@ -16,17 +16,17 @@
 
 namespace {
 
-DEF_SEM_VOID(CallSupervisor, I32) {
+DEF_SEM_VOID_STATE_RUN(CallSupervisor, I32) {
   HYPER_CALL = AsyncHyperCall::kAArch64SupervisorCall;
   __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 
-DEF_SEM_VOID(Breakpoint, I32 imm) {
+DEF_SEM_VOID_STATE_RUN(Breakpoint, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
   __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_FPSR) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_FPSR) {
   auto fpsr = state.fpsr;
   fpsr.ixc = state.sr.ixc;
   fpsr.ofc = state.sr.ofc;
@@ -37,7 +37,7 @@ DEF_SEM_U64(DoMRS_RS_SYSTEM_FPSR) {
   return fpsr.flat;
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPSR, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_FPSR, R64 src) {
   FPSR fpsr;
   WriteZExt(fpsr.flat, Read(src));
   fpsr._res0 = 0;
@@ -51,12 +51,12 @@ DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPSR, R64 src) {
   //state.sr.idc = fpsr.idc;  // TODO(garret): fix the saving of the idc bit before reenabling (issue #188)
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_FPCR) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_FPCR) {
   auto fpcr = state.fpcr;
   return fpcr.flat;
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPCR, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   FPCR fpcr;
   WriteZExt(fpcr.flat, Read(src));
   fpcr._res0 = 0;
@@ -64,39 +64,39 @@ DEF_SEM_VOID(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   state.fpcr = fpcr;
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_TPIDR_EL0) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_TPIDR_EL0) {
   return Read(state.sr.tpidr_el0);
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
   WriteZExt(state.sr.tpidr_el0.qword, Read(src));
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_CTR_EL0) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_CTR_EL0) {
   return Read(state.sr.ctr_el0);
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
   WriteZExt(state.sr.ctr_el0.qword, Read(src));
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_DCZID_EL0) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_DCZID_EL0) {
   return Read(state.sr.dczid_el0);
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
   WriteZExt(state.sr.dczid_el0.qword, Read(src));
 }
 
-DEF_SEM_U64(DoMRS_RS_SYSTEM_MIDR_EL1) {
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_MIDR_EL1) {
   return Read(state.sr.midr_el1);
 }
 
-DEF_SEM_VOID(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
   WriteZExt(state.sr.midr_el1.qword, Read(src));
 }
 
-DEF_SEM_VOID(DataMemoryBarrier) {
+DEF_SEM_VOID_RUN(DataMemoryBarrier) {
 
   // TODO(pag): Full-system data memory barrier probably requires a synchronous
   //            hypercall if it behaves kind of like Linux's `sys_membarrier`.

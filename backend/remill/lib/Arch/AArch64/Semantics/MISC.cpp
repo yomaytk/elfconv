@@ -24,13 +24,13 @@ DEF_SEM_VOID(DoNOP) {}
 
 }  // namespace
 
-DEF_ISEL(NOP) = DoNOP; // NOP
-DEF_ISEL(HINT_1) = DoNOP; // HINT  #<imm>
-DEF_ISEL(HINT_2) = DoNOP; // HINT  #<imm>
-DEF_ISEL(HINT_3) = DoNOP; // HINT  #<imm>
-DEF_ISEL(NOP_HI_SYSTEM) = DoNOP; // NOP
+DEF_ISEL(NOP) = DoNOP;  // NOP
+DEF_ISEL(HINT_1) = DoNOP;  // HINT  #<imm>
+DEF_ISEL(HINT_2) = DoNOP;  // HINT  #<imm>
+DEF_ISEL(HINT_3) = DoNOP;  // HINT  #<imm>
+DEF_ISEL(NOP_HI_SYSTEM) = DoNOP;  // NOP
 
-DEF_ISEL(PRFM_P_LDST_POS) = DoNOP; // PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(PRFM_P_LDST_POS) = DoNOP;  // PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}]
 
 namespace {
 

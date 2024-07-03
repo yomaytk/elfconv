@@ -69,15 +69,16 @@ InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *in
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
+                                                BBRegInfoNode *bb_reg_info_node,
                                                 uint64_t debug_insn_addr, bool is_delayed) {
   return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
-                       debug_insn_addr, is_delayed);
+                       bb_reg_info_node, debug_insn_addr, is_delayed);
 }
 
 // Lift a single instruction into a basic block.
 LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
-                                            llvm::Value *state_ptr, uint64_t debug_insn_addr,
-                                            bool is_delayed) {
+                                            llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
+                                            uint64_t debug_insn_addr, bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
   llvm::Function *isel_func = nullptr;
@@ -148,20 +149,49 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   }
 
   std::vector<llvm::Value *> args;
-  args.reserve(arch_inst.operands.size() + 2);
-
-  // First two arguments to an instruction semantics function are the
-  // state pointer, and a pointer to the memory pointer.
-  args.push_back(nullptr);
-  args.push_back(state_ptr);
+  // args.reserve(arch_inst.operands.size() + 2);
 
   auto isel_func_type = isel_func->getFunctionType();
-  auto arg_num = 2U;
+  uint32_t arg_num;
+
+  // set the State ptr or RuntimeManager ptr to the semantics function.
+  switch (arch_inst.sema_func_arg_type) {
+    case SemaFuncArgType::Nothing: arg_num = 0; break;
+    case SemaFuncArgType::Runtime:
+      arg_num = 1;
+      args.push_back(nullptr);
+      break;
+    case SemaFuncArgType::State:
+      arg_num = 1;
+      args.push_back(state_ptr);
+      break;
+    case SemaFuncArgType::StateRuntime:
+      arg_num = 2;
+      args.push_back(state_ptr);
+      args.push_back(nullptr);
+      break;
+    case SemaFuncArgType::Empty: LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"; break;
+    default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
+  }
 
   for (auto &op : arch_inst.operands) {
     auto num_params = isel_func_type->getNumParams();
     if (!(arg_num < num_params)) {
       return kLiftedMismatchedISEL;
+    }
+
+    // update bb_reg_info_node
+    auto [_ecv_reg, _ecv_reg_class] = EcvReg::GetRegInfo(op.reg.name);
+    if (Operand::Action::kActionRead == op.action &&
+        !bb_reg_info_node->bb_write_regs.contains(_ecv_reg)) {
+      bb_reg_info_node->bb_derived_read_regs.insert({_ecv_reg, _ecv_reg_class});
+      bb_reg_info_node->bb_read_write_regs.insert({_ecv_reg, _ecv_reg_class});
+    } else if (Operand::Action::kActionWrite == op.action) {
+      bb_reg_info_node->bb_write_regs.insert({_ecv_reg, _ecv_reg_class});
+      bb_reg_info_node->bb_read_write_regs.insert({_ecv_reg, _ecv_reg_class});
+      continue;
+    } else {
+      LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
     }
 
     auto arg = NthArgument(isel_func, arg_num);
@@ -181,8 +211,12 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   llvm::IRBuilder<> ir(block);
   const auto [runtime_ptr_ref, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
 
-  // Pass in current value of the memory pointer.
-  args[0] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
+  if (SemaFuncArgType::Runtime == arch_inst.sema_func_arg_type) {
+    // Pass in current value of the runtime pointer.
+    args[0] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
+  } else if (SemaFuncArgType::StateRuntime == arch_inst.sema_func_arg_type) {
+    args[1] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
+  }
 
   // Call the function that implements the instruction semantics.
   ir.CreateCall(isel_func, args);

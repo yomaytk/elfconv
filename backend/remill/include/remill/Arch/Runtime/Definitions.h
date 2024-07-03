@@ -106,6 +106,10 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *runtime_manager, \
                                                           ##__VA_ARGS__)
 
+#define DEF_SEM_VOID_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static void name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
 #define DEF_SEM_T(name, ...) ALWAYS_INLINE __attribute__((flatten)) static auto name(##__VA_ARGS__)
 
 #define DEF_SEM_T_STATE(name, ...) \
@@ -114,6 +118,10 @@ typedef struct {
 #define DEF_SEM_T_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static auto name(RuntimeManager *runtime_manager, \
                                                           ##__VA_ARGS__)
+
+#define DEF_SEM_T_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static auto name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
 #define DEF_SEM_U64(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(##__VA_ARGS__)
@@ -125,6 +133,10 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(RuntimeManager *runtime_manager, \
                                                               ##__VA_ARGS__)
 
+#define DEF_SEM_U64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
 #define DEF_SEM_U32(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint32_t name(##__VA_ARGS__)
 
@@ -134,6 +146,10 @@ typedef struct {
 #define DEF_SEM_U32_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint32_t name(RuntimeManager *runtime_manager, \
                                                               ##__VA_ARGS__)
+
+#define DEF_SEM_U32_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint32_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
 #define DEF_SEM_F32(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static float32_t name(##__VA_ARGS__)
@@ -145,6 +161,10 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static float32_t name(RuntimeManager *runtime_manager, \
                                                                ##__VA_ARGS__)
 
+#define DEF_SEM_F32_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float32_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
 #define DEF_SEM_F64(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static float64_t name(##__VA_ARGS__)
 
@@ -154,6 +174,10 @@ typedef struct {
 #define DEF_SEM_F64_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static float64_t name(RuntimeManager *runtime_manager, \
                                                                ##__VA_ARGS__)
+
+#define DEF_SEM_F64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static float64_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
 #define DEF_SEM_U64U64(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static U64U64 name(##__VA_ARGS__)

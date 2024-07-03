@@ -604,7 +604,7 @@ DEF_ISEL(FMOV_D_FLOATDP1) = FMOV_D;  // FMOV  <Dd>, <Dn>
 
 namespace {
 
-DEF_SEM(ADRP, R64W dst, PC label) {
+DEF_SEM_U64(ADRP, PC label) {
   addr_t label_addr = Read(label);
 
   // clear the bottom 12 bits of label_addr
@@ -613,14 +613,14 @@ DEF_SEM(ADRP, R64W dst, PC label) {
   // and added the label to PC
   // the semantics just needs to fix up for PC not being page aligned
   auto label_page = UAnd(UNot(static_cast<uint64_t>(4095)), label_addr);
-  Write(dst, label_page);
+  return label_page;
 }
 
 }  // namespace
 
-DEF_ISEL(ADRP_ONLY_PCRELADDR) = ADRP;
+DEF_ISEL(ADRP_ONLY_PCRELADDR) = ADRP;  // ADRP  <Xd>, <label>
 
-DEF_ISEL(ADR_ONLY_PCRELADDR) = Load<I64>;
+DEF_ISEL(ADR_ONLY_PCRELADDR) = Load<I64>;  // ADR  <Xd>, <label>
 
 namespace {
 
@@ -772,17 +772,17 @@ DEF_SEM(LDP_Q_UpdateIndex, VI128W dst1, VI128W dst2, MV256 src, ADDR next_addr) 
 
 }  // namespace
 
-DEF_ISEL(LDP_S_LDSTPAIR_OFF) = LDP_S;  // LDP  <St1>, <St2>, [<Xn|SP>{, #<imm>}]
-DEF_ISEL(LDP_D_LDSTPAIR_OFF) = LDP_D;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>{, #<imm>}]
-DEF_ISEL(LDP_Q_LDSTPAIR_OFF) = LDP_Q;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>{, #<imm>}]
+// DEF_ISEL(LDP_S_LDSTPAIR_OFF) = LDP_S;  // LDP  <St1>, <St2>, [<Xn|SP>{, #<imm>}]
+// DEF_ISEL(LDP_D_LDSTPAIR_OFF) = LDP_D;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>{, #<imm>}]
+// DEF_ISEL(LDP_Q_LDSTPAIR_OFF) = LDP_Q;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>{, #<imm>}]
 
-DEF_ISEL(LDP_S_LDSTPAIR_POST) = LDP_S_UpdateIndex;  // LDP  <St1>, <St2>, [<Xn|SP>], #<imm>
-DEF_ISEL(LDP_D_LDSTPAIR_POST) = LDP_D_UpdateIndex;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>], #<imm>
-DEF_ISEL(LDP_Q_LDSTPAIR_POST) = LDP_Q_UpdateIndex;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
+// DEF_ISEL(LDP_S_LDSTPAIR_POST) = LDP_S_UpdateIndex;  // LDP  <St1>, <St2>, [<Xn|SP>], #<imm>
+// DEF_ISEL(LDP_D_LDSTPAIR_POST) = LDP_D_UpdateIndex;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>], #<imm>
+// DEF_ISEL(LDP_Q_LDSTPAIR_POST) = LDP_Q_UpdateIndex;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 
-DEF_ISEL(LDP_S_LDSTPAIR_PRE) = LDP_S_UpdateIndex;  // LDP  <St1>, <St2>, [<Xn|SP>, #<imm>]!
-DEF_ISEL(LDP_D_LDSTPAIR_PRE) = LDP_D_UpdateIndex;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>, #<imm>]!
-DEF_ISEL(LDP_Q_LDSTPAIR_PRE) = LDP_Q_UpdateIndex;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
+// DEF_ISEL(LDP_S_LDSTPAIR_PRE) = LDP_S_UpdateIndex;  // LDP  <St1>, <St2>, [<Xn|SP>, #<imm>]!
+// DEF_ISEL(LDP_D_LDSTPAIR_PRE) = LDP_D_UpdateIndex;  // LDP  <Dt1>, <Dt2>, [<Xn|SP>, #<imm>]!
+// DEF_ISEL(LDP_Q_LDSTPAIR_PRE) = LDP_Q_UpdateIndex;  // LDP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
 
 namespace {
 
@@ -816,23 +816,23 @@ DEF_SEM(STR_Q_FromOffset, VI128 src, MVI128W dst, ADDR offset) {
 }
 }  // namespace
 
-DEF_ISEL(STR_B_LDST_POS) = STR_B;  // STR  <Bt>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(STR_H_LDST_POS) = STR_H;  // STR  <Ht>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(STR_S_LDST_POS) = STR_S;  // STR  <St>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(STR_D_LDST_POS) = STR_D;  // STR  <Dt>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(STR_Q_LDST_POS) = STR_Q;  // STR  <Qt>, [<Xn|SP>{, #<pimm>}]
+// DEF_ISEL(STR_B_LDST_POS) = STR_B;  // STR  <Bt>, [<Xn|SP>{, #<pimm>}]
+// DEF_ISEL(STR_H_LDST_POS) = STR_H;  // STR  <Ht>, [<Xn|SP>{, #<pimm>}]
+// DEF_ISEL(STR_S_LDST_POS) = STR_S;  // STR  <St>, [<Xn|SP>{, #<pimm>}]
+// DEF_ISEL(STR_D_LDST_POS) = STR_D;  // STR  <Dt>, [<Xn|SP>{, #<pimm>}]
+// DEF_ISEL(STR_Q_LDST_POS) = STR_Q;  // STR  <Qt>, [<Xn|SP>{, #<pimm>}]
 
-DEF_ISEL(STUR_B_LDST_UNSCALED) = STR_B;  // STUR  <Bt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(STUR_H_LDST_UNSCALED) = STR_H;  // STUR  <Ht>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(STUR_S_LDST_UNSCALED) = STR_S;  // STUR  <St>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(STUR_D_LDST_UNSCALED) = STR_D;  // STUR  <Dt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(STUR_Q_LDST_UNSCALED) = STR_Q;  // STUR  <Qt>, [<Xn|SP>{, #<simm>}]
+// DEF_ISEL(STUR_B_LDST_UNSCALED) = STR_B;  // STUR  <Bt>, [<Xn|SP>{, #<simm>}]
+// DEF_ISEL(STUR_H_LDST_UNSCALED) = STR_H;  // STUR  <Ht>, [<Xn|SP>{, #<simm>}]
+// DEF_ISEL(STUR_S_LDST_UNSCALED) = STR_S;  // STUR  <St>, [<Xn|SP>{, #<simm>}]
+// DEF_ISEL(STUR_D_LDST_UNSCALED) = STR_D;  // STUR  <Dt>, [<Xn|SP>{, #<simm>}]
+// DEF_ISEL(STUR_Q_LDST_UNSCALED) = STR_Q;  // STUR  <Qt>, [<Xn|SP>{, #<simm>}]
 
-DEF_ISEL(STR_Q_LDST_REGOFF) =
-    STR_Q_FromOffset;  // STR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+// DEF_ISEL(STR_Q_LDST_REGOFF) =
+//     STR_Q_FromOffset;  // STR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 
-DEF_ISEL(STR_Q_LDST_IMMPRE) = STR_Q_UpdateIndex;  // STR  <Qt>, [<Xn|SP>, #<simm>]!
-DEF_ISEL(STR_Q_LDST_IMMPOST) = STR_Q_UpdateIndex;  // STR  <Qt>, [<Xn|SP>], #<simm>
+// DEF_ISEL(STR_Q_LDST_IMMPRE) = STR_Q_UpdateIndex;  // STR  <Qt>, [<Xn|SP>, #<simm>]!
+// DEF_ISEL(STR_Q_LDST_IMMPOST) = STR_Q_UpdateIndex;  // STR  <Qt>, [<Xn|SP>], #<simm>
 
 namespace {
 
@@ -844,10 +844,10 @@ DEF_SEM(LoadAcquire, D dst, S src) {
 
 }  // namespace
 
-DEF_ISEL(LDARB_LR32_LDSTEXCL) = LoadAcquire<R32W, M8>;  // LDARB  <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(LDARH_LR32_LDSTEXCL) = LoadAcquire<R32W, M16>;  // LDARH  <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(LDAR_LR32_LDSTEXCL) = LoadAcquire<R32W, M32>;  // LDAR  <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(LDAR_LR64_LDSTEXCL) = LoadAcquire<R64W, M64>;  // LDAR  <Xt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(LDARB_LR32_LDSTEXCL) = LoadAcquire<R32W, M8>;  // LDARB  <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(LDARH_LR32_LDSTEXCL) = LoadAcquire<R32W, M16>;  // LDARH  <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(LDAR_LR32_LDSTEXCL) = LoadAcquire<R32W, M32>;  // LDAR  <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(LDAR_LR64_LDSTEXCL) = LoadAcquire<R64W, M64>;  // LDAR  <Xt>, [<Xn|SP>{,#0}]
 
 namespace {
 
@@ -865,17 +865,17 @@ MAKE_ST1(128)
 
 }  // namespace
 
-DEF_ISEL(ST1_ASISDLSE_R1_1V_8B) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R1_1V_16B) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_8B) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_16B) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R1_1V_4H) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R1_1V_8H) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_4H) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_8H) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R1_1V_2S) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R1_1V_4S) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_2S) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_4S) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R1_1V_1D) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R1_1V_2D) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_1D) = ST1_SINGLE_64<MVI64W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R1_1V_2D) = ST1_SINGLE_128<MVI128W>;  // ST1  { <Vt>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -895,17 +895,17 @@ MAKE_LD1(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSE_R1_1V_8B) = LD1_SINGLE_8<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R1_1V_16B) = LD1_SINGLE_8<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_8B) = LD1_SINGLE_8<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_16B) = LD1_SINGLE_8<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R1_1V_4H) = LD1_SINGLE_16<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R1_1V_8H) = LD1_SINGLE_16<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_4H) = LD1_SINGLE_16<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_8H) = LD1_SINGLE_16<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R1_1V_2S) = LD1_SINGLE_32<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R1_1V_4S) = LD1_SINGLE_32<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_2S) = LD1_SINGLE_32<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_4S) = LD1_SINGLE_32<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R1_1V_1D) = LD1_SINGLE_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R1_1V_2D) = LD1_SINGLE_64<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_1D) = LD1_SINGLE_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R1_1V_2D) = LD1_SINGLE_64<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -927,17 +927,17 @@ MAKE_LD1(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSE_R2_2V_8B) = LD1_PAIR_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R2_2V_16B) = LD1_PAIR_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_8B) = LD1_PAIR_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_16B) = LD1_PAIR_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R2_2V_4H) = LD1_PAIR_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R2_2V_8H) = LD1_PAIR_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_4H) = LD1_PAIR_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_8H) = LD1_PAIR_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R2_2V_2S) = LD1_PAIR_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R2_2V_4S) = LD1_PAIR_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_2S) = LD1_PAIR_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_4S) = LD1_PAIR_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R2_2V_1D) = LD1_PAIR_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R2_2V_2D) = LD1_PAIR_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_1D) = LD1_PAIR_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R2_2V_2D) = LD1_PAIR_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -957,18 +957,18 @@ MAKE_ST1(128)
 
 }  //namespace
 
-DEF_ISEL(ST1_ASISDLSE_R2_2V_8B) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R2_2V_16B) =
-    ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_8B) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_16B) =
+//     ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R2_2V_4H) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R2_2V_8H) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_4H) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_8H) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R2_2V_2S) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R2_2V_4S) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_2S) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_4S) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(ST1_ASISDLSE_R2_2V_1D) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSE_R2_2V_2D) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_1D) = ST1_PAIR_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSE_R2_2V_2D) = ST1_PAIR_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -987,25 +987,25 @@ MAKE_ST1_POSTINDEX(128)
 
 }  // namespace
 
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_8B) =
-    ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_16B) =
-    ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_8B) =
+//     ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_16B) =
+//     ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_4H) =
-    ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_8H) =
-    ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_4H) =
+//     ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_8H) =
+//     ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_2S) =
-    ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_4S) =
-    ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_2S) =
+//     ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_4S) =
+//     ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_1D) =
-    ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(ST1_ASISDLSEP_I2_I2_2D) =
-    ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_1D) =
+//     ST1_PAIR_POSTINDEX_64<MVI64W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(ST1_ASISDLSEP_I2_I2_2D) =
+//     ST1_PAIR_POSTINDEX_128<MVI128W>;  // ST1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
 namespace {
 #define MAKE_ST1_UNIT(esize) \
@@ -1026,13 +1026,13 @@ MAKE_ST1_UNIT(64)
 }  // namespace
 
 // ST1  { <Vt>.B }[<index>], [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSO_B1_1B) = ST1_UNIT_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>]
-// ST1  { <Vt>.H }[<index>], [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSO_H1_1H) = ST1_UNIT_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>]
-// ST1  { <Vt>.S }[<index>], [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSO_S1_1S) = ST1_UNIT_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>]
-// ST1  { <Vt>.D }[<index>], [<Xn|SP>]
-DEF_ISEL(ST1_ASISDLSO_D1_1D) = ST1_UNIT_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSO_B1_1B) = ST1_UNIT_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>]
+// // ST1  { <Vt>.H }[<index>], [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSO_H1_1H) = ST1_UNIT_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>]
+// // ST1  { <Vt>.S }[<index>], [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSO_S1_1S) = ST1_UNIT_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>]
+// // ST1  { <Vt>.D }[<index>], [<Xn|SP>]
+// DEF_ISEL(ST1_ASISDLSO_D1_1D) = ST1_UNIT_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>]
 
 namespace {
 #define MAKE_ST1_UNIT_POSTINDEX(esize) \
@@ -1055,28 +1055,28 @@ MAKE_ST1_UNIT_POSTINDEX(64)
 }  // namespace
 
 // ST1  { <Vt>.B }[<index>], [<Xn|SP>], #1
-DEF_ISEL(ST1_ASISDLSOP_B1_I1B) = ST1_UNIT_POSTINDEX_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>], #1
-// ST1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
-DEF_ISEL(ST1_ASISDLSOP_BX1_R1B) =
-    ST1_UNIT_POSTINDEX_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
-// ST1  { <Vt>.H }[<index>], [<Xn|SP>], #2
-DEF_ISEL(ST1_ASISDLSOP_H1_I1H) =
-    ST1_UNIT_POSTINDEX_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>], #2
-// ST1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
-DEF_ISEL(ST1_ASISDLSOP_HX1_R1H) =
-    ST1_UNIT_POSTINDEX_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
-// ST1  { <Vt>.S }[<index>], [<Xn|SP>], #4
-DEF_ISEL(ST1_ASISDLSOP_S1_I1S) =
-    ST1_UNIT_POSTINDEX_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>], #4
-// ST1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
-DEF_ISEL(ST1_ASISDLSOP_SX1_R1S) =
-    ST1_UNIT_POSTINDEX_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
-// ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
-DEF_ISEL(ST1_ASISDLSOP_D1_I1D) =
-    ST1_UNIT_POSTINDEX_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
-// ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
-DEF_ISEL(ST1_ASISDLSOP_DX1_R1D) =
-    ST1_UNIT_POSTINDEX_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
+// DEF_ISEL(ST1_ASISDLSOP_B1_I1B) = ST1_UNIT_POSTINDEX_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>], #1
+// // ST1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
+// DEF_ISEL(ST1_ASISDLSOP_BX1_R1B) =
+//     ST1_UNIT_POSTINDEX_VI8;  // ST1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
+// // ST1  { <Vt>.H }[<index>], [<Xn|SP>], #2
+// DEF_ISEL(ST1_ASISDLSOP_H1_I1H) =
+//     ST1_UNIT_POSTINDEX_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>], #2
+// // ST1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
+// DEF_ISEL(ST1_ASISDLSOP_HX1_R1H) =
+//     ST1_UNIT_POSTINDEX_VI16;  // ST1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
+// // ST1  { <Vt>.S }[<index>], [<Xn|SP>], #4
+// DEF_ISEL(ST1_ASISDLSOP_S1_I1S) =
+//     ST1_UNIT_POSTINDEX_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>], #4
+// // ST1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
+// DEF_ISEL(ST1_ASISDLSOP_SX1_R1S) =
+//     ST1_UNIT_POSTINDEX_VI32;  // ST1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
+// // ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
+// DEF_ISEL(ST1_ASISDLSOP_D1_I1D) =
+//     ST1_UNIT_POSTINDEX_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
+// // ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
+// DEF_ISEL(ST1_ASISDLSOP_DX1_R1D) =
+//     ST1_UNIT_POSTINDEX_VI64;  // ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
 
 namespace {
 
@@ -1100,25 +1100,25 @@ MAKE_LD1(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSE_R3_3V_8B) =
-    LD1_TRIPLE_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R3_3V_16B) =
-    LD1_TRIPLE_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_8B) =
+//     LD1_TRIPLE_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_16B) =
+//     LD1_TRIPLE_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R3_3V_4H) =
-    LD1_TRIPLE_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R3_3V_8H) =
-    LD1_TRIPLE_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_4H) =
+//     LD1_TRIPLE_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_8H) =
+//     LD1_TRIPLE_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R3_3V_2S) =
-    LD1_TRIPLE_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R3_3V_4S) =
-    LD1_TRIPLE_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_2S) =
+//     LD1_TRIPLE_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_4S) =
+//     LD1_TRIPLE_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R3_3V_1D) =
-    LD1_TRIPLE_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R3_3V_2D) =
-    LD1_TRIPLE_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_1D) =
+//     LD1_TRIPLE_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R3_3V_2D) =
+//     LD1_TRIPLE_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -1144,25 +1144,25 @@ MAKE_LD1(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSE_R4_4V_8B) =
-    LD1_QUAD_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R4_4V_16B) =
-    LD1_QUAD_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_8B) =
+//     LD1_QUAD_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_16B) =
+//     LD1_QUAD_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R4_4V_4H) =
-    LD1_QUAD_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R4_4V_8H) =
-    LD1_QUAD_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_4H) =
+//     LD1_QUAD_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_8H) =
+//     LD1_QUAD_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R4_4V_2S) =
-    LD1_QUAD_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R4_4V_4S) =
-    LD1_QUAD_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_2S) =
+//     LD1_QUAD_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_4S) =
+//     LD1_QUAD_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD1_ASISDLSE_R4_4V_1D) =
-    LD1_QUAD_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1_ASISDLSE_R4_4V_2D) =
-    LD1_QUAD_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_1D) =
+//     LD1_QUAD_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1_ASISDLSE_R4_4V_2D) =
+//     LD1_QUAD_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -1182,25 +1182,25 @@ MAKE_LD1_POSTINDEX(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_8B) =
-    LD1_SINGLE_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_16B) =
-    LD1_SINGLE_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_8B) =
+//     LD1_SINGLE_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_16B) =
+//     LD1_SINGLE_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_4H) =
-    LD1_SINGLE_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_8H) =
-    LD1_SINGLE_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_4H) =
+//     LD1_SINGLE_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_8H) =
+//     LD1_SINGLE_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_2S) =
-    LD1_SINGLE_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_4S) =
-    LD1_SINGLE_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_2S) =
+//     LD1_SINGLE_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_4S) =
+//     LD1_SINGLE_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_1D) =
-    LD1_SINGLE_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I1_I1_2D) =
-    LD1_SINGLE_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_1D) =
+//     LD1_SINGLE_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I1_I1_2D) =
+//     LD1_SINGLE_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T> }, [<Xn|SP>], <imm>
 
 namespace {
 
@@ -1221,25 +1221,25 @@ MAKE_LD1_POSTINDEX(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_8B) =
-    LD1_PAIR_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_16B) =
-    LD1_PAIR_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_8B) =
+//     LD1_PAIR_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_16B) =
+//     LD1_PAIR_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_4H) =
-    LD1_PAIR_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_8H) =
-    LD1_PAIR_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_4H) =
+//     LD1_PAIR_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_8H) =
+//     LD1_PAIR_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_2S) =
-    LD1_PAIR_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_4S) =
-    LD1_PAIR_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_2S) =
+//     LD1_PAIR_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_4S) =
+//     LD1_PAIR_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_1D) =
-    LD1_PAIR_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I2_I2_2D) =
-    LD1_PAIR_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_1D) =
+//     LD1_PAIR_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I2_I2_2D) =
+//     LD1_PAIR_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
 namespace {
 
@@ -1260,25 +1260,25 @@ MAKE_LD1_POSTINDEX(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_8B) =
-    LD1_TRIPLE_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_16B) =
-    LD1_TRIPLE_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_8B) =
+//     LD1_TRIPLE_POSTINDEX_8<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_16B) =
+//     LD1_TRIPLE_POSTINDEX_8<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_4H) =
-    LD1_TRIPLE_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_8H) =
-    LD1_TRIPLE_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_4H) =
+//     LD1_TRIPLE_POSTINDEX_16<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_8H) =
+//     LD1_TRIPLE_POSTINDEX_16<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_2S) =
-    LD1_TRIPLE_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_4S) =
-    LD1_TRIPLE_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_2S) =
+//     LD1_TRIPLE_POSTINDEX_32<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_4S) =
+//     LD1_TRIPLE_POSTINDEX_32<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_1D) =
-    LD1_TRIPLE_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I3_I3_2D) =
-    LD1_TRIPLE_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_1D) =
+//     LD1_TRIPLE_POSTINDEX_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I3_I3_2D) =
+//     LD1_TRIPLE_POSTINDEX_64<MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>], <imm>
 
 namespace {
 
@@ -1299,25 +1299,25 @@ MAKE_LD1_POSTINDEX(64)
 
 }  // namespace
 
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_8B) = LD1_QUAD_POSTINDEX_8<
-    MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_16B) = LD1_QUAD_POSTINDEX_8<
-    MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_8B) = LD1_QUAD_POSTINDEX_8<
+//     MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_16B) = LD1_QUAD_POSTINDEX_8<
+//     MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_4H) = LD1_QUAD_POSTINDEX_16<
-    MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_8H) = LD1_QUAD_POSTINDEX_16<
-    MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_4H) = LD1_QUAD_POSTINDEX_16<
+//     MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_8H) = LD1_QUAD_POSTINDEX_16<
+//     MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_2S) = LD1_QUAD_POSTINDEX_32<
-    MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_4S) = LD1_QUAD_POSTINDEX_32<
-    MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_2S) = LD1_QUAD_POSTINDEX_32<
+//     MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_4S) = LD1_QUAD_POSTINDEX_32<
+//     MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_1D) = LD1_QUAD_POSTINDEX_64<
-    MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD1_ASISDLSEP_I4_I4_2D) = LD1_QUAD_POSTINDEX_64<
-    MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_1D) = LD1_QUAD_POSTINDEX_64<
+//     MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD1_ASISDLSEP_I4_I4_2D) = LD1_QUAD_POSTINDEX_64<
+//     MVI128W>;  // LD1  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>], <imm>
 
 namespace {
 
@@ -1359,43 +1359,43 @@ MAKE_LD2(64)
 
 }  // namespace
 
-DEF_ISEL(LD2_ASISDLSE_R2_8B) = LD2_8<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_16B) = LD2_8<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_4H) = LD2_16<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_8H) = LD2_16<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_2S) = LD2_32<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_4S) = LD2_32<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD2_ASISDLSE_R2_2D) = LD2_64<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_8B) = LD2_8<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_16B) = LD2_8<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_4H) = LD2_16<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_8H) = LD2_16<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_2S) = LD2_32<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_4S) = LD2_32<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD2_ASISDLSE_R2_2D) = LD2_64<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 
-DEF_ISEL(LD2_ASISDLSEP_I2_I_8B) =
-    LD2_8_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_16B) =
-    LD2_8_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_4H) =
-    LD2_16_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_8H) =
-    LD2_16_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_2S) =
-    LD2_32_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_4S) =
-    LD2_32_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
-DEF_ISEL(LD2_ASISDLSEP_I2_I_2D) =
-    LD2_64_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_8B) =
+//     LD2_8_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_16B) =
+//     LD2_8_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_4H) =
+//     LD2_16_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_8H) =
+//     LD2_16_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_2S) =
+//     LD2_32_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_4S) =
+//     LD2_32_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
+// DEF_ISEL(LD2_ASISDLSEP_I2_I_2D) =
+//     LD2_64_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <imm>
 
-DEF_ISEL(LD2_ASISDLSEP_R2_R_8B) =
-    LD2_8_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_16B) =
-    LD2_8_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_4H) =
-    LD2_16_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_8H) =
-    LD2_16_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_2S) =
-    LD2_32_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_4S) =
-    LD2_32_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
-DEF_ISEL(LD2_ASISDLSEP_R2_R_2D) =
-    LD2_64_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_8B) =
+//     LD2_8_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_16B) =
+//     LD2_8_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_4H) =
+//     LD2_16_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_8H) =
+//     LD2_16_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_2S) =
+//     LD2_32_POSTINDEX<MVI128W>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_4S) =
+//     LD2_32_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
+// DEF_ISEL(LD2_ASISDLSEP_R2_R_2D) =
+//     LD2_64_POSTINDEX<MV256>;  // LD2  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>], <Xm>
 
 namespace {
 
@@ -1430,19 +1430,19 @@ MAKE_LD3(64)
 
 }  // namespace
 
-DEF_ISEL(LD3_ASISDLSE_R3_8B) = LD3_8<M8, 8>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_16B) =
-    LD3_8<M8, 16>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_4H) =
-    LD3_16<M16, 4>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_8H) =
-    LD3_16<M16, 8>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_2S) =
-    LD3_32<M32, 2>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_4S) =
-    LD3_32<M32, 4>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD3_ASISDLSE_R3_2D) =
-    LD3_64<M64, 2>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_8B) = LD3_8<M8, 8>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_16B) =
+//     LD3_8<M8, 16>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_4H) =
+//     LD3_16<M16, 4>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_8H) =
+//     LD3_16<M16, 8>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_2S) =
+//     LD3_32<M32, 2>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_4S) =
+//     LD3_32<M32, 4>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD3_ASISDLSE_R3_2D) =
+//     LD3_64<M64, 2>;  // LD3  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -1482,20 +1482,20 @@ MAKE_LD4(64)
 
 }  // namespace
 
-DEF_ISEL(LD4_ASISDLSE_R4_8B) =
-    LD4_8<M8, 8>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_16B) =
-    LD4_8<M8, 16>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_4H) =
-    LD4_16<M16, 4>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_8H) =
-    LD4_16<M16, 8>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_2S) =
-    LD4_32<M32, 2>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_4S) =
-    LD4_32<M32, 4>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD4_ASISDLSE_R4_2D) =
-    LD4_64<M64, 2>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_8B) =
+//     LD4_8<M8, 8>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_16B) =
+//     LD4_8<M8, 16>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_4H) =
+//     LD4_16<M16, 4>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_8H) =
+//     LD4_16<M16, 8>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_2S) =
+//     LD4_32<M32, 2>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_4S) =
+//     LD4_32<M32, 4>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD4_ASISDLSE_R4_2D) =
+//     LD4_64<M64, 2>;  // LD4  { <Vt>.<T>, <Vt2>.<T>, <Vt3>.<T>, <Vt4>.<T> }, [<Xn|SP>]
 
 namespace {
 
@@ -1518,10 +1518,10 @@ INS_VEC(64)
 
 }  // namespace
 
-DEF_ISEL(INS_ASIMDINS_IR_R_B) = INS_8<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
-DEF_ISEL(INS_ASIMDINS_IR_R_H) = INS_16<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
-DEF_ISEL(INS_ASIMDINS_IR_R_S) = INS_32<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
-DEF_ISEL(INS_ASIMDINS_IR_R_D) = INS_64<R64>;  // INS  <Vd>.<Ts>[<index>], <R><n>
+// DEF_ISEL(INS_ASIMDINS_IR_R_B) = INS_8<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
+// DEF_ISEL(INS_ASIMDINS_IR_R_H) = INS_16<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
+// DEF_ISEL(INS_ASIMDINS_IR_R_S) = INS_32<R32>;  // INS  <Vd>.<Ts>[<index>], <R><n>
+// DEF_ISEL(INS_ASIMDINS_IR_R_D) = INS_64<R64>;  // INS  <Vd>.<Ts>[<index>], <R><n>
 
 namespace {
 
@@ -1545,14 +1545,14 @@ MAKE_LD1R(64)
 
 }  // namespace
 
-DEF_ISEL(LD1R_ASISDLSO_R1_8B) = LD1R_8<VI64W, M8>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_16B) = LD1R_8<VI128W, M8>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_4H) = LD1R_16<VI64W, M16>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_8H) = LD1R_16<VI128W, M16>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_2S) = LD1R_32<VI64W, M32>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_4S) = LD1R_32<VI128W, M32>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_1D) = LD1R_64<VI64W, M64>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
-DEF_ISEL(LD1R_ASISDLSO_R1_2D) = LD1R_64<VI128W, M64>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_8B) = LD1R_8<VI64W, M8>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_16B) = LD1R_8<VI128W, M8>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_4H) = LD1R_16<VI64W, M16>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_8H) = LD1R_16<VI128W, M16>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_2S) = LD1R_32<VI64W, M32>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_4S) = LD1R_32<VI128W, M32>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_1D) = LD1R_64<VI64W, M64>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
+// DEF_ISEL(LD1R_ASISDLSO_R1_2D) = LD1R_64<VI128W, M64>;  // LD1R  { <Vt>.<T> }, [<Xn|SP>]
 
 // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
 namespace {
@@ -1576,10 +1576,10 @@ INS_MOV_VEC(64)
 
 }  // namespace
 
-DEF_ISEL(MOV_INS_ASIMDINS_IV_V_B) = INS_MOV_8;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
-DEF_ISEL(MOV_INS_ASIMDINS_IV_V_H) = INS_MOV_16;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
-DEF_ISEL(MOV_INS_ASIMDINS_IV_V_S) = INS_MOV_32;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
-DEF_ISEL(MOV_INS_ASIMDINS_IV_V_D) = INS_MOV_64;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
+// DEF_ISEL(MOV_INS_ASIMDINS_IV_V_B) = INS_MOV_8;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
+// DEF_ISEL(MOV_INS_ASIMDINS_IV_V_H) = INS_MOV_16;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
+// DEF_ISEL(MOV_INS_ASIMDINS_IV_V_S) = INS_MOV_32;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
+// DEF_ISEL(MOV_INS_ASIMDINS_IV_V_D) = INS_MOV_64;  // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
 
 namespace {
 
@@ -1602,17 +1602,17 @@ EXTRACT_VEC(S, 32, SExtTo)
 
 }  // namespace
 
-DEF_ISEL(UMOV_ASIMDINS_W_W_B) = UMovFromVec8<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(UMOV_ASIMDINS_W_W_H) = UMovFromVec16<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(UMOV_ASIMDINS_W_W_S) = UMovFromVec32<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(UMOV_ASIMDINS_X_X_D) = UMovFromVec64<R64W, uint64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(UMOV_ASIMDINS_W_W_B) = UMovFromVec8<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(UMOV_ASIMDINS_W_W_H) = UMovFromVec16<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(UMOV_ASIMDINS_W_W_S) = UMovFromVec32<R32W, uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(UMOV_ASIMDINS_X_X_D) = UMovFromVec64<R64W, uint64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
 
-DEF_ISEL(SMOV_ASIMDINS_W_W_B) = SMovFromVec8<R32W, int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(SMOV_ASIMDINS_W_W_H) = SMovFromVec16<R32W, int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(SMOV_ASIMDINS_W_W_B) = SMovFromVec8<R32W, int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(SMOV_ASIMDINS_W_W_H) = SMovFromVec16<R32W, int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 
-DEF_ISEL(SMOV_ASIMDINS_X_X_B) = SMovFromVec8<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(SMOV_ASIMDINS_X_X_H) = SMovFromVec16<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
-DEF_ISEL(SMOV_ASIMDINS_X_X_S) = SMovFromVec32<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(SMOV_ASIMDINS_X_X_B) = SMovFromVec8<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(SMOV_ASIMDINS_X_X_H) = SMovFromVec16<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+// DEF_ISEL(SMOV_ASIMDINS_X_X_S) = SMovFromVec32<R64W, int64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
 
 namespace {
 
@@ -1685,45 +1685,45 @@ DEF_SEM(BIC_L_SL, VNW dst, I32 src) {
 
 }  // namespace
 
-DEF_ISEL(MOVI_ASIMDIMM_D2_D) = MOVI_D2;  // MOVI  <Vd>.2D, #<imm>
-DEF_ISEL(MOVI_ASIMDIMM_N_B_8B) = MOVI_N_B<uint8vI8_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #0}
-DEF_ISEL(MOVI_ASIMDIMM_N_B_16B) =
-    MOVI_N_B<uint8vI16_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #0}
-DEF_ISEL(MOVI_ASIMDIMM_L_HL_4H) =
-    MOVI_L_HL<uint16v4_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MOVI_ASIMDIMM_L_HL_8H) =
-    MOVI_L_HL<uint16vI8_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MOVI_ASIMDIMM_L_SL_2S) =
-    MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MOVI_ASIMDIMM_L_SL_4S) =
-    MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MOVI_ASIMDIMM_M_SM_2S) =
-    MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
-DEF_ISEL(MOVI_ASIMDIMM_M_SM_4S) =
-    MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
-DEF_ISEL(MOVI_ASIMDIMM_D_DS) = MOVI_DS;  // MOVI  <Dd>, #<imm>
+// DEF_ISEL(MOVI_ASIMDIMM_D2_D) = MOVI_D2;  // MOVI  <Vd>.2D, #<imm>
+// DEF_ISEL(MOVI_ASIMDIMM_N_B_8B) = MOVI_N_B<uint8vI8_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #0}
+// DEF_ISEL(MOVI_ASIMDIMM_N_B_16B) =
+//     MOVI_N_B<uint8vI16_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #0}
+// DEF_ISEL(MOVI_ASIMDIMM_L_HL_4H) =
+//     MOVI_L_HL<uint16v4_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MOVI_ASIMDIMM_L_HL_8H) =
+//     MOVI_L_HL<uint16vI8_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MOVI_ASIMDIMM_L_SL_2S) =
+//     MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MOVI_ASIMDIMM_L_SL_4S) =
+//     MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MOVI_ASIMDIMM_M_SM_2S) =
+//     MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
+// DEF_ISEL(MOVI_ASIMDIMM_M_SM_4S) =
+//     MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
+// DEF_ISEL(MOVI_ASIMDIMM_D_DS) = MOVI_DS;  // MOVI  <Dd>, #<imm>
 
-DEF_ISEL(MVNI_ASIMDIMM_L_HL_4H) =
-    MOVI_L_HL<uint16v4_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MVNI_ASIMDIMM_L_HL_8H) =
-    MOVI_L_HL<uint16vI8_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MVNI_ASIMDIMM_L_SL_2S) =
-    MOVI_L_SL<uint32v2_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MVNI_ASIMDIMM_L_SL_4S) =
-    MOVI_L_SL<uint32v4_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(MVNI_ASIMDIMM_M_SM_2S) =
-    MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
-DEF_ISEL(MVNI_ASIMDIMM_M_SM_4S) =
-    MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
+// DEF_ISEL(MVNI_ASIMDIMM_L_HL_4H) =
+//     MOVI_L_HL<uint16v4_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MVNI_ASIMDIMM_L_HL_8H) =
+//     MOVI_L_HL<uint16vI8_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MVNI_ASIMDIMM_L_SL_2S) =
+//     MOVI_L_SL<uint32v2_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MVNI_ASIMDIMM_L_SL_4S) =
+//     MOVI_L_SL<uint32v4_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(MVNI_ASIMDIMM_M_SM_2S) =
+//     MOVI_L_SL<uint32v2_t, VI64W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
+// DEF_ISEL(MVNI_ASIMDIMM_M_SM_4S) =
+//     MOVI_L_SL<uint32v4_t, VI128W>;  // MOVI  <Vd>.<T>, #<imm8>, MSL #<amount>
 
-DEF_ISEL(BIC_ASIMDIMM_L_HL_4H) =
-    BIC_L_HL<uint16v4_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(BIC_ASIMDIMM_L_HL_8H) =
-    BIC_L_HL<uint16vI8_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(BIC_ASIMDIMM_L_SL_2S) =
-    BIC_L_SL<uint32v2_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
-DEF_ISEL(BIC_ASIMDIMM_L_SL_4S) =
-    BIC_L_SL<uint32v4_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(BIC_ASIMDIMM_L_HL_4H) =
+//     BIC_L_HL<uint16v4_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(BIC_ASIMDIMM_L_HL_8H) =
+//     BIC_L_HL<uint16vI8_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(BIC_ASIMDIMM_L_SL_2S) =
+//     BIC_L_SL<uint32v2_t, VI64W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
+// DEF_ISEL(BIC_ASIMDIMM_L_SL_4S) =
+//     BIC_L_SL<uint32v4_t, VI128W>;  // MVNI  <Vd>.<T>, #<imm8>{, LSL #<amount>}
 
 /* casa instruction semantics (FIXME: no atomic) */
 namespace {
@@ -1739,17 +1739,17 @@ DEF_SEM(CAS, S src1, S src2, D dst) {
 }
 }  // namespace
 
-DEF_ISEL(CAS_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(CAS_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CAS_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CAS_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
 
-DEF_ISEL(CASA_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(CASA_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASA_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASA_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
 
-DEF_ISEL(CASAL_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASAL_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
 
-DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32W, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+// DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64W, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
 
 namespace {
 
@@ -1787,5 +1787,5 @@ MAKE_CNT(128, 8)
 
 }  // namespace
 
-DEF_ISEL(CNT_ASIMDMISC_R_8B) = CNT_SIMD_VI64;  // CNT  <Vd>.<T>, <Vn>.<T>
-DEF_ISEL(CNT_ASIMDMISC_R_16B) = CNT_SIMD_VI128;  // CNT  <Vd>.<T>, <Vn>.<T>
+// DEF_ISEL(CNT_ASIMDMISC_R_8B) = CNT_SIMD_VI64;  // CNT  <Vd>.<T>, <Vn>.<T>
+// DEF_ISEL(CNT_ASIMDMISC_R_16B) = CNT_SIMD_VI128;  // CNT  <Vd>.<T>, <Vn>.<T>

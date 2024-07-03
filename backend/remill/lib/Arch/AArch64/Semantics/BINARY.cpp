@@ -42,19 +42,23 @@ DEF_SEM_T(ADD, S1 src1, S2 src2) {
 
 }  // namespace
 
-DEF_ISEL(ADD_32_ADDSUB_IMM) = ADD<R32, I32>;
-DEF_ISEL(ADD_64_ADDSUB_IMM) = ADD<R64, I64>;
-DEF_ISEL(ADD_32_ADDSUB_SHIFT) = ADD<R32, I32>;
-DEF_ISEL(ADD_64_ADDSUB_SHIFT) = ADD<R64, I64>;
-DEF_ISEL(ADD_32_ADDSUB_EXT) = ADD<R32, I32>;
-DEF_ISEL(ADD_64_ADDSUB_EXT) = ADD<R64, I64>;
+DEF_ISEL(ADD_32_ADDSUB_IMM) = ADD<R32, I32>;  // ADD  <Wd|WSP>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(ADD_64_ADDSUB_IMM) = ADD<R64, I64>;  // ADD  <Xd|SP>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(ADD_32_ADDSUB_SHIFT) = ADD<R32, I32>;  // ADD  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ADD_64_ADDSUB_SHIFT) = ADD<R64, I64>;  // ADD  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(ADD_32_ADDSUB_EXT) =
+    ADD<R32, I32>;  // ADD  <Wd|WSP>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+DEF_ISEL(ADD_64_ADDSUB_EXT) =
+    ADD<R64, I64>;  // ADD  <Xd|SP>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
-DEF_ISEL(SUB_32_ADDSUB_IMM) = SUB<R32, I32>;
-DEF_ISEL(SUB_64_ADDSUB_IMM) = SUB<R64, I64>;
-DEF_ISEL(SUB_32_ADDSUB_SHIFT) = SUB<R32, I32>;
-DEF_ISEL(SUB_64_ADDSUB_SHIFT) = SUB<R64, I64>;
-DEF_ISEL(SUB_32_ADDSUB_EXT) = SUB<R32, I32>;
-DEF_ISEL(SUB_64_ADDSUB_EXT) = SUB<R64, I64>;
+DEF_ISEL(SUB_32_ADDSUB_IMM) = SUB<R32, I32>;  // SUB  <Wd|WSP>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(SUB_64_ADDSUB_IMM) = SUB<R64, I64>;  // SUB  <Xd|SP>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(SUB_32_ADDSUB_SHIFT) = SUB<R32, I32>;  // SUB  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(SUB_64_ADDSUB_SHIFT) = SUB<R64, I64>;  // SUB  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(SUB_32_ADDSUB_EXT) =
+    SUB<R32, I32>;  // SUB  <Wd|WSP>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+DEF_ISEL(SUB_64_ADDSUB_EXT) =
+    SUB<R64, I64>;  // SUB  <Xd|SP>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
 namespace {
 
@@ -92,19 +96,23 @@ DEF_SEM_T(ADDS, S1 src1, S2 src2) {
 
 }  // namespace
 
-DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS<R32, I32>;
-DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS<R64, I64>;
-DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS<R32, I32>;
-DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS<R64, I64>;
-DEF_ISEL(SUBS_32S_ADDSUB_EXT) = SUBS<R32, I32>;
-DEF_ISEL(SUBS_64S_ADDSUB_EXT) = SUBS<R64, I64>;
+DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS<R32, I32>;  // SUBS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS<R64, I64>;  // SUBS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(SUBS_32S_ADDSUB_EXT) =
+    SUBS<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+DEF_ISEL(SUBS_64S_ADDSUB_EXT) =
+    SUBS<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
-DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS<R32, I32>;
-DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS<R64, I64>;
-DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS<R32, I32>;
-DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS<R64, I64>;
-DEF_ISEL(ADDS_32S_ADDSUB_EXT) = ADDS<R32, I32>;
-DEF_ISEL(ADDS_64S_ADDSUB_EXT) = ADDS<R64, I64>;
+DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS<R32, I32>;  // ADDS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS<R64, I64>;  // ADDS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(ADDS_32S_ADDSUB_EXT) =
+    ADDS<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+DEF_ISEL(ADDS_64S_ADDSUB_EXT) =
+    ADDS<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
 namespace {
 
@@ -182,25 +190,25 @@ DEF_SEM_T(MSUB, RT src1, RT src2, RT src3) {
 
 }  // namespace
 
-DEF_ISEL(UMADDL_64WA_DP_3SRC) = UMADDL;
-DEF_ISEL(SMADDL_64WA_DP_3SRC) = SMADDL;
+DEF_ISEL(UMADDL_64WA_DP_3SRC) = UMADDL;  // UMADDL  <Xd>, <Wn>, <Wm>, <Xa>
+DEF_ISEL(SMADDL_64WA_DP_3SRC) = SMADDL;  // SMADDL  <Xd>, <Wn>, <Wm>, <Xa>
 
-DEF_ISEL(UMSUBL_64WA_DP_3SRC) = UMSUBL;
+DEF_ISEL(UMSUBL_64WA_DP_3SRC) = UMSUBL;  // UMSUBL  <Xd>, <Wn>, <Wm>, <Xa>
 
-DEF_ISEL(UMULH_64_DP_3SRC) = UMULH;
+DEF_ISEL(UMULH_64_DP_3SRC) = UMULH;  // UMULH  <Xd>, <Xn>, <Xm>
 DEF_ISEL(SMULH_64_DP_3SRC) = SMULH;
 
-DEF_ISEL(UDIV_32_DP_2SRC) = UDIV<R32>;
-DEF_ISEL(UDIV_64_DP_2SRC) = UDIV<R64>;
+DEF_ISEL(UDIV_32_DP_2SRC) = UDIV<R32>;  // UDIV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(UDIV_64_DP_2SRC) = UDIV<R64>;  // UDIV  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(SDIV_32_DP_2SRC) = SDIV<R32>;
-DEF_ISEL(SDIV_64_DP_2SRC) = SDIV<R64>;
+DEF_ISEL(SDIV_32_DP_2SRC) = SDIV<R32>;  // SDIV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(SDIV_64_DP_2SRC) = SDIV<R64>;  // SDIV  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(MADD_32A_DP_3SRC) = MADD<R32>;
-DEF_ISEL(MADD_64A_DP_3SRC) = MADD<R64>;
+DEF_ISEL(MADD_32A_DP_3SRC) = MADD<R32>;  // MADD  <Wd>, <Wn>, <Wm>, <Wa>
+DEF_ISEL(MADD_64A_DP_3SRC) = MADD<R64>;  // MADD  <Xd>, <Xn>, <Xm>, <Xa>
 
-DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB<R32>;
-DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;
+DEF_ISEL(MSUB_32A_DP_3SRC) = MSUB<R32>;  // MSUB  <Wd>, <Wn>, <Wm>, <Wa>
+DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;  // MSUB  <Xd>, <Xn>, <Xm>, <Xa>
 
 namespace {
 
@@ -236,50 +244,50 @@ DEF_SEM_T(ADC, S src1, S src2, I8 flag_c) {
 
 }  // namespace
 
-DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<R32>;
-DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<R64>;
+DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<R32>;  // SBC  <Wd>, <Wn>, <Wm>
+DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<R64>;  // SBC  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS<R32>;
-DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS<R64>;
+DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS<R32>;  // SBCS  <Wd>, <Wn>, <Wm>
+DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS<R64>;  // SBCS  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<R32>;
-DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;
+DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<R32>;  // ADC  <Wd>, <Wn>, <Wm>
+DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;  // ADC  <Xd>, <Xn>, <Xm>
 
 namespace {
 
 // FADD  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32_STATE(FADD_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(state, FAdd32, Read(src1), Read(src2));
+DEF_SEM_F32(FADD_Scalar32, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(FAdd32, Read(src1), Read(src2));
 }
 
 // FADD  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64_STATE(FADD_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(state, FAdd64, Read(src1), Read(src2));
+DEF_SEM_F64(FADD_Scalar64, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(FAdd64, Read(src1), Read(src2));
 }
 
 // FSUB  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32_STATE(FSUB_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(state, FSub32, Read(src1), Read(src2));
+DEF_SEM_F32(FSUB_Scalar32, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(FSub32, Read(src1), Read(src2));
 }
 
 // FSUB  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64_STATE(FSUB_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(state, FSub64, Read(src1), Read(src2));
+DEF_SEM_F64(FSUB_Scalar64, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(FSub64, Read(src1), Read(src2));
 }
 
 // FMUL  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32_STATE(FMUL_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(state, FMul32, Read(src1), Read(src2));
+DEF_SEM_F32(FMUL_Scalar32, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(FMul32, Read(src1), Read(src2));
 }
 
 // FMUL  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64_STATE(FMUL_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(state, FMul64, Read(src1), Read(src2));
+DEF_SEM_F64(FMUL_Scalar64, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(FMul64, Read(src1), Read(src2));
 }
 
 // FDIV  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32_STATE(FDIV_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(state, FDiv32, Read(src1), Read(src2));
+DEF_SEM_F32(FDIV_Scalar32, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(FDiv32, Read(src1), Read(src2));
 }
 
 // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
@@ -399,10 +407,10 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
 }
 
 // FDIV  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64_STATE(FDIV_Scalar64, RF64 src1, RF64 src2) {
+DEF_SEM_F64(FDIV_Scalar64, RF64 src1, RF64 src2) {
   auto val1 = Read(src1);
   auto val2 = Read(src2);
-  return CheckedFloatBinOp(state, FDiv64, val1, val2);
+  return CheckedFloatBinOp(FDiv64, val1, val2);
 }
 
 template <typename S>
@@ -455,121 +463,105 @@ uint64_t FCompare(S val1, S val2, bool signal = true) {
 }
 
 // FCMPE  <Sn>, <Sm>
-DEF_SEM_U64(FCMPE_S, VI32 src1, VI32 src2) {
-  auto val1 = FExtractVI32(src1, 0);
-  auto val2 = FExtractVI32(src2, 0);
-  return FCompare(val1, val2);
+DEF_SEM_U64(FCMPE_S, RF32 src1, RF32 src2) {
+  return FCompare(Read(src), Read(src2));
 }
 
 // FCMPE  <Sn>, #0.0
-DEF_SEM_U64(FCMPE_SZ, VI32 src1) {
-  auto val1 = FExtractVI32(src1, 0);
+DEF_SEM_U64(FCMPE_SZ, RF32 src1) {
   float32_t float_zero = 0.0;
-  return FCompare(val1, float_zero);
+  return FCompare(Read(src1), float_zero);
 }
 
 // FCMP  <Sn>, <Sm>
-DEF_SEM_U64(FCMP_S, VI32 src1, VI32 src2) {
-  auto val1 = FExtractVI32(src1, 0);
-  auto val2 = FExtractVI32(src2, 0);
-  return FCompare(val1, val2, false);
+DEF_SEM_U64(FCMP_S, RF32 src1, RF32 src2) {
+  return FCompare(Read(src1), Read(src2), false);
 }
 
 // FCMP  <Sn>, #0.0
-DEF_SEM_U64(FCMP_SZ, VI32 src1) {
-  auto val1 = FExtractVI32(src1, 0);
+DEF_SEM_U64(FCMP_SZ, RF32 src1) {
   float32_t float_zero = 0.0;
-  return FCompare(val1, float_zero, false);
+  return FCompare(Read(src1), float_zero, false);
 }
 
 // FCMPE  <Dn>, <Dm>
-DEF_SEM_U64(FCMPE_D, VI64 src1, VI64 src2) {
-  auto val1 = FExtractVI64(src1, 0);
-  auto val2 = FExtractVI64(src2, 0);
-  return FCompare(val1, val2);
+DEF_SEM_U64(FCMPE_D, RF64 src1, RF64 src2) {
+  return FCompare(Read(src1), Read(src2));
 }
 
 // FCMPE  <Dn>, #0.0
-DEF_SEM_U64(FCMPE_DZ, VI64 src1) {
-  auto val1 = FExtractVI64(src1, 0);
+DEF_SEM_U64(FCMPE_DZ, RF64 src1) {
   float64_t float_zero = 0.0;
-  return FCompare(val1, float_zero);
+  return FCompare(Read(src1), float_zero);
 }
 
 // FCMP  <Dn>, <Dm>
-DEF_SEM_U64(FCMP_D, VI64 src1, VI64 src2) {
-  auto val1 = FExtractVI64(src1, 0);
-  auto val2 = FExtractVI64(src2, 0);
-  return FCompare(val1, val2, false);
+DEF_SEM_U64(FCMP_D, RF64 src1, RF64 src2) {
+  return FCompare(Read(src1), Read(src2), false);
 }
 
 // FCMP  <Dn>, #0.0
-DEF_SEM_U64(FCMP_DZ, VI64 src1) {
-  auto val1 = FExtractVI64(src1, 0);
+DEF_SEM_U64(FCMP_DZ, RF64 src1) {
   float64_t float_zero = 0.0;
-  return FCompare(val1, float_zero, false);
+  return FCompare(Read(src1), float_zero, false);
 }
 
 // FABS  <Sd>, <Sn>
-DEF_SEM_F32(FABS_S, VI32 src) {
-  auto val = FExtractVI32(src, 0);
-  auto result = static_cast<float32_t>(fabs(val));
+DEF_SEM_F32(FABS_S, RF32 src) {
+  auto result = static_cast<float32_t>(fabs(Read(src)));
   return result;
 }
 
 // FABS  <Dd>, <Dn>
-DEF_SEM_F64(FABS_D, VI64 src) {
-  auto val = FExtractVI64(src, 0);
-  auto result = static_cast<float64_t>(fabs(val));
+DEF_SEM_F64(FABS_D, RF64 src) {
+  auto result = static_cast<float64_t>(fabs(Read(src)));
   return result;
 }
 
 // FNEG  <Sd>, <Sn>
-DEF_SEM_F32(FNEG_S, VI32 src) {
-  auto val = FExtractVI32(src, 0);
-  auto result = -val;
+DEF_SEM_F32(FNEG_S, RF32 src) {
+  auto result = -Read(src);
   return result;
 }
 
 // FNEG  <Dd>, <Dn>
-DEF_SEM_F64(FNEG_D, VI64 src) {
-  auto val = FExtractVI64(src, 0);
-  auto result = -val;
+DEF_SEM_F64(FNEG_D, RF64 src) {
+  auto result = -Read(src);
   return result;
 }
 
 }  // namespace
 
-DEF_ISEL(FSUB_S_FLOATDP2) = FSUB_Scalar32;
-DEF_ISEL(FSUB_D_FLOATDP2) = FSUB_Scalar64;
+DEF_ISEL(FSUB_S_FLOATDP2) = FSUB_Scalar32;  // FSUB  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FSUB_D_FLOATDP2) = FSUB_Scalar64;  // FSUB  <Dd>, <Dn>, <Dm>
 
-DEF_ISEL(FADD_S_FLOATDP2) = FADD_Scalar32;
-DEF_ISEL(FADD_D_FLOATDP2) = FADD_Scalar64;
+DEF_ISEL(FADD_S_FLOATDP2) = FADD_Scalar32;  // FADD  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FADD_D_FLOATDP2) = FADD_Scalar64;  // FADD  <Dd>, <Dn>, <Dm>
 
-DEF_ISEL(FMUL_S_FLOATDP2) = FMUL_Scalar32;
-DEF_ISEL(FMUL_D_FLOATDP2) = FMUL_Scalar64;
+DEF_ISEL(FMUL_S_FLOATDP2) = FMUL_Scalar32;  // FMUL  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FMUL_D_FLOATDP2) = FMUL_Scalar64;  // FMUL  <Dd>, <Dn>, <Dm>
 
-DEF_ISEL(FMADD_S_FLOATDP3) = FMADD_S;
-DEF_ISEL(FMADD_D_FLOATDP3) = FMADD_D;
+DEF_ISEL(FMADD_S_FLOATDP3) = FMADD_S;  // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
+DEF_ISEL(FMADD_D_FLOATDP3) = FMADD_D;  // FMADD  <Dd>, <Dn>, <Dm>, <Da>
 
-DEF_ISEL(FMSUB_S_FLOATDP3) = FMSUB_S;
-DEF_ISEL(FMSUB_D_FLOATDP3) = FMSUB_D;
+DEF_ISEL(FMSUB_S_FLOATDP3) = FMSUB_S;  // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+DEF_ISEL(FMSUB_D_FLOATDP3) = FMSUB_D;  // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
 
-DEF_ISEL(FDIV_S_FLOATDP2) = FDIV_Scalar32;
-DEF_ISEL(FDIV_D_FLOATDP2) = FDIV_Scalar64;
+DEF_ISEL(FDIV_S_FLOATDP2) = FDIV_Scalar32;  // FDIV  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FDIV_D_FLOATDP2) = FDIV_Scalar64;  // FDIV  <Dd>, <Dn>, <Dm>
 
-DEF_ISEL(FABS_S_FLOATDP1) = FABS_S;
-DEF_ISEL(FABS_D_FLOATDP1) = FABS_D;
+DEF_ISEL(FABS_S_FLOATDP1) = FABS_S;  // FABS  <Sd>, <Sn>
+DEF_ISEL(FABS_D_FLOATDP1) = FABS_D;  // FABS  <Dd>, <Dn>
 
-DEF_ISEL(FNEG_S_FLOATDP1) = FNEG_S;
-DEF_ISEL(FNEG_D_FLOATDP1) = FNEG_D;
+DEF_ISEL(FNEG_S_FLOATDP1) = FNEG_S;  // FNEG  <Sd>, <Sn>
+DEF_ISEL(FNEG_D_FLOATDP1) = FNEG_D;  // FNEG  <Dd>, <Dn>
 
-DEF_ISEL(FCMPE_S_FLOATCMP) = FCMPE_S;
-DEF_ISEL(FCMPE_SZ_FLOATCMP) = FCMPE_SZ;
-DEF_ISEL(FCMP_S_FLOATCMP) = FCMP_S;
-DEF_ISEL(FCMP_SZ_FLOATCMP) = FCMP_SZ;
+DEF_ISEL(FCMPE_S_FLOATCMP) = FCMPE_S;  // FCMPE  <Sn>, <Sm>
+DEF_ISEL(FCMPE_SZ_FLOATCMP) = FCMPE_SZ;  // FCMPE  <Sn>, #0.0
+DEF_ISEL(FCMP_S_FLOATCMP) = FCMP_S;  // FCMP  <Sn>, <Sm>
+DEF_ISEL(FCMP_SZ_FLOATCMP) = FCMP_SZ;  // FCMP  <Sn>, #0.0
 
-DEF_ISEL(FCMPE_D_FLOATCMP) = FCMPE_D;
-DEF_ISEL(FCMPE_DZ_FLOATCMP) = FCMPE_DZ;
-DEF_ISEL(FCMP_D_FLOATCMP) = FCMP_D;
-DEF_ISEL(FCMP_DZ_FLOATCMP) = FCMP_DZ;
+DEF_ISEL(FCMPE_D_FLOATCMP) = FCMPE_D;  // FCMPE  <Dn>, <Dm>
+DEF_ISEL(FCMPE_DZ_FLOATCMP) = FCMPE_DZ;  // FCMPE  <Dn>, #0.0
+DEF_ISEL(FCMP_D_FLOATCMP) = FCMP_D;  // FCMP  <Dn>, <Dm>
+DEF_ISEL(FCMP_DZ_FLOATCMP) = FCMP_DZ;  // FCMP  <Dn>, #0.0

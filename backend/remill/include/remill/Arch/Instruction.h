@@ -169,6 +169,8 @@ class Condition {
   std::string Serialize(void) const;
 };
 
+enum class SemaFuncArgType { Nothing, State, Runtime, StateRuntime, Empty };
+
 // Generic instruction type.
 class Instruction {
  public:
@@ -197,6 +199,9 @@ class Instruction {
 
   // Name of the architecture used to decode this instruction.
   ArchName arch_name;
+
+  // shows whether this fucntion needs the state or runtime_manager.
+  SemaFuncArgType sema_func_arg_type;
 
   // Name of the minimum instruction set associated with this instruction.
   // Remill's semantics are versioned by sub-architecture, and this tells us

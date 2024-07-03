@@ -32,17 +32,17 @@ DEF_SEM_T(EON, S1 src1, S2 src2) {
 }
 
 template <typename S1, typename S2>
-DEF_SEM(AND, S1 src1, S2 src2) {
+DEF_SEM_T(AND, S1 src1, S2 src2) {
   return UAnd(Read(src1), Read(src2));
 }
 
 template <typename S1, typename S2>
-DEF_SEM(ORR, S1 src1, S2 src2) {
+DEF_SEM_T(ORR, S1 src1, S2 src2) {
   return UOr(Read(src1), Read(src2));
 }
 
 template <typename S1, typename S2>
-DEF_SEM(BIC, S1 src1, S2 src2) {
+DEF_SEM_T(BIC, S1 src1, S2 src2) {
   return UAnd(Read(src1), UNot(Read(src2)));
 }
 

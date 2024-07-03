@@ -27,77 +27,77 @@
 namespace {
 
 template <typename S, typename D>
-ALWAYS_INLINE static D CheckedCast(State &state, S src) {
-  return CheckedFloatUnaryOp(state, [](S v) { return static_cast<D>(v); }, src);
+ALWAYS_INLINE static D CheckedCast(S src) {
+  return CheckedFloatUnaryOp([](S v) { return static_cast<D>(v); }, src);
 }
 
 // UCVTF  <Sd>, <Wn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T_STATE(UCVTF_UIntToFloat, S src) {
-  return CheckedCast<SB, DB>(state, Read(src));
+DEF_SEM_T(UCVTF_UIntToFloat, S src) {
+  return CheckedCast<SB, DB>(Read(src));
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_V128_STATE(UCVTF_Uint32ToFloat32_FROMV, VI32 src) {
+DEF_SEM_V128(UCVTF_Uint32ToFloat32_FROMV, VI32 src) {
   _ecv_f32v4_t res = {};
   auto elems_num = GetVectorElemsNum(src);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
-    res[i] = CheckedCast<uint32_t, float32_t>(state, UExtractVI32(src, i));
+    res[i] = CheckedCast<uint32_t, float32_t>(UExtractVI32(src, i));
   }
   return res;
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_V128_STATE(UCVTF_Uint64ToFloat64_FROMV, VI64 src) {
+DEF_SEM_V128(UCVTF_Uint64ToFloat64_FROMV, VI64 src) {
   _ecv_f64v2_t res = {};
   auto elems_num = GetVectorElemsNum(src);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
-    res[i] = CheckedCast<uint64_t, float64_t>(state, UExtractVI64(src, i));
+    res[i] = CheckedCast<uint64_t, float64_t>(UExtractVI64(src, i));
   }
   return res;
 }
 
 // FCVTZU  <Xd>, <Sn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T_STATE(FCVTZU_FloatToUInt, S src) {
-  return CheckedCast<SB, DB>(state, Read(src));
+DEF_SEM_T(FCVTZU_FloatToUInt, S src) {
+  return CheckedCast<SB, DB>(Read(src));
 }
 
 // FCVTZS  <Wd>, <Sn>
-DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt32, RF32 src) {
-  return CheckedCast<float32_t, int32_t>(state, Read(src));
+DEF_SEM_U32(FCVTZS_Float32ToSInt32, RF32 src) {
+  return CheckedCast<float32_t, int32_t>(Read(src));
 }
 
 // FCVTZS  <Wd>, <Dn>
-DEF_SEM_U32_STATE(FCVTZS_Float64ToSInt32, RF64 src) {
-  return CheckedCast<float64_t, int32_t>(state, Read(src));
+DEF_SEM_U32(FCVTZS_Float64ToSInt32, RF64 src) {
+  return CheckedCast<float64_t, int32_t>(Read(src));
 }
 
 // FCVTZS  <Xd>, <Dn>
-DEF_SEM_U64_STATE(FCVTZS_Float64ToSInt64, RF64 src) {
-  return CheckedCast<float64_t, int64_t>(state, Read(src));
+DEF_SEM_U64(FCVTZS_Float64ToSInt64, RF64 src) {
+  return CheckedCast<float64_t, int64_t>(Read(src));
 }
 
 // FCVTAS  <Xd>, <Dn>
 // (FIXME) not using rounding to nearest with ties to Away
-DEF_SEM_U64_STATE(FCVTAS_Float64ToSInt64, RF64 src) {
-  return CheckedCast<float64_t, int64_t>(state, Read(src));
+DEF_SEM_U64(FCVTAS_Float64ToSInt64, RF64 src) {
+  return CheckedCast<float64_t, int64_t>(Read(src));
 }
 
 // FCVT  <Dd>, <Sn>
-DEF_SEM_F64_STATE(FCVT_Float32ToFloat64, RF32 src) {
-  return CheckedCast<float32_t, float64_t>(state, Read(src));
+DEF_SEM_F64(FCVT_Float32ToFloat64, RF32 src) {
+  return CheckedCast<float32_t, float64_t>(Read(src));
 }
 
 // FCVT  <Sd>, <Dn>
-DEF_SEM_F32_STATE(FCVT_Float64ToFloat32, RF64 src) {
-  return CheckedCast<float64_t, float32_t>(state, Read(src));
+DEF_SEM_F32(FCVT_Float64ToFloat32, RF64 src) {
+  return CheckedCast<float64_t, float32_t>(Read(src));
 }
 
 // FRINTA  <Dd>, <Dn>
 // (FIXME) not using rounding to nearest with ties to Away
-DEF_SEM_F64_STATE(FRINTA_Float64ToSInt64, RF64 src) {
-  return CheckedCast<int64_t, float64_t>(state, CheckedCast<float64_t, int64_t>(state, Read(src)));
+DEF_SEM_F64(FRINTA_Float64ToSInt64, RF64 src) {
+  return CheckedCast<int64_t, float64_t>(CheckedCast<float64_t, int64_t>(Read(src)));
 }
 
 }  // namespace
@@ -105,52 +105,56 @@ DEF_SEM_F64_STATE(FRINTA_Float64ToSInt64, RF64 src) {
 // TODO(pag): UCVTF_H32_FLOAT2INT.
 // TODO(pag): UCVTF_H64_FLOAT2INT.
 
-DEF_ISEL(UCVTF_S32_FLOAT2INT) = UCVTF_UIntToFloat<float32_t, R32, uint32_t>;
-DEF_ISEL(UCVTF_D32_FLOAT2INT) = UCVTF_UIntToFloat<float64_t, R32, uint32_t>;
-DEF_ISEL(UCVTF_S64_FLOAT2INT) = UCVTF_UIntToFloat<float32_t, R64, uint64_t>;
-DEF_ISEL(UCVTF_D64_FLOAT2INT) = UCVTF_UIntToFloat<float64_t, R64, uint64_t>;
+DEF_ISEL(UCVTF_S32_FLOAT2INT) = UCVTF_UIntToFloat<float32_t, R32, uint32_t>;  // UCVTF  <Sd>, <Wn>
+DEF_ISEL(UCVTF_D32_FLOAT2INT) = UCVTF_UIntToFloat<float64_t, R32, uint32_t>;  // UCVTF  <Dd>, <Wn>
+DEF_ISEL(UCVTF_S64_FLOAT2INT) = UCVTF_UIntToFloat<float32_t, R64, uint64_t>;  // UCVTF  <Sd>, <Xn>
+DEF_ISEL(UCVTF_D64_FLOAT2INT) = UCVTF_UIntToFloat<float64_t, R64, uint64_t>;  // UCVTF  <Dd>, <Xn>
 
-DEF_ISEL(UCVTF_ASISDMISC_R_32) = UCVTF_Uint32ToFloat32_FROMV;
-DEF_ISEL(UCVTF_ASISDMISC_R_64) = UCVTF_Uint64ToFloat64_FROMV;
+DEF_ISEL(UCVTF_ASISDMISC_R_32) = UCVTF_Uint32ToFloat32_FROMV;  // UCVTF  <V><d>, <V><n>
+DEF_ISEL(UCVTF_ASISDMISC_R_64) = UCVTF_Uint64ToFloat64_FROMV;  // UCVTF  <V><d>, <V><n>
 
-DEF_ISEL(FCVTZU_64S_FLOAT2INT) = FCVTZU_FloatToUInt<uint64_t, RF32, float32_t>;
-DEF_ISEL(FCVTZU_32S_FLOAT2INT) = FCVTZU_FloatToUInt<uint32_t, RF32, float32_t>;
-DEF_ISEL(FCVTZU_32D_FLOAT2INT) = FCVTZU_FloatToUInt<uint32_t, RF64, float64_t>;
-DEF_ISEL(FCVTZU_64D_FLOAT2INT) = FCVTZU_FloatToUInt<uint64_t, RF64, float64_t>;
+DEF_ISEL(FCVTZU_64S_FLOAT2INT) =
+    FCVTZU_FloatToUInt<uint64_t, RF32, float32_t>;  // FCVTZU  <Xd>, <Sn>
+DEF_ISEL(FCVTZU_32S_FLOAT2INT) =
+    FCVTZU_FloatToUInt<uint32_t, RF32, float32_t>;  // FCVTZU  <Wd>, <Dn>
+DEF_ISEL(FCVTZU_32D_FLOAT2INT) =
+    FCVTZU_FloatToUInt<uint32_t, RF64, float64_t>;  // FCVTZU  <Wd>, <Dn>
+DEF_ISEL(FCVTZU_64D_FLOAT2INT) =
+    FCVTZU_FloatToUInt<uint64_t, RF64, float64_t>;  // FCVTZU  <Xd>, <Dn>
 
-DEF_ISEL(FCVTZS_32S_FLOAT2INT) = FCVTZS_Float32ToSInt32;
-DEF_ISEL(FCVTZS_32D_FLOAT2INT) = FCVTZS_Float64ToSInt32;
-DEF_ISEL(FCVTZS_64D_FLOAT2INT) = FCVTZS_Float64ToSInt64;
+DEF_ISEL(FCVTZS_32S_FLOAT2INT) = FCVTZS_Float32ToSInt32;  // FCVTZS  <Wd>, <Sn>
+DEF_ISEL(FCVTZS_32D_FLOAT2INT) = FCVTZS_Float64ToSInt32;  // FCVTZS  <Wd>, <Dn>
+DEF_ISEL(FCVTZS_64D_FLOAT2INT) = FCVTZS_Float64ToSInt64;  // FCVTZS  <Xd>, <Dn>
 
-DEF_ISEL(FCVTAS_64D_FLOAT2INT) = FCVTAS_Float64ToSInt64;
+DEF_ISEL(FCVTAS_64D_FLOAT2INT) = FCVTAS_Float64ToSInt64;  // FCVTAS  <Xd>, <Dn>
 
-DEF_ISEL(FCVT_DS_FLOATDP1) = FCVT_Float32ToFloat64;
-DEF_ISEL(FCVT_SD_FLOATDP1) = FCVT_Float64ToFloat32;
+DEF_ISEL(FCVT_DS_FLOATDP1) = FCVT_Float32ToFloat64;  // FCVT  <Dd>, <Sn>
+DEF_ISEL(FCVT_SD_FLOATDP1) = FCVT_Float64ToFloat32;  // FCVT  <Sd>, <Dn>
 
-DEF_ISEL(FRINTA_D_FLOATDP1) = FRINTA_Float64ToSInt64;
+DEF_ISEL(FRINTA_D_FLOATDP1) = FRINTA_Float64ToSInt64;  // FRINTA  <Dd>, <Dn>
 
 namespace {
 
 // SCVTF  <Sd>, <Wn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T_STATE(SCVTF_IntToFloat, S src) {
-  return CheckedCast<SB, DB>(state, Signed(Read(src)));
+DEF_SEM_T(SCVTF_IntToFloat, S src) {
+  return CheckedCast<SB, DB>(Signed(Read(src)));
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_V128_STATE(SCVTF_Int32ToFloat32_FROMV, VI32 src) {
+DEF_SEM_V128(SCVTF_Int32ToFloat32_FROMV, VI32 src) {
   _ecv_f32v4_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src); i++) {
-    res[i] = CheckedCast<int32_t, float32_t>(state, SExtractVI32(src, i));
+    res[i] = CheckedCast<int32_t, float32_t>(SExtractVI32(src, i));
   }
   return res;
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_V128_STATE(SCVTF_Int64ToFloat64_FROMV, VI64 src) {
+DEF_SEM_V128(SCVTF_Int64ToFloat64_FROMV, VI64 src) {
   _ecv_f64v2_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src); i++) {
-    res[i] = CheckedCast<int64_t, float64_t>(state, SExtractVI64(src, i));
+    res[i] = CheckedCast<int64_t, float64_t>(SExtractVI64(src, i));
   }
   return res;
 }
@@ -160,10 +164,10 @@ DEF_SEM_V128_STATE(SCVTF_Int64ToFloat64_FROMV, VI64 src) {
 // TODO(pag): SCVTF_H32_FLOAT2INT.
 // TODO(pag): SCVTF_H64_FLOAT2INT.
 
-DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF32, int32_t>;
-DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF32, int32_t>;
-DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF64, int64_t>;
-DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF64, int64_t>;
+DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF32, int32_t>;  // SCVTF  <Sd>, <Wn>
+DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF32, int32_t>;  // SCVTF  <Dd>, <Wn>
+DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF64, int64_t>;  // SCVTF  <Sd>, <Xn>
+DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF64, int64_t>;  // SCVTF  <Dd>, <Xn>
 
-DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_FROMV;
-DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;
+DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_FROMV;  // SCVTF  <V><d>, <V><n>
+DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;  // SCVTF  <V><d>, <V><n>

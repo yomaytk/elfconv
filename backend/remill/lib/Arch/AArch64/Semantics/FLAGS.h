@@ -16,8 +16,7 @@ template <typename T, typename S1, typename S2>
 [[gnu::const]] ALWAYS_INLINE static bool SignFlag(T res, S1 lhs, S2 rhs);
 
 template <typename F, typename T>
-ALWAYS_INLINE static auto CheckedFloatUnaryOp(State &state, F func, T arg1) -> decltype(func(arg1));
+ALWAYS_INLINE static auto CheckedFloatUnaryOp(F func, T arg1) -> decltype(func(arg1));
 
 template <typename F, typename T>
-ALWAYS_INLINE static auto CheckedFloatBinOp(State &state, F func, T arg1,
-                                            T arg2) -> decltype(func(arg1, arg2));
+ALWAYS_INLINE static auto CheckedFloatBinOp(F func, T arg1, T arg2) -> decltype(func(arg1, arg2));
