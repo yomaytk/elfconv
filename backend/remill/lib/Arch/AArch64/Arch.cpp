@@ -115,6 +115,8 @@ class AArch64Arch final : public AArch64ArchBase, DefaultContextAndLifter {
   bool ArchDecodeInstruction(uint64_t address, std::string_view instr_bytes,
                              Instruction &inst) const final;
 
+  void InstanceInstAArch64(Instruction &inst) const final;
+
  private:
   AArch64Arch(void) = delete;
 };
@@ -782,6 +784,14 @@ static uint64_t VFPExpandImmToFloat64(uint64_t imm) {
   return result;
 }
 
+void AArch64Arch::InstanceInstAArch64(Instruction &inst) const {
+  inst.arch = this;
+  inst.arch_name = arch_name;
+  inst.sub_arch_name = arch_name;  // TODO(pag): Thumb.
+  inst.branch_taken_arch_name = arch_name;
+  inst.category = Instruction::kCategoryInvalid;
+  inst.sema_func_arg_type = SemaFuncArgType::Empty;
+}
 
 bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                         Instruction &inst) const {
@@ -1430,7 +1440,7 @@ bool TryDecodeSTR_S_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // STR  <Dt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeSTR_D_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionRead, kRegB, kUseAsValues, data.Rt);
+  AddRegOperand(inst, kActionRead, kRegB, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
   AddPreIndexMemOp(inst, kActionWrite, 64, data.Rn, offset);
   return true;

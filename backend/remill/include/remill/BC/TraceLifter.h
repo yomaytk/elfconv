@@ -131,6 +131,41 @@ class TraceLifter {
   TraceLifter(void) = delete;
 };
 
+class PhiRegsBBBagNode {
+ public:
+  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> &&__inherited_read_regs,
+                   EcvRegMap<EcvRegClass> &&__read_write_regs,
+                   std::set<llvm::BasicBlock *> &&__in_bbs)
+      : bag_inherited_read_reg_map(std::move(__inherited_read_regs)),
+        bag_read_write_reg_map(std::move(__read_write_regs)),
+        in_bbs(std::move(__in_bbs)) {}
+
+  static void Reset() {
+    bb_regs_bag_map.clear();
+    bag_num = 0;
+  }
+
+  static void GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb);
+  static void GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb);
+  static void RemoveLoop(llvm::BasicBlock *bb);
+  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+
+  static std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
+  static std::size_t bag_num;
+
+  // The register set which need to be derived from the parent among the read register set for the basic block bag node.
+  EcvRegMap<EcvRegClass> bag_inherited_read_reg_map;
+  // The regsiter set which is read or write register set for the basic block bag node.
+  EcvRegMap<EcvRegClass> bag_read_write_reg_map;
+  // The register set the every basic block included in this bag should get at the phi instruction.
+  EcvRegMap<EcvRegClass> bag_phi_reg_map;
+  // The basic block set which is included in this bag.
+  std::set<llvm::BasicBlock *> in_bbs;
+
+  std::set<PhiRegsBBBagNode *> parents;
+  std::set<PhiRegsBBBagNode *> children;
+};
+
 class TraceLifter::Impl {
  public:
   Impl(const Arch *arch_, TraceManager *manager_)
@@ -143,8 +178,8 @@ class TraceLifter::Impl {
         manager(*manager_),
         func(nullptr),
         block(nullptr),
-        switch_inst(nullptr),
-        // TODO(Ian): The trace lfiter is not supporting contexts
+        bb_reg_info_node(nullptr),
+        // TODO(Ian): The trace lifter is not supporting contexts
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
         runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
@@ -205,20 +240,26 @@ class TraceLifter::Impl {
   /* Declare global helper function called by lifted llvm bitcode (need override) */
   virtual void DeclareHelperFunction();
 
-  /* prepare the virtual machine for instruction test (need override) */
+  /* Prepare the virtual machine for instruction test (need override) */
   virtual llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
                                                          llvm::BranchInst *);
-  /* check the virtual machine for instruction test (need override) */
+  /* Check the virtual machine for instruction test (need override) */
   virtual llvm::BranchInst *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &);
 
-  /* add L_test_failed (need override) */
+  /* Add L_test_failed (need override) */
   virtual void AddTestFailedBlock();
 
-  // save the basic block parents on the new direct branch
+  // Save the basic block parents on the new direct branch
   void DirectBranchWithSaveParents(llvm::BasicBlock *dst_bb, llvm::BasicBlock *src_bb);
-  // save the basic block paretns on the new conditional branch
+  // Save the basic block paretns on the new conditional branch
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
+
+  llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
+  llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
+                                          std::pair<EcvReg, EcvRegClass> ecv_reg_info);
+  void GenPhiInstsOfBB(llvm::BasicBlock *bb);
+
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
   llvm::Type *word_type;
@@ -230,7 +271,7 @@ class TraceLifter::Impl {
   llvm::Function *func;
   llvm::BasicBlock *block;
   llvm::BasicBlock *indirectbr_block;
-  llvm::SwitchInst *switch_inst;
+  BBRegInfoNode *bb_reg_info_node;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
   std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> br_blocks;
   bool lift_all_insn;
@@ -246,6 +287,12 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
 
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
+  std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
+
+  std::queue<llvm::BasicBlock *> phi_bb_queue;
+  std::set<llvm::BasicBlock *> relay_bbs;
+  std::unordered_map<llvm::BasicBlock *, std::set<std::pair<EcvReg, EcvRegClass>>>
+      relay_reg_load_inst_map;
 
   std::string runtime_manager_name;
 

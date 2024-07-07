@@ -17,7 +17,9 @@
 #pragma once
 
 #include <cstdint>
+#include <glog/logging.h>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 namespace llvm {
@@ -65,9 +67,123 @@ class OperandLifter {
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const = 0;
 
+  virtual llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                              std::string_view reg_name,
+                                              llvm::Instruction *instBefore) const = 0;
+
   virtual llvm::Type *GetRuntimeType() = 0;
 
   virtual void ClearCache(void) const = 0;
+};
+
+#define SP_ORDER 32
+#define PC_ORDER 33
+#define STATE_ORDER 34
+#define RUNTIME_ORDER 35
+#define BRANCH_TAKEN_ORDER 36
+#define NZCV_ORDER 37
+
+enum class EcvRegClass : uint32_t {
+  RegW = 'W' - 'A',
+  RegX = 'X' - 'A',
+  RegB = 'B' - 'A',
+  RegH = 'H' - 'A',
+  RegS = 'S' - 'A',
+  RegD = 'D' - 'A',
+  RegQ = 'Q' - 'A',
+  RegP
+};
+
+enum class RegKind : uint32_t {
+  General,
+  Vector,
+  Special,
+};
+
+class EcvReg {
+ public:
+  RegKind reg_kind;
+  uint8_t number;
+
+  EcvReg() {}
+  EcvReg(RegKind __reg_kind, uint8_t __number) : reg_kind(__reg_kind), number(__number) {}
+
+  bool operator==(const EcvReg &rhs) const {
+    return reg_kind == rhs.reg_kind && number == rhs.number;
+  }
+
+  bool operator!=(const EcvReg &rhs) const {
+    return !(*this == rhs);
+  }
+
+  // get reg_info from general or vector registers
+  inline static std::optional<std::pair<EcvReg, EcvRegClass>>
+  GetRegInfo(const std::string &_reg_name);
+
+  inline static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
+  std::string GetRegName(EcvRegClass ecv_reg_class);
+
+  llvm::Value *CastFromInst(const llvm::DataLayout &data_layout, llvm::Value *from_inst,
+                            llvm::Type *to_inst_ty, llvm::Instruction *after_inst,
+                            llvm::Value *to_inst = nullptr);
+
+  class Hash {
+    std::size_t operator()(const EcvReg &ecv_reg) {
+      return std::hash<uint32_t>()(
+                 static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
+             std::hash<uint8_t>()(ecv_reg.number);
+    }
+  };
+};
+
+template <typename VT>
+using EcvRegMap = std::unordered_map<EcvReg, VT, EcvReg::Hash>;
+
+class BBRegInfoNode {
+ public:
+  BBRegInfoNode() {}
+  ~BBRegInfoNode() {}
+
+  void join_reg_info_node(BBRegInfoNode *child) {
+    // Join bb_inherited_read_reg_map
+    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_inherited_read_reg_map) {
+      if (!bb_write_reg_map.contains(_ecv_reg)) {
+        bb_inherited_read_reg_map.insert({_ecv_reg, _ecv_reg_class});
+      }
+    }
+    // Join bb_read_write_reg_map
+    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_read_write_reg_map) {
+      bb_read_write_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+    }
+    // Join bb_write_reg_map
+    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_write_reg_map) {
+      bb_write_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+    }
+    // Join reg_latest_inst_map
+    for (auto [_ecv_reg, reg_inst_value] : child->reg_latest_inst_map) {
+      reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
+    }
+    // Join sema_call_written_reg_map
+    for (auto key_value : child->sema_call_written_reg_map) {
+      sema_call_written_reg_map.insert(key_value);
+    }
+  }
+
+  // The register set which need to be derived from the parent among the read register set
+  EcvRegMap<EcvRegClass> bb_inherited_read_reg_map;
+  // The regsiter set which is read or write register set
+  EcvRegMap<EcvRegClass> bb_read_write_reg_map;
+  EcvRegMap<EcvRegClass> bb_write_reg_map;
+
+  // llvm::Value ptr which explains the latest register.
+  EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> reg_latest_inst_map;
+
+  // Save the written registers by semantic functions
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+      sema_call_written_reg_map;
+
+  // Save the generated phi instructions
+  EcvRegMap<llvm::PHINode *> reg_phi_inst_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {
@@ -77,13 +193,15 @@ class InstructionLifterIntf : public OperandLifter {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
+                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) = 0;
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                           uint64_t debug_insn_addr = UINT64_MAX, bool is_delayed = false);
+                           BBRegInfoNode *bb_reg_info_node, uint64_t debug_insn_addr = UINT64_MAX,
+                           bool is_delayed = false);
 };
 
 // Wraps the process of lifting an instruction into a block. This resolves
@@ -105,7 +223,8 @@ class InstructionLifter : public InstructionLifterIntf {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
+                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) override;
 
 
@@ -117,6 +236,10 @@ class InstructionLifter : public InstructionLifterIntf {
   // Load the value of a register.
   llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                             std::string_view reg_name) const override final;
+
+  llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                      std::string_view reg_name,
+                                      llvm::Instruction *instBefore) const override final;
 
   // Clear out the cache of the current register values/addresses loaded.
   void ClearCache(void) const override;

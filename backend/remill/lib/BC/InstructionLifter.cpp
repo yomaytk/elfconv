@@ -43,6 +43,125 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
+// EcvReg
+std::optional<std::pair<EcvReg, EcvRegClass>> EcvReg::GetRegInfo(const std::string &_reg_name) {
+  auto c1 = _reg_name[1];
+  if ('0' <= c1 && c1 <= '9') {
+    auto _ecv_reg_class = EcvRegClass(_reg_name[0] - 'A');
+    return std::make_pair(
+        EcvReg((EcvRegClass::RegW == _ecv_reg_class || EcvRegClass::RegX == _ecv_reg_class)
+                   ? RegKind::General
+                   : RegKind::Vector,
+               static_cast<uint8_t>(std::stoi(_reg_name.substr(1)))),
+        _ecv_reg_class);
+  } else {
+    return std::nullopt;
+  }
+}
+
+std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg_name) {
+  if ("SP" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
+  } else if ("PC" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
+  } else if ("STATE" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
+  } else if ("RUNTIME" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
+  } else if ("BRANCH_TAKEN_ORDER" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
+  } else if ("NZCV" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, NZCV_ORDER), EcvRegClass::RegX);
+  } else {
+    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo.";
+  }
+}
+
+llvm::Value *EcvReg::CastFromInst(const llvm::DataLayout &data_layout, llvm::Value *from_inst,
+                                  llvm::Type *to_inst_ty, llvm::Instruction *after_inst,
+                                  llvm::Value *to_inst = nullptr) {
+  auto from_inst_ty = from_inst->getType();
+  auto from_inst_size = data_layout.getTypeAllocSizeInBits(from_inst_ty);
+  auto to_inst_size = data_layout.getTypeAllocSizeInBits(to_inst_ty);
+
+  if (from_inst_ty == to_inst_ty) {
+    CHECK(to_inst) << "[Bug]: to_inst must not be NULL when from_inst_ty == to_inst_ty.";
+    return to_inst;
+  }
+
+  if (from_inst_size < to_inst_size) {
+    if (RegKind::General == reg_kind) {
+      CHECK(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy())
+          << "RegKind::General register should have only the integer type.";
+
+      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+    } else if (RegKind::Vector == reg_kind) {
+      CHECK((to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy()) ||
+            (to_inst_ty->isFloatingPointTy() && from_inst_ty->isFloatingPointTy()))
+          << "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType on the vector register. (from_inst_size < to_inst_size)";
+
+      if (to_inst_ty->isIntegerTy()) {
+        return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+      } else if (to_inst_ty->isFloatingPointTy()) {
+        return new llvm::FPExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+      }
+    } else if (RegKind::Special == reg_kind) {
+      LOG(FATAL) << "RegKind::Special register must not be used different types.";
+    }
+  } else if (from_inst_size > to_inst_size) {
+    if (RegKind::General == reg_kind) {
+      CHECK(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy())
+          << "RegKind::General register should have only the integer type.";
+
+      return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+    } else if (RegKind::Vector == reg_kind) {
+      CHECK((to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy()) ||
+            (to_inst_ty->isFloatingPointTy() && from_inst_ty->isFloatingPointTy()))
+          << "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType on the vector register. (from_inst_size > to_inst_size)";
+
+      if (to_inst_ty->isIntegerTy()) {
+        return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+      } else if (to_inst_ty->isFloatingPointTy()) {
+        return new llvm::FPTruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), after_inst);
+      }
+    } else if (RegKind::Special == reg_kind) {
+      LOG(FATAL) << "RegKind::Special register must not be used different types.";
+    }
+  } else {
+    LOG(FATAL)
+        << "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType though they have the same size types.";
+  }
+
+  // unreachable
+  return nullptr;
+}
+
+std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) {
+  // RegKind::Special register.
+  if (31 < number) {
+    if (SP_ORDER == number) {
+      return "SP";
+    } else if (PC_ORDER == number) {
+      return "PC";
+    } else if (STATE_ORDER == number) {
+      return "STATE";
+    } else if (RUNTIME_ORDER == number) {
+      return "RUNTIME";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (NZCV_ORDER == number) {
+      return "NZCV";
+    }
+  }
+  // General or Vector register.
+  else {
+    std::string reg_name = "";
+    reg_name += 'A' + static_cast<uint32_t>(ecv_reg_class);
+    reg_name += std::to_string(number);
+    return reg_name;
+  }
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
@@ -154,25 +273,43 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto isel_func_type = isel_func->getFunctionType();
   uint32_t arg_num;
 
+  auto &inherited_reg_map = bb_reg_info_node->bb_inherited_read_reg_map;
+  auto &read_write_reg_map = bb_reg_info_node->bb_read_write_reg_map;
+  auto &write_reg_map = bb_reg_info_node->bb_write_reg_map;
+
+  auto state_reg_info = std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
+  auto runtime_reg_info =
+      std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
+
   // set the State ptr or RuntimeManager ptr to the semantics function.
   switch (arch_inst.sema_func_arg_type) {
     case SemaFuncArgType::Nothing: arg_num = 0; break;
     case SemaFuncArgType::Runtime:
       arg_num = 1;
       args.push_back(nullptr);
+      inherited_reg_map.insert(runtime_reg_info);
+      read_write_reg_map.insert(runtime_reg_info);
       break;
     case SemaFuncArgType::State:
       arg_num = 1;
       args.push_back(state_ptr);
+      inherited_reg_map.insert(state_reg_info);
+      read_write_reg_map.insert(state_reg_info);
       break;
     case SemaFuncArgType::StateRuntime:
       arg_num = 2;
       args.push_back(state_ptr);
       args.push_back(nullptr);
+      inherited_reg_map.insert(runtime_reg_info);
+      inherited_reg_map.insert(state_reg_info);
+      read_write_reg_map.insert(runtime_reg_info);
+      read_write_reg_map.insert(state_reg_info);
       break;
     case SemaFuncArgType::Empty: LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"; break;
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
   }
+
+  std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
 
   for (auto &op : arch_inst.operands) {
     auto num_params = isel_func_type->getNumParams();
@@ -181,14 +318,21 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
 
     // update bb_reg_info_node
-    auto [_ecv_reg, _ecv_reg_class] = EcvReg::GetRegInfo(op.reg.name);
-    if (Operand::Action::kActionRead == op.action &&
-        !bb_reg_info_node->bb_write_regs.contains(_ecv_reg)) {
-      bb_reg_info_node->bb_derived_read_regs.insert({_ecv_reg, _ecv_reg_class});
-      bb_reg_info_node->bb_read_write_regs.insert({_ecv_reg, _ecv_reg_class});
+    // get reg_info from op.reg
+    auto ecv_reg_info = EcvReg::GetRegInfo(op.reg.name);
+    if (!ecv_reg_info) {
+      ecv_reg_info = EcvReg::GetSpecialRegInfo(op.reg.name);
+    }
+    auto &[_ecv_reg, _ecv_reg_class] = ecv_reg_info.value();
+
+    if (Operand::Action::kActionRead == op.action) {
+      CHECK(!write_reg_map.contains(_ecv_reg));
+      inherited_reg_map.insert({_ecv_reg, _ecv_reg_class});
+      read_write_reg_map.insert({_ecv_reg, _ecv_reg_class});
     } else if (Operand::Action::kActionWrite == op.action) {
-      bb_reg_info_node->bb_write_regs.insert({_ecv_reg, _ecv_reg_class});
-      bb_reg_info_node->bb_read_write_regs.insert({_ecv_reg, _ecv_reg_class});
+      write_reg_map.insert({_ecv_reg, _ecv_reg_class});
+      read_write_reg_map.insert({_ecv_reg, _ecv_reg_class});
+      write_regs.push_back({_ecv_reg, _ecv_reg_class});
       continue;
     } else {
       LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
@@ -197,6 +341,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     auto arg = NthArgument(isel_func, arg_num);
     auto arg_type = arg->getType();
     auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
+    // insert the instruction which explains the latest specified register.
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        _ecv_reg, std::make_tuple(_ecv_reg_class, operand, 0));
     arg_num += 1;
     auto op_type = operand->getType();
     CHECK_EQ(op_type, arg_type) << "Lifted operand " << op.Serialize() << " to "
@@ -204,7 +351,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                 << " does not have the correct type. Expected "
                                 << LLVMThingToString(arg_type) << " but got "
                                 << LLVMThingToString(op_type) << ".";
-
     args.push_back(operand);
   }
 
@@ -219,7 +365,18 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   }
 
   // Call the function that implements the instruction semantics.
-  ir.CreateCall(isel_func, args);
+  auto sema_inst = ir.CreateCall(isel_func, args);
+
+  // insert the instruction which explains the latest specified register.
+  for (int i = 0; i < write_regs.size(); i++) {
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
+  }
+
+  // update the sema_call_written_reg_map
+  CHECK(!bb_reg_info_node->sema_call_written_reg_map.contains(sema_inst))
+      << "Unexpected to multiple lift the call instruction.";
+  bb_reg_info_node->sema_call_written_reg_map.insert({sema_inst, write_regs});
 
   // End an atomic block.
   // (FIXME) In the current design, we don't consider the atomic instructions.
@@ -370,6 +527,15 @@ llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block, llvm::Valu
   auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
   CHECK_NOTNULL(ptr);
   return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), block);
+}
+
+llvm::Value *InstructionLifter::LoadRegValueBeforeInst(llvm::BasicBlock *block,
+                                                       llvm::Value *state_ptr,
+                                                       std::string_view reg_name,
+                                                       llvm::Instruction *instBefore) const {
+  auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
+  CHECK_NOTNULL(ptr);
+  return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), instBefore);
 }
 
 // Return a register value, or zero.
