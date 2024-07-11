@@ -71,6 +71,11 @@ class OperandLifter {
                                               std::string_view reg_name,
                                               llvm::Instruction *instBefore) const = 0;
 
+  virtual llvm::Instruction *
+  StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                          std::string_view reg_name, llvm::Value *stored_value,
+                          llvm::Instruction *instBefore) const = 0;
+
   virtual llvm::Type *GetRuntimeType() = 0;
 
   virtual void ClearCache(void) const = 0;
@@ -121,11 +126,8 @@ class EcvReg {
   GetRegInfo(const std::string &_reg_name);
 
   inline static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
-  std::string GetRegName(EcvRegClass ecv_reg_class);
-
-  llvm::Value *CastFromInst(const llvm::DataLayout &data_layout, llvm::Value *from_inst,
-                            llvm::Type *to_inst_ty, llvm::Instruction *after_inst,
-                            llvm::Value *to_inst = nullptr);
+  std::string GetRegName(EcvRegClass ecv_reg_class) const;
+  std::string GetWholeRegName() const;
 
   class Hash {
     std::size_t operator()(const EcvReg &ecv_reg) {
@@ -133,7 +135,7 @@ class EcvReg {
                  static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
              std::hash<uint8_t>()(ecv_reg.number);
     }
-  };
+  };  // namespace remill
 };
 
 template <typename VT>
@@ -145,19 +147,13 @@ class BBRegInfoNode {
   ~BBRegInfoNode() {}
 
   void join_reg_info_node(BBRegInfoNode *child) {
-    // Join bb_inherited_read_reg_map
-    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_inherited_read_reg_map) {
-      if (!bb_write_reg_map.contains(_ecv_reg)) {
-        bb_inherited_read_reg_map.insert({_ecv_reg, _ecv_reg_class});
-      }
+    // Join bb_load_reg_map
+    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
+      bb_load_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
     }
-    // Join bb_read_write_reg_map
-    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_read_write_reg_map) {
-      bb_read_write_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
-    }
-    // Join bb_write_reg_map
-    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_write_reg_map) {
-      bb_write_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+    // Join bb_store_reg_map
+    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
+      bb_store_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
     }
     // Join reg_latest_inst_map
     for (auto [_ecv_reg, reg_inst_value] : child->reg_latest_inst_map) {
@@ -169,11 +165,10 @@ class BBRegInfoNode {
     }
   }
 
-  // The register set which need to be derived from the parent among the read register set
-  EcvRegMap<EcvRegClass> bb_inherited_read_reg_map;
-  // The regsiter set which is read or write register set
-  EcvRegMap<EcvRegClass> bb_read_write_reg_map;
-  EcvRegMap<EcvRegClass> bb_write_reg_map;
+  // The register set which is `load`ed in this block.
+  EcvRegMap<EcvRegClass> bb_load_reg_map;
+  // The register set which is `store`d in this block.
+  EcvRegMap<EcvRegClass> bb_store_reg_map;
 
   // llvm::Value ptr which explains the latest register.
   EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> reg_latest_inst_map;
@@ -240,6 +235,11 @@ class InstructionLifter : public InstructionLifterIntf {
   llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                       std::string_view reg_name,
                                       llvm::Instruction *instBefore) const override final;
+
+  // Store the value of a register (Assume that the store_value already has been casted).
+  llvm::Instruction *StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                             std::string_view reg_name, llvm::Value *stored_value,
+                                             llvm::Instruction *instBefore) const override final;
 
   // Clear out the cache of the current register values/addresses loaded.
   void ClearCache(void) const override;

@@ -103,6 +103,49 @@ class TraceManager {
   uint64_t _io_file_xsputn_vma = 0;
 };
 
+class PhiRegsBBBagNode {
+ public:
+  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> &&__preceding_load_reg_map,
+                   EcvRegMap<EcvRegClass> &&__succeeding_load_reg_map,
+                   EcvRegMap<EcvRegClass> &&__req_preceding_store_reg_map,
+                   std::set<llvm::BasicBlock *> &&__in_bbs)
+      : bag_preceding_load_reg_map(std::move(__preceding_load_reg_map)),
+        bag_succeeding_load_reg_map(std::move(__succeeding_load_reg_map)),
+        bag_preceding_store_reg_map(std::move(__req_preceding_store_reg_map)),
+        in_bbs(std::move(__in_bbs)) {}
+
+  static void Reset() {
+    bb_regs_bag_map.clear();
+    bag_num = 0;
+  }
+
+  static void GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb);
+  static void GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb);
+  static void RemoveLoop(llvm::BasicBlock *bb);
+  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+
+  static std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
+  static std::size_t bag_num;
+
+  // The regsiter set which may be loaded on the way to the basic blocks of this bag node.
+  EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;
+  // The register set which may be loaded on the succeeding block (includes the own block).
+  EcvRegMap<EcvRegClass> bag_succeeding_load_reg_map;
+
+  // The register set which is stored in the way to the bag node (required).
+  EcvRegMap<EcvRegClass> bag_preceding_store_reg_map;
+  // The register set which should be referenced in this block (required).
+  EcvRegMap<EcvRegClass> bag_load_reg_map;
+  // bag_preceding_store_reg_map + bag_load_reg_map
+  EcvRegMap<EcvRegClass> bag_req_reg_map;
+
+  // The basic block set which is included in this bag.
+  std::set<llvm::BasicBlock *> in_bbs;
+
+  std::set<PhiRegsBBBagNode *> parents;
+  std::set<PhiRegsBBBagNode *> children;
+};
+
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
  protected:
@@ -129,41 +172,37 @@ class TraceLifter {
 
  private:
   TraceLifter(void) = delete;
+
+  friend class VirtualRegsOpt;
 };
 
-class PhiRegsBBBagNode {
+class VirtualRegsOpt {
  public:
-  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> &&__inherited_read_regs,
-                   EcvRegMap<EcvRegClass> &&__read_write_regs,
-                   std::set<llvm::BasicBlock *> &&__in_bbs)
-      : bag_inherited_read_reg_map(std::move(__inherited_read_regs)),
-        bag_read_write_reg_map(std::move(__read_write_regs)),
-        in_bbs(std::move(__in_bbs)) {}
+  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl) : func(__func), impl(__impl) {}
+  VirtualRegsOpt() {}
+  ~VirtualRegsOpt() {}
 
-  static void Reset() {
-    bb_regs_bag_map.clear();
-    bag_num = 0;
-  }
+  llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
+  llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
+                                          std::pair<EcvReg, EcvRegClass> ecv_reg_info);
+  llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
+                            llvm::Instruction *inst_at_before, llvm::Value *to_inst = nullptr);
 
-  static void GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb);
-  static void GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb);
-  static void RemoveLoop(llvm::BasicBlock *bb);
-  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+  llvm::Value *CastToStoredValue(llvm::Value *from_value, EcvReg target_ecv_reg,
+                                 llvm::Instruction *insert_at_before);
+  void OptimizeVirtualRegsUsage();
 
-  static std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
-  static std::size_t bag_num;
+  llvm::Function *func;
+  TraceLifter::Impl *impl;
+  std::set<llvm::CallInst *> lifted_func_caller_set;
 
-  // The register set which need to be derived from the parent among the read register set for the basic block bag node.
-  EcvRegMap<EcvRegClass> bag_inherited_read_reg_map;
-  // The regsiter set which is read or write register set for the basic block bag node.
-  EcvRegMap<EcvRegClass> bag_read_write_reg_map;
-  // The register set the every basic block included in this bag should get at the phi instruction.
-  EcvRegMap<EcvRegClass> bag_phi_reg_map;
-  // The basic block set which is included in this bag.
-  std::set<llvm::BasicBlock *> in_bbs;
+  std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
+  std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
 
-  std::set<PhiRegsBBBagNode *> parents;
-  std::set<PhiRegsBBBagNode *> children;
+  std::queue<llvm::BasicBlock *> phi_bb_queue;
+  std::set<llvm::BasicBlock *> relay_bbs;
+  std::unordered_map<llvm::BasicBlock *, std::set<std::pair<EcvReg, EcvRegClass>>>
+      relay_reg_load_inst_map;
 };
 
 class TraceLifter::Impl {
@@ -187,7 +226,8 @@ class TraceLifter::Impl {
         debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),
         debug_call_stack_push_name("debug_call_stack_push"),
-        debug_call_stack_pop_name("debug_call_stack_pop") {
+        debug_call_stack_pop_name("debug_call_stack_pop"),
+        data_layout(llvm::DataLayout(module)) {
     inst_bytes.reserve(max_inst_bytes);
   }
 
@@ -255,10 +295,8 @@ class TraceLifter::Impl {
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
 
-  llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
                                           std::pair<EcvReg, EcvRegClass> ecv_reg_info);
-  void GenPhiInstsOfBB(llvm::BasicBlock *bb);
 
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
@@ -285,14 +323,12 @@ class TraceLifter::Impl {
   DecoderWorkList dead_inst_work_list;
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
+  VirtualRegsOpt *virtual_regs_opt;
 
-  std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
-  std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
+  std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
+  std::set<llvm::Function *> no_indirect_lifted_funcs;
 
-  std::queue<llvm::BasicBlock *> phi_bb_queue;
-  std::set<llvm::BasicBlock *> relay_bbs;
-  std::unordered_map<llvm::BasicBlock *, std::set<std::pair<EcvReg, EcvRegClass>>>
-      relay_reg_load_inst_map;
+  const llvm::DataLayout data_layout;
 
   std::string runtime_manager_name;
 

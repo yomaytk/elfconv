@@ -148,7 +148,7 @@ void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager)
   }
 }
 
-// get the target basic block lable pointer for indirectbr instruction
+// get the target basic block label pointer for indirectbr instruction
 extern "C" uint64_t *__g_get_indirectbr_block_address(RuntimeManager *runtime_manager,
                                                       uint64_t fun_vma, uint64_t bb_vma) {
   if (runtime_manager->addr_block_addrs_map.count(fun_vma) == 1) {
@@ -169,7 +169,7 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(RuntimeManager *runtime_ma
   }
 }
 
-// push the callee symbole to the call stack for debug
+// push the callee symbol to the call stack for debug
 extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t fn_vma) {
   if (auto func_name = runtime_manager->addr_fn_symbol_map[fn_vma]; func_name) {
     if (strncmp(func_name, "fn_plt", 6) == 0) {
