@@ -1120,6 +1120,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           if (lifted_func_caller_set.contains(call_inst)) {
             // Store `store_map`
             for (auto [store_ecv_reg, _] : target_phi_regs_bag->bag_preceding_store_reg_map) {
+              if (store_ecv_reg.CheckNoChangedReg()) {
+                continue;
+              }
               auto [_, from_value, _] = ascend_reg_inst_map[store_ecv_reg];
               CHECK(from_value)
                   << "[Bug]: existing_value must not be empty. at VirtualRegsOpt::OptimizeVirtualRegsUsage.";
@@ -1130,6 +1133,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto call_next_inst = call_inst->getNextNode();
             // Load `store_map` + `load_map`
             for (auto [req_ecv_reg, req_ecv_reg_class] : target_phi_regs_bag->bag_req_reg_map) {
+              if (req_ecv_reg.CheckNoChangedReg()) {
+                continue;
+              }
               auto load_value = inst_lifter->LoadRegValueBeforeInst(
                   target_bb, state_ptr, req_ecv_reg.GetWholeRegName(), call_next_inst);
               auto req_value =

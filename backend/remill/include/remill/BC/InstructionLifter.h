@@ -128,6 +128,7 @@ class EcvReg {
   inline static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
   std::string GetWholeRegName() const;
+  inline bool CheckNoChangedReg() const;
 
   class Hash {
     std::size_t operator()(const EcvReg &ecv_reg) {

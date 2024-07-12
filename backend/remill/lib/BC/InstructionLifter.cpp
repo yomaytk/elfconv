@@ -130,6 +130,10 @@ std::string EcvReg::GetWholeRegName() const {
   }
 }
 
+bool EcvReg::CheckNoChangedReg() const {
+  return STATE_ORDER == number || RUNTIME_ORDER == number;
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
