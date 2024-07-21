@@ -56,7 +56,7 @@ DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_FPCR) {
   return fpcr.flat;
 }
 
-DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_FPCR, R64 src) {
+DEF_SEM_VOID_STATE_RUN(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   FPCR fpcr;
   WriteZExt(fpcr.flat, Read(src));
   fpcr._res0 = 0;
@@ -65,7 +65,7 @@ DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_FPCR, R64 src) {
 }
 
 DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_TPIDR_EL0) {
-  return Read(state.sr.tpidr_el0);
+  return Read(state.sr.tpidr_el0.qword);
 }
 
 DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
@@ -73,7 +73,7 @@ DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_TPIDR_EL0, R64 src) {
 }
 
 DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_CTR_EL0) {
-  return Read(state.sr.ctr_el0);
+  return Read(state.sr.ctr_el0.qword);
 }
 
 DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
@@ -81,7 +81,7 @@ DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_CTR_EL0, R64 src) {
 }
 
 DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_DCZID_EL0) {
-  return Read(state.sr.dczid_el0);
+  return Read(state.sr.dczid_el0.qword);
 }
 
 DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
@@ -89,7 +89,7 @@ DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_DCZID_EL0, R64 src) {
 }
 
 DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_MIDR_EL1) {
-  return Read(state.sr.midr_el1);
+  return Read(state.sr.midr_el1.qword);
 }
 
 DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {

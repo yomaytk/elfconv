@@ -60,21 +60,21 @@ DEF_SEM_T(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
 }
 
 // BFM  <Wd>, <Wn>, #<immr>, #<imms>
-template <typename RT, typename IT>
-DEF_SEM_T(BFM, RT src1, IT src2, IT src3, IT src4) {
-  using T = typename BaseType<IT>::BT;
-  auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */
-  auto src = Read(src1);
-  auto R = Read(src2);
-  auto wmask = Read(src3);
-  auto tmask = Read(src4);
+// template <typename RT, typename IT>
+// DEF_SEM_T(BFM, RT src1, IT src2, IT src3, IT src4) {
+//   using T = typename BaseType<IT>::BT;
+//   auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */
+//   auto src = Read(src1);
+//   auto R = Read(src2);
+//   auto wmask = Read(src3);
+//   auto tmask = Read(src4);
 
-  /* Perform bitfield move on low bits.*/
-  auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask));
+//   /* Perform bitfield move on low bits.*/
+//   auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask));
 
-  /* Combine extension bits and result bits. */
-  return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask));
-}
+//   /* Combine extension bits and result bits. */
+//   return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask));
+// }
 
 }  // namespace
 
@@ -84,8 +84,8 @@ DEF_ISEL(UBFM_64M_BITFIELD) = UBFM<R64, I64>;  // UBFM  <Xd>, <Xn>, #<immr>, #<i
 DEF_ISEL(SBFM_32M_BITFIELD) = SBFM<R32, I32>;  // SBFM  <Wd>, <Wn>, #<immr>, #<imms>
 DEF_ISEL(SBFM_64M_BITFIELD) = SBFM<R64, I64>;  // SBFM  <Xd>, <Xn>, #<immr>, #<imms>
 
-DEF_ISEL(BFM_32M_BITFIELD) = BFM<R32, I32>;  // BFM  <Wd>, <Wn>, #<immr>, #<imms>
-DEF_ISEL(BFM_64M_BITFIELD) = BFM<R64, I64>;  // BFM  <Xd>, <Xn>, #<immr>, #<imms>
+// DEF_ISEL(BFM_32M_BITFIELD) = BFM<R32, I32>;  // BFM  <Wd>, <Wn>, #<immr>, #<imms>
+// DEF_ISEL(BFM_64M_BITFIELD) = BFM<R64, I64>;  // BFM  <Xd>, <Xn>, #<immr>, #<imms>
 
 namespace {
 
@@ -128,8 +128,8 @@ namespace {
 // REV16 <Wd>, <Wn>
 DEF_SEM_U32(REV16_32, R32 src) {
   uint32_t src_num = Read(src);
-  auto first_half = src_num >> 16;
-  auto second_half = src_num & 0xFFFF;
+  uint16_t first_half = src_num >> 16;
+  uint16_t second_half = src_num & 0xFFFF;
   return ((uint32_t(__builtin_bswap16(first_half))) << 16) |
          uint32_t(__builtin_bswap16(second_half));
 }
@@ -155,8 +155,8 @@ DEF_SEM_U32(REV32_32, R32 src) {
 // REV32  <Xd>, <Xn>
 DEF_SEM_U64(REV32_64, R64 src) {
   uint64_t src_num = Read(src);
-  auto first_half = src_num >> 32;
-  auto second_half = src_num & 0xFFFFFFFF;
+  uint32_t first_half = src_num >> 32;
+  uint32_t second_half = src_num & 0xFFFFFFFF;
   return ((uint64_t(__builtin_bswap32(first_half))) << uint32_t(32)) |
          uint64_t(__builtin_bswap32(second_half));
 }

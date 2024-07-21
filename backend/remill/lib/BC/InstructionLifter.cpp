@@ -70,8 +70,8 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg
     return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
   } else if ("BRANCH_TAKEN_ORDER" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
-  } else if ("NZCV" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, NZCV_ORDER), EcvRegClass::RegX);
+  } else if ("ECV_NZCV" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
   } else {
     LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo.";
   }
@@ -96,9 +96,12 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
     return "RUNTIME";
   } else if (BRANCH_TAKEN_ORDER == number) {
     return "BRANCH_TAKEN";
-  } else if (NZCV_ORDER == number) {
-    return "NZCV";
+  } else if (ECV_NZCV_ORDER == number) {
+    return "ECV_NZCV";
   }
+
+  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
+  return "";
 }
 
 std::string EcvReg::GetWholeRegName() const {
@@ -125,9 +128,12 @@ std::string EcvReg::GetWholeRegName() const {
     return "RUNTIME";
   } else if (BRANCH_TAKEN_ORDER == number) {
     return "BRANCH_TAKEN";
-  } else if (NZCV_ORDER == number) {
-    return "NZCV";
+  } else if (ECV_NZCV_ORDER == number) {
+    return "ECV_NZCV";
   }
+
+  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWholeRegName.";
+  return "";
 }
 
 bool EcvReg::CheckNoChangedReg() const {
@@ -332,7 +338,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto sema_inst = ir.CreateCall(isel_func, args);
 
   // insert the instruction which explains the latest specified register.
-  for (int i = 0; i < write_regs.size(); i++) {
+  for (std::size_t i = 0; i < write_regs.size(); i++) {
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
   }

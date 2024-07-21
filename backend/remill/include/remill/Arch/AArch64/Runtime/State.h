@@ -322,14 +322,14 @@ struct alignas(16) AArch64State : public ArchState {
 
   SleighFlagState sleigh_flags;  // 24 bytes.
 
-  uint64_t sr_nzcv;
+  uint64_t ecv_nzcv;
 
   // uint8_t padding[8];
 
 } __attribute__((packed));
 
 static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ +
-               8 /* sr_nzcv */) == sizeof(AArch64State),
+               8 /* ecv_nzcv */) == sizeof(AArch64State),
               "Invalid packing of `struct State`");
 
 struct State : public AArch64State {};

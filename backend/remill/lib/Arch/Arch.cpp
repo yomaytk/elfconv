@@ -435,7 +435,8 @@ static bool BlockHasSpecialVars(llvm::Function *basic_block) {
          FindVarInFunction(basic_block, kRuntimeVariableName, true).first &&
          FindVarInFunction(basic_block, kPCVariableName, true).first &&
          FindVarInFunction(basic_block, kNextPCVariableName, true).first &&
-         FindVarInFunction(basic_block, kBranchTakenVariableName, true).first;
+         FindVarInFunction(basic_block, kBranchTakenVariableName, true).first &&
+         FindVarInFunction(basic_block, kEcvNZCVVariableName, true).first;
 }
 
 // Add attributes to llvm::Argument in a way portable across LLVMs
@@ -724,7 +725,6 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
 
   llvm::IRBuilder<> ir(block);
   ir.CreateAlloca(u8, nullptr, "BRANCH_TAKEN");
-  ir.CreateAlloca(addr, nullptr, "RETURN_PC");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by

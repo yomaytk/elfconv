@@ -124,8 +124,8 @@ class PhiRegsBBBagNode {
   static void RemoveLoop(llvm::BasicBlock *bb);
   static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
 
-  static std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
-  static std::size_t bag_num;
+  static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
+  static inline std::size_t bag_num = 0;
 
   // The regsiter set which may be loaded on the way to the basic blocks of this bag node.
   EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;
@@ -201,8 +201,7 @@ class VirtualRegsOpt {
 
   std::queue<llvm::BasicBlock *> phi_bb_queue;
   std::set<llvm::BasicBlock *> relay_bbs;
-  std::unordered_map<llvm::BasicBlock *, std::set<std::pair<EcvReg, EcvRegClass>>>
-      relay_reg_load_inst_map;
+  std::unordered_map<llvm::BasicBlock *, std::set<EcvReg>> relay_reg_need_load_inst_map;
 };
 
 class TraceLifter::Impl {
@@ -328,8 +327,6 @@ class TraceLifter::Impl {
   std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
   std::set<llvm::Function *> no_indirect_lifted_funcs;
 
-  const llvm::DataLayout data_layout;
-
   std::string runtime_manager_name;
 
   std::string indirectbr_block_name;
@@ -338,6 +335,8 @@ class TraceLifter::Impl {
   std::string debug_insn_name;
   std::string debug_call_stack_push_name;
   std::string debug_call_stack_pop_name;
+
+  const llvm::DataLayout data_layout;
 
   bool tmp_patch_fn_check = false;
 };

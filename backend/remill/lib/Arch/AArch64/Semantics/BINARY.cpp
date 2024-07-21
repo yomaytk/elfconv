@@ -62,57 +62,83 @@ DEF_ISEL(SUB_64_ADDSUB_EXT) =
 
 namespace {
 
-template <typename T>
-auto AddWithCarryNZCV(T lhs, T rhs, T actual_rhs, T carry) {
-  auto unsigned_result = UAdd(UAdd(ZExt(lhs), ZExt(rhs)), ZExt(carry));
-  auto signed_result = SAdd(SAdd(SExt(lhs), SExt(rhs)), Signed(ZExt(carry)));
-  auto result = TruncTo<T>(unsigned_result);
-  uint64_t flag_n = ZExtTo<uint64_t>(SignFlag(result, lhs, actual_rhs));
-  uint64_t flag_z = ZExtTo<uint64_t>(ZeroFlag(result, lhs, actual_rhs));
-  uint64_t flag_c = ZExtTo<uint64_t>(UCmpNeq(ZExt(result), unsigned_result));
-  uint64_t flag_v = ZExtTo<uint64_t>(__remill_flag_computation_overflow(
-      SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result));
-  uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v);
-  return {result, flag_nzcv};
-}
+#define MAKE_ADDWITHCARRYNZCV(res_type, res_size) \
+  auto AddWithCarryNZCV##res_size(res_type lhs, res_type rhs, res_type actual_rhs, \
+                                  res_type carry) { \
+    auto unsigned_result = UAdd(UAdd(ZExt(lhs), ZExt(rhs)), ZExt(carry)); \
+    auto signed_result = SAdd(SAdd(SExt(lhs), SExt(rhs)), Signed(ZExt(carry))); \
+    auto result = TruncTo<res_type>(unsigned_result); \
+    uint64_t flag_n = ZExtTo<uint64_t>(SignFlag(result, lhs, actual_rhs)); \
+    uint64_t flag_z = ZExtTo<uint64_t>(ZeroFlag(result, lhs, actual_rhs)); \
+    uint64_t flag_c = ZExtTo<uint64_t>(UCmpNeq(ZExt(result), unsigned_result)); \
+    uint64_t flag_v = ZExtTo<uint64_t>(__remill_flag_computation_overflow( \
+        SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result)); \
+    uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v); \
+    return U##res_size##U64{result, flag_nzcv}; \
+  }
+
+MAKE_ADDWITHCARRYNZCV(uint32_t, 32)
+MAKE_ADDWITHCARRYNZCV(uint64_t, 64)
+
+#undef MAKE_ADDWITHCARRYNZCV
 
 // SUBS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
 template <typename S1, typename S2>
-DEF_SEM_T(SUBS, S1 src1, S2 src2) {
+DEF_SEM_T(SUBS32, S1 src1, S2 src2) {
   using T = typename BaseType<S2>::BT;
+  static_assert(sizeof(uint32_t) == sizeof(T));
   auto lhs = Read(src1);
   auto rhs = Read(src2);
-  return AddWithCarryNZCV(lhs, UNot(rhs), rhs, T(1));
+  return AddWithCarryNZCV32(lhs, UNot(rhs), rhs, T(1));
+}
+
+template <typename S1, typename S2>
+DEF_SEM_T(SUBS64, S1 src1, S2 src2) {
+  using T = typename BaseType<S2>::BT;
+  static_assert(sizeof(uint64_t) == sizeof(T));
+  auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  return AddWithCarryNZCV64(lhs, UNot(rhs), rhs, T(1));
 }
 
 // ADDS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
 template <typename S1, typename S2>
-DEF_SEM_T(ADDS, S1 src1, S2 src2) {
+DEF_SEM_T(ADDS32, S1 src1, S2 src2) {
   using T = typename BaseType<S2>::BT;
+  static_assert(sizeof(uint32_t) == sizeof(T));
   auto lhs = Read(src1);
   auto rhs = Read(src2);
-  return AddWithCarryNZCV(lhs, rhs, rhs, T(0));
+  return AddWithCarryNZCV32(lhs, rhs, rhs, T(0));
+}
+
+template <typename S1, typename S2>
+DEF_SEM_T(ADDS64, S1 src1, S2 src2) {
+  using T = typename BaseType<S2>::BT;
+  static_assert(sizeof(uint64_t) == sizeof(T));
+  auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  return AddWithCarryNZCV64(lhs, rhs, rhs, T(0));
 }
 
 }  // namespace
 
-DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS<R32, I32>;  // SUBS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
-DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS<R64, I64>;  // SUBS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
-DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(SUBS_32_ADDSUB_SHIFT) = SUBS32<R32, I32>;  // SUBS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(SUBS_64_ADDSUB_SHIFT) = SUBS64<R64, I64>;  // SUBS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(SUBS_32S_ADDSUB_IMM) = SUBS32<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(SUBS_64S_ADDSUB_IMM) = SUBS64<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
 DEF_ISEL(SUBS_32S_ADDSUB_EXT) =
-    SUBS<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+    SUBS32<R32, I32>;  // SUBS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
 DEF_ISEL(SUBS_64S_ADDSUB_EXT) =
-    SUBS<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
+    SUBS64<R64, I64>;  // SUBS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
-DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS<R32, I32>;  // ADDS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
-DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS<R64, I64>;  // ADDS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
-DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
-DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
+DEF_ISEL(ADDS_32_ADDSUB_SHIFT) = ADDS32<R32, I32>;  // ADDS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ADDS_64_ADDSUB_SHIFT) = ADDS64<R64, I64>;  // ADDS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(ADDS_32S_ADDSUB_IMM) = ADDS32<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, #<imm>{, <shift>}
+DEF_ISEL(ADDS_64S_ADDSUB_IMM) = ADDS64<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, #<imm>{, <shift>}
 DEF_ISEL(ADDS_32S_ADDSUB_EXT) =
-    ADDS<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
+    ADDS32<R32, I32>;  // ADDS  <Wd>, <Wn|WSP>, <Wm>{, <extend> {#<amount>}}
 DEF_ISEL(ADDS_64S_ADDSUB_EXT) =
-    ADDS<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
+    ADDS64<R64, I64>;  // ADDS  <Xd>, <Xn|SP>, <R><m>{, <extend> {#<amount>}}
 
 namespace {
 
@@ -221,9 +247,15 @@ DEF_SEM_T(SBC, S src1, S src2, I8 flag_c) {
 
 // SBCS  <Wd>, <Wn>, <Wm>
 template <typename S>
-DEF_SEM_T(SBCS, S src1, S src2, I8 flag_c) {
+DEF_SEM_T(SBCS32, S src1, S src2, I8 flag_c) {
   auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
-  return AddWithCarryNZCV(Read(src1), UNot(Read(src2)), Read(src2), carry);
+  return AddWithCarryNZCV32(Read(src1), UNot(Read(src2)), Read(src2), carry);
+}
+
+template <typename S>
+DEF_SEM_T(SBCS64, S src1, S src2, I8 flag_c) {
+  auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
+  return AddWithCarryNZCV64(Read(src1), UNot(Read(src2)), Read(src2), carry);
 }
 
 // ADC  <Wd>, <Wn>, <Wm>
@@ -247,8 +279,8 @@ DEF_SEM_T(ADC, S src1, S src2, I8 flag_c) {
 DEF_ISEL(SBC_32_ADDSUB_CARRY) = SBC<R32>;  // SBC  <Wd>, <Wn>, <Wm>
 DEF_ISEL(SBC_64_ADDSUB_CARRY) = SBC<R64>;  // SBC  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS<R32>;  // SBCS  <Wd>, <Wn>, <Wm>
-DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS<R64>;  // SBCS  <Xd>, <Xn>, <Xm>
+DEF_ISEL(SBCS_32_ADDSUB_CARRY) = SBCS32<R32>;  // SBCS  <Wd>, <Wn>, <Wm>
+DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS64<R64>;  // SBCS  <Xd>, <Xn>, <Xm>
 
 DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<R32>;  // ADC  <Wd>, <Wn>, <Wm>
 DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;  // ADC  <Xd>, <Xn>, <Xm>
@@ -256,37 +288,37 @@ DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;  // ADC  <Xd>, <Xn>, <Xm>
 namespace {
 
 // FADD  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32(FADD_Scalar32, RF32 src1, RF32 src2) {
+DEF_SEM_F32_STATE(FADD_Scalar32, RF32 src1, RF32 src2) {
   return CheckedFloatBinOp(FAdd32, Read(src1), Read(src2));
 }
 
 // FADD  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64(FADD_Scalar64, RF64 src1, RF64 src2) {
+DEF_SEM_F64_STATE(FADD_Scalar64, RF64 src1, RF64 src2) {
   return CheckedFloatBinOp(FAdd64, Read(src1), Read(src2));
 }
 
 // FSUB  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32(FSUB_Scalar32, RF32 src1, RF32 src2) {
+DEF_SEM_F32_STATE(FSUB_Scalar32, RF32 src1, RF32 src2) {
   return CheckedFloatBinOp(FSub32, Read(src1), Read(src2));
 }
 
 // FSUB  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64(FSUB_Scalar64, RF64 src1, RF64 src2) {
+DEF_SEM_F64_STATE(FSUB_Scalar64, RF64 src1, RF64 src2) {
   return CheckedFloatBinOp(FSub64, Read(src1), Read(src2));
 }
 
 // FMUL  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32(FMUL_Scalar32, RF32 src1, RF32 src2) {
+DEF_SEM_F32_STATE(FMUL_Scalar32, RF32 src1, RF32 src2) {
   return CheckedFloatBinOp(FMul32, Read(src1), Read(src2));
 }
 
 // FMUL  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64(FMUL_Scalar64, RF64 src1, RF64 src2) {
+DEF_SEM_F64_STATE(FMUL_Scalar64, RF64 src1, RF64 src2) {
   return CheckedFloatBinOp(FMul64, Read(src1), Read(src2));
 }
 
 // FDIV  <Sd>, <Sn>, <Sm>
-DEF_SEM_F32(FDIV_Scalar32, RF32 src1, RF32 src2) {
+DEF_SEM_F32_STATE(FDIV_Scalar32, RF32 src1, RF32 src2) {
   return CheckedFloatBinOp(FDiv32, Read(src1), Read(src2));
 }
 
@@ -407,14 +439,14 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
 }
 
 // FDIV  <Dd>, <Dn>, <Dm>
-DEF_SEM_F64(FDIV_Scalar64, RF64 src1, RF64 src2) {
+DEF_SEM_F64_STATE(FDIV_Scalar64, RF64 src1, RF64 src2) {
   auto val1 = Read(src1);
   auto val2 = Read(src2);
   return CheckedFloatBinOp(FDiv64, val1, val2);
 }
 
 template <typename S>
-uint64_t FCompare(S val1, S val2, bool signal = true) {
+uint64_t FCompare(State &state, S val1, S val2, bool signal = true) {
 
   uint64_t flag_n, flag_z, flag_c, flag_v;
 
@@ -463,47 +495,47 @@ uint64_t FCompare(S val1, S val2, bool signal = true) {
 }
 
 // FCMPE  <Sn>, <Sm>
-DEF_SEM_U64(FCMPE_S, RF32 src1, RF32 src2) {
-  return FCompare(Read(src), Read(src2));
+DEF_SEM_U64_STATE(FCMPE_S, RF32 src1, RF32 src2) {
+  return FCompare(state, Read(src1), Read(src2));
 }
 
 // FCMPE  <Sn>, #0.0
-DEF_SEM_U64(FCMPE_SZ, RF32 src1) {
+DEF_SEM_U64_STATE(FCMPE_SZ, RF32 src1) {
   float32_t float_zero = 0.0;
-  return FCompare(Read(src1), float_zero);
+  return FCompare(state, Read(src1), float_zero);
 }
 
 // FCMP  <Sn>, <Sm>
-DEF_SEM_U64(FCMP_S, RF32 src1, RF32 src2) {
-  return FCompare(Read(src1), Read(src2), false);
+DEF_SEM_U64_STATE(FCMP_S, RF32 src1, RF32 src2) {
+  return FCompare(state, Read(src1), Read(src2), false);
 }
 
 // FCMP  <Sn>, #0.0
-DEF_SEM_U64(FCMP_SZ, RF32 src1) {
+DEF_SEM_U64_STATE(FCMP_SZ, RF32 src1) {
   float32_t float_zero = 0.0;
-  return FCompare(Read(src1), float_zero, false);
+  return FCompare(state, Read(src1), float_zero, false);
 }
 
 // FCMPE  <Dn>, <Dm>
-DEF_SEM_U64(FCMPE_D, RF64 src1, RF64 src2) {
-  return FCompare(Read(src1), Read(src2));
+DEF_SEM_U64_STATE(FCMPE_D, RF64 src1, RF64 src2) {
+  return FCompare(state, Read(src1), Read(src2));
 }
 
 // FCMPE  <Dn>, #0.0
-DEF_SEM_U64(FCMPE_DZ, RF64 src1) {
+DEF_SEM_U64_STATE(FCMPE_DZ, RF64 src1) {
   float64_t float_zero = 0.0;
-  return FCompare(Read(src1), float_zero);
+  return FCompare(state, Read(src1), float_zero);
 }
 
 // FCMP  <Dn>, <Dm>
-DEF_SEM_U64(FCMP_D, RF64 src1, RF64 src2) {
-  return FCompare(Read(src1), Read(src2), false);
+DEF_SEM_U64_STATE(FCMP_D, RF64 src1, RF64 src2) {
+  return FCompare(state, Read(src1), Read(src2), false);
 }
 
 // FCMP  <Dn>, #0.0
-DEF_SEM_U64(FCMP_DZ, RF64 src1) {
+DEF_SEM_U64_STATE(FCMP_DZ, RF64 src1) {
   float64_t float_zero = 0.0;
-  return FCompare(Read(src1), float_zero, false);
+  return FCompare(state, Read(src1), float_zero, false);
 }
 
 // FABS  <Sd>, <Sn>

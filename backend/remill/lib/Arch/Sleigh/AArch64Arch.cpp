@@ -49,6 +49,10 @@ AArch64Arch::DefaultLifter(const remill::IntrinsicTable &intrinsics_table) const
   return std::make_shared<InstructionLifter>(this, intrinsics_table);
 }
 
+void AArch64Arch::InstanceInstAArch64(Instruction &inst) const {
+  LOG(FATAL) << "AArch64Arch::InstanceInstAArch64 must not be called.";
+}
+
 bool AArch64Arch::DecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                     Instruction &inst, DecodingContext context) const {
   inst.pc = address;

@@ -38,23 +38,23 @@ DEF_SEM_T(UCVTF_UIntToFloat, S src) {
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_V128(UCVTF_Uint32ToFloat32_FROMV, VI32 src) {
+DEF_SEM_V128(UCVTF_Uint32ToFloat32_FROMV, VI128 src) {
   _ecv_f32v4_t res = {};
-  auto elems_num = GetVectorElemsNum(src);
+  auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
     res[i] = CheckedCast<uint32_t, float32_t>(UExtractVI32(src, i));
   }
-  return res;
+  return static_cast<_ecv_u128v1_t>(res);
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_V128(UCVTF_Uint64ToFloat64_FROMV, VI64 src) {
+DEF_SEM_V128(UCVTF_Uint64ToFloat64_FROMV, VI128 src) {
   _ecv_f64v2_t res = {};
-  auto elems_num = GetVectorElemsNum(src);
+  auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
     res[i] = CheckedCast<uint64_t, float64_t>(UExtractVI64(src, i));
   }
-  return res;
+  return static_cast<_ecv_u128v1_t>(res);
 }
 
 // FCVTZU  <Xd>, <Sn>
@@ -142,21 +142,21 @@ DEF_SEM_T(SCVTF_IntToFloat, S src) {
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_V128(SCVTF_Int32ToFloat32_FROMV, VI32 src) {
+DEF_SEM_V128(SCVTF_Int32ToFloat32_FROMV, VI128 src) {
   _ecv_f32v4_t res = {};
-  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src); i++) {
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
     res[i] = CheckedCast<int32_t, float32_t>(SExtractVI32(src, i));
   }
-  return res;
+  return static_cast<_ecv_u128v1_t>(res);
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_V128(SCVTF_Int64ToFloat64_FROMV, VI64 src) {
+DEF_SEM_V128(SCVTF_Int64ToFloat64_FROMV, VI128 src) {
   _ecv_f64v2_t res = {};
-  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src); i++) {
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
     res[i] = CheckedCast<int64_t, float64_t>(SExtractVI64(src, i));
   }
-  return res;
+  return static_cast<_ecv_u128v1_t>(res);
 }
 
 }  // namespace
@@ -164,10 +164,10 @@ DEF_SEM_V128(SCVTF_Int64ToFloat64_FROMV, VI64 src) {
 // TODO(pag): SCVTF_H32_FLOAT2INT.
 // TODO(pag): SCVTF_H64_FLOAT2INT.
 
-DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF32, int32_t>;  // SCVTF  <Sd>, <Wn>
-DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF32, int32_t>;  // SCVTF  <Dd>, <Wn>
-DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_IntToFloat<float32_t, RF64, int64_t>;  // SCVTF  <Sd>, <Xn>
-DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_IntToFloat<float64_t, RF64, int64_t>;  // SCVTF  <Dd>, <Xn>
+DEF_ISEL(SCVTF_S32_FLOAT2INT) = SCVTF_IntToFloat<float32_t, R32, int32_t>;  // SCVTF  <Sd>, <Wn>
+DEF_ISEL(SCVTF_D32_FLOAT2INT) = SCVTF_IntToFloat<float64_t, R32, int32_t>;  // SCVTF  <Dd>, <Wn>
+DEF_ISEL(SCVTF_S64_FLOAT2INT) = SCVTF_IntToFloat<float32_t, R64, int64_t>;  // SCVTF  <Sd>, <Xn>
+DEF_ISEL(SCVTF_D64_FLOAT2INT) = SCVTF_IntToFloat<float64_t, R64, int64_t>;  // SCVTF  <Dd>, <Xn>
 
 DEF_ISEL(SCVTF_ASISDMISC_R_32) = SCVTF_Int32ToFloat32_FROMV;  // SCVTF  <V><d>, <V><n>
 DEF_ISEL(SCVTF_ASISDMISC_R_64) = SCVTF_Int64ToFloat64_FROMV;  // SCVTF  <V><d>, <V><n>

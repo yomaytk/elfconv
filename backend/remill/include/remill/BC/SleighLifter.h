@@ -94,9 +94,17 @@ class SleighLifterWithState final : public InstructionLifterIntf {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, uint64_t __debug_insn_addr,
-                                   bool is_delayed = false) override;
+                                   llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
+                                   uint64_t __debug_insn_addr, bool is_delayed = false) override;
 
+  virtual llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                              std::string_view reg_name,
+                                              llvm::Instruction *instBefore) const override final;
+
+  virtual llvm::Instruction *
+  StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                          std::string_view reg_name, llvm::Value *stored_value,
+                          llvm::Instruction *instBefore) const override final;
 
   // Load the address of a register.
   virtual std::pair<llvm::Value *, llvm::Type *>

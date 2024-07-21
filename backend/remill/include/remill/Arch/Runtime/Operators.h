@@ -25,12 +25,6 @@ class RuntimeManager;
 
 namespace {
 
-template <typename PT, typename WRT>
-void same_base_type_assert() {
-  static_assert(std::is_same<PT, typename EcvBaseType<WRT>::BT>::value,
-                "Expected that `PT` is same to the BaseType `WRT`.");
-}
-
 // Note. assume the environment which can uses 128bit type
 // #if !defined(REMILL_DISABLE_INT128)
 // ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
@@ -192,13 +186,13 @@ MAKE_MREAD(64, 64, float, f64)
 
 // Basic write form for references.
 template <typename T>
-ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, T &dst, T src) {
+ALWAYS_INLINE static void _Write(T &dst, T src) {
   dst = src;
 }
 
 // Make write operators for writing values to registers.
 #define MAKE_RWRITE(type) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, RnW<type> reg, type val) { \
+  ALWAYS_INLINE static void _Write(RnW<type> reg, type val) { \
     *(reg.val_ref) = val; \
   }
 
@@ -214,8 +208,8 @@ MAKE_RWRITE(float64_t)
 
 // Make write operators for writing values to memory.
 #define MAKE_MWRITE(size, write_size, mem_prefix, type_prefix, access_suffix) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
-                                   type_prefix##write_size##_t val) { \
+  ALWAYS_INLINE static void _MWrite(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
+                                    type_prefix##write_size##_t val) { \
     __remill_write_memory_##access_suffix(runtime_manager, op.addr, val); \
   }
 
@@ -267,37 +261,37 @@ MAKE_READRV(F, 64, doubles, float64_t)
 // read the val from the vector register
 // _UReadV(<VnW | Vn> vec), _FReadV(<VnW | Vn> vec), ...
 // return type: dwords (uin32v2_t, uint32v4_t, ...), qwords (uint64v1_t, uint64v2_t, ...), ...
-#define MAKE_READV(prefix, size, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(VnW<T> vec)->decltype(T().accessor) { \
-    return reinterpret_cast<T *>(vec.val_ref)->accessor; \
-  } \
-\
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(Vn<T> vec)->decltype(T().accessor) { \
-    return reinterpret_cast<const T *>(vec.val)->accessor; \
-  }
+// #define MAKE_READV(prefix, size, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(VnW<T> vec)->decltype(T().accessor) { \
+//     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
+//   } \
+// \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(Vn<T> vec)->decltype(T().accessor) { \
+//     return reinterpret_cast<const T *>(vec.val)->accessor; \
+//   }
 
-MAKE_READV(U, 8, bytes)
-MAKE_READV(U, 16, words)
-MAKE_READV(U, 32, dwords)
-MAKE_READV(U, 64, qwords)
+// MAKE_READV(U, 8, bytes)
+// MAKE_READV(U, 16, words)
+// MAKE_READV(U, 32, dwords)
+// MAKE_READV(U, 64, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_READV(U, 128, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_READV(U, 128, dqwords)
+// #endif
 
-MAKE_READV(S, 8, sbytes)
-MAKE_READV(S, 16, swords)
-MAKE_READV(S, 32, sdwords)
-MAKE_READV(S, 64, sqwords)
+// MAKE_READV(S, 8, sbytes)
+// MAKE_READV(S, 16, swords)
+// MAKE_READV(S, 32, sdwords)
+// MAKE_READV(S, 64, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_READV(S, 128, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_READV(S, 128, sdqwords)
+// #endif
 
-MAKE_READV(F, 32, floats)
-MAKE_READV(F, 64, doubles)
+// MAKE_READV(F, 32, floats)
+// MAKE_READV(F, 64, doubles)
 // MAKE_READV(F, 80, tdouble)
 
 #undef MAKE_READV
@@ -305,61 +299,60 @@ MAKE_READV(F, 64, doubles)
 // MAKE_MREADV(U, 16, words, 16) \
 // e.g. uint16v*_t _UReadV16(runtime_manager, memV), float32v*_t _FReadV32(runtime_manager, memV), ...
 // res_vec = memV
-#define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVn<T> mem) \
-      ->decltype(T().vec_accessor) { \
-    decltype(T().vec_accessor) vec = {}; \
-    const addr_t el_size = sizeof(vec.elems[0]); \
-    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-      vec.elems[i] = \
-          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
-    } \
-    return vec; \
-  } \
-\
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVnW<T> mem) \
-      ->decltype(T().vec_accessor) { \
-    decltype(T().vec_accessor) vec = {}; \
-    const addr_t el_size = sizeof(vec.elems[0]); \
-    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-      vec.elems[i] = \
-          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
-    } \
-    return vec; \
-  }
+// #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVn<T> mem) \
+//       ->decltype(T().vec_accessor) { \
+//     decltype(T().vec_accessor) vec = {}; \
+//     const addr_t el_size = sizeof(vec.elems[0]); \
+//     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
+//       vec.elems[i] = \
+//           __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+//     } \
+//     return vec; \
+//   } \
+// \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVnW<T> mem) \
+//       ->decltype(T().vec_accessor) { \
+//     decltype(T().vec_accessor) vec = {}; \
+//     const addr_t el_size = sizeof(vec.elems[0]); \
+//     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
+//       vec.elems[i] = \
+//           __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+//     } \
+//     return vec; \
+//   }
 
-MAKE_MREADV(U, 8, bytes, 8)
-MAKE_MREADV(U, 16, words, 16)
-MAKE_MREADV(U, 32, dwords, 32)
-MAKE_MREADV(U, 64, qwords, 64)
+// MAKE_MREADV(U, 8, bytes, 8)
+// MAKE_MREADV(U, 16, words, 16)
+// MAKE_MREADV(U, 32, dwords, 32)
+// MAKE_MREADV(U, 64, qwords, 64)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_MREADV(U, 128, dqwords, 128)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_MREADV(U, 128, dqwords, 128)
+// #endif
 
-MAKE_MREADV(S, 8, sbytes, s8)
-MAKE_MREADV(S, 16, swords, s16)
-MAKE_MREADV(S, 32, sdwords, s32)
-MAKE_MREADV(S, 64, sqwords, s64)
+// MAKE_MREADV(S, 8, sbytes, s8)
+// MAKE_MREADV(S, 16, swords, s16)
+// MAKE_MREADV(S, 32, sdwords, s32)
+// MAKE_MREADV(S, 64, sqwords, s64)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_MREADV(S, 128, sdqwords, s128)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_MREADV(S, 128, sdqwords, s128)
+// #endif
 
-MAKE_MREADV(F, 32, floats, f32)
-MAKE_MREADV(F, 64, doubles, f64)
-// MAKE_MREADV(F, 80, tdoubles, f80)
+// MAKE_MREADV(F, 32, floats, f32)
+// MAKE_MREADV(F, 64, doubles, f64)
+// // MAKE_MREADV(F, 80, tdoubles, f80)
 
-#undef MAKE_MREADV
+// #undef MAKE_MREADV
 
 #define MAKE_READVI(prefix, size, base_type) \
   template <typename T> \
   ALWAYS_INLINE static T _##prefix##ReadVI##size(VI<T> vec) { \
-    same_base_type_assert<base_type, T>(); \
-    return *reinterpret_cast<T *>(&vec.vec_bit); \
-  }
+    return *reinterpret_cast<T *>(&vec.val); \
+  }  // namespace
 
 MAKE_READVI(U, 8, uint8_t)
 MAKE_READVI(U, 16, uint16_t)
@@ -387,9 +380,21 @@ MAKE_READVI(F, 64, float64_t)
 
 #define MAKE_READMVI(prefix, size, base_type, mem_accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, \
-                                                     MVIW<T> mem) { \
-    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizoef(base_type)>::VT; \
+  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVIW<T> mem) \
+      ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    vector_type vec = {}; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
+                                                   mem.addr + (i * sizeof(base_type))); \
+    } \
+    return vec; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVI<T> mem) \
+      ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
     vector_type vec = {}; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
       vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
@@ -429,8 +434,7 @@ MAKE_READMVI(F, 64, float64_t, f64)
 // -> vec = {{vec2}, 0, 0, ...}
 #define MAKE_WRITEV(prefix, size, accessor, kind, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size( \
-      RuntimeManager *runtime_manager, kind<T> vec, base_type val) { \
+  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size(kind<T> vec, base_type val) { \
     auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
     sub_vec.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 1; i < NumVectorElems(sub_vec); ++i) { \
@@ -439,8 +443,7 @@ MAKE_READMVI(F, 64, float64_t, f64)
   } \
 \
   template <typename T, typename V> \
-  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size( \
-      RuntimeManager *runtime_manager, kind<T> vec, const V &val) { \
+  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size(kind<T> vec, const V &val) { \
     static_assert(sizeof(T) >= sizeof(V), "Object to WriteV is too big."); \
     typedef decltype(T().accessor.elems[0]) BT; \
     typedef decltype(V().elems[0]) VT; \
@@ -555,8 +558,8 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
   template <typename VT> \
   ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
                                                       MVIW<VT> mem, base_type val) { \
-    static_assert(sizeof(VT) >= sizeof(base_type)); \
-    using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>; \
+    static_assert(sizeof(VT) >= sizeof(base_type), "Invaild vector size of WriteMVI method."); \
+    using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>::VT; \
     vector_type vec{}; \
     vec[0] = val; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
@@ -565,7 +568,7 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
     } \
   } \
 \
-  template <typename VT1, typename VT2> /* _UWriteV32(runtime_manager, dstv, srcv) */ \
+  template <typename VT1, typename VT2> /* _UWriteMVI32(runtime_manager, dstv, srcv) */ \
   ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
                                                       MVIW<VT1> mem, const VT2 &vec) { \
     static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVIW."); \
@@ -602,7 +605,7 @@ MAKE_WRITEMVI(F, 64, f64, float64_t)
 #undef MAKE_WRITEMVI
 
 #define MAKE_WRITE_REF(type) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, type &ref, type val) { \
+  ALWAYS_INLINE static void _Write(type &ref, type val) { \
     ref = val; \
   }
 
@@ -739,12 +742,18 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 // Read(op) doesn't access the runtime memory
 #define Read(op) _Read(op)
 
-// Write a source value to a destination operand, where the sizes of the
+// Write a source value to a destination operand (not memory), where the sizes of the
 // values must match.
 #define Write(op, val) \
   do { \
     static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
-    _Write(runtime_manager, op, (val)); \
+    _Write(op, (val)); \
+  } while (false)
+
+#define MWrite(op, val) \
+  do { \
+    static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
+    _MWrite(runtime_manager, op, (val)); \
   } while (false)
 
 #define Write_Dc_Zva(op, diff, val) \
@@ -1022,6 +1031,11 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, TruncTo<decltype(op)>(val)); \
   } while (false)
 
+#define MWriteTrunc(op, val) \
+  do { \
+    MWrite(op, TruncTo<decltype(op)>(val)); \
+  } while (false)
+
 // Handle writes of N-bit values to M-bit values with N <= M. If N < M then the
 // source value will be zero-extended to the dest value type. This is useful
 // on x86-64 where writes to 32-bit registers zero-extend to 64-bits. In a
@@ -1032,9 +1046,19 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, ZExtTo<decltype(op)>(val)); \
   } while (false)
 
+#define MWriteZExt(op, val) \
+  do { \
+    MWrite(op, ZExtTo<decltype(op)>(val)); \
+  } while (false)
+
 #define WriteSExt(op, val) \
   do { \
     Write(op, Unsigned(SExtTo<decltype(op)>(val))); \
+  } while (false)
+
+#define MWriteSExt(op, val) \
+  do { \
+    MWrite(op, Unsigned(SExtTo<decltype(op)>(val))); \
   } while (false)
 
 #define SWriteV8(op, val) \
@@ -1502,44 +1526,43 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 // Access the Nth element of an aggregate vector.
 // MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32<T>(const T &vec, size_t n)
 // T: uint32v2_t, float32v4_t, ...
-#define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
-  template <typename T> \
-  ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
-    return out(vec.elems[n]); \
-  }
+// #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
+//   template <typename T> \
+//   ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
+//     return out(vec.elems[n]); \
+//   }
 
-MAKE_EXTRACTV(8, uint8_t, bytes, Unsigned, U)
-MAKE_EXTRACTV(16, uint16_t, words, Unsigned, U)
-MAKE_EXTRACTV(32, uint32_t, dwords, Unsigned, U)
-MAKE_EXTRACTV(64, uint64_t, qwords, Unsigned, U)
+// MAKE_EXTRACTV(8, uint8_t, bytes, Unsigned, U)
+// MAKE_EXTRACTV(16, uint16_t, words, Unsigned, U)
+// MAKE_EXTRACTV(32, uint32_t, dwords, Unsigned, U)
+// MAKE_EXTRACTV(64, uint64_t, qwords, Unsigned, U)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_EXTRACTV(128, uint128_t, dqwords, Unsigned, U)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_EXTRACTV(128, uint128_t, dqwords, Unsigned, U)
+// #endif
 
-MAKE_EXTRACTV(8, int8_t, bytes, Signed, S)
-MAKE_EXTRACTV(16, int16_t, words, Signed, S)
-MAKE_EXTRACTV(32, int32_t, dwords, Signed, S)
-MAKE_EXTRACTV(64, int64_t, qwords, Signed, S)
+// MAKE_EXTRACTV(8, int8_t, bytes, Signed, S)
+// MAKE_EXTRACTV(16, int16_t, words, Signed, S)
+// MAKE_EXTRACTV(32, int32_t, dwords, Signed, S)
+// MAKE_EXTRACTV(64, int64_t, qwords, Signed, S)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_EXTRACTV(128, int128_t, dqwords, Signed, S)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_EXTRACTV(128, int128_t, dqwords, Signed, S)
+// #endif
 
-MAKE_EXTRACTV(32, float32_t, floats, Identity, F)
-MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
-// MAKE_EXTRACTV(80, float80_t, tdoubles, Identity, F)
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F)
+// MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
+// // MAKE_EXTRACTV(80, float80_t, tdoubles, Identity, F)
 
-#undef MAKE_EXTRACTV
+// #undef MAKE_EXTRACTV
 
 // MAKE MACRO of FExtractVI(...) etc...
-// assume that vec is the VI<T>, so it is necessary to be 128bit data.
 #define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
   template <typename T> \
   ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
-    same_base_type_assert<base_type, EcvBaseType<T, bool>::BT>(); \
-    T bit_casted_vec = *reinterpret_cast<T *>(&vec.val); \
+    using _ecv_vt = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    _ecv_vt bit_casted_vec = *reinterpret_cast<_ecv_vt *>(&vec.val); \
     return out(bit_casted_vec[id]); \
   }
 
@@ -1563,22 +1586,6 @@ MAKE_EXTRACTVI(32, float32_t, Identity, F)
 MAKE_EXTRACTVI(64, float64_t, Identity, F)
 
 #undef MAKE_EXTRACTVI
-
-// MAKE MACRO of of BackTo128Vector(...)
-template <typename BT>
-ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(BT new_val, size_t id) {
-  using VT = typename EcvVector128Type<BT>::VT;
-  VT vec = {0};
-  vec[id] = new_val;
-  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec);
-  return bit_casted_vec;
-}
-
-template <typename T>
-ALWAYS_INLINE static _ecv_u128v1_t BackTo128Vector(T &vec) {
-  _ecv_u128v1_t bit_casted_vec = *reinterpret_cast<_ecv_u128v1_t *>(&vec.vec_val);
-  return bit_casted_vec;
-}
 
 ALWAYS_INLINE static int8_t SAbs(int8_t val) {
   return val < 0 ? -val : val;
@@ -1607,99 +1614,99 @@ ALWAYS_INLINE static auto UAbs(typename IntegerType<T>::UT val) -> typename Inte
 }
 
 // Access the Nth element of an aggregate vector.
-#define MAKE_INSERTV(prefix, size, base_type, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
-    vec.elems[n] = val; \
-    return vec; \
-  }
+// #define MAKE_INSERTV(prefix, size, base_type, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, base_type val) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
+//     vec.elems[n] = val; \
+//     return vec; \
+//   }
 
-MAKE_INSERTV(U, 8, uint8_t, bytes)
-MAKE_INSERTV(U, 16, uint16_t, words)
-MAKE_INSERTV(U, 32, uint32_t, dwords)
-MAKE_INSERTV(U, 64, uint64_t, qwords)
+// MAKE_INSERTV(U, 8, uint8_t, bytes)
+// MAKE_INSERTV(U, 16, uint16_t, words)
+// MAKE_INSERTV(U, 32, uint32_t, dwords)
+// MAKE_INSERTV(U, 64, uint64_t, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_INSERTV(U, 128, uint128_t, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_INSERTV(U, 128, uint128_t, dqwords)
+// #endif
 
-MAKE_INSERTV(S, 8, int8_t, sbytes)
-MAKE_INSERTV(S, 16, int16_t, swords)
-MAKE_INSERTV(S, 32, int32_t, sdwords)
-MAKE_INSERTV(S, 64, int64_t, sqwords)
+// MAKE_INSERTV(S, 8, int8_t, sbytes)
+// MAKE_INSERTV(S, 16, int16_t, swords)
+// MAKE_INSERTV(S, 32, int32_t, sdwords)
+// MAKE_INSERTV(S, 64, int64_t, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_INSERTV(S, 128, int128_t, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_INSERTV(S, 128, int128_t, sdqwords)
+// #endif
 
-MAKE_INSERTV(F, 32, float32_t, floats)
-MAKE_INSERTV(F, 64, float64_t, doubles)
-// MAKE_INSERTV(F, 80, float80_t, tdoubles)
+// MAKE_INSERTV(F, 32, float32_t, floats)
+// MAKE_INSERTV(F, 64, float64_t, doubles)
+// // MAKE_INSERTV(F, 80, float80_t, tdoubles)
 
-#undef MAKE_INSERTV
+// #undef MAKE_INSERTV
 
 // Update the Nth element of an aggregate vector.
-#define MAKE_UPDATEV(prefix, size, base_type, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid update"); \
-    vec.elems[n] = val; \
-  }
+// #define MAKE_UPDATEV(prefix, size, base_type, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, base_type val) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid update"); \
+//     vec.elems[n] = val; \
+//   }
 
-MAKE_UPDATEV(U, 8, uint8_t, bytes)
-MAKE_UPDATEV(U, 16, uint16_t, words)
-MAKE_UPDATEV(U, 32, uint32_t, dwords)
-MAKE_UPDATEV(U, 64, uint64_t, qwords)
+// MAKE_UPDATEV(U, 8, uint8_t, bytes)
+// MAKE_UPDATEV(U, 16, uint16_t, words)
+// MAKE_UPDATEV(U, 32, uint32_t, dwords)
+// MAKE_UPDATEV(U, 64, uint64_t, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_UPDATEV(U, 128, uint128_t, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_UPDATEV(U, 128, uint128_t, dqwords)
+// #endif
 
-MAKE_UPDATEV(S, 8, int8_t, sbytes)
-MAKE_UPDATEV(S, 16, int16_t, swords)
-MAKE_UPDATEV(S, 32, int32_t, sdwords)
-MAKE_UPDATEV(S, 64, int64_t, sqwords)
+// MAKE_UPDATEV(S, 8, int8_t, sbytes)
+// MAKE_UPDATEV(S, 16, int16_t, swords)
+// MAKE_UPDATEV(S, 32, int32_t, sdwords)
+// MAKE_UPDATEV(S, 64, int64_t, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_UPDATEV(S, 128, int128_t, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_UPDATEV(S, 128, int128_t, sdqwords)
+// #endif
 
-MAKE_UPDATEV(F, 32, float32_t, floats)
-MAKE_UPDATEV(F, 64, float64_t, doubles)
-// MAKE_UPDATEV(F, 80, float80_t, tdoubles)
+// MAKE_UPDATEV(F, 32, float32_t, floats)
+// MAKE_UPDATEV(F, 64, float64_t, doubles)
+// // MAKE_UPDATEV(F, 80, float80_t, tdoubles)
 
-#undef MAKE_UPDATEV
+// #undef MAKE_UPDATEV
 
-template <typename U, typename T>
-ALWAYS_INLINE static constexpr T _ZeroVec(void) {
-  static_assert(std::is_same<U, typename VectorType<T>::BT>::value,
-                "Vector type and base don't match.");
-  return {};
-}
+// template <typename U, typename T>
+// ALWAYS_INLINE static constexpr T _ZeroVec(void) {
+//   static_assert(std::is_same<U, typename VectorType<T>::BT>::value,
+//                 "Vector type and base don't match.");
+//   return {};
+// }
 
-#define _ClearV(base_type, ...)
+// #define _ClearV(base_type, ...)
 
-#define UClearV8(...) _ZeroVec<uint8_t, decltype(__VA_ARGS__)>()
-#define UClearV16(...) _ZeroVec<uint16_t, decltype(__VA_ARGS__)>()
-#define UClearV32(...) _ZeroVec<uint32_t, decltype(__VA_ARGS__)>()
-#define UClearV64(...) _ZeroVec<uint64_t, decltype(__VA_ARGS__)>()
+// #define UClearV8(...) _ZeroVec<uint8_t, decltype(__VA_ARGS__)>()
+// #define UClearV16(...) _ZeroVec<uint16_t, decltype(__VA_ARGS__)>()
+// #define UClearV32(...) _ZeroVec<uint32_t, decltype(__VA_ARGS__)>()
+// #define UClearV64(...) _ZeroVec<uint64_t, decltype(__VA_ARGS__)>()
 
-#if !defined(REMILL_DISABLE_INT128)
-#  define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// #  define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
+// #endif
 
-#define SClearV8(...) _ZeroVec<int8_t, decltype(__VA_ARGS__)>()
-#define SClearV16(...) _ZeroVec<int16_t, decltype(__VA_ARGS__)>()
-#define SClearV32(...) _ZeroVec<int32_t, decltype(__VA_ARGS__)>()
-#define SClearV64(...) _ZeroVec<int64_t, decltype(__VA_ARGS__)>()
+// #define SClearV8(...) _ZeroVec<int8_t, decltype(__VA_ARGS__)>()
+// #define SClearV16(...) _ZeroVec<int16_t, decltype(__VA_ARGS__)>()
+// #define SClearV32(...) _ZeroVec<int32_t, decltype(__VA_ARGS__)>()
+// #define SClearV64(...) _ZeroVec<int64_t, decltype(__VA_ARGS__)>()
 
-#if !defined(REMILL_DISABLE_INT128)
-#  define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// #  define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
+// #endif
 
-#define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
-#define FClearV64(...) _ZeroVec<float64_t, decltype(__VA_ARGS__)>()
+// #define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
+// #define FClearV64(...) _ZeroVec<float64_t, decltype(__VA_ARGS__)>()
 
 // Something has gone terribly wrong and we need to stop because there is
 // an error.
@@ -1911,6 +1918,16 @@ ALWAYS_INLINE static MVn<T> DisplaceAddress(MVn<T> addr, addr_t disp) {
 template <typename T>
 ALWAYS_INLINE static MVnW<T> DisplaceAddress(MVnW<T> addr, addr_t disp) {
   return MVnW<T>{addr.addr + disp};
+}
+
+template <typename T>
+ALWAYS_INLINE static MVI<T> DisplaceAddress(MVI<T> addr, addr_t disp) {
+  return MVI<T>{addr.addr + disp};
+}
+
+template <typename T>
+ALWAYS_INLINE static MVIW<T> DisplaceAddress(MVIW<T> addr, addr_t disp) {
+  return MVIW<T>{addr.addr + disp};
 }
 
 template <typename T>

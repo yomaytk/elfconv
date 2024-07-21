@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "Definitions.h"
+// #include "Definitions.h"
 #include "Float.h"
 #include "Int.h"
 #include "TypeTraits.h"
@@ -385,7 +385,7 @@ struct MVIW final {
   addr_t addr;
 };
 
-template <typename T = sizeof(T) <= sizeof(addr_t)>
+template <typename T, bool = sizeof(T) <= sizeof(addr_t)>
 struct Rn;
 
 // Note: We use `addr_t` as the internal type for `Rn` and `In` struct templates
@@ -492,6 +492,22 @@ struct VnW final {
   void *const val_ref;
 };
 
+// vector register which doesn't use memory.
+// T is used to deciding the accessed memory bit width.
+template <typename T>
+struct VI final {
+  T val;
+};
+
+// EcvBaseType of _ecv_*
+template <typename T>
+struct EcvBaseTypeBase {
+  using BT = T;
+};
+
+template <typename T>
+struct EcvBaseType : EcvBaseTypeBase<T> {};
+
 // elfconv custom vector type for aarch64
 // these types is for used without accessing memory when using CPU registers.
 
@@ -557,22 +573,6 @@ typedef float64_t _ecv_f64v2_t __attribute__((vector_size(16)));
 typedef int128_t _ecv_i128v2_t __attribute__((vector_size(32)));
 // unsigned
 typedef uint128_t _ecv_u128v2_t __attribute__((vector_size(32)));
-
-// vector register which doesn't use memory.
-// T is used to deciding the accessed memory bit width.
-template <typename T>
-struct VI final {
-  T vec_val;
-};
-
-// EcvBaseType of _ecv_*
-template <typename T>
-struct EcvBaseTypeBase {
-  using BT = T;
-};
-
-template <typename T>
-struct EcvBaseType {};
 
 // 8bit
 // signed
@@ -860,7 +860,7 @@ struct UnsignedIntegerType;
 // VT is _ecv_*_t
 template <typename VT>
 ALWAYS_INLINE static size_t GetVectorElemsNum(VT &vec) {
-  return sizeof(vec) / sizeof(EcvBaseType<VT>::BT);
+  return sizeof(vec) / sizeof(typename EcvBaseType<VT>::BT);
 }
 
 #define MAKE_SIGNED_INT_CHANGERS(signed_type, unsigned_type) \

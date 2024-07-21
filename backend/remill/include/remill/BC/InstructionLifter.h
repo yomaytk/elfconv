@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <glog/logging.h>
+#include <llvm/IR/Instructions.h>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -86,7 +87,7 @@ class OperandLifter {
 #define STATE_ORDER 34
 #define RUNTIME_ORDER 35
 #define BRANCH_TAKEN_ORDER 36
-#define NZCV_ORDER 37
+#define ECV_NZCV_ORDER 37
 
 enum class EcvRegClass : uint32_t {
   RegW = 'W' - 'A',
@@ -121,17 +122,25 @@ class EcvReg {
     return !(*this == rhs);
   }
 
-  // get reg_info from general or vector registers
-  inline static std::optional<std::pair<EcvReg, EcvRegClass>>
-  GetRegInfo(const std::string &_reg_name);
+  bool operator<(const EcvReg &rhs) const {
+    return number < rhs.number;
+  }
 
-  inline static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
+  bool operator>(const EcvReg &rhs) const {
+    return !(*this == rhs) && !(*this < rhs);
+  }
+
+  // get reg_info from general or vector registers
+  static std::optional<std::pair<EcvReg, EcvRegClass>> GetRegInfo(const std::string &_reg_name);
+
+  static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
   std::string GetWholeRegName() const;
-  inline bool CheckNoChangedReg() const;
+  bool CheckNoChangedReg() const;
 
   class Hash {
-    std::size_t operator()(const EcvReg &ecv_reg) {
+   public:
+    std::size_t operator()(const EcvReg &ecv_reg) const {
       return std::hash<uint32_t>()(
                  static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
              std::hash<uint8_t>()(ecv_reg.number);
