@@ -143,11 +143,11 @@ DEF_COND(AL) = CondAL;
 
 namespace {
 
-// BR  <Xn>
+// B  <label>
 DEF_SEM_VOID(DoDirectBranch) {}
 
-// B  <label>
-DEF_SEM_VOID(DoIndirectBranch) {}
+// BR  <Xn>
+DEF_SEM_VOID(DoIndirectBranch, R64) {}
 
 // B.<cond>  <label>
 template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>

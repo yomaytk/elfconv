@@ -69,6 +69,7 @@ class Operand {
   } type;
 
   enum Action { kActionInvalid, kActionRead, kActionWrite } action;
+  enum Usage { kValue, kAddress, kEmpty };
 
   // Size of this operand, in bits.
   uint64_t size;
@@ -81,6 +82,7 @@ class Operand {
 
     std::string name;
     uint64_t size;  // In bits.
+    Usage usage;
   } reg;
 
   class ShiftRegister {

@@ -424,6 +424,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
 
       if (kLiftedInstruction != lift_status) {
+        LOG(FATAL) << "lifted_status is invalid at: " << inst.function;
         AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
         continue;
       }
@@ -783,28 +784,26 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());
-      for (auto &[_, _block] : lifted_block_map)
+      for (auto &[_, _block] : lifted_block_map) {
         indirect_br_i->addDestination(_block);
+      }
       indirect_br_i->addDestination(br_to_func_block);
       /* br_to_func_block */
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
-      for (auto &block : *func) {
-        if (!block.getTerminator()) {
-          AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
-        }
-      }
     } else {
       no_indirect_lifted_funcs.insert(func);
-      // add terminator to the all basic block to avoid error on CFG flat
-      for (auto &block : *func) {
-        if (!block.getTerminator()) {
-          AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
-        }
+    }
+
+    // add terminator to the all basic block to avoid error on CFG flat
+    for (auto &block : *func) {
+      if (!block.getTerminator()) {
+        AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
       }
     }
 
     callback(trace_addr, func);
     manager.SetLiftedTraceDefinition(trace_addr, func);
+    virtual_regs_opt->block_num = lifted_block_map.size();
   }
 
   // Prepare the optimization

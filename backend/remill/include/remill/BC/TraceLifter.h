@@ -197,7 +197,10 @@ class VirtualRegsOpt {
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
+
+  // for debug
   uint64_t fun_vma;
+  uint64_t block_num;
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.
   std::set<llvm::CallInst *> lifted_func_caller_set;

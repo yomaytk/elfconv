@@ -68,12 +68,16 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg
     return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
   } else if ("RUNTIME" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
-  } else if ("BRANCH_TAKEN_ORDER" == _reg_name) {
+  } else if ("BRANCH_TAKEN" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
   } else if ("ECV_NZCV" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
+  } else if ("WZR" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
+  } else if ("XZR" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
   } else {
-    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo." << _reg_name;
+    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo. " << _reg_name;
   }
 }
 
@@ -98,6 +102,10 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
     return "BRANCH_TAKEN";
   } else if (ECV_NZCV_ORDER == number) {
     return "ECV_NZCV";
+  } else if (WZR_ORDER == number) {
+    return "WZR";
+  } else if (XZR_ORDER == number) {
+    return "XZR";
   }
 
   LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
@@ -130,6 +138,10 @@ std::string EcvReg::GetWholeRegName() const {
     return "BRANCH_TAKEN";
   } else if (ECV_NZCV_ORDER == number) {
     return "ECV_NZCV";
+  } else if (WZR_ORDER == number) {
+    return "WZR";
+  } else if (XZR_ORDER == number) {
+    return "XZR";
   }
 
   LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWholeRegName.";
@@ -285,11 +297,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
 
   for (auto &op : arch_inst.operands) {
-    auto num_params = isel_func_type->getNumParams();
-    if (!(arg_num < num_params)) {
-      return kLiftedMismatchedISEL;
-    }
-
     // update bb_reg_info_node
     Operand::Register *target_reg = &op.reg;
     EcvReg ecv_reg;
@@ -316,10 +323,20 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       } else if (Operand::Action::kActionWrite == op.action) {
         store_reg_map.insert({ecv_reg, ecv_reg_class});
         write_regs.push_back({ecv_reg, ecv_reg_class});
-        continue;
+        if (Operand::Usage::kValue == target_reg->usage) {
+          continue;
+        }
       } else {
         LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
       }
+    }
+
+    auto num_params = isel_func_type->getNumParams();
+    if (!(arg_num < num_params)) {
+      LOG(FATAL)
+          << "lifted_status: kLiftedMismatchedISEL. The args num of the semantic function should be equal to it of the lifted instruction. "
+          << arch_inst.function;
+      return kLiftedMismatchedISEL;
     }
 
     auto arg = NthArgument(isel_func, arg_num);

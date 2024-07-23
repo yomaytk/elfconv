@@ -55,7 +55,6 @@ namespace remill {
 namespace {
 
 static constexpr int kInstructionSize = 4;  // In bytes.
-static constexpr int kPCWidth = 64;  // In bits.
 
 template <uint32_t bit, typename T>
 static inline T Select(T val) {
@@ -353,6 +352,7 @@ static void AddRegOperand(Instruction &inst, Action action, RegClass rclass, Reg
 
   if (kActionWrite == action || kActionReadWrite == action) {
     op.reg = Reg(kActionWrite, rclass, rtype, reg_num);
+    op.reg.usage = Operand::Usage::kValue;
     op.size = op.reg.size;
     op.action = Operand::kActionWrite;
     inst.operands.push_back(op);
@@ -360,10 +360,23 @@ static void AddRegOperand(Instruction &inst, Action action, RegClass rclass, Reg
 
   if (kActionRead == action || kActionReadWrite == action) {
     op.reg = Reg(kActionRead, rclass, rtype, reg_num);
+    op.reg.usage = Operand::Usage::kEmpty;
     op.size = op.reg.size;
     op.action = Operand::kActionRead;
     inst.operands.push_back(op);
   }
+}
+
+static void AddWriteRegMemOperand(Instruction &inst, Action action, RegClass rclass, RegUsage rtype,
+                                  aarch64::RegNum reg_num) {
+  Operand op;
+  op.type = Operand::kTypeRegister;
+
+  op.reg = Reg(kActionWrite, rclass, rtype, reg_num);
+  op.reg.usage = Operand::Usage::kAddress;
+  op.size = op.reg.size;
+  op.action = Operand::kActionWrite;
+  inst.operands.push_back(op);
 }
 
 static void AddShiftRegOperand(Instruction &inst, RegClass rclass, RegUsage rtype,
@@ -434,6 +447,7 @@ static void AddMonitorOperand(Instruction &inst, Operand::Action op_action) {
   op.action = op_action;
   op.reg.name = "MONITOR";
   op.reg.size = 64;
+  op.reg.usage = Operand::Usage::kValue;
   op.size = 64;
   op.type = Operand::kTypeRegister;
   inst.operands.push_back(op);
@@ -444,6 +458,7 @@ static void AddEcvNZCVOperand(Instruction &inst, Operand::Action op_action) {
   op.action = op_action;
   op.reg.name = "ECV_NZCV";
   op.reg.size = 64;
+  op.reg.usage = Operand::Usage::kValue;
   op.size = 64;
   op.type = Operand::kTypeRegister;
   inst.operands.push_back(op);
@@ -457,6 +472,7 @@ static void AddPCRegOp(Instruction &inst, Operand::Action action, int64_t disp,
   op.addr.address_size = 64;
   op.addr.base_reg.name = "PC";
   op.addr.base_reg.size = 64;
+  op.addr.base_reg.usage = Operand::Usage::kValue;
   op.addr.displacement = disp;
   op.addr.kind = op_kind;
   op.action = action;
@@ -479,21 +495,6 @@ static void AddPCDisp(Instruction &inst, int64_t disp) {
   AddPCRegOp(inst, Operand::kActionRead, disp, Operand::Address::kAddressCalculation);
 }
 
-static void DecodeFallThroughPC(Instruction &inst) {
-  Operand not_taken_op = {};
-  not_taken_op.action = Operand::kActionRead;
-  not_taken_op.type = Operand::kTypeAddress;
-  not_taken_op.size = kPCWidth;
-  not_taken_op.addr.address_size = kPCWidth;
-  not_taken_op.addr.base_reg.name = "PC";
-  not_taken_op.addr.base_reg.size = kPCWidth;
-  not_taken_op.addr.displacement = kInstructionSize;
-  not_taken_op.addr.kind = Operand::Address::kControlFlowTarget;
-  inst.operands.push_back(not_taken_op);
-
-  inst.branch_not_taken_pc = inst.next_pc;
-}
-
 // Base+offset memory operands are equivalent to indexing into an array.
 //
 // We have something like this:
@@ -513,12 +514,14 @@ static void AddBasePlusOffsetMemOp(Instruction &inst, Action action, uint64_t ac
 
   if (kActionWrite == action || kActionReadWrite == action) {
     op.action = Operand::kActionWrite;
+    op.addr.base_reg.usage = Operand::Usage::kAddress;
     op.addr.kind = Operand::Address::kMemoryWrite;
     inst.operands.push_back(op);
   }
 
   if (kActionRead == action || kActionReadWrite == action) {
     op.action = Operand::kActionRead;
+    op.addr.base_reg.usage = Operand::Usage::kEmpty;
     op.addr.kind = Operand::Address::kMemoryRead;
     inst.operands.push_back(op);
   }
@@ -558,6 +561,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
     reg_op.reg.size = 64;
   } else {
     reg_op.reg = Reg(kActionWrite, kRegX, kUseAsAddress, base_reg);
+    reg_op.reg.usage = Operand::Usage::kValue;
   }
 
   reg_op.size = reg_op.reg.size;
@@ -600,6 +604,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
     reg_op.reg.size = 64;
   } else {
     reg_op.reg = Reg(kActionWrite, kRegX, kUseAsAddress, base_reg);
+    reg_op.reg.usage = Operand::Usage::kValue;
   }
 
   reg_op.size = reg_op.reg.size;
@@ -644,6 +649,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
     reg_op.reg.size = 64;
   } else {
     reg_op.reg = Reg(kActionWrite, kRegX, kUseAsAddress, base_reg);
+    reg_op.reg.usage = Operand::Usage::kValue;
   }
 
   reg_op.size = reg_op.reg.size;
@@ -1787,7 +1793,6 @@ bool TryDecodeADRP_ONLY_PCRELADDR(const InstData &data, Instruction &inst) {
 // B  <label>
 bool TryDecodeB_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
-  AddPCDisp(inst, data.imm26.simm26 << 2LL);
   inst.branch_taken_pc =
       static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + (data.imm26.simm26 << 2ULL));
   inst.branch_taken_arch_name = inst.arch_name;
@@ -1803,6 +1808,7 @@ static void DecodeCondBranchNotUsingPCArg(Instruction &inst, int64_t disp) {
   cond_op.type = Operand::kTypeRegister;
   cond_op.reg.name = "BRANCH_TAKEN";
   cond_op.reg.size = 8;
+  cond_op.reg.usage = Operand::Usage::kValue;
   cond_op.size = 8;
   inst.operands.push_back(cond_op);
 
@@ -1884,7 +1890,6 @@ bool TryDecodeBL_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
       static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + (data.imm26.simm26 << 2ULL));
   inst.branch_not_taken_pc = inst.next_pc;
   AddPCDisp(inst, data.imm26.simm26 << 2LL);
-  DecodeFallThroughPC(inst);  // Decodes the return address.
   return true;
 }
 
@@ -2188,7 +2193,6 @@ bool TryDecodeB_ONLY_CONDBRANCH(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   // Add in the condition to the isel name.
   SetConditionalFunctionName(data, inst);
-  AddEcvNZCVOperand(inst, Operand::kActionRead);
   DecodeCondBranchNotUsingPCArg(inst, data.imm19.simm19 << 2);
   return true;
 }
@@ -2226,7 +2230,7 @@ bool TryDecodeSTRB_32B_LDST_REGOFF(const InstData &data, Instruction &inst) {
     return false;
   }
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
-  AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
+  AddWriteRegMemOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
   auto extend_type = static_cast<Extend>(data.option);
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, 0);
@@ -2240,7 +2244,7 @@ bool TryDecodeSTRB_32BL_LDST_REGOFF(const InstData &data, Instruction &inst) {
     return false;  // `if option<1> == '0' then UnallocatedEncoding();`
   }
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
-  AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
+  AddWriteRegMemOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
   AddShiftRegOperand(inst, kRegX, kUseAsValue, data.Rm, kShiftLSL, 0);
   return true;
 }
@@ -2300,7 +2304,7 @@ static bool TryDecodeSTRn_m_LDST_REGOFF(const InstData &data, Instruction &inst,
   auto extend_type = static_cast<Extend>(data.option);
   auto rclass = ExtendTypeToRegClass(extend_type);
   AddRegOperand(inst, kActionRead, dest_rclass, kUseAsValue, data.Rt);
-  AddRegOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
+  AddWriteRegMemOperand(inst, kActionWrite, kRegX, kUseAsAddress, data.Rn);
   AddExtendRegOperand(inst, rclass, kUseAsValue, data.Rm, extend_type, 64, shift);
   return true;
 }
