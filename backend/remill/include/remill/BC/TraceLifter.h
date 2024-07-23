@@ -178,7 +178,10 @@ class TraceLifter {
 
 class VirtualRegsOpt {
  public:
-  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl) : func(__func), impl(__impl) {}
+  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
+      : func(__func),
+        impl(__impl),
+        fun_vma(__fun_vma) {}
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
 
@@ -194,6 +197,9 @@ class VirtualRegsOpt {
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
+  uint64_t fun_vma;
+  // All llvm::CallInst* of the lifted function.
+  // Use to distinguish semantic function and lifted function.
   std::set<llvm::CallInst *> lifted_func_caller_set;
 
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;

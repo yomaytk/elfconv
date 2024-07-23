@@ -73,7 +73,7 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg
   } else if ("ECV_NZCV" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
   } else {
-    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo.";
+    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo." << _reg_name;
   }
 }
 
@@ -291,29 +291,40 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
 
     // update bb_reg_info_node
-    // get reg_info from op.reg
-    auto ecv_reg_info = EcvReg::GetRegInfo(op.reg.name);
-    if (!ecv_reg_info) {
-      ecv_reg_info = EcvReg::GetSpecialRegInfo(op.reg.name);
-    }
-    auto &[_ecv_reg, _ecv_reg_class] = ecv_reg_info.value();
+    Operand::Register *target_reg = &op.reg;
+    EcvReg ecv_reg;
+    EcvRegClass ecv_reg_class;
 
-    if (Operand::Action::kActionRead == op.action) {
-      load_reg_map.insert({_ecv_reg, _ecv_reg_class});
-    } else if (Operand::Action::kActionWrite == op.action) {
-      store_reg_map.insert({_ecv_reg, _ecv_reg_class});
-      write_regs.push_back({_ecv_reg, _ecv_reg_class});
-      continue;
-    } else {
-      LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
+    bool reg_need = !op.reg.name.empty() && "PC" != op.reg.name;
+    bool base_reg_need = !op.addr.base_reg.name.empty() && "PC" != op.addr.base_reg.name;
+
+    if (reg_need && base_reg_need) {
+      LOG(FATAL) << "Must implement the pattern that both reg_need and base_reg_need are true.";
+    } else if (base_reg_need) {
+      target_reg = &op.addr.base_reg;
+    }
+
+    if (!target_reg->name.empty()) {
+      auto ecv_reg_info = EcvReg::GetRegInfo(target_reg->name);
+      if (!ecv_reg_info) {
+        ecv_reg_info = EcvReg::GetSpecialRegInfo(target_reg->name);
+      }
+      ecv_reg = ecv_reg_info.value().first;
+      ecv_reg_class = ecv_reg_info.value().second;
+      if (Operand::Action::kActionRead == op.action) {
+        load_reg_map.insert({ecv_reg, ecv_reg_class});
+      } else if (Operand::Action::kActionWrite == op.action) {
+        store_reg_map.insert({ecv_reg, ecv_reg_class});
+        write_regs.push_back({ecv_reg, ecv_reg_class});
+        continue;
+      } else {
+        LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
+      }
     }
 
     auto arg = NthArgument(isel_func, arg_num);
     auto arg_type = arg->getType();
     auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
-    // insert the instruction which explains the latest specified register.
-    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        _ecv_reg, std::make_tuple(_ecv_reg_class, operand, 0));
     arg_num += 1;
     auto op_type = operand->getType();
     CHECK_EQ(op_type, arg_type) << "Lifted operand " << op.Serialize() << " to "
@@ -322,6 +333,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                 << LLVMThingToString(arg_type) << " but got "
                                 << LLVMThingToString(op_type) << ".";
     args.push_back(operand);
+
+    // insert the instruction which explains the latest specified register with kActinoRead.
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        ecv_reg, std::make_tuple(ecv_reg_class, operand, 0));
   }
 
   llvm::IRBuilder<> ir(block);

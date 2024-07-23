@@ -316,7 +316,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     lift_all_insn = false;
 
     CHECK(func->isDeclaration());
-    virtual_regs_opt = new VirtualRegsOpt(func, this);
+    virtual_regs_opt = new VirtualRegsOpt(func, this, trace_addr);
     func_virtual_regs_opt_map.insert({func, virtual_regs_opt});
 
     // Fill in the function, and make sure the block with all register
@@ -636,7 +636,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
         case Instruction::kCategoryFunctionReturn:
           try_add_delay_slot(true, block);
-          AddTerminatingTailCall(block, intrinsics->function_return, *intrinsics, trace_addr);
+          AddTerminatingTailCall(
+              block, intrinsics->function_return, *intrinsics, trace_addr,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
           break;
 
         case Instruction::kCategoryConditionalFunctionReturn: {
@@ -660,7 +662,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           ConditionalBranchWithSaveParents(taken_block, not_taken_block, LoadBranchTaken(block),
                                            block);
 
-          AddTerminatingTailCall(taken_block, intrinsics->function_return, *intrinsics, trace_addr);
+          AddTerminatingTailCall(
+              taken_block, intrinsics->function_return, *intrinsics, trace_addr,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
           block = orig_not_taken_block;
           continue;
         }
@@ -790,84 +794,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         }
       }
     } else {
-
       no_indirect_lifted_funcs.insert(func);
-
       // add terminator to the all basic block to avoid error on CFG flat
       for (auto &block : *func) {
         if (!block.getTerminator()) {
           AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
-        }
-      }
-
-      // flatten the control flow graph
-      llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
-      std::queue<llvm::BasicBlock *> bb_queue;
-      std::unordered_map<llvm::BasicBlock *, bool> visited;
-      auto entry_bb = &func->getEntryBlock();
-      auto entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
-      CHECK(nullptr != entry_terminator_br)
-          << "entry block of the lifted function must have the terminator instruction.";
-      CHECK(1 == entry_terminator_br->getNumSuccessors())
-          << "entry block terminator must have the one jump basic block.";
-      target_bb = entry_bb;
-      bb_queue.push(target_bb);
-
-      auto push_successor_bb_queue = [&bb_queue, &visited](llvm::BasicBlock *successor_bb) {
-        if (!visited[successor_bb]) {
-          bb_queue.push(successor_bb);
-        }
-      };
-
-      while (!bb_queue.empty()) {
-        auto target_bb = bb_queue.front();
-        bb_queue.pop();
-        visited[target_bb] = true;
-        auto target_terminator = target_bb->getTerminator();
-        auto child_num = target_terminator->getNumSuccessors();
-        if (2 < child_num) {
-          LOG(FATAL)
-              << "Every block of the lifted function by elfconv must not have the child blocks more than two.";
-        } else if (2 == child_num) {
-          push_successor_bb_queue(target_terminator->getSuccessor(0));
-          push_successor_bb_queue(target_terminator->getSuccessor(1));
-        } else if (1 == child_num) {
-          auto candidate_bb = target_terminator->getSuccessor(0);
-          auto &candidate_bb_parents = virtual_regs_opt->bb_parents[candidate_bb];
-          if (1 == candidate_bb_parents.size()) {
-            // join candidate_bb to the target_bb
-            auto joined_bb = candidate_bb;
-            auto target_terminator = target_bb->getTerminator();
-            CHECK(llvm::dyn_cast<llvm::BranchInst>(target_terminator))
-                << "The parent basic block of the lifted function must terminate by the branch instruction.";
-            // delete the branch instruction of the target_bb and joined_bb
-            target_terminator->eraseFromParent();
-            // transfer the all instructions (target_bb == target_bb & joined_bb)
-            target_bb->splice(target_bb->end(), joined_bb);
-            // join BBRegInfoNode
-            auto joined_bb_reg_info_node =
-                virtual_regs_opt->bb_reg_info_node_map.extract(joined_bb).mapped();
-            auto target_bb_reg_info_node = virtual_regs_opt->bb_reg_info_node_map[target_bb];
-            target_bb_reg_info_node->join_reg_info_node(joined_bb_reg_info_node);
-            // update bb_parents
-            virtual_regs_opt->bb_parents.erase(joined_bb);
-            target_terminator = target_bb->getTerminator();
-            if (llvm::dyn_cast<llvm::BranchInst>(target_terminator)) {
-              // joined_bb has children
-              for (uint32_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
-                virtual_regs_opt->bb_parents[target_terminator->getSuccessor(i)].erase(joined_bb);
-                virtual_regs_opt->bb_parents[target_terminator->getSuccessor(i)].insert(target_bb);
-              }
-              bb_queue.push(target_bb);
-            }
-            // delete the joined block
-            joined_bb->eraseFromParent();
-          } else {
-            push_successor_bb_queue(candidate_bb);
-          }
-        } else /* if (0 == child_num)*/ {
-          CHECK(llvm::dyn_cast<llvm::ReturnInst>(target_terminator))
-              << "The basic block which doesn't have the successors must be ReturnInst.";
         }
       }
     }
@@ -986,6 +917,76 @@ llvm::Value *VirtualRegsOpt::CastToStoredValue(llvm::Value *from_value, EcvReg t
 void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   auto &inst_lifter = impl->inst.GetLifter();
+
+  // Flatten the control flow graph
+  llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
+  std::queue<llvm::BasicBlock *> bb_queue;
+  std::unordered_map<llvm::BasicBlock *, bool> visited;
+  auto entry_bb = &func->getEntryBlock();
+  auto entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
+  CHECK(nullptr != entry_terminator_br)
+      << "entry block of the lifted function must have the terminator instruction.";
+  CHECK(1 == entry_terminator_br->getNumSuccessors())
+      << "entry block terminator must have the one jump basic block.";
+  target_bb = entry_bb;
+  bb_queue.push(target_bb);
+
+  auto push_successor_bb_queue = [&bb_queue, &visited](llvm::BasicBlock *successor_bb) {
+    if (!visited[successor_bb]) {
+      bb_queue.push(successor_bb);
+    }
+  };
+
+  while (!bb_queue.empty()) {
+    auto target_bb = bb_queue.front();
+    bb_queue.pop();
+    visited[target_bb] = true;
+    auto target_terminator = target_bb->getTerminator();
+    auto child_num = target_terminator->getNumSuccessors();
+    if (2 < child_num) {
+      LOG(FATAL)
+          << "Every block of the lifted function by elfconv must not have the child blocks more than two.";
+    } else if (2 == child_num) {
+      push_successor_bb_queue(target_terminator->getSuccessor(0));
+      push_successor_bb_queue(target_terminator->getSuccessor(1));
+    } else if (1 == child_num) {
+      auto candidate_bb = target_terminator->getSuccessor(0);
+      auto &candidate_bb_parents = bb_parents[candidate_bb];
+      if (1 == candidate_bb_parents.size()) {
+        // join candidate_bb to the target_bb
+        auto joined_bb = candidate_bb;
+        auto target_terminator = target_bb->getTerminator();
+        CHECK(llvm::dyn_cast<llvm::BranchInst>(target_terminator))
+            << "The parent basic block of the lifted function must terminate by the branch instruction.";
+        // delete the branch instruction of the target_bb and joined_bb
+        target_terminator->eraseFromParent();
+        // transfer the all instructions (target_bb == target_bb & joined_bb)
+        target_bb->splice(target_bb->end(), joined_bb);
+        // join BBRegInfoNode
+        auto joined_bb_reg_info_node = bb_reg_info_node_map.extract(joined_bb).mapped();
+        auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
+        target_bb_reg_info_node->join_reg_info_node(joined_bb_reg_info_node);
+        // update bb_parents
+        bb_parents.erase(joined_bb);
+        target_terminator = target_bb->getTerminator();
+        if (llvm::dyn_cast<llvm::BranchInst>(target_terminator)) {
+          // joined_bb has children
+          for (uint32_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
+            bb_parents[target_terminator->getSuccessor(i)].erase(joined_bb);
+            bb_parents[target_terminator->getSuccessor(i)].insert(target_bb);
+          }
+          bb_queue.push(target_bb);
+        }
+        // delete the joined block
+        joined_bb->eraseFromParent();
+      } else {
+        push_successor_bb_queue(candidate_bb);
+      }
+    } else /* if (0 == child_num)*/ {
+      CHECK(llvm::dyn_cast<llvm::ReturnInst>(target_terminator))
+          << "The basic block which doesn't have the successors must be ReturnInst.";
+    }
+  }
 
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {

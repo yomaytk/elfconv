@@ -435,8 +435,7 @@ static bool BlockHasSpecialVars(llvm::Function *basic_block) {
          FindVarInFunction(basic_block, kRuntimeVariableName, true).first &&
          FindVarInFunction(basic_block, kPCVariableName, true).first &&
          FindVarInFunction(basic_block, kNextPCVariableName, true).first &&
-         FindVarInFunction(basic_block, kBranchTakenVariableName, true).first &&
-         FindVarInFunction(basic_block, kEcvNZCVVariableName, true).first;
+         FindVarInFunction(basic_block, kBranchTakenVariableName, true).first;
 }
 
 // Add attributes to llvm::Argument in a way portable across LLVMs
