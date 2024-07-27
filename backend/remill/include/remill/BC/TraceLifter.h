@@ -105,29 +105,35 @@ class TraceManager {
 
 class PhiRegsBBBagNode {
  public:
-  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> &&__preceding_load_reg_map,
+  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> __preceding_load_reg_map,
                    EcvRegMap<EcvRegClass> &&__succeeding_load_reg_map,
                    EcvRegMap<EcvRegClass> &&__req_preceding_store_reg_map,
                    std::set<llvm::BasicBlock *> &&__in_bbs)
       : bag_preceding_load_reg_map(std::move(__preceding_load_reg_map)),
         bag_succeeding_load_reg_map(std::move(__succeeding_load_reg_map)),
         bag_preceding_store_reg_map(std::move(__req_preceding_store_reg_map)),
-        in_bbs(std::move(__in_bbs)) {}
+        in_bbs(std::move(__in_bbs)),
+        converted_bag(nullptr) {}
 
+  PhiRegsBBBagNode() {}
   static void Reset() {
     bb_regs_bag_map.clear();
     bag_num = 0;
   }
 
-  static void GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb);
-  static void GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb);
+  static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
+  static void GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb);
   static void RemoveLoop(llvm::BasicBlock *bb);
   static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
 
-  // The regsiter set which may be loaded on the way to the basic blocks of this bag node.
+  PhiRegsBBBagNode *GetTrueBag();
+  void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
+
+
+  // The regsiter set which may be loaded on the way to the basic blocks of this bag node (include the own block).
   EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;
   // The register set which may be loaded on the succeeding block (includes the own block).
   EcvRegMap<EcvRegClass> bag_succeeding_load_reg_map;
@@ -144,6 +150,8 @@ class PhiRegsBBBagNode {
 
   std::set<PhiRegsBBBagNode *> parents;
   std::set<PhiRegsBBBagNode *> children;
+
+  PhiRegsBBBagNode *converted_bag;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -201,6 +209,8 @@ class VirtualRegsOpt {
   // for debug
   uint64_t fun_vma;
   uint64_t block_num;
+  std::string func_name;
+
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.
   std::set<llvm::CallInst *> lifted_func_caller_set;

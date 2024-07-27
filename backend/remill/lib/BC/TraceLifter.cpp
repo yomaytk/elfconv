@@ -28,6 +28,8 @@
 #include <set>
 #include <sstream>
 
+#define OPT_DEBUG
+
 namespace remill {
 
 /*
@@ -317,6 +319,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     CHECK(func->isDeclaration());
     virtual_regs_opt = new VirtualRegsOpt(func, this, trace_addr);
+    virtual_regs_opt->func_name = func->getName().str();
     func_virtual_regs_opt_map.insert({func, virtual_regs_opt});
 
     // Fill in the function, and make sure the block with all register
@@ -348,12 +351,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
       DirectBranchWithSaveParents(GetOrCreateBlock(trace_addr), entry_block);
+      auto entry_bb_reg_info_node = new BBRegInfoNode();
+      CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(entry_block))
+          << "The entry block has been already added illegally to the VirtualRegsOpt.";
+      virtual_regs_opt->bb_reg_info_node_map.insert({entry_block, entry_bb_reg_info_node});
+    } else {
+      LOG(FATAL) << "Initialized function must have the entry block. address: " << trace_addr;
     }
 
     CHECK(inst_work_list.empty());
     inst_work_list.insert(trace_addr);
-
-    // func->addFnAttr(llvm::Attribute::NoReturn);
 
   // Decode instructions.
   inst_lifting_start:
@@ -361,15 +368,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       const auto inst_addr = PopInstructionAddress();
 
       block = GetOrCreateBlock(inst_addr);
-      bb_reg_info_node = new BBRegInfoNode();
-      if (lifted_block_map.count(inst_addr) == 0)
-        lifted_block_map[inst_addr] = block;
+      lifted_block_map.insert({inst_addr, block});
 
       // We have already lifted this instruction block.
       if (!block->empty()) {
-        delete (bb_reg_info_node);
         continue;
       }
+
+      bb_reg_info_node = new BBRegInfoNode();
 
       // Check to see if this instruction corresponds with an existing
       // trace head, and if so, tail-call into that trace directly without
@@ -497,7 +503,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           // In the current implementation, __remill_async_hyper_call is empty.
           // AddCall(block, intrinsics->async_hyper_call, *intrinsics,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
-          goto check_call_return;
+
+          // if the next instruction is not included in this function, jumping to it is illegal.
+          // Therefore, we force to return at this block because we assumet that this instruction don't come back to.
+          if (manager.isFunctionEntry(inst.next_pc)) {
+            llvm::ReturnInst::Create(context, block);
+          } else {
+            goto check_call_return;
+          }
+          break;
 
         /* case: BLR instruction (only BLR in glibc) */
         case Instruction::kCategoryIndirectFunctionCall: {
@@ -812,8 +826,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
   // Optimization of the usage of the LLVM IR virtual registers for the CPU registers instead of the memory usage.
   for (auto lifted_func : no_indirect_lifted_funcs) {
-    auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
-    virtual_regs_opt->OptimizeVirtualRegsUsage();
+    if (lifted_func->getName().str().starts_with("easy_cal")) {
+      llvm::outs() << "Optimization start: " << lifted_func->getName().str().c_str() << "\n";
+      auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
+      virtual_regs_opt->OptimizeVirtualRegsUsage();
+    }
   }
 
   return true;
@@ -959,7 +976,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             << "The parent basic block of the lifted function must terminate by the branch instruction.";
         // delete the branch instruction of the target_bb and joined_bb
         target_terminator->eraseFromParent();
-        // transfer the all instructions (target_bb == target_bb & joined_bb)
+        // transfer the all instructions (target_bb = target_bb & joined_bb)
         target_bb->splice(target_bb->end(), joined_bb);
         // join BBRegInfoNode
         auto joined_bb_reg_info_node = bb_reg_info_node_map.extract(joined_bb).mapped();
@@ -987,13 +1004,17 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 
+  llvm::outs() << "cfg flatten end.\n";
+
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
-    auto phi_regs_bag = new PhiRegsBBBagNode({}, std::move(bb_reg_info_node->bb_load_reg_map),
+    auto phi_regs_bag = new PhiRegsBBBagNode(bb_reg_info_node->bb_load_reg_map,
+                                             std::move(bb_reg_info_node->bb_load_reg_map),
                                              std::move(bb_reg_info_node->bb_store_reg_map), {bb});
     PhiRegsBBBagNode::bb_regs_bag_map.insert({bb, phi_regs_bag});
   }
   PhiRegsBBBagNode::bag_num = PhiRegsBBBagNode::bb_regs_bag_map.size();
+
   for (auto &bb_parent : bb_parents) {
     auto bb = bb_parent.first;
     auto &pars = bb_parent.second;
@@ -1005,8 +1026,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 
+  llvm::outs() << func_name << " " << "cfg Initalization of the PhiRegsBBBagNode end.\n";
+
   // Calculate the registers which needs to get on the phis instruction for every basic block.
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
+
+  llvm::outs() << "GetPhiRegsBags end.\n";
 
   // Add the phi instructions to the every basic block.
   std::set<llvm::BasicBlock *> finished;
@@ -1158,15 +1183,20 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
       else if (auto __br_inst = llvm::dyn_cast<llvm::BranchInst>(&*target_inst_it)) {
         CHECK(!br_inst) << "There are multiple branch instruction in the one BB.";
         br_inst = __br_inst;
+      } else if (llvm::dyn_cast<llvm::StoreInst>(&*target_inst_it)) {
+        CHECK(target_inst_it->getParent() == &func->getEntryBlock())
+            << "lifted function cannot have llvm::StoreInst other than entry basic block.";
       }
-      // Target: llvm::BinaryOperator, llvm::CastInst, llvm::ReturnInst, llvm::CmpInst (can ignore)
+      // Target: The instruction that can be ignored.
       else if (llvm::dyn_cast<llvm::BinaryOperator>(&*target_inst_it) ||
                llvm::dyn_cast<llvm::CastInst>(&*target_inst_it) ||
                llvm::dyn_cast<llvm::ReturnInst>(&*target_inst_it) ||
-               llvm::dyn_cast<llvm::CmpInst>(&*target_inst_it)) {
+               llvm::dyn_cast<llvm::CmpInst>(&*target_inst_it) ||
+               llvm::dyn_cast<llvm::GetElementPtrInst>(&*target_inst_it) ||
+               llvm::dyn_cast<llvm::AllocaInst>(&*target_inst_it)) {
         CHECK(true);
       } else {
-        llvm::outs() << &*target_inst_it << "\n";
+        llvm::outs() << *target_inst_it << "\n";
         LOG(FATAL) << "Unexpected inst when adding phi instructions.";
       }
     }
@@ -1179,6 +1209,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
       phi_bb_queue.push(br_inst->getSuccessor(i));
     }
   }
+
+  llvm::outs() << "replacing the all phi instructions end.\n";
 
   // Reset PhiRegsBBBagNode.
   PhiRegsBBBagNode::Reset();
@@ -1343,56 +1375,182 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
   return required_value;
 }
 
-void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
-  std::vector<std::pair<PhiRegsBBBagNode *, std::vector<PhiRegsBBBagNode *>>> bag_stack;
-  std::set<PhiRegsBBBagNode *> visited = {};
-  bag_stack.push_back({bb_regs_bag_map[root_bb], {bb_regs_bag_map[root_bb]}});
+PhiRegsBBBagNode *PhiRegsBBBagNode::GetTrueBag() {
+  auto res = this;
+  while (res != res->converted_bag) {
+    res = res->converted_bag;
+  }
+  return res;
+}
 
-  while (!bag_stack.empty()) {
-    auto &[target_bag, target_path] = bag_stack.back();
-    bag_stack.pop_back();
-    if (visited.contains(target_bag)) {
-      // target_bag is in loop
-      for (auto it_loop_bag = target_path.rbegin(); it_loop_bag != target_path.rend();
-           it_loop_bag++) {
-        if (target_bag == *it_loop_bag) {
-          break;
-        }
-        // translate moved_bag
-        auto moved_bag = *it_loop_bag;
-        target_bag->bag_succeeding_load_reg_map.merge(moved_bag->bag_succeeding_load_reg_map);
-        target_bag->bag_preceding_load_reg_map.merge(moved_bag->bag_preceding_load_reg_map);
-        target_bag->parents.merge(moved_bag->parents);
-        target_bag->children.merge(moved_bag->children);
-        for (auto moved_bb : moved_bag->in_bbs) {
-          bb_regs_bag_map.insert_or_assign(moved_bb, target_bag);
-          target_bag->in_bbs.insert(moved_bb);
-        }
-        visited.erase(moved_bag);
-        delete (moved_bag);
-        bag_num--;
-        target_path.pop_back();
-        if (it_loop_bag == target_path.rend()) {
-          LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop().";
-        }
-      }
-      // re-search this target_bag
-      visited.erase(target_bag);
-      bag_stack.push_back({target_bag, target_path});
-    } else {
-      // finished search of this target_bag (at least once)
-      visited.insert(target_bag);
-      // push the children
-      for (auto child_bag : target_bag->children) {
-        auto child_path = target_path;
-        child_path.push_back(child_bag);
-        bag_stack.push_back({child_bag, child_path});
-      }
-    }
+void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
+  for (auto merged_par : merged_bag->parents) {
+    parents.insert(merged_par->GetTrueBag());
+  }
+  for (auto merged_child : merged_bag->children) {
+    children.insert(merged_child->GetTrueBag());
   }
 }
 
-void PhiRegsBBBagNode::GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb) {
+void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
+  {
+
+#define TUPLE_ELEM_T \
+  PhiRegsBBBagNode *, std::vector<PhiRegsBBBagNode *>, std::set<PhiRegsBBBagNode *>
+    std::vector<std::tuple<TUPLE_ELEM_T>> bag_stack;
+    auto root_bag = bb_regs_bag_map[root_bb];
+    bag_stack.emplace_back(
+        std::make_tuple<TUPLE_ELEM_T>((remill::PhiRegsBBBagNode *) root_bag, {},
+                                      {}));  // Why (remill::PhiResgBBBagNode *) is needed?
+
+    std::set<PhiRegsBBBagNode *> finished;
+
+    for (auto [_, bag] : bb_regs_bag_map) {
+      CHECK(!bag->converted_bag);
+      bag->converted_bag = bag;
+    }
+
+    while (!bag_stack.empty()) {
+      auto target_bag = std::get<PhiRegsBBBagNode *>(bag_stack.back())->GetTrueBag();
+      auto pre_path = std::get<std::vector<PhiRegsBBBagNode *>>(bag_stack.back());
+      auto visited = std::get<std::set<PhiRegsBBBagNode *>>(bag_stack.back());
+      bag_stack.pop_back();
+      if (finished.contains(target_bag)) {
+        continue;
+      }
+      if (visited.contains(target_bag)) {
+        auto it_loop_bag = pre_path.rbegin();
+        PhiRegsBBBagNode *pre_loop_bag = nullptr;
+        std::set<PhiRegsBBBagNode *> deleted_bags;
+        for (;;) {
+          CHECK(!pre_path.empty());
+          it_loop_bag = pre_path.rbegin();
+          auto moved_bag = (*it_loop_bag)->GetTrueBag();
+          pre_path.pop_back();
+
+          if (target_bag == moved_bag) {
+            break;
+          } else if (pre_loop_bag == moved_bag) {
+            continue;
+          }
+
+          pre_loop_bag = moved_bag;
+          deleted_bags.insert(moved_bag);
+
+          // translates moved_bag
+          target_bag->bag_succeeding_load_reg_map.merge(moved_bag->bag_succeeding_load_reg_map);
+          target_bag->bag_preceding_load_reg_map.merge(moved_bag->bag_preceding_load_reg_map);
+          target_bag->bag_preceding_store_reg_map.merge(moved_bag->bag_preceding_store_reg_map);
+          target_bag->MergeFamilyConvertedBags(moved_bag);
+          for (auto moved_bb : moved_bag->in_bbs) {
+            target_bag->in_bbs.insert(moved_bb);
+          }
+
+          // update cache
+          moved_bag->converted_bag = target_bag;
+          visited.erase(moved_bag);
+          bag_num--;
+
+          if (it_loop_bag == pre_path.rend()) {
+            LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop().";
+          }
+        }
+
+        // All the moved_bags in the loop should be deleted from the parents and children of the target_bag.
+        // Assume that added parents and children are the true bags.
+        for (auto &deleted_bag : deleted_bags) {
+          target_bag->parents.erase(deleted_bag);
+          target_bag->children.erase(deleted_bag);
+        }
+        target_bag->parents.erase(target_bag);
+        target_bag->children.erase(target_bag);
+
+        // re-search this target_bag
+        visited.erase(target_bag);
+        bag_stack.emplace_back(target_bag, pre_path, visited);
+      } else {
+
+        // push the children
+        bool search_finished = true;
+        for (auto __child_bag : target_bag->children) {
+          auto child_bag = __child_bag->GetTrueBag();
+          if (finished.contains(child_bag)) {
+            continue;
+          }
+          CHECK(child_bag != target_bag)
+              << "[Bug]: self-loop must not be included in the PhiRegsBBBagNode graph.";
+          search_finished = false;
+          auto child_pre_path = pre_path;
+          auto child_visited = visited;
+          child_pre_path.push_back(target_bag);
+          child_visited.insert(target_bag);
+          bag_stack.emplace_back(child_bag, child_pre_path, child_visited);
+        }
+
+        // finish the target_bag if all children are finished.
+        if (search_finished) {
+          finished.insert(target_bag);
+        }
+      }
+    }
+
+    // Delete the bag if it is converted to the other bag.
+    std::set<PhiRegsBBBagNode *> deleted_bag_set;
+    for (auto &[bb, bag] : bb_regs_bag_map) {
+      auto target_true_bag = bag->GetTrueBag();
+      if (bag != target_true_bag) {
+        bb_regs_bag_map.insert_or_assign(bb, target_true_bag);
+        deleted_bag_set.insert(bag);
+      }
+    }
+    for (auto deleted_bag : deleted_bag_set) {
+      delete (deleted_bag);
+    }
+  }
+
+  llvm::outs() << "remove loop.\n";
+
+#if defined(OPT_DEBUG)
+  // Check G of PhiregsBBBagNode* don't have loop. (for debug)
+  std::vector<PhiRegsBBBagNode *> bag_stack;
+  std::set<PhiRegsBBBagNode *> visited, finished;
+  bag_stack.push_back(bb_regs_bag_map[root_bb]);
+
+  while (!bag_stack.empty()) {
+    auto target_bag = bag_stack.back();
+    bag_stack.pop_back();
+    if (finished.contains(target_bag)) {
+      LOG(FATAL) << "[Bug]: Unreachable this line.";
+    }
+    if (visited.contains(target_bag) && !finished.contains(target_bag)) {
+      LOG(FATAL)
+          << "[Bug]: The loop was detectd from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop.";
+    }
+    visited.insert(target_bag);
+    bool search_finished = true;
+    for (auto child : target_bag->children) {
+      if (!finished.contains(child)) {
+        bag_stack.push_back(child);
+        search_finished = false;
+      }
+    }
+    if (search_finished) {
+      finished.insert(target_bag);
+      for (auto par : target_bag->parents) {
+        if (!finished.contains(par)) {
+          bag_stack.push_back(par);
+        }
+      }
+    }
+  }
+
+  CHECK(bag_num == finished.size())
+      << "bag_num: " << bag_num << ", finished.size(): " << finished.size()
+      << ". They should be equal.";
+#endif
+}
+
+void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   std::queue<PhiRegsBBBagNode *> bag_queue;
   std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_pars_map;
   std::set<PhiRegsBBBagNode *> finished_bags;
@@ -1435,7 +1593,7 @@ void PhiRegsBBBagNode::GetPhiReadWriteRegsBags(llvm::BasicBlock *root_bb) {
       << "Search argorithm is incorrect of PhiRegsBBBagNode::GetPhiReadWriteRegsBags: Search is insufficient.";
 }
 
-void PhiRegsBBBagNode::GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb) {
+void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   std::vector<PhiRegsBBBagNode *> bag_stack;
   std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_children_map;
   std::set<PhiRegsBBBagNode *> finished_bags;
@@ -1479,10 +1637,13 @@ void PhiRegsBBBagNode::GetPhiDerivedReadRegsBags(llvm::BasicBlock *root_bb) {
 void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {
   // remove loop from the graph of PhiRegsBBBagNode.
   PhiRegsBBBagNode::RemoveLoop(root_bb);
-  // calculate the bag_read_write_reg_map for the every PhiRegsBBBagNode.
-  PhiRegsBBBagNode::GetPhiReadWriteRegsBags(root_bb);
-  // calculate the bag_inherited_read_reg_map for the every PhiRegsBBBagNode.
-  PhiRegsBBBagNode::GetPhiDerivedReadRegsBags(root_bb);
+  llvm::outs() << "RemoveLoop end.\n";
+  // calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
+  PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(root_bb);
+  llvm::outs() << "GetPhiReadWriteRegsBags end.\n";
+  // calculate the bag_succeeding_load_reg_map for the every PhiRegsBBBagNode.
+  PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(root_bb);
+  llvm::outs() << "GetPhiDerivedReadRegsBags end.\n";
   // calculate the bag_phi_reg_map.
   std::set<PhiRegsBBBagNode *> finished;
   for (auto [_, phi_regs_bag] : bb_regs_bag_map) {

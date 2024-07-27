@@ -352,8 +352,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     args.push_back(operand);
 
     // insert the instruction which explains the latest specified register with kActinoRead.
-    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        ecv_reg, std::make_tuple(ecv_reg_class, operand, 0));
+    if (llvm::dyn_cast<llvm::LoadInst>(operand)) {
+      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+          ecv_reg, std::make_tuple(ecv_reg_class, operand, 0));
+    }
   }
 
   llvm::IRBuilder<> ir(block);
@@ -364,6 +366,13 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     args[0] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
   } else if (SemaFuncArgType::StateRuntime == arch_inst.sema_func_arg_type) {
     args[1] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
+  }
+
+  if (!arch_inst.updated_addr_reg.name.empty()) {
+    const auto [update_reg_ptr_reg, _] =
+        LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
+    // args[args.size() - 2] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
+    ir.CreateStore(args[args.size() - 2], update_reg_ptr_reg, false);
   }
 
   // Call the function that implements the instruction semantics.
