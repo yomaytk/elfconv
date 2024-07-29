@@ -17,6 +17,7 @@
 #include "remill/Arch/Arch.h"
 
 #include <glog/logging.h>
+#include <iostream>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <map>
@@ -1418,7 +1419,19 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       if (finished.contains(target_bag)) {
         continue;
       }
-      if (visited.contains(target_bag)) {
+      bool target_bag_is_in_visited = false;
+      for (auto _bag : visited) {
+        auto true_bag = _bag->GetTrueBag();
+        if (true_bag == target_bag) {
+          target_bag_is_in_visited = true;
+          if (true_bag != _bag) {
+            visited.erase(_bag);
+            visited.insert(true_bag);
+          }
+          break;
+        }
+      }
+      if (target_bag_is_in_visited) {
         auto it_loop_bag = pre_path.rbegin();
         PhiRegsBBBagNode *pre_loop_bag = nullptr;
         std::set<PhiRegsBBBagNode *> deleted_bags;
@@ -1496,22 +1509,21 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
     // Delete the bag if it is converted to the other bag.
     std::set<PhiRegsBBBagNode *> deleted_bag_set;
-    for (auto &[bb, bag] : bb_regs_bag_map) {
+    for (auto [bb, bag] : bb_regs_bag_map) {
       auto target_true_bag = bag->GetTrueBag();
       if (bag != target_true_bag) {
         bb_regs_bag_map.insert_or_assign(bb, target_true_bag);
         deleted_bag_set.insert(bag);
       }
     }
-    for (auto deleted_bag : deleted_bag_set) {
-      delete (deleted_bag);
-    }
+    // (FIXME) should delete already needless bags.
+    // for (auto deleted_bag : deleted_bag_set) {
+    //   delete (deleted_bag);
+    // }
   }
 
-  llvm::outs() << "remove loop.\n";
-
 #if defined(OPT_DEBUG)
-  // Check G of PhiregsBBBagNode* don't have loop. (for debug)
+  // Check whether G of PhiregsBBBagNode* doesn't have loop. (for debug)
   std::vector<PhiRegsBBBagNode *> bag_stack;
   std::set<PhiRegsBBBagNode *> visited, finished;
   bag_stack.push_back(bb_regs_bag_map[root_bb]);
@@ -1522,24 +1534,22 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     if (finished.contains(target_bag)) {
       LOG(FATAL) << "[Bug]: Unreachable this line.";
     }
-    if (visited.contains(target_bag) && !finished.contains(target_bag)) {
-      LOG(FATAL)
-          << "[Bug]: The loop was detectd from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop.";
+    if (visited.contains(target_bag)) {
+      for (auto child : target_bag->children) {
+        if (!finished.contains(child)) {
+          LOG(FATAL)
+              << "[Bug]: The loop was detected from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop.";
+        }
+      }
+      finished.insert(target_bag);
+      continue;
     }
     visited.insert(target_bag);
-    bool search_finished = true;
+    // after searching all children, re-search this target_bag.
+    bag_stack.push_back(target_bag);
     for (auto child : target_bag->children) {
       if (!finished.contains(child)) {
         bag_stack.push_back(child);
-        search_finished = false;
-      }
-    }
-    if (search_finished) {
-      finished.insert(target_bag);
-      for (auto par : target_bag->parents) {
-        if (!finished.contains(par)) {
-          bag_stack.push_back(par);
-        }
       }
     }
   }
