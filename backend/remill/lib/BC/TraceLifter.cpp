@@ -1555,7 +1555,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
   }
 
   CHECK(bag_num == finished.size())
-      << "bag_num: " << bag_num << ", finished.size(): " << finished.size()
+      << "[Bug]: bag_num: " << bag_num << ", finished.size(): " << finished.size()
       << ". They should be equal.";
 #endif
 }
