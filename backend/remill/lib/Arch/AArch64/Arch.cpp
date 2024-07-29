@@ -379,6 +379,10 @@ static void AddWriteRegMemOperand(Instruction &inst, Action action, RegClass rcl
   inst.operands.push_back(op);
 }
 
+static void AddAddressUpdateRegOperand(Instruction &inst, aarch64::RegNum reg_num) {
+  inst.updated_addr_reg = Reg(kActionWrite, kRegX, kUseAsAddress, reg_num);
+}
+
 static void AddShiftRegOperand(Instruction &inst, RegClass rclass, RegUsage rtype,
                                aarch64::RegNum reg_num, Shift shift_type, uint64_t shift_size) {
   if (!shift_size) {
@@ -567,9 +571,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
   reg_op.size = reg_op.reg.size;
   inst.operands.push_back(reg_op);
 
-  addr_op.action = Operand::kActionRead;
-  addr_op.addr.kind = Operand::Address::kAddressCalculation;
-  inst.operands.push_back(addr_op);
+  AddAddressUpdateRegOperand(inst, base_reg);
 }
 
 // Post-index memory operands write back the result of the displaced address
@@ -610,11 +612,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
   reg_op.size = reg_op.reg.size;
   inst.operands.push_back(reg_op);
 
-  addr_op.size = 64;
-  addr_op.action = Operand::kActionRead;
-  addr_op.addr.kind = Operand::Address::kAddressCalculation;
-  addr_op.addr.displacement = disp;
-  inst.operands.push_back(addr_op);
+  AddAddressUpdateRegOperand(inst, base_reg);
 }
 
 // Post-index memory operands write back the result of the displaced address

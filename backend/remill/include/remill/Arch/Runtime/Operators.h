@@ -299,54 +299,54 @@ MAKE_READRV(F, 64, doubles, float64_t)
 // MAKE_MREADV(U, 16, words, 16) \
 // e.g. uint16v*_t _UReadV16(runtime_manager, memV), float32v*_t _FReadV32(runtime_manager, memV), ...
 // res_vec = memV
-// #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
-//   template <typename T> \
-//   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVn<T> mem) \
-//       ->decltype(T().vec_accessor) { \
-//     decltype(T().vec_accessor) vec = {}; \
-//     const addr_t el_size = sizeof(vec.elems[0]); \
-//     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-//       vec.elems[i] = \
-//           __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
-//     } \
-//     return vec; \
-//   } \
-// \
-//   template <typename T> \
-//   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVnW<T> mem) \
-//       ->decltype(T().vec_accessor) { \
-//     decltype(T().vec_accessor) vec = {}; \
-//     const addr_t el_size = sizeof(vec.elems[0]); \
-//     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
-//       vec.elems[i] = \
-//           __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
-//     } \
-//     return vec; \
-//   }
+#define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
+  template <typename T> \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVn<T> mem) \
+      ->decltype(T().vec_accessor) { \
+    decltype(T().vec_accessor) vec = {}; \
+    const addr_t el_size = sizeof(vec.elems[0]); \
+    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
+      vec.elems[i] = \
+          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+    } \
+    return vec; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVnW<T> mem) \
+      ->decltype(T().vec_accessor) { \
+    decltype(T().vec_accessor) vec = {}; \
+    const addr_t el_size = sizeof(vec.elems[0]); \
+    _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
+      vec.elems[i] = \
+          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+    } \
+    return vec; \
+  }
 
-// MAKE_MREADV(U, 8, bytes, 8)
-// MAKE_MREADV(U, 16, words, 16)
-// MAKE_MREADV(U, 32, dwords, 32)
-// MAKE_MREADV(U, 64, qwords, 64)
+MAKE_MREADV(U, 8, bytes, 8)
+MAKE_MREADV(U, 16, words, 16)
+MAKE_MREADV(U, 32, dwords, 32)
+MAKE_MREADV(U, 64, qwords, 64)
 
-// #if !defined(REMILL_DISABLE_INT128)
-// MAKE_MREADV(U, 128, dqwords, 128)
-// #endif
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_MREADV(U, 128, dqwords, 128)
+#endif
 
-// MAKE_MREADV(S, 8, sbytes, s8)
-// MAKE_MREADV(S, 16, swords, s16)
-// MAKE_MREADV(S, 32, sdwords, s32)
-// MAKE_MREADV(S, 64, sqwords, s64)
+MAKE_MREADV(S, 8, sbytes, s8)
+MAKE_MREADV(S, 16, swords, s16)
+MAKE_MREADV(S, 32, sdwords, s32)
+MAKE_MREADV(S, 64, sqwords, s64)
 
-// #if !defined(REMILL_DISABLE_INT128)
-// MAKE_MREADV(S, 128, sdqwords, s128)
-// #endif
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_MREADV(S, 128, sdqwords, s128)
+#endif
 
-// MAKE_MREADV(F, 32, floats, f32)
-// MAKE_MREADV(F, 64, doubles, f64)
-// // MAKE_MREADV(F, 80, tdoubles, f80)
+MAKE_MREADV(F, 32, floats, f32)
+MAKE_MREADV(F, 64, doubles, f64)
+// MAKE_MREADV(F, 80, tdoubles, f80)
 
-// #undef MAKE_MREADV
+#undef MAKE_MREADV
 
 #define MAKE_READVI(prefix, size, base_type) \
   template <typename T> \
@@ -1780,6 +1780,8 @@ MAKE_PRED(Register, Mn, false)
 MAKE_PRED(Register, MnW, false)
 MAKE_PRED(Register, MVn, false)
 MAKE_PRED(Register, MVnW, false)
+MAKE_PRED(Register, MVI, false)
+MAKE_PRED(Register, MVIW, false)
 MAKE_PRED(Register, In, false)
 
 MAKE_PRED(RuntimeManager, Rn, false)
@@ -1790,6 +1792,8 @@ MAKE_PRED(RuntimeManager, Mn, true)
 MAKE_PRED(RuntimeManager, MnW, true)
 MAKE_PRED(RuntimeManager, MVn, true)
 MAKE_PRED(RuntimeManager, MVnW, true)
+MAKE_PRED(RuntimeManager, MVI, true)
+MAKE_PRED(RuntimeManager, MVIW, true)
 MAKE_PRED(RuntimeManager, In, false)
 
 MAKE_PRED(Immediate, Rn, false)
@@ -1800,6 +1804,8 @@ MAKE_PRED(Immediate, Mn, false)
 MAKE_PRED(Immediate, MnW, false)
 MAKE_PRED(Immediate, MVn, false)
 MAKE_PRED(Immediate, MVnW, false)
+MAKE_PRED(Immediate, MVI, false)
+MAKE_PRED(Immediate, MVIW, false)
 MAKE_PRED(Immediate, In, true)
 
 #undef MAKE_PRED
@@ -1837,6 +1843,16 @@ ALWAYS_INLINE static MnW<T> GetElementPtr(MnW<T> addr, addr_t index) {
 
 template <typename T>
 ALWAYS_INLINE static MVnW<T> GetElementPtr(MVnW<T> addr, addr_t index) {
+  return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
+}
+
+template <typename T>
+ALWAYS_INLINE static MVI<T> GetElementPtr(MVI<T> addr, addr_t index) {
+  return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
+}
+
+template <typename T>
+ALWAYS_INLINE static MVIW<T> GetElementPtr(MVIW<T> addr, addr_t index) {
   return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
 }
 

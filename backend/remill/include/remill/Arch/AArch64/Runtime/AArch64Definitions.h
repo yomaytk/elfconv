@@ -30,6 +30,11 @@ typedef struct {
 } U32U64 __attribute__((packed));
 
 typedef struct {
+  uint32_t r1;
+  uint32_t r2;
+} U32U32 __attribute__((packed));
+
+typedef struct {
   float32_t r1;
   uint64_t r2;
 } F32U64 __attribute__((packed));
@@ -43,11 +48,6 @@ typedef struct {
   __uint128_t r1;
   uint64_t r2;
 } U128U64 __attribute__((packed));
-
-typedef struct {
-  uint32_t r1;
-  uint64_t r2;
-} U32U32 __attribute__((packed));
 
 typedef struct {
   uint32_t r1;
@@ -176,6 +176,16 @@ typedef struct {
 
 #define DEF_SEM_U32U64_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static U32U64 name(RuntimeManager *runtime_manager, \
+                                                            ##__VA_ARGS__)
+
+#define DEF_SEM_U32U32(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U32 name(__VA_ARGS__)
+
+#define DEF_SEM_U32U32_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U32 name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U32U32_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static U32U32 name(RuntimeManager *runtime_manager, \
                                                             ##__VA_ARGS__)
 
 #define DEF_SEM_F32U64(name, ...) \

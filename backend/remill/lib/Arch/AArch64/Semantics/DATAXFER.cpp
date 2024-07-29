@@ -28,28 +28,24 @@
 
 namespace {
 
-DEF_SEM_U64_RUN(StorePairUpdateIndex32, R32 src1, R32 src2, MVI64W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StorePairUpdateIndex32, R32 src1, R32 src2, MVI64W dst_mem) {
   _ecv_u32v2_t vec = {Read(src1), Read(src2)};
   UWriteMVI32(dst_mem, vec);
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StorePairUpdateIndex64, R64 src1, R64 src2, MVI128W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StorePairUpdateIndex64, R64 src1, R64 src2, MVI128W dst_mem) {
   _ecv_u64v2_t vec = {Read(src1), Read(src2)};
   UWriteMVI64(dst_mem, vec);
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StorePairUpdateIndexS, RF32 src1, RF32 src2, MVI64W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StorePairUpdateIndexS, RF32 src1, RF32 src2, MVI64W dst_mem) {
   _ecv_f32v2_t vec = {Read(src1), Read(src2)};
   FWriteMVI32(dst_mem, vec);
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StorePairUpdateIndexD, RF64 src1, RF64 src2, MVI128W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StorePairUpdateIndexD, RF64 src1, RF64 src2, MVI128W dst_mem) {
   _ecv_f64v2_t vec = {Read(src1), Read(src2)};
   FWriteMVI64(dst_mem, vec);
-  return Read(next_addr);
 }
 
 DEF_SEM_VOID_RUN(StorePair32, R32 src1, R32 src2, MVI64W dst) {
@@ -77,10 +73,9 @@ DEF_SEM_VOID_RUN(STP_Q, VI128 src1, VI128 src2, MVI256W dst) {
   UWriteMVI128(dst, vec);
 }
 
-DEF_SEM_U64_RUN(STP_Q_UPDATE_ADDR, VI128 src1, VI128 src2, MVI256W dst, ADDR next_addr) {
+DEF_SEM_VOID_RUN(STP_Q_UPDATE_ADDR, VI128 src1, VI128 src2, MVI256W dst) {
   _ecv_u128v2_t vec = {UExtractVI128(src1, 0), UExtractVI128(src2, 0)};
   UWriteMVI128(dst, vec);
-  return Read(next_addr);
 }
 
 }  // namespace
@@ -110,31 +105,26 @@ DEF_ISEL(STP_Q_LDSTPAIR_POST) = STP_Q_UPDATE_ADDR;  // STP  <Qt1>, <Qt2>, [<Xn|S
 namespace {
 
 template <typename S, typename D>
-DEF_SEM_U64_RUN(StoreUpdateIndex, S src, D dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StoreUpdateIndex, S src, D dst_mem) {
   MWriteTrunc(dst_mem, Read(src));
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StoreUpdateIndex_S8, VI8 src, MVI8W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StoreUpdateIndex_S8, VI8 src, MVI8W dst_mem) {
   _ecv_i8v1_t vec = {SExtractVI8(src, 0)};
   SWriteMVI8(dst_mem, vec);
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StoreUpdateIndex_S16, VI16 src, MVI16W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StoreUpdateIndex_S16, VI16 src, MVI16W dst_mem) {
   _ecv_i16v1_t vec = {SExtractVI16(src, 0)};
   SWriteMVI16(dst_mem, vec);
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StoreUpdateIndex_F32, RF32 src, MVI32W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StoreUpdateIndex_F32, RF32 src, MVI32W dst_mem) {
   FWriteMVI32(dst_mem, Read(src));
-  return Read(next_addr);
 }
 
-DEF_SEM_U64_RUN(StoreUpdateIndex_F64, RF64 src, MVI64W dst_mem, ADDR next_addr) {
+DEF_SEM_VOID_RUN(StoreUpdateIndex_F64, RF64 src, MVI64W dst_mem) {
   FWriteMVI64(dst_mem, Read(src));
-  return Read(next_addr);
 }
 
 template <typename S, typename D>
@@ -161,10 +151,9 @@ DEF_SEM_VOID_RUN(StoreRelease, S src, D dst) {
   __remill_barrier_store_store(runtime_manager);
 }
 
-DEF_SEM_U64_RUN(STR_Q_UPDATE_ADDR, VI128 src, MVI128W dst, ADDR next_addr) {
+DEF_SEM_U64_RUN(STR_Q_UPDATE_ADDR, VI128 src, MVI128W dst) {
   _ecv_u128v1_t vec = {UExtractVI128(src, 0)};
   UWriteMVI128(dst, vec);
-  return Read(next_addr);
 }
 
 /* S1: <W|X>.s, D1: <W|X>.t, S2: Xn, D2: Xn */
@@ -285,14 +274,14 @@ DEF_ISEL(LDSETAL_64_MEMOP) = LDSET_MEMOP<R64W, M64W>;  // LDSETAL  <Xs>, <Xt>, [
 
 namespace {
 
-DEF_SEM_U32U32U64_RUN(LoadPairUpdateIndex32, MVI64W src_mem, ADDR next_addr) {
+DEF_SEM_U32U32_RUN(LoadPairUpdateIndex32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
-  return {vec[0], vec[1], Read(next_addr)};
+  return {vec[0], vec[1]};
 }
 
-DEF_SEM_U64U64U64_RUN(LoadPairUpdateIndex64, MVI128W src_mem, ADDR next_addr) {
+DEF_SEM_U64U64_RUN(LoadPairUpdateIndex64, MVI128 src_mem) {
   _ecv_u64v2_t vec = UReadMVI64(src_mem);
-  return {vec[0], vec[1], Read(next_addr)};
+  return U64U64{vec[0], vec[1]};
 }
 
 }  // namespace
@@ -305,12 +294,12 @@ DEF_ISEL(LDP_64_LDSTPAIR_POST) = LoadPairUpdateIndex64;  // LDP  <Xt1>, <Xt2>, [
 
 namespace {
 
-DEF_SEM_U64U64_RUN(LoadPair32, R32W dst1, R32W dst2, MVI64W src_mem) {
+DEF_SEM_U64U64_RUN(LoadPair32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
   return {ZExtTo<uint64_t>(vec[0]), ZExtTo<uint64_t>(vec[1])};
 }
 
-DEF_SEM_U64U64_RUN(LoadPair64, MVI128W src_mem) {
+DEF_SEM_U64U64_RUN(LoadPair64, MVI128 src_mem) {
   _ecv_u64v2_t vec = UReadMVI64(src_mem);
   return {vec[0], vec[1]};
 }
@@ -322,15 +311,14 @@ DEF_ISEL(LDP_64_LDSTPAIR_OFF) = LoadPair64;  // LDP  <Xt1>, <Xt2>, [<Xn|SP>{, #<
 
 namespace {
 
-DEF_SEM_U64U64_RUN(LoadSignedPair64, MVI64W src_mem) {
+DEF_SEM_U64U64_RUN(LoadSignedPair64, MVI64 src_mem) {
   _ecv_i32v2_t vec = SReadMVI32(src_mem);
   return {ZExtTo<uint64_t>(SExtTo<int64_t>(vec[0])), ZExtTo<uint64_t>(SExtTo<int64_t>(vec[1]))};
 }
 
-DEF_SEM_U64U64U64_RUN(LoadSignedPairUpdateIndex64, MVI64W src_mem, ADDR next_addr) {
+DEF_SEM_U64U64_RUN(LoadSignedPairUpdateIndex64, MVI64 src_mem) {
   _ecv_i32v2_t vec = SReadMVI32(src_mem);
-  return {ZExtTo<uint64_t>(SExtTo<int64_t>(vec[0])), ZExtTo<uint64_t>(SExtTo<int64_t>(vec[1])),
-          Read(next_addr)};
+  return {ZExtTo<uint64_t>(SExtTo<int64_t>(vec[0])), ZExtTo<uint64_t>(SExtTo<int64_t>(vec[1]))};
 }
 
 }  // namespace
@@ -354,13 +342,13 @@ DEF_SEM_T_RUN(LoadMem, S src_mem) {
 }
 
 template <typename S>  // e.g. LoadUpdateIndex<M8>
-DEF_SEM_U32U64_RUN(LoadMemUpdateIndex_32, S src_mem, ADDR next_addr) {
-  return {ReadMem(src_mem), Read(next_addr)};
+DEF_SEM_U32_RUN(LoadMemUpdateIndex_32, S src_mem) {
+  return ReadMem(src_mem);
 }
 
 template <typename S>  // e.g. LoadUpdateIndex<M64>
-DEF_SEM_U64U64_RUN(LoadMemUpdateIndex_64, S src_mem, ADDR next_addr) {
-  return {ZExtTo<uint64_t>(ReadMem(src_mem)), Read(next_addr)};
+DEF_SEM_U64_RUN(LoadMemUpdateIndex_64, S src_mem) {
+  return ReadMem(src_mem);
 }
 
 template <typename M>  // e.g. LoadMemFromOffset<M8>
@@ -489,13 +477,13 @@ DEF_SEM_U64_RUN(LoadSExt, S src_mem) {
 }
 
 template <typename S, typename InterType>  // e.g. LoadSExtUpdateIndex<M8, int32_t>
-DEF_SEM_U32U64_RUN(LoadSExtUpdateIndex32, S src_mem, ADDR next_addr) {
-  return {static_cast<uint32_t>(SExtTo<InterType>(ReadMem(src_mem))), Read(next_addr)};
+DEF_SEM_U32_RUN(LoadSExtUpdateIndex32, S src_mem) {
+  return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(src_mem)));
 }
 
 template <typename S, typename InterType>  // e.g. LoadSExtUpdateIndex<M8, int32_t>
-DEF_SEM_U64U64_RUN(LoadSExtUpdateIndex64, S src_mem, ADDR next_addr) {
-  return {static_cast<uint64_t>(SExtTo<InterType>(ReadMem(src_mem))), Read(next_addr)};
+DEF_SEM_U64_RUN(LoadSExtUpdateIndex64, S src_mem) {
+  return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(src_mem)));
 }
 
 template <typename M, typename InterType>  // e.g. LoadSExtFromOffset<M8, int32_t>
@@ -680,16 +668,16 @@ DEF_SEM_U128_RUN(LDR_Q, MVI128 src_mem) {
 //   Write(dst_reg, Read(next_addr));
 // }
 
-DEF_SEM_F32U64_RUN(LDR_S_UpdateIndex, MVI32 src_mem, ADDR next_addr) {
-  return {FReadMVI32(src_mem)[0], Read(next_addr)};
+DEF_SEM_F32_RUN(LDR_S_UpdateIndex, MVI32 src_mem) {
+  return FReadMVI32(src_mem)[0];
 }
 
-DEF_SEM_F64U64_RUN(LDR_D_UpdateIndex, MVI64 src_mem, ADDR next_addr) {
-  return {FReadMVI64(src_mem)[0], Read(next_addr)};
+DEF_SEM_F64_RUN(LDR_D_UpdateIndex, MVI64 src_mem) {
+  return FReadMVI64(src_mem)[0];
 }
 
-DEF_SEM_U128U64_RUN(LDR_Q_UpdateIndex, MVI128 src_mem, ADDR next_addr) {
-  return {UReadMVI128(src_mem)[0], Read(next_addr)};
+DEF_SEM_U128_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
+  return UReadMVI128(src_mem)[0];
 }
 
 // DEF_SEM(LDR_B_FromOffset, VI128W dst, MVI8 src, ADDR offset) {
