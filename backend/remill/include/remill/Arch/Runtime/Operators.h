@@ -1323,7 +1323,7 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
   }
 
 #define MAKE_BOOLBINOP(name, type, widen_type, op) \
-  ALWAYS_INLINE static bool name(type L, type R) { \
+  ALWAYS_INLINE static uint64_t name(type L, type R) { \
     return L op R; \
   }
 
