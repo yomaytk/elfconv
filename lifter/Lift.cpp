@@ -92,6 +92,9 @@ int main(int argc, char *argv[]) {
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
 
+  // Optimize the generated LLVM IR.
+  main_lifter.Optimize();
+
   /* set entry function of lifted function */
   if (manager.entry_func_lifted_name.empty())
     elfconv_runtime_error("[ERROR] We couldn't find entry function.\n");

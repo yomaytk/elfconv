@@ -191,6 +191,8 @@ class BBRegInfoNode {
 
   // Save the generated phi instructions
   EcvRegMap<llvm::PHINode *> reg_phi_inst_map;
+  // Save the added instructions (except for phi instructions)
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> added_inst_reg_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {

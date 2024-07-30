@@ -143,6 +143,8 @@ class MainLifter : public TraceLifter {
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
   virtual void DeclareHelperFunction();
+
+  void Optimize();
   /* debug */
   void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
   void DeclareDebugFunction();

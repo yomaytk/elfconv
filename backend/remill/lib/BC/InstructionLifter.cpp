@@ -321,9 +321,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       if (Operand::Action::kActionRead == op.action) {
         load_reg_map.insert({ecv_reg, ecv_reg_class});
       } else if (Operand::Action::kActionWrite == op.action) {
-        store_reg_map.insert({ecv_reg, ecv_reg_class});
-        write_regs.push_back({ecv_reg, ecv_reg_class});
         if (Operand::Usage::kValue == target_reg->usage) {
+          store_reg_map.insert({ecv_reg, ecv_reg_class});
+          write_regs.push_back({ecv_reg, ecv_reg_class});
           continue;
         }
       } else {
@@ -368,13 +368,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     args[1] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
   }
 
-  if (!arch_inst.updated_addr_reg.name.empty()) {
-    const auto [update_reg_ptr_reg, _] =
-        LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
-    // args[args.size() - 2] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
-    ir.CreateStore(args[args.size() - 2], update_reg_ptr_reg, false);
-  }
-
   // Call the function that implements the instruction semantics.
   auto sema_inst = ir.CreateCall(isel_func, args);
 
@@ -382,6 +375,24 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   for (std::size_t i = 0; i < write_regs.size(); i++) {
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
+  }
+
+  // Update pre-post index for the target register.
+  if (!arch_inst.updated_addr_reg.name.empty()) {
+    const auto [update_reg_ptr_reg, _] =
+        LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
+    // args[args.size() - 2] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
+    auto updated_op = ir.CreateStore(args[args.size() - 2], update_reg_ptr_reg, false);
+    auto updated_ecv_reg_info = EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
+    if (!updated_ecv_reg_info) {
+      updated_ecv_reg_info = EcvReg::GetSpecialRegInfo(arch_inst.updated_addr_reg.name);
+    }
+    auto updated_ecv_reg = updated_ecv_reg_info.value().first;
+    auto updated_ecv_reg_class = updated_ecv_reg_info.value().second;
+    write_regs.push_back({updated_ecv_reg, updated_ecv_reg_class});
+    store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_op, 0));
   }
 
   // update the sema_call_written_reg_map

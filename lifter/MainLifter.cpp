@@ -54,6 +54,11 @@ void MainLifter::DeclareHelperFunction() {
   static_cast<WrapImpl *>(impl.get())->DeclareHelperFunction();
 }
 
+// Optimize the generated LLVM IR.
+void MainLifter::Optimize() {
+  static_cast<WrapImpl *>(impl.get())->Optimize();
+}
+
 /* Set Control Flow debug list */
 void MainLifter::SetControlFlowDebugList(
     std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {

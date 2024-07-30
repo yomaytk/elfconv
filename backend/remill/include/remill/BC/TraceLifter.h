@@ -107,11 +107,11 @@ class PhiRegsBBBagNode {
  public:
   PhiRegsBBBagNode(EcvRegMap<EcvRegClass> __preceding_load_reg_map,
                    EcvRegMap<EcvRegClass> &&__succeeding_load_reg_map,
-                   EcvRegMap<EcvRegClass> &&__req_preceding_store_reg_map,
+                   EcvRegMap<EcvRegClass> &&__within_store_reg_map,
                    std::set<llvm::BasicBlock *> &&__in_bbs)
       : bag_preceding_load_reg_map(std::move(__preceding_load_reg_map)),
         bag_succeeding_load_reg_map(std::move(__succeeding_load_reg_map)),
-        bag_preceding_store_reg_map(std::move(__req_preceding_store_reg_map)),
+        bag_within_store_reg_map(std::move(__within_store_reg_map)),
         in_bbs(std::move(__in_bbs)),
         converted_bag(nullptr) {}
 
@@ -138,8 +138,10 @@ class PhiRegsBBBagNode {
   // The register set which may be loaded on the succeeding block (includes the own block).
   EcvRegMap<EcvRegClass> bag_succeeding_load_reg_map;
 
-  // The register set which is stored in the way to the bag node (required).
+  // The register set which is stored in the way to the bag node (not include the block in this) (required).
   EcvRegMap<EcvRegClass> bag_preceding_store_reg_map;
+  // The register set which is stored in this bag.
+  EcvRegMap<EcvRegClass> bag_within_store_reg_map;
   // The register set which should be referenced in this block (required).
   EcvRegMap<EcvRegClass> bag_load_reg_map;
   // bag_preceding_store_reg_map + bag_load_reg_map
@@ -313,8 +315,7 @@ class TraceLifter::Impl {
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
 
-  llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
-                                          std::pair<EcvReg, EcvRegClass> ecv_reg_info);
+  void Optimize();
 
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
