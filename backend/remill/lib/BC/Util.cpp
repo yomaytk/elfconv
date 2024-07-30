@@ -287,7 +287,7 @@ llvm::Value *LoadProgramCounterRef(llvm::BasicBlock *block) {
 
 // Return a reference to the next program counter.
 llvm::Value *LoadNextProgramCounterRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kNextPCVariableName).first;
+  return FindVarInFunction(block->getParent(), "DELETED_NEXT_PC").first;
 }
 
 // Return the next program counter.
@@ -326,9 +326,9 @@ llvm::Value *LoadBranchTaken(llvm::BasicBlock *block) {
 
 llvm::Value *LoadBranchTaken(llvm::IRBuilder<> &ir) {
   auto block = ir.GetInsertBlock();
-  auto i8_type = llvm::Type::getInt8Ty(block->getContext());
-  auto cond =
-      ir.CreateLoad(i8_type, FindVarInFunction(block->getParent(), kBranchTakenVariableName).first);
+  auto i64_type = llvm::Type::getInt64Ty(block->getContext());
+  auto cond = ir.CreateLoad(i64_type,
+                            FindVarInFunction(block->getParent(), kBranchTakenVariableName).first);
   auto true_val = llvm::ConstantInt::get(cond->getType(), 1);
   return ir.CreateICmpEQ(cond, true_val);
 }

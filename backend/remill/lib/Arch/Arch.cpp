@@ -434,7 +434,6 @@ static bool BlockHasSpecialVars(llvm::Function *basic_block) {
   return FindVarInFunction(basic_block, kStateVariableName, true).first &&
          FindVarInFunction(basic_block, kRuntimeVariableName, true).first &&
          FindVarInFunction(basic_block, kPCVariableName, true).first &&
-         FindVarInFunction(basic_block, kNextPCVariableName, true).first &&
          FindVarInFunction(basic_block, kBranchTakenVariableName, true).first;
 }
 
@@ -717,13 +716,13 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   auto module = func->getParent();
   auto &context = module->getContext();
   auto block = llvm::BasicBlock::Create(context, "", func);
-  auto u8 = llvm::Type::getInt8Ty(context);
+  auto u64 = llvm::Type::getInt64Ty(context);
   auto addr = llvm::Type::getIntNTy(context, address_size);
   auto runtime = remill::NthArgument(func, kRuntimePointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
 
   llvm::IRBuilder<> ir(block);
-  ir.CreateAlloca(u8, nullptr, "BRANCH_TAKEN");
+  ir.CreateAlloca(u64, nullptr, "BRANCH_TAKEN");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by

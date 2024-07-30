@@ -38,17 +38,13 @@ void AArch64ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
   auto u32 = llvm::Type::getInt32Ty(context);
   auto u64 = llvm::Type::getInt64Ty(context);
 
-  auto addr = u64;
   auto zero_u32 = llvm::Constant::getNullValue(u32);
   auto zero_u64 = llvm::Constant::getNullValue(u64);
 
   const auto entry_block = &bb_func->getEntryBlock();
   llvm::IRBuilder<> ir(entry_block);
 
-  const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
-  llvm::StringRef next_pc_name(kNextPCVariableName.data(), kNextPCVariableName.size());
-  ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, next_pc_name));
 
   ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "WZR"));
   ir.CreateStore(zero_u64, ir.CreateAlloca(u64, nullptr, "XZR"));

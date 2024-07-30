@@ -560,16 +560,6 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
   // We don't care about the case of `31` because then `base_reg` will be
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
-  if (static_cast<uint8_t>(base_reg) != 31 && (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
-    reg_op.reg.name = "SUPPRESS_WRITEBACK";
-    reg_op.reg.size = 64;
-  } else {
-    reg_op.reg = Reg(kActionWrite, kRegX, kUseAsAddress, base_reg);
-    reg_op.reg.usage = Operand::Usage::kValue;
-  }
-
-  reg_op.size = reg_op.reg.size;
-  inst.operands.push_back(reg_op);
 
   AddAddressUpdateRegOperand(inst, base_reg);
 }
@@ -601,16 +591,6 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
   // We don't care about the case of `31` because then `base_reg` will be
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
-  if (static_cast<uint8_t>(base_reg) != 31 && (dest_reg1 == base_reg || dest_reg2 == base_reg)) {
-    reg_op.reg.name = "SUPPRESS_WRITEBACK";
-    reg_op.reg.size = 64;
-  } else {
-    reg_op.reg = Reg(kActionWrite, kRegX, kUseAsAddress, base_reg);
-    reg_op.reg.usage = Operand::Usage::kValue;
-  }
-
-  reg_op.size = reg_op.reg.size;
-  inst.operands.push_back(reg_op);
 
   AddAddressUpdateRegOperand(inst, base_reg);
 }
@@ -863,7 +843,6 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
   //   dst_ret_pc.type = Operand::kTypeRegister;
   //   dst_ret_pc.action = Operand::kActionWrite;
   //   dst_ret_pc.size = address_size;
-  //   dst_ret_pc.reg.name = "NEXT_PC";
   //   dst_ret_pc.reg.size = address_size;
   // }
 
@@ -1805,9 +1784,9 @@ static void DecodeCondBranchNotUsingPCArg(Instruction &inst, int64_t disp) {
   cond_op.action = Operand::kActionWrite;
   cond_op.type = Operand::kTypeRegister;
   cond_op.reg.name = "BRANCH_TAKEN";
-  cond_op.reg.size = 8;
+  cond_op.reg.size = 64;
   cond_op.reg.usage = Operand::Usage::kValue;
-  cond_op.size = 8;
+  cond_op.size = 64;
   inst.operands.push_back(cond_op);
 
   inst.branch_taken_pc = static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + disp);

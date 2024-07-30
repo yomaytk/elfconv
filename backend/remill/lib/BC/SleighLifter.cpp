@@ -1615,8 +1615,7 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::B
 
   // Setup PC and NEXT_PC
   const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
-  const auto [next_pc_ref, next_pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kNextPCVariableName);
+  const auto [next_pc_ref, next_pc_ref_type] = LoadRegAddress(block, state_ptr, "DELETED_NEXT_PC");
 
 
   llvm::IRBuilder<> intoblock_builer(block);
