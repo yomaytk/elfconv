@@ -831,7 +831,6 @@ void TraceLifter::Impl::Optimize() {
 
   // Optimization of the usage of the LLVM IR virtual registers for the CPU registers instead of the memory usage.
   for (auto lifted_func : no_indirect_lifted_funcs) {
-    llvm::outs() << "Optimization start: " << lifted_func->getName().str().c_str() << "\n";
     auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
     virtual_regs_opt->OptimizeVirtualRegsUsage();
   }
@@ -1038,12 +1037,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 
-  llvm::outs() << func_name << " " << "cfg Initalization of the PhiRegsBBBagNode end.\n";
-
   // Calculate the registers which needs to get on the phis instruction for every basic block.
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
-
-  llvm::outs() << "GetPhiRegsBags end.\n";
 
   // Add the phi instructions to the every basic block.
   std::queue<llvm::BasicBlock *> phi_bb_queue;
@@ -1058,7 +1053,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     if (finished.contains(target_bb)) {
       continue;
     }
-    llvm::outs() << "New Basic Block: " << target_bb << "\n";
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[target_bb];
     auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
     auto &reg_latest_inst_map = bb_reg_info_node_map[target_bb]->reg_latest_inst_map;
@@ -1138,8 +1132,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
-      // llvm::outs() << "target address: " << &*target_inst_it << ", target: " << *target_inst_it
-      //              << "\n";
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1906,13 +1898,10 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
 void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {
   // remove loop from the graph of PhiRegsBBBagNode.
   PhiRegsBBBagNode::RemoveLoop(root_bb);
-  llvm::outs() << "RemoveLoop end.\n";
   // calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(root_bb);
-  llvm::outs() << "GetPhiReadWriteRegsBags end.\n";
   // calculate the bag_succeeding_load_reg_map for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(root_bb);
-  llvm::outs() << "GetPhiDerivedReadRegsBags end.\n";
   // calculate the bag_req_reg_map.
   std::set<PhiRegsBBBagNode *> finished;
   for (auto [_, phi_regs_bag] : bb_regs_bag_map) {
