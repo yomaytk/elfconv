@@ -191,11 +191,13 @@ class VirtualRegsOpt {
   VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
       : func(__func),
         impl(__impl),
-        fun_vma(__fun_vma) {}
+        fun_vma(__fun_vma),
+        relay_bb_num(0) {}
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
 
   llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
+  EcvRegClass GetRegZFromLLVMType(llvm::Type *value_type);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
                                           std::pair<EcvReg, EcvRegClass> ecv_reg_info);
   llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
@@ -212,6 +214,7 @@ class VirtualRegsOpt {
   uint64_t fun_vma;
   uint64_t block_num;
   std::string func_name;
+  size_t relay_bb_num;
 
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.
@@ -219,10 +222,6 @@ class VirtualRegsOpt {
 
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
   std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
-
-  std::queue<llvm::BasicBlock *> phi_bb_queue;
-  std::set<llvm::BasicBlock *> relay_bbs;
-  std::unordered_map<llvm::BasicBlock *, std::set<EcvReg>> relay_reg_need_load_inst_map;
 };
 
 class TraceLifter::Impl {

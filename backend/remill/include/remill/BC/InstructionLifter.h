@@ -189,10 +189,12 @@ class BBRegInfoNode {
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_call_written_reg_map;
 
-  // Save the generated phi instructions
-  EcvRegMap<llvm::PHINode *> reg_phi_inst_map;
-  // Save the added instructions (except for phi instructions)
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> added_inst_reg_map;
+  // Map the added instructions that can be refered later on and register
+  // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>>
+      referred_able_added_inst_reg_map;
+  // Map the register and added instructions.
+  EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {
