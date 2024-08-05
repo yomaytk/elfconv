@@ -1634,17 +1634,16 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
         continue;
       }
       bool target_bag_is_in_visited = false;
+      std::set<PhiRegsBBBagNode *> true_visited;
       for (auto _bag : visited) {
         auto true_bag = _bag->GetTrueBag();
         if (true_bag == target_bag) {
           target_bag_is_in_visited = true;
-          if (true_bag != _bag) {
-            visited.erase(_bag);
-            visited.insert(true_bag);
-          }
-          break;
         }
+        true_visited.insert(true_bag);
       }
+      visited = true_visited;
+
       if (target_bag_is_in_visited) {
         auto it_loop_bag = pre_path.rbegin();
         PhiRegsBBBagNode *pre_loop_bag = nullptr;
