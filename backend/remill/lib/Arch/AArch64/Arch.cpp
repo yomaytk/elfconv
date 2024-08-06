@@ -222,9 +222,14 @@ static Operand::ShiftRegister::Shift GetOperandShift(Shift s) {
 static std::string RegNameXW(Action action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum number_) {
   auto number = static_cast<uint8_t>(number_);
-  CHECK_LE(number, 31U);
-
+  
+  if (33 == number) {
+    // Use on RET {<Xn>}
+    return "PC";
+  }
+  
   std::stringstream ss;
+  CHECK_LE(number, 31U);
   CHECK(kActionReadWrite != action);
 
   if (31 == number) {
@@ -891,6 +896,8 @@ static bool TryDecodeRdW_Rn_Rm(const InstData &data, Instruction &inst, RegClass
 // RET  {<Xn>}
 bool TryDecodeRET_64R_BRANCH_REG(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  // RegNum(33) expresses "PC".
+  AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, RegNum(33));
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   return true;
 }
@@ -898,6 +905,7 @@ bool TryDecodeRET_64R_BRANCH_REG(const InstData &data, Instruction &inst) {
 // BLR  <Xn>
 bool TryDecodeBLR_64_BRANCH_REG(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, RegNum(30));
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   inst.branch_not_taken_pc = inst.next_pc;
   return true;
@@ -1866,6 +1874,7 @@ bool TryDecodeBL_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
   inst.branch_taken_pc =
       static_cast<uint64_t>(static_cast<int64_t>(inst.pc) + (data.imm26.simm26 << 2ULL));
   inst.branch_not_taken_pc = inst.next_pc;
+  AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, RegNum(30));
   AddPCDisp(inst, data.imm26.simm26 << 2LL);
   return true;
 }
