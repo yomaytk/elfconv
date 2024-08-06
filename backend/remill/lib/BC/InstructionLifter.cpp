@@ -152,6 +152,21 @@ bool EcvReg::CheckNoChangedReg() const {
   return STATE_ORDER == number || RUNTIME_ORDER == number;
 }
 
+std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case EcvRegClass::RegW: return "RegW"; break;
+    case EcvRegClass::RegX: return "RegW"; break;
+    case EcvRegClass::RegB: return "RegB"; break;
+    case EcvRegClass::RegH: return "RegH"; break;
+    case EcvRegClass::RegS: return "RegS"; break;
+    case EcvRegClass::RegD: return "RegD"; break;
+    case EcvRegClass::RegQ: return "RegQ"; break;
+    case EcvRegClass::RegP: return "RegP"; break;
+    case EcvRegClass::RegNULL: return "RegNULL"; break;
+    default: break;
+  }
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
@@ -187,6 +202,7 @@ LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBl
 // Lift a single instruction into a basic block.
 LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
                                             llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
+
                                             uint64_t debug_insn_addr, bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
@@ -270,6 +286,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto runtime_reg_info =
       std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
 
+  std::vector<std::pair<EcvReg, EcvRegClass>> sema_func_args_regs;
+
   // set the State ptr or RuntimeManager ptr to the semantics function.
   switch (arch_inst.sema_func_arg_type) {
     case SemaFuncArgType::Nothing: arg_num = 0; break;
@@ -277,11 +295,13 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       arg_num = 1;
       args.push_back(nullptr);
       load_reg_map.insert(runtime_reg_info);
+      sema_func_args_regs.push_back(runtime_reg_info);
       break;
     case SemaFuncArgType::State:
       arg_num = 1;
       args.push_back(state_ptr);
       load_reg_map.insert(state_reg_info);
+      sema_func_args_regs.push_back(state_reg_info);
       break;
     case SemaFuncArgType::StateRuntime:
       arg_num = 2;
@@ -289,6 +309,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       args.push_back(nullptr);
       load_reg_map.insert(state_reg_info);
       load_reg_map.insert(runtime_reg_info);
+      sema_func_args_regs.push_back(state_reg_info);
+      sema_func_args_regs.push_back(runtime_reg_info);
       break;
     case SemaFuncArgType::Empty: LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"; break;
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
@@ -300,7 +322,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // update bb_reg_info_node
     Operand::Register *target_reg = &op.reg;
     EcvReg ecv_reg;
-    EcvRegClass ecv_reg_class;
+    EcvRegClass ecv_reg_class = EcvRegClass::RegNULL;
 
     bool reg_need = !op.reg.name.empty() && "PC" != op.reg.name;
     bool base_reg_need = !op.addr.base_reg.name.empty() && "PC" != op.addr.base_reg.name;
@@ -351,6 +373,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                 << LLVMThingToString(op_type) << ".";
     args.push_back(operand);
 
+    sema_func_args_regs.push_back({ecv_reg, ecv_reg_class});
+
     // insert the instruction which explains the latest specified register with kActinoRead.
     if (llvm::dyn_cast<llvm::LoadInst>(operand)) {
       bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
@@ -370,6 +394,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
   // Call the function that implements the instruction semantics.
   auto sema_inst = ir.CreateCall(isel_func, args);
+  bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
 
   // insert the instruction which explains the latest specified register.
   for (std::size_t i = 0; i < write_regs.size(); i++) {

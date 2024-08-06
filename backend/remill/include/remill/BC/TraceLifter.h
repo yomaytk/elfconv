@@ -222,6 +222,9 @@ class VirtualRegsOpt {
 
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
   std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
+
+  // map llvm::Value* and the corresponding CPU register (for debug).
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
 };
 
 class TraceLifter::Impl {
@@ -345,6 +348,9 @@ class TraceLifter::Impl {
 
   std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
   std::set<llvm::Function *> no_indirect_lifted_funcs;
+
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+      sema_func_args_regs_map;
 
   std::string runtime_manager_name;
 

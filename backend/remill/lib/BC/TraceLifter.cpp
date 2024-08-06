@@ -831,8 +831,10 @@ void TraceLifter::Impl::Optimize() {
 
   // Optimization of the usage of the LLVM IR virtual registers for the CPU registers instead of the memory usage.
   for (auto lifted_func : no_indirect_lifted_funcs) {
-    auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
-    virtual_regs_opt->OptimizeVirtualRegsUsage();
+    if (lifted_func->getName().str().starts_with("simple_cal")) {
+      auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
+      virtual_regs_opt->OptimizeVirtualRegsUsage();
+    }
   }
 }
 
@@ -1064,6 +1066,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     llvm::BranchInst *br_inst = nullptr;
 
+    llvm::outs() << "block: " << target_bb << "\n";
+
     // Add the phi instruction for the every register included in the bag_phi_reg_map.
     auto inst_start_it = &*target_bb->begin();
     for (auto &phi_ecv_reg_info : target_phi_regs_bag->bag_req_reg_map) {
@@ -1080,10 +1084,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             target_ecv_reg, no_casted_reg_derived_inst, GetLLVMTypeFromRegZ(target_ecv_reg_class),
             llvm::dyn_cast<llvm::Instruction>(no_casted_reg_derived_inst)->getNextNode(),
             no_casted_reg_derived_inst);
+
         // Update cache.
         if (no_casted_reg_derived_inst != reg_derived_inst) {
           referred_able_added_inst_reg_map.insert({reg_derived_inst, phi_ecv_reg_info});
         }
+        // for debug
+        value_reg_map.insert({reg_derived_inst, phi_ecv_reg_info});
       }
       // Generate the new phi instruction.
       else {
@@ -1120,6 +1127,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           ++par_bb_it;
         }
         referred_able_added_inst_reg_map.insert({reg_derived_phi, phi_ecv_reg_info});
+        // for debug
+        value_reg_map.insert({reg_derived_phi, phi_ecv_reg_info});
         reg_derived_inst = reg_derived_phi;
       }
       // Add this phi to the ascend_reg_inst_map
@@ -1132,6 +1141,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
+      llvm::outs() << "target_inst: " << *target_inst_it << "\n";
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1150,7 +1160,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           auto target_ecv_reg = load_reg_info.value().first;
 
           auto load_ecv_reg_class = load_reg_info.value().second;
-          auto [_, from_value, from_order] = ascend_reg_inst_map[target_ecv_reg];
+          auto [from_ecv_reg_class, from_value, from_order] = ascend_reg_inst_map[target_ecv_reg];
 
           llvm::Value *new_ecv_reg_inst;
 
@@ -1174,6 +1184,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                 new_ecv_reg_inst =
                     CastFromInst(target_ecv_reg, from_extracted_inst, load_inst->getType(),
                                  load_inst, from_extracted_inst);
+                // for debug
+                value_reg_map.insert(
+                    {from_extracted_inst,
+                     {target_ecv_reg, GetRegZFromLLVMType(from_extracted_inst->getType())}});
               } else {
                 new_ecv_reg_inst =
                     CastFromInst(target_ecv_reg, from_inst, load_inst->getType(), load_inst);
@@ -1188,6 +1202,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Delete load_inst.
             load_inst->eraseFromParent();
           }
+          // for debug
+          value_reg_map.insert(
+              {new_ecv_reg_inst, {target_ecv_reg, GetRegZFromLLVMType(load_inst->getType())}});
         }
         // Target: llvm::CallInst
         else if (auto *call_inst = llvm::dyn_cast<llvm::CallInst>(target_inst_it)) {
@@ -1231,6 +1248,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               // Update cache.
               ascend_reg_inst_map.insert_or_assign(
                   req_ecv_reg, std::make_tuple(req_ecv_reg_class, req_value, 0));
+              // for debug
+              value_reg_map.insert(
+                  {load_value, {req_ecv_reg, GetRegZFromLLVMType(load_value->getType())}});
+              value_reg_map.insert({req_value, {req_ecv_reg, req_ecv_reg_class}});
             }
             target_inst_it = call_next_inst;
           }
@@ -1245,6 +1266,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                   std::make_tuple(sema_func_write_regs[i].second, call_inst, i));
             }
             target_inst_it = call_inst->getNextNode();
+            // for debug
+            // if the return type is struct, this key value is not used.
+            if (!sema_func_write_regs.empty()) {
+              value_reg_map.insert(
+                  {call_inst, {sema_func_write_regs[0].first, sema_func_write_regs[0].second}});
+            }
           }
         }
         // Target: llvm::StoreInst
@@ -1276,6 +1303,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           ascend_reg_inst_map.insert_or_assign(
               added_ecv_reg, std::make_tuple(added_ecv_reg_class, extract_inst, 0));
           target_inst_it = extract_inst->getNextNode();
+          // for debug
+          value_reg_map.insert({extract_inst, {added_ecv_reg, added_ecv_reg_class}});
         }
         // Target: llvm::CastInst
         else if (auto cast_inst = llvm::dyn_cast<llvm::CastInst>(target_inst_it)) {
@@ -1283,15 +1312,28 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto [added_ecv_reg, added_ecv_reg_class] = referred_able_added_inst_reg_map[cast_inst];
             ascend_reg_inst_map.insert_or_assign(
                 added_ecv_reg, std::make_tuple(added_ecv_reg_class, cast_inst, 0));
+            // for debug
+            value_reg_map.insert({cast_inst, {added_ecv_reg, added_ecv_reg_class}});
+          } else {
+            auto cast_op = cast_inst->getOperand(0);
+            CHECK(value_reg_map.contains(cast_op));
+            // for debug
+            value_reg_map.insert({cast_inst, value_reg_map[cast_op]});
           }
           target_inst_it = cast_inst->getNextNode();
         }
         // Target: The instructions that can be ignored.
-        else if (llvm::dyn_cast<llvm::BinaryOperator>(target_inst_it) ||
-                 llvm::dyn_cast<llvm::ReturnInst>(target_inst_it) ||
-                 llvm::dyn_cast<llvm::CmpInst>(target_inst_it) ||
-                 llvm::dyn_cast<llvm::GetElementPtrInst>(target_inst_it) ||
-                 llvm::dyn_cast<llvm::AllocaInst>(target_inst_it)) {
+        else if (auto binary_inst = llvm::dyn_cast<llvm::BinaryOperator>(target_inst_it)) {
+          target_inst_it = target_inst_it->getNextNode();
+          // for debug
+          auto lhs = binary_inst->getOperand(0);
+          CHECK(value_reg_map.contains(lhs));
+          CHECK(!llvm::dyn_cast<llvm::Instruction>(binary_inst->getOperand(1)));
+          value_reg_map.insert({binary_inst, value_reg_map[lhs]});
+        } else if (llvm::dyn_cast<llvm::ReturnInst>(target_inst_it) ||
+                   llvm::dyn_cast<llvm::CmpInst>(target_inst_it) ||
+                   llvm::dyn_cast<llvm::GetElementPtrInst>(target_inst_it) ||
+                   llvm::dyn_cast<llvm::AllocaInst>(target_inst_it)) {
           CHECK(true);
           target_inst_it = target_inst_it->getNextNode();
         } else {
@@ -1326,8 +1368,31 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   // Check the optimized LLVM IR.
   for (auto &bb : *func) {
     llvm::outs() << "\nblock: " << &bb << "\n";
+    auto bb_reg_info_node_2 = bb_reg_info_node_map[&bb];
     for (auto &inst : bb) {
       llvm::outs() << "    " << inst << "\n";
+      if (auto call_inst = llvm::dyn_cast<llvm::CallInst>(&inst);
+          call_inst && !lifted_func_caller_set.contains(call_inst)) {
+        auto sema_isel_args = bb_reg_info_node_2->sema_func_args_reg_map[call_inst];
+        for (size_t i = 0; i < call_inst->getNumOperands(); i++) {
+          auto sema_isel_arg_i = sema_isel_args[i];
+          if (EcvRegClass::RegNULL == sema_isel_arg_i.second ||
+              llvm::dyn_cast<llvm::Function>(call_inst->getOperand(i))) {
+            continue;
+          }
+          auto actual_arg_i = call_inst->getOperand(i);
+          auto [actual_arg_ecv_reg, actual_arg_ecv_reg_class] = value_reg_map[actual_arg_i];
+          CHECK(actual_arg_ecv_reg.number == sema_isel_arg_i.first.number)
+              << "i: " << i
+              << ", actual arg ecv_reg number: " << to_string(actual_arg_ecv_reg.number)
+              << ", sema func arg ecv_reg: " << to_string(sema_isel_arg_i.first.number) << "\n";
+          CHECK(actual_arg_ecv_reg_class == sema_isel_arg_i.second)
+              << "i: " << i
+              << ", actual arg ecv_reg_class: " << EcvRegClass2String(actual_arg_ecv_reg_class)
+              << ", sema isel arg ecv_reg_class: " << EcvRegClass2String(sema_isel_arg_i.second)
+              << "\n";
+        }
+      }
     }
     auto inst_terminator = bb.getTerminator();
     for (size_t i = 0; i < inst_terminator->getNumSuccessors(); i++) {
@@ -1415,11 +1480,17 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         required_value = CastFromInst(target_ecv_reg, from_extracted_inst,
                                       GetLLVMTypeFromRegZ(required_ecv_reg_class),
                                       target_terminator, from_extracted_inst);
+        // for debug
+        value_reg_map.insert(
+            {from_extracted_inst,
+             {target_ecv_reg, GetRegZFromLLVMType(from_extracted_inst->getType())}});
       } else {
         required_value =
             CastFromInst(target_ecv_reg, from_inst, GetLLVMTypeFromRegZ(required_ecv_reg_class),
                          target_terminator);
       }
+      // for debug
+      value_reg_map.insert({required_value, {target_ecv_reg, required_ecv_reg_class}});
     }
     // Update cache.
     target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
@@ -1469,6 +1540,9 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
     required_value =
         CastFromInst(target_ecv_reg, reg_phi, GetLLVMTypeFromRegZ(required_ecv_reg_class),
                      target_terminator, reg_phi);
+    // for debug
+    value_reg_map.insert({reg_phi, {target_ecv_reg, phi_ecv_reg_class}});
+    value_reg_map.insert({required_value, {target_ecv_reg, required_ecv_reg_class}});
     // Update cache.
     target_bb_reg_info_node->reg_derived_added_inst_map.insert({target_ecv_reg, reg_phi});
     target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
@@ -1533,6 +1607,8 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
             // Actually unneccesarry
             relay_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
                 {relay_phi_inst, {request_ecv_reg, request_ecv_reg_class}});
+            // for debug
+            value_reg_map.insert({relay_phi_inst, {request_ecv_reg, request_ecv_reg_class}});
           }
         }
         ++request_bb_inst_it;
@@ -1558,6 +1634,10 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
           if (target_ecv_reg == need_ecv_reg) {
             required_value = cast_value;
           }
+          // for debug
+          value_reg_map.insert(
+              {load_value, {need_ecv_reg, GetRegZFromLLVMType(load_value->getType())}});
+          value_reg_map.insert({required_value, {need_ecv_reg, need_ecv_reg_class}});
         }
       }
 
@@ -1579,6 +1659,10 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {required_value, {target_ecv_reg, required_ecv_reg_class}});
       }
+      // for debug
+      value_reg_map.insert(
+          {load_value, {target_ecv_reg, GetRegZFromLLVMType(load_value->getType())}});
+      value_reg_map.insert({required_value, {target_ecv_reg, required_ecv_reg_class}});
     }
   }
 

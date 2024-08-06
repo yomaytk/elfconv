@@ -99,13 +99,16 @@ enum class EcvRegClass : uint32_t {
   RegS = 'S' - 'A',
   RegD = 'D' - 'A',
   RegQ = 'Q' - 'A',
-  RegP
+  RegP = 100,
+  RegNULL = 101
 };
+
+std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
 
 enum class RegKind : uint32_t {
   General,
   Vector,
-  Special,
+  Special, // SP ~ XZR
 };
 
 class EcvReg {
@@ -175,6 +178,10 @@ class BBRegInfoNode {
     for (auto key_value : child->sema_call_written_reg_map) {
       sema_call_written_reg_map.insert(key_value);
     }
+    // Join sema_func_args_reg_map
+    for (auto key_value : child->sema_func_args_reg_map) {
+      sema_func_args_reg_map.insert(key_value);
+    }
   }
 
   // The register set which is `load`ed in this block.
@@ -188,6 +195,9 @@ class BBRegInfoNode {
   // Save the written registers by semantic functions
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_call_written_reg_map;
+  // Save the args registers by semantic functions (for debug)
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+      sema_func_args_reg_map;
 
   // Map the added instructions that can be refered later on and register
   // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
