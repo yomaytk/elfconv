@@ -859,7 +859,7 @@ struct UnsignedIntegerType;
 
 // VT is _ecv_*_t
 template <typename VT>
-ALWAYS_INLINE static size_t GetVectorElemsNum(VT &vec) {
+ALWAYS_INLINE size_t GetVectorElemsNum(const VT &vec) {
   return sizeof(vec) / sizeof(typename EcvBaseType<VT>::BT);
 }
 
