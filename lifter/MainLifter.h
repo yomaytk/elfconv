@@ -37,7 +37,8 @@ class MainLifter : public TraceLifter {
           debug_state_machine_vectors_name("debug_state_machine_vectors"),
           debug_llvmir_u64value_name("debug_llvmir_u64value"),
           debug_llvmir_f64value_name("debug_llvmir_f64value"),
-          debug_memory_value_name("debug_memory_value") {}
+          debug_memory_value_name("debug_memory_value"),
+          debug_reach_name("debug_reach") {}
 
     virtual ~WrapImpl() override {}
 
@@ -66,6 +67,7 @@ class MainLifter : public TraceLifter {
     std::string debug_llvmir_u64value_name;
     std::string debug_llvmir_f64value_name;
     std::string debug_memory_value_name;
+    std::string debug_reach_name;
 
     // Set RuntimeManager class to global context
     void SetRuntimeManagerClass();

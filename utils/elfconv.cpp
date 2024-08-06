@@ -86,6 +86,10 @@ extern "C" void debug_insn() {
             << gpr.x1.qword << " x2: 0x" << gpr.x2.qword << " x3: 0x" << gpr.x3.qword << std::endl;
 }
 
+extern "C" void debug_reach() {
+  std::cout << "Reach!" << std::endl;
+}
+
 #if defined(LIFT_DEBUG) && defined(__linux__)
 extern "C" void segv_debug_state_machine(int sig, siginfo_t *info, void *ctx) {
   std::cout << "[ERROR] Segmantation Fault." << std::endl;
