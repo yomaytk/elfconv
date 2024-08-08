@@ -155,7 +155,7 @@ bool EcvReg::CheckNoChangedReg() const {
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
   switch (ecv_reg_class) {
     case EcvRegClass::RegW: return "RegW"; break;
-    case EcvRegClass::RegX: return "RegW"; break;
+    case EcvRegClass::RegX: return "RegX"; break;
     case EcvRegClass::RegB: return "RegB"; break;
     case EcvRegClass::RegH: return "RegH"; break;
     case EcvRegClass::RegS: return "RegS"; break;
@@ -406,8 +406,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (!arch_inst.updated_addr_reg.name.empty()) {
     const auto [update_reg_ptr_reg, _] =
         LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
-    // args[args.size() - 2] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
-    auto updated_op = ir.CreateStore(args[args.size() - 2], update_reg_ptr_reg, false);
+    // args[args.size() - 1] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
+    auto updated_op = ir.CreateStore(args[args.size() - 1], update_reg_ptr_reg, false);
     auto updated_ecv_reg_info = EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
     if (!updated_ecv_reg_info) {
       updated_ecv_reg_info = EcvReg::GetSpecialRegInfo(arch_inst.updated_addr_reg.name);
