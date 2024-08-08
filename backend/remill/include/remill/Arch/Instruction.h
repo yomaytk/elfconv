@@ -83,6 +83,7 @@ class Operand {
     std::string name;
     uint64_t size;  // In bits.
     Usage usage;
+    uint8_t number;
   } reg;
 
   class ShiftRegister {

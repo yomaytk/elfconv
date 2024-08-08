@@ -35,21 +35,13 @@ void AArch64ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
                                                          llvm::Function *bb_func) const {
 
   auto &context = module->getContext();
-  auto u32 = llvm::Type::getInt32Ty(context);
   auto u64 = llvm::Type::getInt64Ty(context);
-
-  auto zero_u32 = llvm::Constant::getNullValue(u32);
-  auto zero_u64 = llvm::Constant::getNullValue(u64);
 
   const auto entry_block = &bb_func->getEntryBlock();
   llvm::IRBuilder<> ir(entry_block);
 
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
 
-  ir.CreateStore(zero_u32, ir.CreateAlloca(u32, nullptr, "WZR"));
-  ir.CreateStore(zero_u64, ir.CreateAlloca(u64, nullptr, "XZR"));
-  ir.CreateAlloca(u32, nullptr, "IGNORE_WRITE_TO_WZR");
-  ir.CreateAlloca(u64, nullptr, "IGNORE_WRITE_TO_XZR");
   ir.CreateAlloca(u64, nullptr, "SUPPRESS_WRITEBACK");
 
   (void) this->RegisterByName(kPCVariableName)->AddressOf(state_ptr_arg, ir);

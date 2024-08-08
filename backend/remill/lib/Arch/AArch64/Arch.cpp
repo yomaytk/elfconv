@@ -338,6 +338,8 @@ static uint64_t WriteRegSize(RegClass rclass) {
 static Operand::Register Reg(Action action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum reg_num) {
   Operand::Register reg;
+
+  reg.number = std::underlying_type<aarch64::RegNum>::type(reg_num);
   if (kActionWrite == action) {
     reg.name = RegName(action, rclass, rtype, reg_num);
     reg.size = WriteRegSize(rclass);

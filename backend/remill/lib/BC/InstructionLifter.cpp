@@ -341,11 +341,19 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       ecv_reg = ecv_reg_info.value().first;
       ecv_reg_class = ecv_reg_info.value().second;
       if (Operand::Action::kActionRead == op.action) {
-        load_reg_map.insert({ecv_reg, ecv_reg_class});
+        // skip the case where the load register is `XZR` or `WZR`.
+        if (31 != target_reg->number || "PC" == target_reg->name) {
+          load_reg_map.insert({ecv_reg, ecv_reg_class});
+        } else {
+          ecv_reg_class = EcvRegClass::RegNULL;
+        }
       } else if (Operand::Action::kActionWrite == op.action) {
         if (Operand::Usage::kValue == target_reg->usage) {
-          store_reg_map.insert({ecv_reg, ecv_reg_class});
-          write_regs.push_back({ecv_reg, ecv_reg_class});
+          // skip the case where the store register is `XZR` or `WZR`.
+          if (!target_reg->name.starts_with("IGNORE_WRITE_TO")) {
+            store_reg_map.insert({ecv_reg, ecv_reg_class});
+            write_regs.push_back({ecv_reg, ecv_reg_class});
+          }
           continue;
         }
       } else {
@@ -795,6 +803,7 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 
   llvm::Function *func = block->getParent();
   llvm::Module *module = func->getParent();
+  auto &context = func->getContext();
   auto &arch_reg = op.reg;
 
   const auto real_arg_type = arg->getType();
@@ -812,6 +821,14 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
     CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy())
         << "Expected " << arch_reg.name << " to be an integral or float type "
         << "for instruction at " << std::hex << inst.pc;
+
+    if (31 == op.reg.number) {
+      if ("XZR" == op.reg.name) {
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
+      } else if ("WZR" == op.reg.name) {
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
+      }
+    }
 
     auto val = LoadRegValue(block, state_ptr, arch_reg.name);
 
@@ -869,7 +886,6 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
     CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
                               << "Operand structure encodes a truncated " << arch_op.size << " bit "
                               << "value for instruction at " << std::hex << inst.pc;
-
     return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
 
   } else {
