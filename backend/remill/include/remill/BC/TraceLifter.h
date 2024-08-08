@@ -203,8 +203,13 @@ class VirtualRegsOpt {
   llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
                             llvm::Instruction *inst_at_before, llvm::Value *to_inst = nullptr);
 
-  llvm::Value *CastToStoredValue(llvm::Value *from_value, EcvReg target_ecv_reg,
-                                 llvm::Instruction *insert_at_before);
+  llvm::Type *GetRegWholeType(EcvReg ecv_reg);
+
+  llvm::Value *GetRegValueFromCacheMap(
+      EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
+      std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
+          &cache_map);
+
   void OptimizeVirtualRegsUsage();
 
   llvm::Function *func;
