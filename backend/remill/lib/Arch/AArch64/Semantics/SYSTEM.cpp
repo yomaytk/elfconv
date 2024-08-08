@@ -16,8 +16,8 @@
 
 namespace {
 
-DEF_SEM_VOID_STATE_RUN(CallSupervisor, I32) {
-  HYPER_CALL = AsyncHyperCall::kAArch64SupervisorCall;
+extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manager, I32 imm) {
+  // Linux always get 0 for the argument of `svc` exception (I32 imm).
   __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 
@@ -105,7 +105,7 @@ DEF_SEM_VOID_RUN(DataMemoryBarrier) {
 
 }  // namespace
 
-DEF_ISEL(SVC_EX_EXCEPTION) = CallSupervisor;  // SVC  #<imm>
+DEF_ISEL(SVC_EX_EXCEPTION) = emulate_system_call;  // SVC  #<imm>
 DEF_ISEL(BRK_EX_EXCEPTION) = Breakpoint;  // BRK  #<imm>
 
 DEF_ISEL(MRS_RS_SYSTEM_FPSR) =
