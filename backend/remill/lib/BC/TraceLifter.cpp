@@ -29,8 +29,6 @@
 #include <set>
 #include <sstream>
 
-#define OPT_DEBUG
-
 namespace remill {
 
 /*

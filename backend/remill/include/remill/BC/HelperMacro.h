@@ -6,3 +6,4 @@
 // #define LIFT_MEMORY_VALUE_CHANGE 1
 // #define ELFCONV_SYSCALL_DEBUG 1
 // #define WARNING_OUTPUT 1
+// #define OPT_DEBUG
