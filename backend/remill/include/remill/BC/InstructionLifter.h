@@ -108,7 +108,7 @@ std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
 enum class RegKind : uint32_t {
   General,
   Vector,
-  Special, // SP ~ XZR
+  Special,  // SP ~ XZR
 };
 
 class EcvReg {

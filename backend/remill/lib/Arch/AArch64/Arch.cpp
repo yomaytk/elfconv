@@ -222,12 +222,12 @@ static Operand::ShiftRegister::Shift GetOperandShift(Shift s) {
 static std::string RegNameXW(Action action, RegClass rclass, RegUsage rtype,
                              aarch64::RegNum number_) {
   auto number = static_cast<uint8_t>(number_);
-  
+
   if (33 == number) {
     // Use on RET {<Xn>}
     return "PC";
   }
-  
+
   std::stringstream ss;
   CHECK_LE(number, 31U);
   CHECK(kActionReadWrite != action);
@@ -566,6 +566,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
 
+  // The register that will be updated
   AddAddressUpdateRegOperand(inst, base_reg);
 }
 
@@ -597,6 +598,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
   // `SP`, but `dest_reg1` or `dest_reg2` (if they are 31), will represent
   // one of `WZR` or `ZR`.
 
+  // The register that will be updated
   AddAddressUpdateRegOperand(inst, base_reg);
 }
 
