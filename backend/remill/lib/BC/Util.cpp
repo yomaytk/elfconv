@@ -215,15 +215,42 @@ FindVarInFunction(llvm::BasicBlock *block, std::string_view name, bool allow_fai
 // this to find register variables.
 std::pair<llvm::Value *, llvm::Type *>
 FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_failure) {
+
   llvm::StringRef name(name_.data(), name_.size());
+  auto &context = function->getContext();
+  auto get_type_from_reg_initial = [&context](llvm::StringRef &name) -> llvm::Type * {
+    auto name_str = name.str();
+
+    // Special register
+    if ("PC" == name_str || "SP" == name_str || "BRANCH_TAKEN" == name_str ||
+        "ECV_NZCV" == name_str) {
+      return llvm::Type::getInt64Ty(context);
+    } else if ("RUNTIME" == name_str || "STATE" == name_str) {
+      return llvm::Type::getInt64PtrTy(context);
+    }
+
+    // General or Vector register
+    switch (name[0]) {
+      case 'W': return llvm::Type::getInt32Ty(context);
+      case 'X': return llvm::Type::getInt64Ty(context);
+      case 'B': return llvm::Type::getInt8Ty(context);
+      case 'H': return llvm::Type::getHalfTy(context);
+      case 'S': return llvm::Type::getFloatTy(context);
+      case 'D': return llvm::Type::getDoubleTy(context);
+      case 'Q':
+      case 'V': return llvm::Type::getInt128Ty(context);
+      default: LOG(FATAL) << "Unexpected register at FindVarInFunction. reg: " << name_str;
+    };
+  };
+
   if (!function->empty()) {
     for (auto &instr : function->getEntryBlock()) {
       if (instr.getName() == name) {
         if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
-          return {alloca, alloca->getAllocatedType()};
+          return {alloca, get_type_from_reg_initial(name)};
         }
         if (auto *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
-          return {gep, gep->getResultElementType()};
+          return {gep, get_type_from_reg_initial(name)};
         }
       }
     }
