@@ -385,43 +385,19 @@ struct MVIW final {
   addr_t addr;
 };
 
-template <typename T, bool = sizeof(T) <= sizeof(addr_t)>
-struct Rn;
-
 // Note: We use `addr_t` as the internal type for `Rn` and `In` struct templates
 //       because this will be the default register size used for parameter
 //       passing in the underlying ABI that Clang chooses to use when converting
 //       this code to bitcode. We want to avoid the issue where a size that's
 //       too small, e.g. `uint8_t` or `uint16_t` in a struct, is passed as an
 //       aligned pointer to a `byval` parameter.
-template <typename T>
-struct Rn<T, true> final {
-  const addr_t val;
-};
 
 template <typename T>
-struct Rn<T, false> final {
-  const T val;
-};
+using Rn = T;
 
 template <typename T>
 struct RnW final {
   T *const val_ref;
-};
-
-template <>
-struct Rn<float32_t> final {
-  const float32_t val;
-};
-
-template <>
-struct Rn<float64_t> final {
-  const float64_t val;
-};
-
-template <>
-struct Rn<float80_t> final {
-  const float80_t val;
 };
 
 template <>
@@ -435,9 +411,7 @@ struct RnW<float64_t> final {
 };
 
 template <typename T>
-struct In final {
-  const addr_t val;
-};
+using In = T;
 
 // Okay so this is *kind of* a hack. The idea is that, in some cases, we want
 // to pass things like 32- or 64-bit GPRs to instructions taking in vectors,
@@ -822,13 +796,7 @@ template <typename T>
 struct BaseType<MVIW<T>> : public BaseType<T> {};
 
 template <typename T>
-struct BaseType<Rn<T>> : public BaseType<T> {};
-
-template <typename T>
 struct BaseType<RnW<T>> : public BaseType<T> {};
-
-template <typename T>
-struct BaseType<In<T>> : public BaseType<T> {};
 
 template <typename T>
 struct BaseType<Vn<T>> : public BaseType<T> {};

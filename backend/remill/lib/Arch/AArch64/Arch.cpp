@@ -247,11 +247,7 @@ static std::string RegNameXW(Action action, RegClass rclass, RegUsage rtype,
       }
     }
   } else {
-    if (action == kActionWrite) {
-      ss << "X";
-    } else {
-      ss << (rclass == kRegX ? "X" : "W");
-    }
+    ss << (rclass == kRegX ? "X" : "W");
     ss << static_cast<unsigned>(number);
   }
   return ss.str();
@@ -320,13 +316,13 @@ static uint64_t ReadRegSize(RegClass rclass) {
 
 static uint64_t WriteRegSize(RegClass rclass) {
   switch (rclass) {
-    case kRegX:
-    case kRegW: return 64;
-    case kRegB:
-    case kRegH:
-    case kRegS:
-    case kRegD:
-    case kRegQ:
+    case kRegW: return 32;
+    case kRegX: return 64;
+    case kRegB: return 8;
+    case kRegH: return 16;
+    case kRegS: return 32;
+    case kRegD: return 64;
+    case kRegQ: return 128;
     case kRegV: return 128;
   }
   return 0;

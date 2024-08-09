@@ -35,9 +35,6 @@ namespace {
 // #endif
 
 #define MAKE_UNDEF(n) \
-  ALWAYS_INLINE static uint##n##_t Undefined(uint##n##_t) { \
-    return __remill_undefined_##n(); \
-  } \
   ALWAYS_INLINE static uint##n##_t Undefined(Rn<uint##n##_t>) { \
     return __remill_undefined_##n(); \
   } \
@@ -119,27 +116,9 @@ ALWAYS_INLINE static float64_t _Read(float64_t val) {
 //   return val;
 // }
 
-ALWAYS_INLINE static float32_t _Read(In<float32_t> imm) {
-  return reinterpret_cast<const float32_t &>(imm.val);
-}
-
-ALWAYS_INLINE static float64_t _Read(In<float64_t> imm) {
-  return reinterpret_cast<const float64_t &>(imm.val);
-}
-
 // ALWAYS_INLINE static float80_t _Read(RuntimeManager *, In<float80_t> imm) {
 //   return reinterpret_cast<const float80_t &>(imm.val);
 // }
-
-template <typename T>
-ALWAYS_INLINE static T _Read(In<T> imm) {
-  return static_cast<T>(imm.val);
-}
-
-template <typename T>
-ALWAYS_INLINE static T _Read(Rn<T> reg) {
-  return static_cast<T>(reg.val);
-}
 
 template <typename T>
 ALWAYS_INLINE static T _Read(RnW<T> reg) {
@@ -1782,7 +1761,6 @@ MAKE_PRED(Register, MVn, false)
 MAKE_PRED(Register, MVnW, false)
 MAKE_PRED(Register, MVI, false)
 MAKE_PRED(Register, MVIW, false)
-MAKE_PRED(Register, In, false)
 
 MAKE_PRED(RuntimeManager, Rn, false)
 MAKE_PRED(RuntimeManager, RnW, false)
@@ -1794,7 +1772,6 @@ MAKE_PRED(RuntimeManager, MVn, true)
 MAKE_PRED(RuntimeManager, MVnW, true)
 MAKE_PRED(RuntimeManager, MVI, true)
 MAKE_PRED(RuntimeManager, MVIW, true)
-MAKE_PRED(RuntimeManager, In, false)
 
 MAKE_PRED(Immediate, Rn, false)
 MAKE_PRED(Immediate, RnW, false)
@@ -1806,7 +1783,6 @@ MAKE_PRED(Immediate, MVn, false)
 MAKE_PRED(Immediate, MVnW, false)
 MAKE_PRED(Immediate, MVI, false)
 MAKE_PRED(Immediate, MVIW, false)
-MAKE_PRED(Immediate, In, true)
 
 #undef MAKE_PRED
 #define MAKE_PRED(name, T, val) \
