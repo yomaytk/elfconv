@@ -7,3 +7,4 @@
 // #define ELFCONV_SYSCALL_DEBUG 1
 // #define WARNING_OUTPUT 1
 // #define OPT_DEBUG
+// #define OPT_DEBUG_2
