@@ -46,8 +46,8 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 // EcvReg
 std::optional<std::pair<EcvReg, EcvRegClass>> EcvReg::GetRegInfo(const std::string &_reg_name) {
   auto c1 = _reg_name[1];
-  if ('0' <= c1 && c1 <= '9') {
-    auto _ecv_reg_class = EcvRegClass(_reg_name[0] - 'A');
+  if (std::isdigit(c1)) {
+    auto _ecv_reg_class = static_cast<EcvRegClass>(_reg_name[0] - 'A');
     return std::make_pair(
         EcvReg((EcvRegClass::RegW == _ecv_reg_class || EcvRegClass::RegX == _ecv_reg_class)
                    ? RegKind::General
@@ -325,12 +325,16 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     EcvRegClass ecv_reg_class = EcvRegClass::RegNULL;
 
     bool reg_need = !op.reg.name.empty() && "PC" != op.reg.name;
+    bool shift_reg_need = !op.shift_reg.reg.name.empty() && "PC" != op.shift_reg.reg.name;
     bool base_reg_need = !op.addr.base_reg.name.empty() && "PC" != op.addr.base_reg.name;
 
-    if (reg_need && base_reg_need) {
+    if ((reg_need && base_reg_need) || (reg_need && shift_reg_need) ||
+        (base_reg_need && shift_reg_need)) {
       LOG(FATAL) << "Must implement the pattern that both reg_need and base_reg_need are true.";
     } else if (base_reg_need) {
       target_reg = &op.addr.base_reg;
+    } else if (shift_reg_need) {
+      target_reg = &op.shift_reg.reg;
     }
 
     if (!target_reg->name.empty()) {
@@ -374,11 +378,12 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
     arg_num += 1;
     auto op_type = operand->getType();
-    CHECK_EQ(op_type, arg_type) << "Lifted operand " << op.Serialize() << " to "
+    CHECK_EQ(op_type, arg_type) << "[Bug]: Lifted operand " << op.Serialize() << " to "
                                 << arch_inst.function
                                 << " does not have the correct type. Expected "
                                 << LLVMThingToString(arg_type) << " but got "
-                                << LLVMThingToString(op_type) << ".";
+                                << LLVMThingToString(op_type) << ". arg_num: " << arg_num - 1
+                                << "address: " << arch_inst.pc;
     args.push_back(operand);
 
     sema_func_args_regs.push_back({ecv_reg, ecv_reg_class});
@@ -647,7 +652,6 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
   auto reg = LoadRegValue(block, state_ptr, arch_reg.name);
   auto reg_type = reg->getType();
   auto reg_size = data_layout.getTypeSizeInBits(reg_type).getFixedValue();
-  auto word_size = impl->arch->address_size;
   auto op_type = llvm::Type::getIntNTy(context, op.size);
 
   const uint64_t zero = 0;
@@ -746,12 +750,12 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
     }
   }
 
-  if (word_size > op.size) {
-    reg = ir.CreateZExt(reg, impl->word_type);
-  } else {
-    CHECK_EQ(word_size, op.size) << "Final size of operand " << op.Serialize() << " is " << op.size
-                                 << " bits, but address size is " << word_size;
-  }
+  // if (word_size > op.size) {
+  //   reg = ir.CreateZExt(reg, impl->word_type);
+  // } else {
+  //   CHECK_EQ(word_size, op.size) << "Final size of operand " << op.Serialize() << " is " << op.size
+  //                                << " bits, but address size is " << word_size;
+  // }
 
   return reg;
 }
@@ -826,7 +830,7 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
       if ("XZR" == op.reg.name) {
         return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
       } else if ("WZR" == op.reg.name) {
-        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
+        return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
       }
     }
 
@@ -875,28 +879,28 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 // Lift an immediate operand.
 llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::BasicBlock *,
                                                      llvm::Argument *arg, Operand &arch_op) {
-  auto arg_type = arg->getType();
-  if (arch_op.size > impl->arch->address_size) {
-    CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
-        << "Argument to semantics function for instruction at " << std::hex << inst.pc
-        << " is not an integer. This may not be surprising because " << "the immediate operand is "
-        << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
-        << " bits.";
+  return llvm::ConstantInt::get(arg->getType(), arch_op.imm.val, arch_op.imm.is_signed);
+  // if (arch_op.size > impl->arch->address_size) {
+  //   CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
+  //       << "Argument to semantics function for instruction at " << std::hex << inst.pc
+  //       << " is not an integer. This may not be surprising because " << "the immediate operand is "
+  //       << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
+  //       << " bits.";
 
-    CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
-                              << "Operand structure encodes a truncated " << arch_op.size << " bit "
-                              << "value for instruction at " << std::hex << inst.pc;
-    return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
+  //   CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
+  //                             << "Operand structure encodes a truncated " << arch_op.size << " bit "
+  //                             << "value for instruction at " << std::hex << inst.pc;
+  //   return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
 
-  } else {
-    CHECK(arg_type->isIntegerTy(impl->arch->address_size))
-        << "Bad semantics function implementation for instruction at " << std::hex << inst.pc
-        << ". Integer constants that are "
-        << "smaller than the machine word size should be represented as "
-        << "machine word sized arguments to semantics functions.";
+  // } else {
+  //   CHECK(arg_type->isIntegerTy(impl->arch->address_size))
+  //       << "Bad semantics function implementation for instruction at " << std::hex << inst.pc
+  //       << ". Integer constants that are "
+  //       << "smaller than the machine word size should be represented as "
+  //       << "machine word sized arguments to semantics functions.";
 
-    return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
-  }
+  //   return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
+  // }
 }
 
 // Lift an expression operand.

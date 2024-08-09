@@ -833,7 +833,7 @@ void TraceLifter::Impl::Optimize() {
     virtual_regs_opt->OptimizeVirtualRegsUsage();
   }
 
-#if defined(OPT_DEBUG)
+#if defined(OPT_DEBUG_2)
   // Insert `debug_llvmir_u64value`
   uint64_t debug_unique_value = 0;
   for (auto lifted_func : no_indirect_lifted_funcs) {
@@ -1446,14 +1446,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               << "i: " << i
               << ", actual arg ecv_reg number: " << to_string(actual_arg_ecv_reg.number)
               << ", sema func arg ecv_reg: " << to_string(sema_isel_arg_i.first.number) << "\n";
-          // if (actual_arg_ecv_reg_class != sema_isel_arg_i.second) {
-          //   llvm::outs() << "[WARN] EcvRegClass Mismatch. actual arg ecv_reg_class: "
-          //                << EcvRegClass2String(actual_arg_ecv_reg_class)
-          //                << ", sema isel arg ecv_reg_class: "
-          //                << EcvRegClass2String(sema_isel_arg_i.second)
-          //                << " at value: " << *actual_arg_i << ", func: " << func->getName().str()
-          //                << "\n";
-          // }
+          CHECK(actual_arg_ecv_reg_class == sema_isel_arg_i.second)
+              << "EcvRegClass Mismatch. actual arg ecv_reg_class: "
+              << EcvRegClass2String(actual_arg_ecv_reg_class)
+              << ", sema isel arg ecv_reg_class: " << EcvRegClass2String(sema_isel_arg_i.second)
+              << " at value: " << LLVMThingToString(actual_arg_i)
+              << ", sema func: " << LLVMThingToString(call_inst)
+              << ", func: " << func->getName().str() << "\n";
         }
       }
     }
