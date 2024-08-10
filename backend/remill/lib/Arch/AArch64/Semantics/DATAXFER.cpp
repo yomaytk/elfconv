@@ -294,9 +294,9 @@ DEF_ISEL(LDP_64_LDSTPAIR_POST) = LoadPairUpdateIndex64;  // LDP  <Xt1>, <Xt2>, [
 
 namespace {
 
-DEF_SEM_U64U64_RUN(LoadPair32, MVI64 src_mem) {
+DEF_SEM_U32U32_RUN(LoadPair32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
-  return {ZExtTo<uint64_t>(vec[0]), ZExtTo<uint64_t>(vec[1])};
+  return {vec[0], vec[1]};
 }
 
 DEF_SEM_U64U64_RUN(LoadPair64, MVI128 src_mem) {
