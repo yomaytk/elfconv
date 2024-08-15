@@ -66,8 +66,8 @@ extern "C" void debug_state_machine_vectors() {
   std::cout << std::hex;
   for (int i = 0; i < kNumVecRegisters /* = 32 */; i++) {
     std::cout << "v." << std::to_string(i) << " = { [64:127]: 0x"
-              << g_state.simd.v[i].qwords.elems[1] << ", [0:63]: 0x"
-              << g_state.simd.v[i].qwords.elems[0] << " }" << std::endl;
+              << (_ecv_u64v2_t(g_state.simd.v[i]))[1] << ", [0:63]: 0x"
+              << (_ecv_u64v2_t(g_state.simd.v[i]))[0] << " }" << std::endl;
   }
 }
 

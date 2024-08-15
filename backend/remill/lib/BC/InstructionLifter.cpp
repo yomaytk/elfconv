@@ -72,6 +72,12 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg
     return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
   } else if ("ECV_NZCV" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
+  } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), EcvRegClass::RegW);
+  } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), EcvRegClass::RegX);
+  } else if ("MONITOR" == _reg_name) {
+    return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
   } else if ("WZR" == _reg_name) {
     return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
   } else if ("XZR" == _reg_name) {
@@ -102,6 +108,12 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
     return "BRANCH_TAKEN";
   } else if (ECV_NZCV_ORDER == number) {
     return "ECV_NZCV";
+  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_WZR";
+  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_XZR";
+  } else if (MONITOR_ORDER == number) {
+    return "MONITOR";
   } else if (WZR_ORDER == number) {
     return "WZR";
   } else if (XZR_ORDER == number) {
@@ -138,6 +150,12 @@ std::string EcvReg::GetWholeRegName() const {
     return "BRANCH_TAKEN";
   } else if (ECV_NZCV_ORDER == number) {
     return "ECV_NZCV";
+  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_WZR";
+  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_XZR";
+  } else if (MONITOR_ORDER == number) {
+    return "MONITOR";
   } else if (WZR_ORDER == number) {
     return "WZR";
   } else if (XZR_ORDER == number) {
@@ -223,6 +241,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->invalid_instruction;
     arch_inst.operands.clear();
     status = kLiftedInvalidInstruction;
+    return status;
   }
 
   if (!isel_func) {
@@ -233,6 +252,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     printf(
         "[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
         arch_inst.pc, arch_inst.function.c_str());
+    return status;
 #endif
   }
 
@@ -312,11 +332,40 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       sema_func_args_regs.push_back(state_reg_info);
       sema_func_args_regs.push_back(runtime_reg_info);
       break;
-    case SemaFuncArgType::Empty: LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"; break;
+    case SemaFuncArgType::Empty:
+      LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!" << " at: 0x" << std::hex
+                 << arch_inst.pc << ", inst.function: " << arch_inst.function;
+      break;
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
   }
 
   std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
+
+  // if (arch_inst.pc == 0x400788) {
+  //   printf("in!");
+  //   llvm::outs() << "Function name: " << isel_func->getName() << "\n";
+
+  //   // 引数を出力
+  //   llvm::outs() << "Arguments:\n";
+  //   for (auto &Arg : isel_func->args()) {
+  //     llvm::outs() << "  " << Arg.getName() << ": ";
+  //     Arg.getType()->print(llvm::outs());
+  //     llvm::outs() << "\n";
+  //   }
+
+  //   // 基本ブロックを出力
+  //   llvm::outs() << "Basic Blocks:\n";
+  //   for (auto &BB : *isel_func) {
+  //     llvm::outs() << "  Basic Block: " << BB.getName() << "\n";
+
+  //     // 命令を出力
+  //     for (auto &Inst : BB) {
+  //       llvm::outs() << "    ";
+  //       Inst.print(llvm::outs());
+  //       llvm::outs() << "\n";
+  //     }
+  //   }
+  // }
 
   for (auto &op : arch_inst.operands) {
     // update bb_reg_info_node
@@ -777,18 +826,22 @@ static llvm::Value *ConvertToIntendedType(Instruction &inst, Operand &op, llvm::
   if (val->getType() == intended_type) {
     return val;
   } else if (auto val_ptr_type = llvm::dyn_cast<llvm::PointerType>(val_type)) {
-    if (intended_type->isPointerTy()) {
+    if (intended_type->isPointerTy() || intended_type->isVectorTy()) {
       return new llvm::BitCastInst(val, intended_type, val->getName(), block);
     } else if (intended_type->isIntegerTy()) {
       return new llvm::PtrToIntInst(val, intended_type, val->getName(), block);
     }
   } else if (val_type->isFloatingPointTy()) {
-    if (intended_type->isIntegerTy()) {
+    if (intended_type->isIntegerTy() || intended_type->isVectorTy()) {
       return new llvm::BitCastInst(val, intended_type, val->getName(), block);
     }
+  } else {
+
+    printf("in!");
   }
 
   LOG(FATAL) << "Unable to convert value " << LLVMThingToString(val)
+             << " (val type: " << LLVMThingToString(val_type) << ") "
              << " to intended argument type " << LLVMThingToString(intended_type) << " for operand "
              << op.Serialize() << " of instruction " << inst.Serialize();
 
@@ -822,9 +875,10 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
     return ConvertToIntendedType(inst, op, block, val, real_arg_type);
 
   } else {
-    CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy())
-        << "Expected " << arch_reg.name << " to be an integral or float type "
-        << "for instruction at " << std::hex << inst.pc;
+    CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy() || arg_type->isVectorTy())
+        << "arg_type: " << LLVMThingToString(arg_type) << ", Expected " << arch_reg.name
+        << " to be an integral or float type or vector type" << "for instruction at 0x" << std::hex
+        << inst.pc;
 
     if (31 == op.reg.number) {
       if ("XZR" == op.reg.name) {
@@ -865,7 +919,8 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 
       } else if (arg_type->isFloatingPointTy()) {
         CHECK(val_type->isFloatingPointTy())
-            << "Expected " << arch_reg.name << " to be a floating point type "
+            << "Expected " << arch_reg.name
+            << " to be a floating point type (Actual: " << LLVMThingToString(val_type) << ") "
             << "for instruction at " << std::hex << inst.pc;
 
         val = new llvm::FPTruncInst(val, arg_type, llvm::Twine::createNull(), block);
@@ -879,28 +934,14 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 // Lift an immediate operand.
 llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::BasicBlock *,
                                                      llvm::Argument *arg, Operand &arch_op) {
-  return llvm::ConstantInt::get(arg->getType(), arch_op.imm.val, arch_op.imm.is_signed);
-  // if (arch_op.size > impl->arch->address_size) {
-  //   CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
-  //       << "Argument to semantics function for instruction at " << std::hex << inst.pc
-  //       << " is not an integer. This may not be surprising because " << "the immediate operand is "
-  //       << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
-  //       << " bits.";
-
-  //   CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
-  //                             << "Operand structure encodes a truncated " << arch_op.size << " bit "
-  //                             << "value for instruction at " << std::hex << inst.pc;
-  //   return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
-
-  // } else {
-  //   CHECK(arg_type->isIntegerTy(impl->arch->address_size))
-  //       << "Bad semantics function implementation for instruction at " << std::hex << inst.pc
-  //       << ". Integer constants that are "
-  //       << "smaller than the machine word size should be represented as "
-  //       << "machine word sized arguments to semantics functions.";
-
-  //   return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
-  // }
+  if (arg->getType()->isIntegerTy()) {
+    return llvm::ConstantInt::get(arg->getType(), arch_op.imm.val, arch_op.imm.is_signed);
+  } else if (arg->getType()->isFloatingPointTy()) {
+    return llvm::ConstantFP::get(arg->getType(), arch_op.imm.val);
+  } else {
+    LOG(FATAL) << "Unexpected type of the Immediate. arg type: "
+               << LLVMThingToString(arg->getType());
+  }
 }
 
 // Lift an expression operand.
@@ -1119,7 +1160,7 @@ llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock 
         LOG(FATAL) << "Expected that a memory operand should be represented by "
                    << "machine word type. Argument type is " << LLVMThingToString(arg_type)
                    << " and word type is " << LLVMThingToString(impl->word_type)
-                   << " in instruction at " << std::hex << inst.pc;
+                   << " in instruction at 0x" << std::hex << inst.pc;
       }
 
       return LiftAddressOperand(inst, block, state_ptr, arg, arch_op);

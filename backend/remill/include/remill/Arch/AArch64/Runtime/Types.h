@@ -16,21 +16,12 @@
 
 #pragma once
 
-// We need this for boolean conditions, used in branch instructions.
-typedef RnW<uint8_t> R8W;
-
-typedef RnW<uint8_t> R8W;
-typedef RnW<uint16_t> R16W;
-
-// Note: AArch64 zero-extends like x86, but the smallest register size that
-// can be accessed is 32 bits.
-typedef RnW<uint64_t> R32W;
-typedef RnW<uint64_t> R64W;
-
-//typedef Rn<uint8_t> R8;
-//typedef Rn<uint16_t> R16;
+typedef Rn<uint8_t> R8;
+typedef Rn<uint16_t> R16;
 typedef Rn<uint32_t> R32;
 typedef Rn<uint64_t> R64;
+typedef Rn<uint128_t> R128;
+
 typedef Rn<float32_t> RF32;
 typedef Rn<float64_t> RF64;
 
@@ -42,18 +33,11 @@ typedef VnW<vec64_t> V64W;
 typedef Vn<vec128_t> V128;
 typedef VnW<vec128_t> V128W;
 
-typedef VI<_ecv_u8v1_t> VI8;
-typedef VI<_ecv_u16v1_t> VI16;
-typedef VI<_ecv_u32v1_t> VI32;
-typedef VI<_ecv_u64v1_t> VI64;
-typedef VI<_ecv_u128v1_t> VI128;
-
-typedef MVIW<_ecv_u8v1_t> MVI8W;
-typedef MVIW<_ecv_u16v1_t> MVI16W;
-typedef MVIW<_ecv_u32v1_t> MVI32W;
-typedef MVIW<_ecv_u64v1_t> MVI64W;
-typedef MVIW<_ecv_u128v1_t> MVI128W;
-typedef MVIW<_ecv_u128v2_t> MVI256W;
+typedef VI<uint8_t> VI8;
+typedef VI<uint16_t> VI16;
+typedef VI<uint32_t> VI32;
+typedef VI<uint64_t> VI64;
+typedef VI<uint128_t> VI128;
 
 typedef MVI<_ecv_u8v1_t> MVI8;
 typedef MVI<_ecv_u16v1_t> MVI16;
@@ -76,9 +60,12 @@ typedef MVnW<vec256_t> MV256W;
 
 typedef Mn<uint8_t> M8;
 typedef Mn<uint16_t> M16;
-
 typedef Mn<uint32_t> M32;
 typedef Mn<uint64_t> M64;
+typedef Mn<uint128_t> M128;
+
+typedef Mn<float32_t> MF32;
+typedef Mn<float64_t> MF64;
 
 typedef MVn<vec8_t> MV8;
 typedef MVn<vec16_t> MV16;

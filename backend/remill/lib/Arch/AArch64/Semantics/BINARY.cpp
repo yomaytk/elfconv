@@ -240,28 +240,32 @@ namespace {
 
 // SBC  <Wd>, <Wn>, <Wm>
 template <typename S>
-DEF_SEM_T(SBC, S src1, S src2, I8 flag_c) {
-  auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
+DEF_SEM_T(SBC, S src1, S src2, I64 ecv_nzcv) {
+  uint64_t flag = Read(ecv_nzcv);
+  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
   return UAdd(UAdd(Read(src1), UNot(Read(src2))), carry);
 }
 
 // SBCS  <Wd>, <Wn>, <Wm>
 template <typename S>
-DEF_SEM_T(SBCS32, S src1, S src2, I8 flag_c) {
-  auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
+DEF_SEM_T(SBCS32, S src1, S src2, I64 ecv_nzcv) {
+  uint64_t flag = Read(ecv_nzcv);
+  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
   return AddWithCarryNZCV32(Read(src1), UNot(Read(src2)), Read(src2), carry);
 }
 
 template <typename S>
-DEF_SEM_T(SBCS64, S src1, S src2, I8 flag_c) {
-  auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
+DEF_SEM_T(SBCS64, S src1, S src2, I64 ecv_nzcv) {
+  uint64_t flag = Read(ecv_nzcv);
+  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
   return AddWithCarryNZCV64(Read(src1), UNot(Read(src2)), Read(src2), carry);
 }
 
 // ADC  <Wd>, <Wn>, <Wm>
 template <typename S>
-DEF_SEM_T(ADC, S src1, S src2, I8 flag_c) {
-  auto carry = ZExtTo<S>(Unsigned(Read(flag_c)));
+DEF_SEM_T(ADC, S src1, S src2, I64 ecv_nzcv) {
+  uint64_t flag = Read(ecv_nzcv);
+  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
   return UAdd(UAdd(Read(src1), Read(src2)), carry);
 }
 

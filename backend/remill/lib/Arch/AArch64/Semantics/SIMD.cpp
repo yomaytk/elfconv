@@ -19,88 +19,88 @@
 
 namespace {
 
-// template <typename S>
-// DEF_SEM(ORR_Vec, V128W dst, S src1, S src2) {
-//   UWriteV64(dst, UOrV64(UReadV64(src1), UReadV64(src2)));
-// }
+template <typename S>
+DEF_SEM_T(ORR_Vec, S src1, S src2) {
+  return UOrVI64(UReadVI64(src1), UReadVI64(src2));
+}
 
-// template <typename S>
-// DEF_SEM(AND_Vec, V128W dst, S src1, S src2) {
-//   UWriteV64(dst, UAndV64(UReadV64(src1), UReadV64(src2)));
-// }
+template <typename S>
+DEF_SEM_T(AND_Vec, S src1, S src2) {
+  return UAndVI64(UReadVI64(src1), UReadVI64(src2));
+}
 
-// template <typename S>
-// DEF_SEM(BIC_Vec, V128W dst, S src1, S src2) {
-//   UWriteV64(dst, UAndV64(UReadV64(src1), UNotV64(UReadV64(src2))));
-// }
+template <typename S>
+DEF_SEM_T(BIC_Vec, S src1, S src2) {
+  return UAndVI64(UReadVI64(src1), UNotVI64(UReadVI64(src2)));
+}
 
-// template <typename S>
-// DEF_SEM(EOR_Vec, V128W dst, S src1, S src2) {
-//   auto operand4 = UReadV64(src1);
-//   auto operand1 = UReadV64(src2);
-//   auto operand2 = UClearV64(operand4);
-//   auto operand3 = UNotV64(operand2);
-//   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand2, operand4), operand3)));
-// }
+template <typename S>
+DEF_SEM_T(EOR_Vec, S src1, S src2) {
+  auto operand4 = UReadVI64(src1);
+  auto operand1 = UReadVI64(src2);
+  auto operand2 = UClearVI64(operand4);
+  auto operand3 = UNotVI64(operand2);
+  return UXorVI64(operand1, UAndVI64(UXorVI64(operand2, operand4), operand3));
+}
 
-// template <typename S>
-// DEF_SEM(BIT_Vec, V128W dst, S dst_src, S src1, S src2) {
-//   auto operand4 = UReadV64(src1);
-//   auto operand1 = UReadV64(dst_src);
-//   auto operand3 = UReadV64(src2);
-//   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-// }
+template <typename S>
+DEF_SEM_T(BIT_Vec, S dst_src, S src1, S src2) {
+  auto operand4 = UReadVI64(src1);
+  auto operand1 = UReadVI64(dst_src);
+  auto operand3 = UReadVI64(src2);
+  return UXorVI64(operand1, UAndVI64(UXorVI64(operand1, operand4), operand3));
+}
 
-// template <typename S>
-// DEF_SEM(BIF_Vec, V128W dst, S dst_src, S src1, S src2) {
-//   auto operand4 = UReadV64(src1);
-//   auto operand1 = UReadV64(dst_src);
-//   auto operand3 = UNotV64(UReadV64(src2));
-//   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-// }
+template <typename S>
+DEF_SEM_T(BIF_Vec, S dst_src, S src1, S src2) {
+  auto operand4 = UReadVI64(src1);
+  auto operand1 = UReadVI64(dst_src);
+  auto operand3 = UNotVI64(UReadVI64(src2));
+  return UXorVI64(operand1, UAndVI64(UXorVI64(operand1, operand4), operand3));
+}
 
-// template <typename S>
-// DEF_SEM(BSL_Vec, V128W dst, S dst_src, S src1, S src2) {
-//   auto operand4 = UReadV64(src1);
-//   auto operand1 = UReadV64(src2);
-//   auto operand3 = UReadV64(dst_src);
-//   UWriteV64(dst, UXorV64(operand1, UAndV64(UXorV64(operand1, operand4), operand3)));
-// }
+template <typename S>
+DEF_SEM_T(BSL_Vec, S dst_src, S src1, S src2) {
+  auto operand4 = UReadVI64(src1);
+  auto operand1 = UReadVI64(src2);
+  auto operand3 = UReadVI64(dst_src);
+  return UXorVI64(operand1, UAndVI64(UXorVI64(operand1, operand4), operand3));
+}
 
 }  // namespace
 
-// DEF_ISEL(ORR_ASIMDSAME_ONLY_8B) = ORR_Vec<V64>;  // ORR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ORR_ASIMDSAME_ONLY_16B) = ORR_Vec<V128>;  // ORR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ORR_ASIMDSAME_ONLY_8B) = ORR_Vec<VI64>;  // ORR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ORR_ASIMDSAME_ONLY_16B) = ORR_Vec<VI128>;  // ORR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(AND_ASIMDSAME_ONLY_8B) = AND_Vec<V64>;  // AND  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(AND_ASIMDSAME_ONLY_16B) = AND_Vec<V128>;  // AND  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(AND_ASIMDSAME_ONLY_8B) = AND_Vec<VI64>;  // AND  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(AND_ASIMDSAME_ONLY_16B) = AND_Vec<VI128>;  // AND  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(BIC_ASIMDSAME_ONLY_8B) = BIC_Vec<V64>;  // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(BIC_ASIMDSAME_ONLY_16B) = BIC_Vec<V128>;  // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIC_ASIMDSAME_ONLY_8B) = BIC_Vec<VI64>;  // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIC_ASIMDSAME_ONLY_16B) = BIC_Vec<VI128>;  // BIC  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(EOR_ASIMDSAME_ONLY_8B) = EOR_Vec<V64>;  // EOR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(EOR_ASIMDSAME_ONLY_16B) = EOR_Vec<V128>;  // EOR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(EOR_ASIMDSAME_ONLY_8B) = EOR_Vec<VI64>;  // EOR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(EOR_ASIMDSAME_ONLY_16B) = EOR_Vec<VI128>;  // EOR  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(BIT_ASIMDSAME_ONLY_8B) = BIT_Vec<V64>;  // BIT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(BIT_ASIMDSAME_ONLY_16B) = BIT_Vec<V128>;  // BIT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIT_ASIMDSAME_ONLY_8B) = BIT_Vec<VI64>;  // BIT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIT_ASIMDSAME_ONLY_16B) = BIT_Vec<VI128>;  // BIT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(BIF_ASIMDSAME_ONLY_8B) = BIF_Vec<V64>;  // BIF  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(BIF_ASIMDSAME_ONLY_16B) = BIF_Vec<V128>;  // BIF  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIF_ASIMDSAME_ONLY_8B) = BIF_Vec<VI64>;  // BIF  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BIF_ASIMDSAME_ONLY_16B) = BIF_Vec<VI128>;  // BIF  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(BSL_ASIMDSAME_ONLY_8B) = BSL_Vec<V64>;  // BSL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(BSL_ASIMDSAME_ONLY_16B) = BSL_Vec<V128>;  // BSL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BSL_ASIMDSAME_ONLY_8B) = BSL_Vec<VI64>;  // BSL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(BSL_ASIMDSAME_ONLY_16B) = BSL_Vec<VI128>;  // BSL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 namespace {
 
-// DEF_SEM(FMOV_VectorToUInt64, R64W dst, V128 src) {
-//   auto val = UExtractV64(UReadV64(src), 1);
+// DEF_SEM(FMOV_VectorToUInt64, R64W dst, VI128 src) {
+//   auto val = UExtractV64(UReadVI64(src), 1);
 //   WriteZExt(dst, val);
 // }
 
-// DEF_SEM(FMOV_UInt64ToVector, V128W dst, R64 src) {
+// DEF_SEM(FMOV_UInt64ToVector, VI128 dst, R64 src) {
 //   auto val = Read(src);
-//   uint64v2_t tmpv = {};
-//   tmpv = UInsertV64(tmpv, 0, UExtractV64(UReadV64(dst), 0));
+//   _ecv_u64v2_t tmpv = {};
+//   tmpv = UInsertV64(tmpv, 0, UExtractV64(UReadVI64(dst), 0));
 //   tmpv = UInsertV64(tmpv, 1, val);
 //   UWriteV64(dst, tmpv);
 // }
@@ -111,708 +111,758 @@ namespace {
 
 namespace {
 
-// #define MAKE_DUP(size) \
-//   template <typename V> \
-//   DEF_SEM(DUP_##size, V128W dst, R64 src) { \
-//     auto val = TruncTo<uint##size##_t>(Read(src)); \
-//     V vec = {}; \
-//     _Pragma("unroll") for (auto &element : vec.elems) { \
-//       element = val; \
-//     } \
-//     UWriteV##size(dst, vec); \
-//   }
+#define MAKE_DUP(size) \
+  template <typename VI, typename V> \
+  DEF_SEM_T(DUP_##size, R64 src) { \
+    auto val = TruncTo<uint##size##_t>(Read(src)); \
+    V vec = {}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      vec[i] = val; \
+    } \
+    return vec; \
+  }  // namespace
 
-// MAKE_DUP(8)
-// MAKE_DUP(16)
-// MAKE_DUP(32)
-// MAKE_DUP(64)
+MAKE_DUP(8)
+MAKE_DUP(16)
+MAKE_DUP(32)
+MAKE_DUP(64)
 
-// #undef MAKE_DUP
+#undef MAKE_DUP
 
 }  // namespace
 
-// DEF_ISEL(DUP_ASIMDINS_DR_R_8B) = DUP_8<uint8v8_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_16B) = DUP_8<uint8v16_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_4H) = DUP_16<uint16v4_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_8H) = DUP_16<uint16v8_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_2S) = DUP_32<uint32v2_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_4S) = DUP_32<uint32v4_t>;  // DUP  <Vd>.<T>, <R><n>
-// DEF_ISEL(DUP_ASIMDINS_DR_R_2D) = DUP_64<uint64v2_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_8B) = DUP_8<VI64, _ecv_u8v8_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_16B) = DUP_8<VI128, _ecv_u8v16_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_4H) = DUP_16<VI64, _ecv_u16v4_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_8H) = DUP_16<VI128, _ecv_u16v8_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_2S) = DUP_32<VI64, _ecv_u32v2_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_4S) = DUP_32<VI128, _ecv_u32v4_t>;  // DUP  <Vd>.<T>, <R><n>
+DEF_ISEL(DUP_ASIMDINS_DR_R_2D) = DUP_64<VI128, _ecv_u64v2_t>;  // DUP  <Vd>.<T>, <R><n>
 
 // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
 namespace {
 
-// #define MAKE_DUP(size) \
-//   template <typename V, typename SV> \
-//   DEF_SEM(DUP_DV_##size, V128W dst, SV src, I32 imm) { \
-//     auto index = Read(imm); \
-//     auto val = TruncTo<uint##size##_t>(UExtractV##size(UReadV##size(src), index)); \
-//     V vec = {}; \
-//     _Pragma("unroll") for (auto &element : vec.elems) { \
-//       element = val; \
-//     } \
-//     UWriteV##size(dst, vec); \
-//   }
+#define MAKE_DUP(size) \
+  template <typename V, typename SV> \
+  DEF_SEM_T(DUP_DV_##size, SV src, I32 imm) { \
+    auto index = Read(imm); \
+    V src_vec = UReadVI##size(src); \
+    auto val = TruncTo<uint##size##_t>(UExtractVI##size(src_vec, index)); \
+    V vec = {}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); i++) { \
+      vec[i] = val; \
+    } \
+    return vec; \
+  }
 
-// MAKE_DUP(8);
-// MAKE_DUP(16);
-// MAKE_DUP(32);
-// MAKE_DUP(64);
+MAKE_DUP(8);
+MAKE_DUP(16);
+MAKE_DUP(32);
+MAKE_DUP(64);
 
-// #undef MAKE_DUP
+#undef MAKE_DUP
 
 }  // namespace
 
-// DEF_ISEL(DUP_ASIMDINS_DV_V_8B) = DUP_DV_8<uint8v8_t, V64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_16B) = DUP_DV_8<uint8v16_t, V128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_4H) = DUP_DV_16<uint16v4_t, V64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_8H) = DUP_DV_16<uint16v8_t, V128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_2S) = DUP_DV_32<uint32v2_t, V64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_4S) = DUP_DV_32<uint32v4_t, V128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
-// DEF_ISEL(DUP_ASIMDINS_DV_V_2D) = DUP_DV_64<uint64v2_t, V128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_8B) = DUP_DV_8<_ecv_u8v8_t, VI64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_16B) =
+    DUP_DV_8<_ecv_u8v16_t, VI128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_4H) =
+    DUP_DV_16<_ecv_u16v4_t, VI64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_8H) =
+    DUP_DV_16<_ecv_u16v8_t, VI128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_2S) =
+    DUP_DV_32<_ecv_u32v2_t, VI64>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_4S) =
+    DUP_DV_32<_ecv_u32v4_t, VI128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
+DEF_ISEL(DUP_ASIMDINS_DV_V_2D) =
+    DUP_DV_64<_ecv_u64v2_t, VI128>;  // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
 
 namespace {
 
-// template <typename T>
-// ALWAYS_INLINE static T UMin(T lhs, T rhs) {
-//   return lhs < rhs ? lhs : rhs;
-// }
+template <typename T>
+ALWAYS_INLINE static T UMin(T lhs, T rhs) {
+  return lhs < rhs ? lhs : rhs;
+}
 
-// template <typename T>
-// ALWAYS_INLINE static T UMax(T lhs, T rhs) {
-//   return lhs < rhs ? rhs : lhs;
-// }
+template <typename T>
+ALWAYS_INLINE static T UMax(T lhs, T rhs) {
+  return lhs < rhs ? rhs : lhs;
+}
 
-// #define SMin UMin
-// #define SMax UMax
+#define SMin UMin
+#define SMax UMax
 
-// #define MAKE_BROADCAST(op, prefix, binop, size) \
-//   template <typename S, typename V> \
-//   DEF_SEM(op##_##size, V128W dst, S src1, S src2) { \
-//     auto vec1 = prefix##ReadV##size(src1); \
-//     auto vec2 = prefix##ReadV##size(src2); \
-//     V sum = {}; \
-//     _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(sum); i < max_i; ++i) { \
-//       sum.elems[i] = \
-//           prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec2, i)); \
-//     } \
-//     prefix##WriteV##size(dst, sum); \
-//   }
+#define MAKE_BROADCAST(op, prefix, binop, size) \
+  template <typename S, typename V> \
+  DEF_SEM_T(op##_##size, S src1, S src2) { \
+    auto vec1 = prefix##ReadVI##size(src1); \
+    auto vec2 = prefix##ReadVI##size(src2); \
+    V sum = {}; \
+    _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(sum); i < max_i; ++i) { \
+      sum[i] = prefix##binop(prefix##ExtractVI##size(vec1, i), prefix##ExtractVI##size(vec2, i)); \
+    } \
+    return sum; \
+  }
 
-// MAKE_BROADCAST(ADD, U, Add, 8)
-// MAKE_BROADCAST(ADD, U, Add, 16)
-// MAKE_BROADCAST(ADD, U, Add, 32)
-// MAKE_BROADCAST(ADD, U, Add, 64)
+MAKE_BROADCAST(ADD, U, Add, 8)
+MAKE_BROADCAST(ADD, U, Add, 16)
+MAKE_BROADCAST(ADD, U, Add, 32)
+MAKE_BROADCAST(ADD, U, Add, 64)
 
-// MAKE_BROADCAST(SUB, U, Sub, 8)
-// MAKE_BROADCAST(SUB, U, Sub, 16)
-// MAKE_BROADCAST(SUB, U, Sub, 32)
-// MAKE_BROADCAST(SUB, U, Sub, 64)
+MAKE_BROADCAST(SUB, U, Sub, 8)
+MAKE_BROADCAST(SUB, U, Sub, 16)
+MAKE_BROADCAST(SUB, U, Sub, 32)
+MAKE_BROADCAST(SUB, U, Sub, 64)
 
-// MAKE_BROADCAST(UMIN, U, Min, 8)
-// MAKE_BROADCAST(UMIN, U, Min, 16)
-// MAKE_BROADCAST(UMIN, U, Min, 32)
+MAKE_BROADCAST(UMIN, U, Min, 8)
+MAKE_BROADCAST(UMIN, U, Min, 16)
+MAKE_BROADCAST(UMIN, U, Min, 32)
 
-// MAKE_BROADCAST(SMIN, S, Min, 8)
-// MAKE_BROADCAST(SMIN, S, Min, 16)
-// MAKE_BROADCAST(SMIN, S, Min, 32)
+MAKE_BROADCAST(SMIN, S, Min, 8)
+MAKE_BROADCAST(SMIN, S, Min, 16)
+MAKE_BROADCAST(SMIN, S, Min, 32)
 
-// MAKE_BROADCAST(UMAX, U, Max, 8)
-// MAKE_BROADCAST(UMAX, U, Max, 16)
-// MAKE_BROADCAST(UMAX, U, Max, 32)
+MAKE_BROADCAST(UMAX, U, Max, 8)
+MAKE_BROADCAST(UMAX, U, Max, 16)
+MAKE_BROADCAST(UMAX, U, Max, 32)
 
-// MAKE_BROADCAST(SMAX, S, Max, 8)
-// MAKE_BROADCAST(SMAX, S, Max, 16)
-// MAKE_BROADCAST(SMAX, S, Max, 32)
+MAKE_BROADCAST(SMAX, S, Max, 8)
+MAKE_BROADCAST(SMAX, S, Max, 16)
+MAKE_BROADCAST(SMAX, S, Max, 32)
 
-// #undef MAKE_BROADCAST
+#undef MAKE_BROADCAST
 
 }  // namespace
 
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_8B) = ADD_8<V64, uint8v8_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_16B) = ADD_8<V128, uint8v16_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_4H) = ADD_16<V64, uint16v4_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_8H) = ADD_16<V128, uint16v8_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_2S) = ADD_32<V64, uint32v2_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_4S) = ADD_32<V128, uint32v4_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADD_ASIMDSAME_ONLY_2D) = ADD_64<V128, uint64v2_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_8B) = ADD_8<VI64, _ecv_u8v8_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_16B) = ADD_8<VI128, _ecv_u8v16_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_4H) = ADD_16<VI64, _ecv_u16v4_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_8H) = ADD_16<VI128, _ecv_u16v8_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_2S) = ADD_32<VI64, _ecv_u32v2_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_4S) = ADD_32<VI128, _ecv_u32v4_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADD_ASIMDSAME_ONLY_2D) = ADD_64<VI128, _ecv_u64v2_t>;  // ADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_8B) = SUB_8<V64, uint8v8_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_16B) = SUB_8<V128, uint8v16_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_4H) = SUB_16<V64, uint16v4_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_8H) = SUB_16<V128, uint16v8_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_2S) = SUB_32<V64, uint32v2_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_4S) = SUB_32<V128, uint32v4_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SUB_ASIMDSAME_ONLY_2D) = SUB_64<V128, uint64v2_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_8B) = SUB_8<VI64, _ecv_u8v8_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_16B) = SUB_8<VI128, _ecv_u8v16_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_4H) = SUB_16<VI64, _ecv_u16v4_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_8H) = SUB_16<VI128, _ecv_u16v8_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_2S) = SUB_32<VI64, _ecv_u32v2_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_4S) = SUB_32<VI128, _ecv_u32v4_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SUB_ASIMDSAME_ONLY_2D) = SUB_64<VI128, _ecv_u64v2_t>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_8B) = UMIN_8<V64, uint8v8_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_16B) = UMIN_8<V128, uint8v16_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_4H) = UMIN_16<V64, uint16v4_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_8H) = UMIN_16<V128, uint16v8_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_2S) = UMIN_32<V64, uint32v2_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMIN_ASIMDSAME_ONLY_4S) = UMIN_32<V128, uint32v4_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_8B) = UMIN_8<VI64, _ecv_u8v8_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_16B) =
+    UMIN_8<VI128, _ecv_u8v16_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_4H) =
+    UMIN_16<VI64, _ecv_u16v4_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_8H) =
+    UMIN_16<VI128, _ecv_u16v8_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_2S) =
+    UMIN_32<VI64, _ecv_u32v2_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMIN_ASIMDSAME_ONLY_4S) =
+    UMIN_32<VI128, _ecv_u32v4_t>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_8B) = UMAX_8<V64, uint8v8_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_16B) = UMAX_8<V128, uint8v16_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_4H) = UMAX_16<V64, uint16v4_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_8H) = UMAX_16<V128, uint16v8_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_2S) = UMAX_32<V64, uint32v2_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAX_ASIMDSAME_ONLY_4S) = UMAX_32<V128, uint32v4_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_8B) = UMAX_8<VI64, _ecv_u8v8_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_16B) =
+    UMAX_8<VI128, _ecv_u8v16_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_4H) =
+    UMAX_16<VI64, _ecv_u16v4_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_8H) =
+    UMAX_16<VI128, _ecv_u16v8_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_2S) =
+    UMAX_32<VI64, _ecv_u32v2_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAX_ASIMDSAME_ONLY_4S) =
+    UMAX_32<VI128, _ecv_u32v4_t>;  // UMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_8B) = SMIN_8<V64, int8v8_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_16B) = SMIN_8<V128, int8v16_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_4H) = SMIN_16<V64, int16v4_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_8H) = SMIN_16<V128, int16v8_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_2S) = SMIN_32<V64, int32v2_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMIN_ASIMDSAME_ONLY_4S) = SMIN_32<V128, int32v4_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_8B) = SMIN_8<VI64, _ecv_i8v8_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_16B) =
+    SMIN_8<VI128, _ecv_i8v16_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_4H) =
+    SMIN_16<VI64, _ecv_i16v4_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_8H) =
+    SMIN_16<VI128, _ecv_i16v8_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_2S) =
+    SMIN_32<VI64, _ecv_i32v2_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMIN_ASIMDSAME_ONLY_4S) =
+    SMIN_32<VI128, _ecv_i32v4_t>;  // SMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_8B) = SMAX_8<V64, int8v8_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_16B) = SMAX_8<V128, int8v16_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_4H) = SMAX_16<V64, int16v4_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_8H) = SMAX_16<V128, int16v8_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_2S) = SMAX_32<V64, int32v2_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAX_ASIMDSAME_ONLY_4S) = SMAX_32<V128, int32v4_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_8B) = SMAX_8<VI64, _ecv_i8v8_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_16B) =
+    SMAX_8<VI128, _ecv_i8v16_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_4H) =
+    SMAX_16<VI64, _ecv_i16v4_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_8H) =
+    SMAX_16<VI128, _ecv_i16v8_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_2S) =
+    SMAX_32<VI64, _ecv_i32v2_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAX_ASIMDSAME_ONLY_4S) =
+    SMAX_32<VI128, _ecv_i32v4_t>;  // SMAX  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 namespace {
 
-// #define MAKE_CMP_BROADCAST(op, prefix, binop, size) \
-//   template <typename S, typename V> \
-//   DEF_SEM(op##_##size, V128W dst, S src1, I##size imm) { \
-//     auto vec1 = prefix##ReadV##size(src1); \
-//     auto ucmp_val = Read(imm); \
-//     auto cmp_val = Signed(ucmp_val); \
-//     decltype(ucmp_val) zeros = 0; \
-//     decltype(ucmp_val) ones = ~zeros; \
-//     V res = {}; \
-//     _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); i < max_i; ++i) { \
-//       res.elems[i] = Select(prefix##binop(prefix##ExtractV##size(vec1, i), cmp_val), ones, zeros); \
-//     } \
-//     UWriteV##size(dst, res); \
-//   }
+#define MAKE_CMP_BROADCAST(op, prefix, binop, size) \
+  template <typename S, typename V> \
+  DEF_SEM_T(op##_##size, S src1, I##size imm) { \
+    auto vec1 = prefix##ReadVI##size(src1); \
+    auto ucmp_val = Read(imm); \
+    auto cmp_val = Signed(ucmp_val); \
+    decltype(ucmp_val) zeros = 0; \
+    decltype(ucmp_val) ones = ~zeros; \
+    V res = {}; \
+    _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(res); i < max_i; ++i) { \
+      res[i] = Select(prefix##binop(prefix##ExtractVI##size(vec1, i), cmp_val), ones, zeros); \
+    } \
+    return res; \
+  }
 
-// MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 8)
-// MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 16)
-// MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 32)
-// MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 64)
+MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 8)
+MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 16)
+MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 32)
+MAKE_CMP_BROADCAST(CMPEQ_IMM, S, CmpEq, 64)
 
-// MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 8)
-// MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 16)
-// MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 32)
-// MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 64)
+MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 8)
+MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 16)
+MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 32)
+MAKE_CMP_BROADCAST(CMPLT_IMM, S, CmpLt, 64)
 
-// MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 8)
-// MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 16)
-// MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 32)
-// MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 64)
+MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 8)
+MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 16)
+MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 32)
+MAKE_CMP_BROADCAST(CMPLE_IMM, S, CmpLte, 64)
 
-// MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 8)
-// MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 16)
-// MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 32)
-// MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 64)
+MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 8)
+MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 16)
+MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 32)
+MAKE_CMP_BROADCAST(CMPGT_IMM, S, CmpGt, 64)
 
-// MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 8)
-// MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 16)
-// MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 32)
-// MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 64)
+MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 8)
+MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 16)
+MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 32)
+MAKE_CMP_BROADCAST(CMPGE_IMM, S, CmpGte, 64)
 
-// #undef MAKE_CMP_BROADCAST
-
-}  // namespace
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_8B) = CMPEQ_IMM_8<V64, uint8v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_8B) = CMPLT_IMM_8<V64, uint8v8_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_8B) = CMPLE_IMM_8<V64, uint8v8_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_8B) = CMPGT_IMM_8<V64, uint8v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_8B) = CMPGE_IMM_8<V64, uint8v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_16B) = CMPEQ_IMM_8<V128, uint8v16_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_16B) = CMPLT_IMM_8<V128, uint8v16_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_16B) = CMPLE_IMM_8<V128, uint8v16_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_16B) = CMPGT_IMM_8<V128, uint8v16_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_16B) = CMPGE_IMM_8<V128, uint8v16_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_4H) = CMPEQ_IMM_16<V64, uint16v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_4H) = CMPLT_IMM_16<V64, uint16v4_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_4H) = CMPLE_IMM_16<V64, uint16v4_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_4H) = CMPGT_IMM_16<V64, uint16v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_4H) = CMPGE_IMM_16<V64, uint16v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_8H) = CMPEQ_IMM_16<V128, uint16v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_8H) = CMPLT_IMM_16<V128, uint16v8_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_8H) = CMPLE_IMM_16<V128, uint16v8_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_8H) = CMPGT_IMM_16<V128, uint16v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_8H) = CMPGE_IMM_16<V128, uint16v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_2S) = CMPEQ_IMM_32<V64, uint32v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_2S) = CMPLT_IMM_32<V64, uint32v2_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_2S) = CMPLE_IMM_32<V64, uint32v2_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_2S) = CMPGT_IMM_32<V64, uint32v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_2S) = CMPGE_IMM_32<V64, uint32v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_4S) = CMPEQ_IMM_32<V128, uint32v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_4S) = CMPLT_IMM_32<V128, uint32v4_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_4S) = CMPLE_IMM_32<V128, uint32v4_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_4S) = CMPGT_IMM_32<V128, uint32v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_4S) = CMPGE_IMM_32<V128, uint32v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_1D) = CMPEQ_IMM_64<V64, uint64v1_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_1D) = CMPLT_IMM_64<V64, uint64v1_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_1D) = CMPLE_IMM_64<V64, uint64v1_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_1D) = CMPGT_IMM_64<V64, uint64v1_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_1D) = CMPGE_IMM_64<V64, uint64v1_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-// DEF_ISEL(CMEQ_ASIMDMISC_Z_2D) = CMPEQ_IMM_64<V128, uint64v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLT_ASIMDMISC_Z_2D) = CMPLT_IMM_64<V128, uint64v2_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMLE_ASIMDMISC_Z_2D) = CMPLE_IMM_64<V128, uint64v2_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGT_ASIMDMISC_Z_2D) = CMPGT_IMM_64<V128, uint64v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
-// DEF_ISEL(CMGE_ASIMDMISC_Z_2D) = CMPGE_IMM_64<V128, uint64v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
-
-namespace {
-// DEF_SEM(CMGE_ASISDMISC_ONLYD, V128W dst, V128 src) {
-//   auto src_v = SReadV64(src);
-//   uint64_t zeros = 0;
-//   uint64_t ones = ~zeros;
-//   uint64v2_t tmp_v = {};
-//   _Pragma("unroll") for (int i = 0; i < 2; i++) {
-//     tmp_v.elems[i] = src_v.elems[i] >= 0 ? ones : zeros;
-//   }
-//   UWriteV64(dst, tmp_v);
-// }
-// }  // namespace
-
-// DEF_ISEL(CMGE_ASISDMISC_Z) = CMGE_ASISDMISC_ONLYD;  // CMGE  <V><d>, <V><n>, #0
-
-// namespace {
-
-// #define MAKE_CMP_BROADCAST(op, prefix, binop, size) \
-//   template <typename S, typename V> \
-//   DEF_SEM(op##_##size, V128W dst, S src1, S src2) { \
-//     auto vec1 = prefix##ReadV##size(src1); \
-//     auto vec2 = prefix##ReadV##size(src2); \
-//     uint##size##_t zeros = 0; \
-//     uint##size##_t ones = ~zeros; \
-//     V res = {}; \
-//     _Pragma("unroll") for (size_t i = 0, max_i = NumVectorElems(res); i < max_i; ++i) { \
-//       res.elems[i] = \
-//           Select(prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec2, i)), \
-//                  ones, zeros); \
-//     } \
-//     UWriteV##size(dst, res); \
-//   }
-
-// template <typename T>
-// ALWAYS_INLINE static bool UCmpTst(T lhs, T rhs) {
-//   return UCmpNeq(UAnd(lhs, rhs), T(0));
-// }
-
-// MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 8)
-// MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 16)
-// MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 32)
-// MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 64)
-
-// MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 8)
-// MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 16)
-// MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 32)
-// MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 64)
-
-// MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 8)
-// MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 16)
-// MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 32)
-// MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 64)
-
-// MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 8)
-// MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 16)
-// MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 32)
-// MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 64)
-
-// MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 8)
-// MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 16)
-// MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 32)
-// MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 64)
-
-// #undef MAKE_CMP_BROADCAST
+#undef MAKE_CMP_BROADCAST
 
 }  // namespace
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8B) = CMPEQ_8<V64, uint8v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_8B) = CMPGT_8<V64, uint8v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_8B) = CMPGE_8<V64, uint8v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_8B) =
-//     CMPTST_8<V64, uint8v8_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_8B) = CMPHS_8<V64, uint8v8_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_8B) = CMPEQ_IMM_8<VI64, _ecv_u8v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_8B) = CMPLT_IMM_8<VI64, _ecv_u8v8_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_8B) = CMPLE_IMM_8<VI64, _ecv_u8v8_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_8B) = CMPGT_IMM_8<VI64, _ecv_u8v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_8B) = CMPGE_IMM_8<VI64, _ecv_u8v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_16B) =
-//     CMPEQ_8<V128, uint8v16_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_16B) =
-//     CMPGT_8<V128, uint8v16_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_16B) =
-//     CMPGE_8<V128, uint8v16_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_16B) =
-//     CMPTST_8<V128, uint8v16_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_16B) =
-//     CMPHS_8<V128, uint8v16_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_16B) = CMPEQ_IMM_8<VI128, _ecv_u8v16_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_16B) = CMPLT_IMM_8<VI128, _ecv_u8v16_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_16B) = CMPLE_IMM_8<VI128, _ecv_u8v16_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_16B) = CMPGT_IMM_8<VI128, _ecv_u8v16_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_16B) = CMPGE_IMM_8<VI128, _ecv_u8v16_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4H) = CMPEQ_16<V64, uint16v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_4H) = CMPGT_16<V64, uint16v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_4H) = CMPGE_16<V64, uint16v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_4H) =
-//     CMPTST_16<V64, uint16v4_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_4H) = CMPHS_16<V64, uint16v4_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_4H) = CMPEQ_IMM_16<VI64, _ecv_u16v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_4H) = CMPLT_IMM_16<VI64, _ecv_u16v4_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_4H) = CMPLE_IMM_16<VI64, _ecv_u16v4_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_4H) = CMPGT_IMM_16<VI64, _ecv_u16v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_4H) = CMPGE_IMM_16<VI64, _ecv_u16v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8H) =
-//     CMPEQ_16<V128, uint16v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_8H) =
-//     CMPGT_16<V128, uint16v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_8H) =
-//     CMPGE_16<V128, uint16v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_8H) =
-//     CMPTST_16<V128, uint16v8_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_8H) =
-//     CMPHS_16<V128, uint16v8_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_8H) = CMPEQ_IMM_16<VI128, _ecv_u16v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_8H) = CMPLT_IMM_16<VI128, _ecv_u16v8_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_8H) = CMPLE_IMM_16<VI128, _ecv_u16v8_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_8H) = CMPGT_IMM_16<VI128, _ecv_u16v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_8H) = CMPGE_IMM_16<VI128, _ecv_u16v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2S) = CMPEQ_32<V64, uint32v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_2S) = CMPGT_32<V64, uint32v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_2S) = CMPGE_32<V64, uint32v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_2S) =
-//     CMPTST_32<V64, uint32v2_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_2S) = CMPHS_32<V64, uint32v2_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_2S) = CMPEQ_IMM_32<VI64, _ecv_u32v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_2S) = CMPLT_IMM_32<VI64, _ecv_u32v2_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_2S) = CMPLE_IMM_32<VI64, _ecv_u32v2_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_2S) = CMPGT_IMM_32<VI64, _ecv_u32v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_2S) = CMPGE_IMM_32<VI64, _ecv_u32v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4S) =
-//     CMPEQ_32<V128, uint32v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_4S) =
-//     CMPGT_32<V128, uint32v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_4S) =
-//     CMPGE_32<V128, uint32v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_4S) =
-//     CMPTST_32<V128, uint32v4_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_4S) =
-//     CMPHS_32<V128, uint32v4_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_4S) = CMPEQ_IMM_32<VI128, _ecv_u32v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_4S) = CMPLT_IMM_32<VI128, _ecv_u32v4_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_4S) = CMPLE_IMM_32<VI128, _ecv_u32v4_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_4S) = CMPGT_IMM_32<VI128, _ecv_u32v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_4S) = CMPGE_IMM_32<VI128, _ecv_u32v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
-// DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2D) =
-//     CMPEQ_64<V128, uint64v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGT_ASIMDSAME_ONLY_2D) =
-//     CMPGT_64<V128, uint64v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMGE_ASIMDSAME_ONLY_2D) =
-//     CMPGE_64<V128, uint64v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMTST_ASIMDSAME_ONLY_2D) =
-//     CMPTST_64<V128, uint64v2_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(CMHS_ASIMDSAME_ONLY_2D) =
-//     CMPHS_64<V128, uint64v2_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMEQ_ASIMDMISC_Z_1D) = CMPEQ_IMM_64<VI64, _ecv_u64v1_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_1D) = CMPLT_IMM_64<VI64, _ecv_u64v1_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_1D) = CMPLE_IMM_64<VI64, _ecv_u64v1_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_1D) = CMPGT_IMM_64<VI64, _ecv_u64v1_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_1D) = CMPGE_IMM_64<VI64, _ecv_u64v1_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
+
+DEF_ISEL(CMEQ_ASIMDMISC_Z_2D) = CMPEQ_IMM_64<VI128, _ecv_u64v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLT_ASIMDMISC_Z_2D) = CMPLT_IMM_64<VI128, _ecv_u64v2_t>;  // CMLT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMLE_ASIMDMISC_Z_2D) = CMPLE_IMM_64<VI128, _ecv_u64v2_t>;  // CMLE  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGT_ASIMDMISC_Z_2D) = CMPGT_IMM_64<VI128, _ecv_u64v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, #0
+DEF_ISEL(CMGE_ASIMDMISC_Z_2D) = CMPGE_IMM_64<VI128, _ecv_u64v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, #0
 
 namespace {
 
-// #define MAKE_PAIRWAISE_BROADCAST(op, prefix, binop, size) \
-//   template <typename S, typename V> \
-//   DEF_SEM(op##_##size, V128W dst, S src1, S src2) { \
-//     auto vec1 = prefix##ReadV##size(src1); \
-//     auto vec2 = prefix##ReadV##size(src2); \
-//     V res = {}; \
-//     size_t max_i = NumVectorElems(res); \
-//     size_t j = 0; \
-//     _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
-//       res.elems[j++] = \
-//           prefix##binop(prefix##ExtractV##size(vec1, i), prefix##ExtractV##size(vec1, i + 1)); \
-//     } \
-//     _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
-//       res.elems[j++] = \
-//           prefix##binop(prefix##ExtractV##size(vec2, i), prefix##ExtractV##size(vec2, i + 1)); \
-//     } \
-//     prefix##WriteV##size(dst, res); \
-//   }
-
-// MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 8)
-// MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 16)
-// MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 32)
-// MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 64)
-
-// MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 8)
-// MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 16)
-// MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 32)
-
-// MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 8)
-// MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 16)
-// MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 32)
-
-// MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 8)
-// MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 16)
-// MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 32)
-
-// MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 8)
-// MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 16)
-// MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 32)
-
-// #undef MAKE_PAIRWAISE_BROADCAST
+DEF_SEM_T(CMGE_ASISDMISC_ONLYD, VI128 src) {
+  auto src_v = SReadVI64(src);
+  uint64_t zeros = 0;
+  uint64_t ones = ~zeros;
+  _ecv_u64v2_t res = {};
+  _Pragma("unroll") for (int i = 0; i < 2; i++) {
+    res[i] = SExtractVI64(src_v, i) >= 0 ? ones : zeros;
+  }
+  return res;
+}
 
 }  // namespace
 
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_8B) = ADDP_8<V64, uint8v8_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_16B) = ADDP_8<V128, uint8v16_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_4H) = ADDP_16<V64, uint16v4_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_8H) = ADDP_16<V128, uint16v8_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_2S) = ADDP_32<V64, uint32v2_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_4S) = ADDP_32<V128, uint32v4_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(ADDP_ASIMDSAME_ONLY_2D) = ADDP_64<V128, uint64v2_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_8B) = UMINP_8<V64, uint8v8_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_16B) =
-//     UMINP_8<V128, uint8v16_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_4H) =
-//     UMINP_16<V64, uint16v4_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_8H) =
-//     UMINP_16<V128, uint16v8_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_2S) =
-//     UMINP_32<V64, uint32v2_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMINP_ASIMDSAME_ONLY_4S) =
-//     UMINP_32<V128, uint32v4_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_8B) = UMAXP_8<V64, uint8v8_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_16B) =
-//     UMAXP_8<V128, uint8v16_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_4H) =
-//     UMAXP_16<V64, uint16v4_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_8H) =
-//     UMAXP_16<V128, uint16v8_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_2S) =
-//     UMAXP_32<V64, uint32v2_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(UMAXP_ASIMDSAME_ONLY_4S) =
-//     UMAXP_32<V128, uint32v4_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_8B) = SMINP_8<V64, int8v8_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_16B) =
-//     SMINP_8<V128, int8v16_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_4H) =
-//     SMINP_16<V64, int16v4_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_8H) =
-//     SMINP_16<V128, int16v8_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_2S) =
-//     SMINP_32<V64, int32v2_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMINP_ASIMDSAME_ONLY_4S) =
-//     SMINP_32<V128, int32v4_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_8B) = SMAXP_8<V64, int8v8_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_16B) =
-//     SMAXP_8<V128, int8v16_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4H) =
-//     SMAXP_16<V64, int16v4_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_8H) =
-//     SMAXP_16<V128, int16v8_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_2S) =
-//     SMAXP_32<V64, int32v2_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4S) =
-//     SMAXP_32<V128, int32v4_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASISDMISC_Z) = CMGE_ASISDMISC_ONLYD;  // CMGE  <V><d>, <V><n>, #0
 
 namespace {
 
-// template <typename V, typename B>
-// ALWAYS_INLINE static auto Reduce2(const V &vec, B binop,
-//                                   size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
-//   return binop(vec.elems[base + 0], vec.elems[base + 1]);
-// }
+#define MAKE_CMP_BROADCAST(op, prefix, binop, size) \
+  template <typename S, typename V> \
+  DEF_SEM_T(op##_##size, S src1, S src2) { \
+    auto vec1 = prefix##ReadVI##size(src1); \
+    auto vec2 = prefix##ReadVI##size(src2); \
+    uint##size##_t zeros = 0; \
+    uint##size##_t ones = ~zeros; \
+    V res = {}; \
+    _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(res); i < max_i; ++i) { \
+      res[i] = Select( \
+          prefix##binop(prefix##ExtractVI##size(vec1, i), prefix##ExtractVI##size(vec2, i)), ones, \
+          zeros); \
+    } \
+    return res; \
+  }
 
-// template <typename V, typename B>
-// ALWAYS_INLINE static auto Reduce4(const V &vec, B binop,
-//                                   size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
-//   auto lo = Reduce2(vec, binop, base + 0);
-//   auto hi = Reduce2(vec, binop, base + 2);
-//   return binop(lo, hi);
-// }
+template <typename T>
+ALWAYS_INLINE static bool UCmpTst(T lhs, T rhs) {
+  return UCmpNeq(UAnd(lhs, rhs), T(0));
+}
 
-// template <typename V, typename B>
-// ALWAYS_INLINE static auto Reduce8(const V &vec, B binop,
-//                                   size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
-//   auto lo = Reduce4(vec, binop, base + 0);
-//   auto hi = Reduce4(vec, binop, base + 4);
-//   return binop(lo, hi);
-// }
+MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 8)
+MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 16)
+MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 32)
+MAKE_CMP_BROADCAST(CMPEQ, S, CmpEq, 64)
 
-// template <typename V, typename B>
-// ALWAYS_INLINE static auto Reduce16(const V &vec, B binop,
-//                                    size_t base = 0) -> decltype(binop(vec.elems[0], vec.elems[1])) {
-//   auto lo = Reduce8(vec, binop, base + 0);
-//   auto hi = Reduce8(vec, binop, base + 8);
-//   return binop(lo, hi);
-// }
+MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 8)
+MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 16)
+MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 32)
+MAKE_CMP_BROADCAST(CMPTST, U, CmpTst, 64)
 
-// template <typename V, typename B>
-// ALWAYS_INLINE static auto Reduce(const V &vec, B binop) -> decltype(Reduce2(vec, binop)) {
-//   switch (NumVectorElems(vec)) {
-//     case 2: return Reduce2(vec, binop);
-//     case 4: return Reduce4(vec, binop);
-//     case 8: return Reduce8(vec, binop);
-//     case 16: return Reduce16(vec, binop);
-//     default: __builtin_unreachable();
-//   }
-// }
+MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 8)
+MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 16)
+MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 32)
+MAKE_CMP_BROADCAST(CMPGT, S, CmpGt, 64)
 
-// template <typename S>
-// DEF_SEM(ADDV_8_Reduce, V128W dst, S src) {
-//   auto vec = SReadV8(src);
-//   UWriteV8(dst, Unsigned(Reduce(vec, SAdd8)));
-// }
+MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 8)
+MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 16)
+MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 32)
+MAKE_CMP_BROADCAST(CMPGE, S, CmpGte, 64)
 
-// template <typename S>
-// DEF_SEM(ADDV_16_Reduce, V128W dst, S src) {
-//   auto vec = SReadV16(src);
-//   UWriteV16(dst, Unsigned(Reduce(vec, SAdd16)));
-// }
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 8)
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 16)
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 32)
+MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 64)
 
-// template <typename S>
-// DEF_SEM(ADDV_32_Reduce, V128W dst, S src) {
-//   auto vec = SReadV32(src);
-//   UWriteV32(dst, Unsigned(Reduce(vec, SAdd32)));
-// }
-
-// template <typename S>
-// DEF_SEM(UMINV_8, V128W dst, S src) {
-//   auto vec = UReadV8(src);
-//   auto val = std::numeric_limits<uint8_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMin(elem, val);
-//   }
-//   UWriteV8(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(UMINV_16, V128W dst, S src) {
-//   auto vec = UReadV16(src);
-//   auto val = std::numeric_limits<uint16_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMin(elem, val);
-//   }
-//   UWriteV16(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(UMINV_32, V128W dst, S src) {
-//   auto vec = UReadV32(src);
-//   auto val = std::numeric_limits<uint32_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMin(elem, val);
-//   }
-//   UWriteV32(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMINV_8, V128W dst, S src) {
-//   auto vec = SReadV8(src);
-//   auto val = std::numeric_limits<int8_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMin(elem, val);
-//   }
-//   SWriteV8(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMINV_16, V128W dst, S src) {
-//   auto vec = SReadV16(src);
-//   auto val = std::numeric_limits<int16_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMin(elem, val);
-//   }
-//   SWriteV16(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMINV_32, V128W dst, S src) {
-//   auto vec = SReadV32(src);
-//   auto val = std::numeric_limits<int32_t>::max();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMin(elem, val);
-//   }
-//   SWriteV32(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(UMAXV_8, V128W dst, S src) {
-//   auto vec = UReadV8(src);
-//   auto val = std::numeric_limits<uint8_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMax(elem, val);
-//   }
-//   UWriteV8(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(UMAXV_16, V128W dst, S src) {
-//   auto vec = UReadV16(src);
-//   auto val = std::numeric_limits<uint16_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMax(elem, val);
-//   }
-//   UWriteV16(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(UMAXV_32, V128W dst, S src) {
-//   auto vec = UReadV32(src);
-//   auto val = std::numeric_limits<uint32_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = UMax(elem, val);
-//   }
-//   UWriteV32(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMAXV_8, V128W dst, S src) {
-//   auto vec = SReadV8(src);
-//   auto val = std::numeric_limits<int8_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMax(elem, val);
-//   }
-//   SWriteV8(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMAXV_16, V128W dst, S src) {
-//   auto vec = SReadV16(src);
-//   auto val = std::numeric_limits<int16_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMax(elem, val);
-//   }
-//   SWriteV16(dst, val);
-// }
-
-// template <typename S>
-// DEF_SEM(SMAXV_32, V128W dst, S src) {
-//   auto vec = SReadV32(src);
-//   auto val = std::numeric_limits<int32_t>::min();
-//   _Pragma("unroll") for (auto elem : vec.elems) {
-//     val = SMax(elem, val);
-//   }
-//   SWriteV32(dst, val);
-// }
+#undef MAKE_CMP_BROADCAST
 
 }  // namespace
 
-// DEF_ISEL(ADDV_ASIMDALL_ONLY_8B) = ADDV_8_Reduce<V64>;  // ADDV  <V><d>, <Vn>.<T>
-// DEF_ISEL(ADDV_ASIMDALL_ONLY_16B) = ADDV_8_Reduce<V128>;  // ADDV  <V><d>, <Vn>.<T>
-// DEF_ISEL(ADDV_ASIMDALL_ONLY_4H) = ADDV_16_Reduce<V64>;  // ADDV  <V><d>, <Vn>.<T>
-// DEF_ISEL(ADDV_ASIMDALL_ONLY_8H) = ADDV_16_Reduce<V128>;  // ADDV  <V><d>, <Vn>.<T>
-// DEF_ISEL(ADDV_ASIMDALL_ONLY_4S) = ADDV_32_Reduce<V128>;  // ADDV  <V><d>, <Vn>.<T>
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8B) =
+    CMPEQ_8<VI64, _ecv_u8v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_8B) =
+    CMPGT_8<VI64, _ecv_u8v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_8B) =
+    CMPGE_8<VI64, _ecv_u8v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_8B) =
+    CMPTST_8<VI64, _ecv_u8v8_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_8B) =
+    CMPHS_8<VI64, _ecv_u8v8_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(UMINV_ASIMDALL_ONLY_8B) = UMINV_8<V64>;  // UMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMINV_ASIMDALL_ONLY_16B) = UMINV_8<V128>;  // UMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMINV_ASIMDALL_ONLY_4H) = UMINV_16<V64>;  // UMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMINV_ASIMDALL_ONLY_8H) = UMINV_16<V128>;  // UMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMINV_ASIMDALL_ONLY_4S) = UMINV_32<V128>;  // UMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_16B) =
+    CMPEQ_8<VI128, _ecv_u8v16_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_16B) =
+    CMPGT_8<VI128, _ecv_u8v16_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_16B) =
+    CMPGE_8<VI128, _ecv_u8v16_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_16B) =
+    CMPTST_8<VI128, _ecv_u8v16_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_16B) =
+    CMPHS_8<VI128, _ecv_u8v16_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(SMINV_ASIMDALL_ONLY_8B) = SMINV_8<V64>;  // SMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMINV_ASIMDALL_ONLY_16B) = SMINV_8<V128>;  // SMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMINV_ASIMDALL_ONLY_4H) = SMINV_16<V64>;  // SMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMINV_ASIMDALL_ONLY_8H) = SMINV_16<V128>;  // SMINV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMINV_ASIMDALL_ONLY_4S) = SMINV_32<V128>;  // SMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4H) =
+    CMPEQ_16<VI64, _ecv_u16v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_4H) =
+    CMPGT_16<VI64, _ecv_u16v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_4H) =
+    CMPGE_16<VI64, _ecv_u16v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_4H) =
+    CMPTST_16<VI64, _ecv_u16v4_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_4H) =
+    CMPHS_16<VI64, _ecv_u16v4_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(UMAXV_ASIMDALL_ONLY_8B) = UMAXV_8<V64>;  // UMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMAXV_ASIMDALL_ONLY_16B) = UMAXV_8<V128>;  // UMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMAXV_ASIMDALL_ONLY_4H) = UMAXV_16<V64>;  // UMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMAXV_ASIMDALL_ONLY_8H) = UMAXV_16<V128>;  // UMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(UMAXV_ASIMDALL_ONLY_4S) = UMAXV_32<V128>;  // UMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_8H) =
+    CMPEQ_16<VI128, _ecv_u16v8_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_8H) =
+    CMPGT_16<VI128, _ecv_u16v8_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_8H) =
+    CMPGE_16<VI128, _ecv_u16v8_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_8H) =
+    CMPTST_16<VI128, _ecv_u16v8_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_8H) =
+    CMPHS_16<VI128, _ecv_u16v8_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(SMAXV_ASIMDALL_ONLY_8B) = SMAXV_8<V64>;  // SMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMAXV_ASIMDALL_ONLY_16B) = SMAXV_8<V128>;  // SMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMAXV_ASIMDALL_ONLY_4H) = SMAXV_16<V64>;  // SMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMAXV_ASIMDALL_ONLY_8H) = SMAXV_16<V128>;  // SMAXV  <V><d>, <Vn>.<T>
-// DEF_ISEL(SMAXV_ASIMDALL_ONLY_4S) = SMAXV_32<V128>;  // SMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2S) =
+    CMPEQ_32<VI64, _ecv_u32v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_2S) =
+    CMPGT_32<VI64, _ecv_u32v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_2S) =
+    CMPGE_32<VI64, _ecv_u32v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_2S) =
+    CMPTST_32<VI64, _ecv_u32v2_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_2S) =
+    CMPHS_32<VI64, _ecv_u32v2_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_4S) =
+    CMPEQ_32<VI128, _ecv_u32v4_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_4S) =
+    CMPGT_32<VI128, _ecv_u32v4_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_4S) =
+    CMPGE_32<VI128, _ecv_u32v4_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_4S) =
+    CMPTST_32<VI128, _ecv_u32v4_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_4S) =
+    CMPHS_32<VI128, _ecv_u32v4_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(CMEQ_ASIMDSAME_ONLY_2D) =
+    CMPEQ_64<VI128, _ecv_u64v2_t>;  // CMEQ  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGT_ASIMDSAME_ONLY_2D) =
+    CMPGT_64<VI128, _ecv_u64v2_t>;  // CMGT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMGE_ASIMDSAME_ONLY_2D) =
+    CMPGE_64<VI128, _ecv_u64v2_t>;  // CMGE  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMTST_ASIMDSAME_ONLY_2D) =
+    CMPTST_64<VI128, _ecv_u64v2_t>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHS_ASIMDSAME_ONLY_2D) =
+    CMPHS_64<VI128, _ecv_u64v2_t>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+namespace {
+
+#define MAKE_PAIRWAISE_BROADCAST(op, prefix, binop, size) \
+  template <typename S, typename V> \
+  DEF_SEM_T(op##_##size, S src1, S src2) { \
+    auto vec1 = prefix##ReadVI##size(src1); \
+    auto vec2 = prefix##ReadVI##size(src2); \
+    V res = {}; \
+    size_t max_i = GetVectorElemsNum(res); \
+    size_t j = 0; \
+    _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
+      res[j++] = \
+          prefix##binop(prefix##ExtractVI##size(vec1, i), prefix##ExtractVI##size(vec1, i + 1)); \
+    } \
+    _Pragma("unroll") for (size_t i = 0; i < max_i; i += 2) { \
+      res[j++] = \
+          prefix##binop(prefix##ExtractVI##size(vec2, i), prefix##ExtractVI##size(vec2, i + 1)); \
+    } \
+    return res; \
+  }
+
+MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 8)
+MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 16)
+MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 32)
+MAKE_PAIRWAISE_BROADCAST(ADDP, U, Add, 64)
+
+MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 8)
+MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 16)
+MAKE_PAIRWAISE_BROADCAST(UMAXP, U, Max, 32)
+
+MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 8)
+MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 16)
+MAKE_PAIRWAISE_BROADCAST(SMAXP, S, Max, 32)
+
+MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 8)
+MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 16)
+MAKE_PAIRWAISE_BROADCAST(UMINP, U, Min, 32)
+
+MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 8)
+MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 16)
+MAKE_PAIRWAISE_BROADCAST(SMINP, S, Min, 32)
+
+#undef MAKE_PAIRWAISE_BROADCAST
+
+}  // namespace
+
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_8B) = ADDP_8<VI64, _ecv_u8v8_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_16B) =
+    ADDP_8<VI128, _ecv_u8v16_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_4H) =
+    ADDP_16<VI64, _ecv_u16v4_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_8H) =
+    ADDP_16<VI128, _ecv_u16v8_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_2S) =
+    ADDP_32<VI64, _ecv_u32v2_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_4S) =
+    ADDP_32<VI128, _ecv_u32v4_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(ADDP_ASIMDSAME_ONLY_2D) =
+    ADDP_64<VI128, _ecv_u64v2_t>;  // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_8B) =
+    UMINP_8<VI64, _ecv_u8v8_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_16B) =
+    UMINP_8<VI128, _ecv_u8v16_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_4H) =
+    UMINP_16<VI64, _ecv_u16v4_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_8H) =
+    UMINP_16<VI128, _ecv_u16v8_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_2S) =
+    UMINP_32<VI64, _ecv_u32v2_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMINP_ASIMDSAME_ONLY_4S) =
+    UMINP_32<VI128, _ecv_u32v4_t>;  // UMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_8B) =
+    UMAXP_8<VI64, _ecv_u8v8_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_16B) =
+    UMAXP_8<VI128, _ecv_u8v16_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_4H) =
+    UMAXP_16<VI64, _ecv_u16v4_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_8H) =
+    UMAXP_16<VI128, _ecv_u16v8_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_2S) =
+    UMAXP_32<VI64, _ecv_u32v2_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(UMAXP_ASIMDSAME_ONLY_4S) =
+    UMAXP_32<VI128, _ecv_u32v4_t>;  // UMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_8B) =
+    SMINP_8<VI64, _ecv_i8v8_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_16B) =
+    SMINP_8<VI128, _ecv_i8v16_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_4H) =
+    SMINP_16<VI64, _ecv_i16v4_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_8H) =
+    SMINP_16<VI128, _ecv_i16v8_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_2S) =
+    SMINP_32<VI64, _ecv_i32v2_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMINP_ASIMDSAME_ONLY_4S) =
+    SMINP_32<VI128, _ecv_i32v4_t>;  // SMINP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_8B) =
+    SMAXP_8<VI64, _ecv_i8v8_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_16B) =
+    SMAXP_8<VI128, _ecv_i8v16_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4H) =
+    SMAXP_16<VI64, _ecv_i16v4_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_8H) =
+    SMAXP_16<VI128, _ecv_i16v8_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_2S) =
+    SMAXP_32<VI64, _ecv_i32v2_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4S) =
+    SMAXP_32<VI128, _ecv_i32v4_t>;  // SMAXP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+namespace {
+
+template <typename VI, typename B>
+ALWAYS_INLINE static auto Reduce2(const VI &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+  return binop(vec[base + 0], vec[base + 1]);
+}
+
+template <typename VI, typename B>
+ALWAYS_INLINE static auto Reduce4(const VI &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+  auto lo = Reduce2(vec, binop, base + 0);
+  auto hi = Reduce2(vec, binop, base + 2);
+  return binop(lo, hi);
+}
+
+template <typename VI, typename B>
+ALWAYS_INLINE static auto Reduce8(const VI &vec, B binop,
+                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+  auto lo = Reduce4(vec, binop, base + 0);
+  auto hi = Reduce4(vec, binop, base + 4);
+  return binop(lo, hi);
+}
+
+template <typename VI, typename B>
+ALWAYS_INLINE static auto Reduce16(const VI &vec, B binop,
+                                   size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+  auto lo = Reduce8(vec, binop, base + 0);
+  auto hi = Reduce8(vec, binop, base + 8);
+  return binop(lo, hi);
+}
+
+template <typename VI, typename B>
+ALWAYS_INLINE static auto Reduce(const VI &vec, B binop) -> decltype(Reduce2(vec, binop)) {
+  switch (GetVectorElemsNum(vec)) {
+    case 2: return Reduce2(vec, binop);
+    case 4: return Reduce4(vec, binop);
+    case 8: return Reduce8(vec, binop);
+    case 16: return Reduce16(vec, binop);
+    default: __builtin_unreachable();
+  }
+}
+
+template <typename S>
+DEF_SEM_T(ADDV_8_Reduce, S src) {
+  auto vec = SReadVI8(src);
+  return Unsigned(Reduce(vec, SAdd8));
+}
+
+template <typename S>
+DEF_SEM_T(ADDV_16_Reduce, S src) {
+  auto vec = SReadVI16(src);
+  return Unsigned(Reduce(vec, SAdd16));
+}
+
+template <typename S>
+DEF_SEM_T(ADDV_32_Reduce, S src) {
+  auto vec = SReadVI32(src);
+  return Unsigned(Reduce(vec, SAdd32));
+}
+
+template <typename S>
+DEF_SEM_T(UMINV_8, S src) {
+  auto vec = UReadVI8(src);
+  auto val = std::numeric_limits<uint8_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(UMINV_16, S src) {
+  auto vec = UReadVI16(src);
+  auto val = std::numeric_limits<uint16_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(UMINV_32, S src) {
+  auto vec = UReadVI32(src);
+  auto val = std::numeric_limits<uint32_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMINV_8, S src) {
+  auto vec = SReadVI8(src);
+  auto val = std::numeric_limits<int8_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMINV_16, S src) {
+  auto vec = SReadVI16(src);
+  auto val = std::numeric_limits<int16_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMINV_32, S src) {
+  auto vec = SReadVI32(src);
+  auto val = std::numeric_limits<int32_t>::max();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMin(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(UMAXV_8, S src) {
+  auto vec = UReadVI8(src);
+  auto val = std::numeric_limits<uint8_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMax(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(UMAXV_16, S src) {
+  auto vec = UReadVI16(src);
+  auto val = std::numeric_limits<uint16_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMax(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(UMAXV_32, S src) {
+  auto vec = UReadVI32(src);
+  auto val = std::numeric_limits<uint32_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = UMax(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMAXV_8, S src) {
+  auto vec = SReadVI8(src);
+  auto val = std::numeric_limits<int8_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMax(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMAXV_16, S src) {
+  auto vec = SReadVI16(src);
+  auto val = std::numeric_limits<int16_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMax(vec[i], val);
+  }
+  return val;
+}
+
+template <typename S>
+DEF_SEM_T(SMAXV_32, S src) {
+  auto vec = SReadVI32(src);
+  auto val = std::numeric_limits<int32_t>::min();
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(vec); ++i) {
+    val = SMax(vec[i], val);
+  }
+  return val;
+}
+
+}  // namespace
+
+DEF_ISEL(ADDV_ASIMDALL_ONLY_8B) = ADDV_8_Reduce<VI64>;  // ADDV  <V><d>, <Vn>.<T>
+DEF_ISEL(ADDV_ASIMDALL_ONLY_16B) = ADDV_8_Reduce<VI128>;  // ADDV  <V><d>, <Vn>.<T>
+DEF_ISEL(ADDV_ASIMDALL_ONLY_4H) = ADDV_16_Reduce<VI64>;  // ADDV  <V><d>, <Vn>.<T>
+DEF_ISEL(ADDV_ASIMDALL_ONLY_8H) = ADDV_16_Reduce<VI128>;  // ADDV  <V><d>, <Vn>.<T>
+DEF_ISEL(ADDV_ASIMDALL_ONLY_4S) = ADDV_32_Reduce<VI128>;  // ADDV  <V><d>, <Vn>.<T>
+
+DEF_ISEL(UMINV_ASIMDALL_ONLY_8B) = UMINV_8<VI64>;  // UMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMINV_ASIMDALL_ONLY_16B) = UMINV_8<VI128>;  // UMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMINV_ASIMDALL_ONLY_4H) = UMINV_16<VI64>;  // UMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMINV_ASIMDALL_ONLY_8H) = UMINV_16<VI128>;  // UMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMINV_ASIMDALL_ONLY_4S) = UMINV_32<VI128>;  // UMINV  <V><d>, <Vn>.<T>
+
+DEF_ISEL(SMINV_ASIMDALL_ONLY_8B) = SMINV_8<VI64>;  // SMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMINV_ASIMDALL_ONLY_16B) = SMINV_8<VI128>;  // SMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMINV_ASIMDALL_ONLY_4H) = SMINV_16<VI64>;  // SMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMINV_ASIMDALL_ONLY_8H) = SMINV_16<VI128>;  // SMINV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMINV_ASIMDALL_ONLY_4S) = SMINV_32<VI128>;  // SMINV  <V><d>, <Vn>.<T>
+
+DEF_ISEL(UMAXV_ASIMDALL_ONLY_8B) = UMAXV_8<VI64>;  // UMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMAXV_ASIMDALL_ONLY_16B) = UMAXV_8<VI128>;  // UMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMAXV_ASIMDALL_ONLY_4H) = UMAXV_16<VI64>;  // UMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMAXV_ASIMDALL_ONLY_8H) = UMAXV_16<VI128>;  // UMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(UMAXV_ASIMDALL_ONLY_4S) = UMAXV_32<VI128>;  // UMAXV  <V><d>, <Vn>.<T>
+
+DEF_ISEL(SMAXV_ASIMDALL_ONLY_8B) = SMAXV_8<VI64>;  // SMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMAXV_ASIMDALL_ONLY_16B) = SMAXV_8<VI128>;  // SMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMAXV_ASIMDALL_ONLY_4H) = SMAXV_16<VI64>;  // SMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMAXV_ASIMDALL_ONLY_8H) = SMAXV_16<VI128>;  // SMAXV  <V><d>, <Vn>.<T>
+DEF_ISEL(SMAXV_ASIMDALL_ONLY_4S) = SMAXV_32<VI128>;  // SMAXV  <V><d>, <Vn>.<T>
 
 namespace {
 
@@ -869,12 +919,12 @@ namespace {
 // }
 
 // // NOTE(pag): These aren't quite right w.r.t. NaN propagation.
-// DEF_SEM(FMINV_32_Reduce, V128W dst, V128 src) {
+// DEF_SEM(FMINV_32_Reduce, VI128 dst, VI128 src) {
 //   auto vec = FReadV32(src);
 //   FWriteV32(dst, Reduce4(vec, FloatMin<float32_t, int32_t>));
 // }
 
-// DEF_SEM(FMAXV_32_Reduce, V128W dst, V128 src) {
+// DEF_SEM(FMAXV_32_Reduce, VI128 dst, VI128 src) {
 //   auto vec = FReadV32(src);
 //   FWriteV32(dst, Reduce4(vec, FloatMax<float32_t, int32_t>));
 // }
@@ -887,38 +937,38 @@ namespace {
 namespace {
 
 // template <typename S>
-// DEF_SEM(NOT_8, V128W dst, S src) {
-//   auto vec = UReadV8(src);
+// DEF_SEM(NOT_8, VI128 dst, S src) {
+//   auto vec = UReadVI8(src);
 //   auto res = UNotV8(vec);
 //   UWriteV8(dst, res);
 // }
 
 }  // namespace
 
-// DEF_ISEL(NOT_ASIMDMISC_R_8B) = NOT_8<V64>;  // NOT  <Vd>.<T>, <Vn>.<T>
-// DEF_ISEL(NOT_ASIMDMISC_R_16B) = NOT_8<V128>;  // NOT  <Vd>.<T>, <Vn>.<T>
+// DEF_ISEL(NOT_ASIMDMISC_R_8B) = NOT_8<VI64>;  // NOT  <Vd>.<T>, <Vn>.<T>
+// DEF_ISEL(NOT_ASIMDMISC_R_16B) = NOT_8<VI128>;  // NOT  <Vd>.<T>, <Vn>.<T>
 
 namespace {
 
-// template <typename T, size_t count>
-// DEF_SEM(EXT, V128W dst, T src1, T src2, I32 src3) {
-//   auto lsb = Read(src3);
-//   auto vn = UReadV8(src1);
-//   auto vm = UReadV8(src2);
-//   uint8v16_t result = {};
-//   _Pragma("unroll") for (size_t i = 0, max_i = count; i + lsb < max_i; ++i) {
-//     result.elems[count - 1 - i] = UExtractV8(vm, i + lsb);
-//   }
-//   _Pragma("unroll") for (size_t i = lsb; i < count; ++i) {
-//     result.elems[count - 1 - i] = UExtractV8(vn, i - lsb);
-//   }
-//   UWriteV8(dst, result);
-// }
+template <typename T, size_t count>
+DEF_SEM_T(EXT, T src1, T src2, I32 src3) {
+  auto lsb = Read(src3);
+  auto vn = UReadVI8(src1);
+  auto vm = UReadVI8(src2);
+  _ecv_u8v16_t result = {};
+  _Pragma("unroll") for (size_t i = 0, max_i = count; i + lsb < max_i; ++i) {
+    result[count - 1 - i] = UExtractVI8(vm, i + lsb);
+  }
+  _Pragma("unroll") for (size_t i = lsb; i < count; ++i) {
+    result[count - 1 - i] = UExtractVI8(vn, i - lsb);
+  }
+  return result;
+}
 
 }  //  namespace
 
-// DEF_ISEL(EXT_ASIMDEXT_ONLY_8B) = EXT<V64, 8>;  // EXT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
-// DEF_ISEL(EXT_ASIMDEXT_ONLY_16B) = EXT<V128, 16>;  // EXT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
+DEF_ISEL(EXT_ASIMDEXT_ONLY_8B) = EXT<VI64, 8>;  // EXT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
+DEF_ISEL(EXT_ASIMDEXT_ONLY_16B) = EXT<VI128, 16>;  // EXT  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>, #<index>
 
 
 // TODO(pag):
@@ -929,11 +979,11 @@ namespace {
 // FMAXNMV_ASIMDALL_ONLY_H
 // FMAXNMV_ASIMDALL_ONLY_SD
 
-// DEF_SEM(USHR_64B, V128W dst, V128W src, I64 shift) {
-//   auto vec = UExtractV64(UReadV64(src), 0);
+// DEF_SEM(USHR_64B, VI128 dst, VI128 src, I64 shift) {
+//   auto vec = UExtractV64(UReadVI64(src), 0);
 //   auto sft = Read(shift);
 //   auto shifted = UShr128(vec, sft);
-//   uint64v2_t tmpv = {};
+//   _ecv_u64v2_t tmpv = {};
 //   tmpv = UInsertV64(tmpv, 1, 0);
 //   tmpv = UInsertV64(tmpv, 0, (uint64_t) shifted);
 //   UWriteV64(dst, tmpv);
@@ -945,119 +995,116 @@ namespace {
 // FMLA_ASIMDSAME_ONLY
 namespace {
 
-// #define MAKE_FTWICEOP_ASIMDSAME_ONLY(prefix, elem_size, op1, op2) \
-//   template <typename DV, typename SV, typename V> \
-//   DEF_SEM(F##prefix##_V##elem_size, DV dst, SV src1, SV src2) { \
-//     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
-//     auto dstv = FReadV##elem_size(dst); \
-//     auto srcv1 = FReadV##elem_size(src1); \
-//     auto srcv2 = FReadV##elem_size(src2); \
-//     V tmpv = {}; \
-//     /* tmpv = Vn op1 Vm */ \
-//     _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
-//       tmpv.elems[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractV##elem_size(srcv1, i), \
-//                                         FExtractV##elem_size(srcv2, i)); \
-//     } \
-//     /* tmpv = tmpv op2 Vd */ \
-//     _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(dstv); i++) { \
-//       tmpv.elems[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractV##elem_size(dstv, i), \
-//                                         FExtractV##elem_size(tmpv, i)); \
-//     } \
-//     FWriteV##elem_size(dst, tmpv); \
-// \
-//   }  // namespace
+#define MAKE_FTWICEOP_ASIMDSAME_ONLY(prefix, elem_size, op1, op2) \
+  template <typename VI, typename V> \
+  DEF_SEM_T(F##prefix##_V##elem_size, VI dst_src, VI src1, VI src2) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto dst_src_v = FReadVI##elem_size(dst_src); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    /* res = Vn op1 Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, i)); \
+    } \
+    /* res = res op2 Vd */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
+      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+                                 FExtractVI##elem_size(res, i)); \
+    } \
+    return res; \
+  }  // namespace
 
-// // no support of float16
-// MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 32, Mul, Add);
-// MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 64, Mul, Add);
+// no support of float16
+MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 32, Mul, Add);
+MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 64, Mul, Add);
 
-// #undef MAKE_FTWICEOP_ASIMDSAME_ONLY
+#undef MAKE_FTWICEOP_ASIMDSAME_ONLY
 
 }  // namespace
 
 // no support of float16
-// DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S) =
-//     FMLA_V32<V64W, V64, float32v2_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S) =
-//     FMLA_V32<V128W, V128, float32v4_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D) =
-//     FMLA_V64<V128W, V128, float64v2_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S) =
+    FMLA_V32<VI64, _ecv_f32v2_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S) =
+    FMLA_V32<VI128, _ecv_f32v4_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D) =
+    FMLA_V64<VI128, _ecv_f64v2_t>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> once operation
 // FMUL_ASIMDSAME_ONLY
 namespace {
 
-// #define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
-//   template <typename DV, typename SV, typename V> \
-//   DEF_SEM(F##prefix##_V##elem_size, DV dst, SV src1, SV src2) { \
-//     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
-//     auto srcv1 = FReadV##elem_size(src1); \
-//     auto srcv2 = FReadV##elem_size(src2); \
-//     V tmpv = {}; \
-//     /* tmpv = Vn op Vm */ \
-//     _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
-//       tmpv.elems[i] = CheckedFloatBinOp(state, F##op##elem_size, FExtractV##elem_size(srcv1, i), \
-//                                         FExtractV##elem_size(srcv2, i)); \
-//     } \
-//     FWriteV##elem_size(dst, tmpv); \
-// \
-//   }  // namespace
+#define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
+  template <typename VI, typename V> \
+  DEF_SEM_U128(F##prefix##_V##elem_size, VI src1, VI src2) { \
+    /* it might be good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    /* res = Vn op Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, i)); \
+    } \
+    return res; \
+  }  // namespace
 
-// // no support of float16
-// MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 32, Mul);
-// MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 64, Mul);
+// no support of float16
+MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMDSAME_ONLY(MUL, 64, Mul);
 
-// MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 32, Add);
-// MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 64, Add);
+MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 32, Add);
+MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 64, Add);
 
-// #undef MAKE_FONCEOP_ASIMDSAME_ONLY
+#undef MAKE_FONCEOP_ASIMDSAME_ONLY
 
 }  // namespace
 
 // no support of float16
-// DEF_ISEL(FMUL_ASIMDSAME_ONLY_2S) =
-//     FMUL_V32<V64W, V64, float32v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FMUL_ASIMDSAME_ONLY_4S) =
-//     FMUL_V32<V128W, V128, float32v4_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FMUL_ASIMDSAME_ONLY_2D) =
-//     FMUL_V64<V128W, V128, float64v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2S) =
+    FMUL_V32<VI64, _ecv_f32v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_4S) =
+    FMUL_V32<VI128, _ecv_f32v4_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2D) =
+    FMUL_V64<VI128, _ecv_f64v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
-// DEF_ISEL(FADD_ASIMDSAME_ONLY_2S) =
-//     FADD_V32<V64W, V64, float32v2_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FADD_ASIMDSAME_ONLY_4S) =
-//     FADD_V32<V128W, V128, float32v4_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-// DEF_ISEL(FADD_ASIMDSAME_ONLY_2D) =
-//     FADD_V64<V128W, V128, float64v2_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2S) =
+    FADD_V32<VI64, _ecv_f32v2_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FADD_ASIMDSAME_ONLY_4S) =
+    FADD_V32<VI128, _ecv_f32v4_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2D) =
+    FADD_V64<VI128, _ecv_f64v2_t>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 namespace {
-// #define MAKE_FONCEOP_ASIMD_INDEX(prefix, elem_size, op) \
-//   template <typename DV, typename SV, typename V> \
-//   DEF_SEM(F##prefix##ID_V##elem_size, DV dst, SV src1, SV src2, I32 imm) { \
-//     auto index = Read(imm); \
-//     auto srcv1 = FReadV##elem_size(src1); \
-//     auto srcv2 = FReadV##elem_size(src2); \
-//     V tmpv = {}; \
-//     auto v2_val = FExtractV##elem_size(srcv2, index); \
-//     /* tmpv = Vn + Vm[<index>] */ \
-//     _Pragma("unroll") for (size_t i = 0; i < NumVectorElems(srcv1); i++) { \
-//       tmpv.elems[i] = \
-//           CheckedFloatBinOp(state, F##op##elem_size, FExtractV##elem_size(srcv1, i), v2_val); \
-//     } \
-//     FWriteV##elem_size(dst, tmpv); \
-//   }
+#define MAKE_FONCEOP_ASIMD_INDEX(prefix, elem_size, op) \
+  template <typename VI, typename V> \
+  DEF_SEM_T(F##prefix##ID_V##elem_size, VI src1, VI src2, I32 imm) { \
+    auto index = Read(imm); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    auto v2_val = FExtractVI##elem_size(srcv2, index); \
+    /* res = Vn + Vm[<index>] */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), v2_val); \
+    } \
+    return res; \
+  }  // namespace
 
-// // no support of float16
-// MAKE_FONCEOP_ASIMD_INDEX(MUL, 32, Mul);
-// MAKE_FONCEOP_ASIMD_INDEX(MUL, 64, Mul);
+// no support of float16
+MAKE_FONCEOP_ASIMD_INDEX(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMD_INDEX(MUL, 64, Mul);
 
-// #undef MAKE_FONCEOP_ASIMD_INDEX
+#undef MAKE_FONCEOP_ASIMD_INDEX
 
 }  // namespace
 
-// DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S) =
-//     FMULID_V32<V64W, V64, float32v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-// DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) =
-//     FMULID_V32<V128W, V128, float32v4_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-// DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) =
-//     FMULID_V64<V128W, V128, float64v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S) =
+    FMULID_V32<VI64, _ecv_f32v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) =
+    FMULID_V32<VI128, _ecv_f32v4_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) =
+    FMULID_V64<VI128, _ecv_f64v2_t>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]

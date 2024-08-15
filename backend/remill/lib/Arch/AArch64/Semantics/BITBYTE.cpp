@@ -33,15 +33,14 @@ namespace {
 // `mask`.
 
 // UBFM  <Wd>, <Wn>, #<immr>, #<imms>
-template <typename RT, typename IT>
-DEF_SEM_T(UBFM, RT src1, IT mask) {
+template <typename DT, typename T>
+DEF_SEM_T(UBFM, DT src1, T mask) {
   return UAnd(Read(src1), Read(mask));
 }
 
 // SBFM  <Wd>, <Wn>, #<immr>, #<imms>
-template <typename RT, typename IT>
-DEF_SEM_T(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
-  using T = typename BaseType<IT>::BT;
+template <typename DT, typename T>
+DEF_SEM_T(SBFM, DT src1, T src2, T src3, T src4, T src5) {
   auto src = Read(src1);
   auto R = Read(src2);
   auto S = Read(src3);
@@ -60,21 +59,20 @@ DEF_SEM_T(SBFM, RT src1, IT src2, IT src3, IT src4, IT src5) {
 }
 
 // BFM  <Wd>, <Wn>, #<immr>, #<imms>
-// template <typename RT, typename IT>
-// DEF_SEM_T(BFM, RT src1, IT src2, IT src3, IT src4) {
-//   using T = typename BaseType<IT>::BT;
-//   auto dst_val = TruncTo<T>(Read(dst)); /* May be wider due to zero-extension. */
-//   auto src = Read(src1);
-//   auto R = Read(src2);
-//   auto wmask = Read(src3);
-//   auto tmask = Read(src4);
+template <typename RT, typename S>
+DEF_SEM_T(BFM, RT dst_src, RT src1, S src2, S src3, S src4) {
+  auto dst_val = TruncTo<S>(Read(dst_src)); /* May be wider due to zero-extension. */
+  auto src = Read(src1);
+  auto R = Read(src2);
+  auto wmask = Read(src3);
+  auto tmask = Read(src4);
 
-//   /* Perform bitfield move on low bits.*/
-//   auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask));
+  /* Perform bitfield move on low bits.*/
+  auto bot = UOr(UAnd(dst_val, UNot(wmask)), UAnd(Ror(src, R), wmask));
 
-//   /* Combine extension bits and result bits. */
-//   return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask));
-// }
+  /* Combine extension bits and result bits. */
+  return UOr(UAnd(dst_val, UNot(tmask)), UAnd(bot, tmask));
+}
 
 }  // namespace
 
@@ -84,8 +82,8 @@ DEF_ISEL(UBFM_64M_BITFIELD) = UBFM<R64, I64>;  // UBFM  <Xd>, <Xn>, #<immr>, #<i
 DEF_ISEL(SBFM_32M_BITFIELD) = SBFM<R32, I32>;  // SBFM  <Wd>, <Wn>, #<immr>, #<imms>
 DEF_ISEL(SBFM_64M_BITFIELD) = SBFM<R64, I64>;  // SBFM  <Xd>, <Xn>, #<immr>, #<imms>
 
-// DEF_ISEL(BFM_32M_BITFIELD) = BFM<R32, I32>;  // BFM  <Wd>, <Wn>, #<immr>, #<imms>
-// DEF_ISEL(BFM_64M_BITFIELD) = BFM<R64, I64>;  // BFM  <Xd>, <Xn>, #<immr>, #<imms>
+DEF_ISEL(BFM_32M_BITFIELD) = BFM<R32, I32>;  // BFM  <Wd>, <Wn>, #<immr>, #<imms>
+DEF_ISEL(BFM_64M_BITFIELD) = BFM<R64, I64>;  // BFM  <Xd>, <Xn>, #<immr>, #<imms>
 
 namespace {
 

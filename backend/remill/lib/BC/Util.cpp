@@ -218,15 +218,17 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
 
   llvm::StringRef name(name_.data(), name_.size());
   auto &context = function->getContext();
-  auto get_type_from_reg_initial = [&context](llvm::StringRef &name) -> llvm::Type * {
+  auto get_type_from_reg_name = [&context](llvm::StringRef &name) -> llvm::Type * {
     auto name_str = name.str();
 
     // Special register
-    if ("PC" == name_str || "SP" == name_str || "BRANCH_TAKEN" == name_str ||
-        "ECV_NZCV" == name_str) {
+    if ("SP" == name_str || "PC" == name_str || "BRANCH_TAKEN" == name_str ||
+        "ECV_NZCV" == name_str || "IGNORE_WRITE_TO_XZR" == name_str || "MONITOR" == name_str) {
       return llvm::Type::getInt64Ty(context);
     } else if ("RUNTIME" == name_str || "STATE" == name_str) {
       return llvm::Type::getInt64PtrTy(context);
+    } else if ("IGNORE_WRITE_TO_WZR" == name_str) {
+      return llvm::Type::getInt32Ty(context);
     }
 
     // General or Vector register
@@ -247,10 +249,10 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
     for (auto &instr : function->getEntryBlock()) {
       if (instr.getName() == name) {
         if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
-          return {alloca, get_type_from_reg_initial(name)};
+          return {alloca, get_type_from_reg_name(name)};
         }
         if (auto *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
-          return {gep, get_type_from_reg_initial(name)};
+          return {gep, get_type_from_reg_name(name)};
         }
       }
     }
@@ -2226,11 +2228,14 @@ std::pair<size_t, llvm::Type *> BuildIndexes(const llvm::DataLayout &dl, llvm::T
     indexes_out.push_back(llvm::ConstantInt::get(index_type, index, false));
     return BuildIndexes(dl, elem_type, offset, goal_offset, indexes_out);
   } else if (auto fvt_type = llvm::dyn_cast<llvm::FixedVectorType>(type); fvt_type) {
+    const auto elem_type = fvt_type->getElementType();
+    const auto elem_size = dl.getTypeAllocSize(elem_type);
+    CHECK(sizeof(__uint128_t) == elem_size)
+        << "Expected size: " << sizeof(__uint128_t) << ", Actual: " << elem_size;
+    const auto num_elems = fvt_type->getNumElements();
+    CHECK(1 == num_elems) << "Expected Num Elements: " << 1 << ", Actual: " << num_elems;
 
-    // It is possible that this gets called on an unexpected type
-    // such as FixedVectorType; if so, report the issue and fix if/when it
-    // happens
-    LOG(FATAL) << "Called BuildIndexes on unsupported type: " << remill::LLVMThingToString(type);
+    return {offset, fvt_type};
   } else if (auto svt_type = llvm::dyn_cast<llvm::ScalableVectorType>(type); svt_type) {
 
     // same as above, but for scalable vectors

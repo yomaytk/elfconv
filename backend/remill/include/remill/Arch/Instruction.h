@@ -460,7 +460,7 @@ class Instruction {
   }
 
   inline bool IsValid(void) const {
-    return kCategoryInvalid != category;
+    return kCategoryInvalid != category && !function.empty();
   }
 
   // Returns `true` if this instruction results in a runtime error. An example

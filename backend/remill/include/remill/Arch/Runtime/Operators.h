@@ -103,6 +103,35 @@ ALWAYS_INLINE static uint64_t _Read(uint64_t val) {
 }
 
 // Read a value directly.
+ALWAYS_INLINE static uint128_t _Read(uint128_t val) {
+  return val;
+}
+
+ALWAYS_INLINE static int8_t _Read(int8_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int16_t _Read(int16_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int32_t _Read(int32_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int64_t _Read(int64_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int128_t _Read(int128_t val) {
+  return val;
+}
+
+// Read a value directly.
 ALWAYS_INLINE static float32_t _Read(float32_t val) {
   return val;
 }
@@ -329,8 +358,10 @@ MAKE_MREADV(F, 64, doubles, f64)
 
 #define MAKE_READVI(prefix, size, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static T _##prefix##ReadVI##size(VI<T> vec) { \
-    return *reinterpret_cast<T *>(&vec.val); \
+  ALWAYS_INLINE static auto _##prefix##ReadVI##size(VI<T> vec)-> \
+      typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    return *reinterpret_cast<vector_type *>(&vec); \
   }  // namespace
 
 MAKE_READVI(U, 8, uint8_t)
@@ -358,18 +389,6 @@ MAKE_READVI(F, 64, float64_t)
 #undef MAKE_READVI
 
 #define MAKE_READMVI(prefix, size, base_type, mem_accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVIW<T> mem) \
-      ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
-    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
-    vector_type vec = {}; \
-    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
-                                                   mem.addr + (i * sizeof(base_type))); \
-    } \
-    return vec; \
-  } \
-\
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVI<T> mem) \
       ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
@@ -536,7 +555,7 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
 #define MAKE_WRITEMVI(prefix, size, mem_accessor, base_type) \
   template <typename VT> \
   ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
-                                                      MVIW<VT> mem, base_type val) { \
+                                                      MVI<VT> mem, base_type val) { \
     static_assert(sizeof(VT) >= sizeof(base_type), "Invaild vector size of WriteMVI method."); \
     using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>::VT; \
     vector_type vec{}; \
@@ -549,9 +568,9 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
 \
   template <typename VT1, typename VT2> /* _UWriteMVI32(runtime_manager, dstv, srcv) */ \
   ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
-                                                      MVIW<VT1> mem, const VT2 &vec) { \
-    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVIW."); \
-    static_assert(std::is_same<base_type, typename EcvBaseType<VT2>::BT>::value, \
+                                                      MVI<VT1> mem, const VT2 &vec) { \
+    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVI."); \
+    static_assert(sizeof(base_type) == sizeof(typename EcvBaseType<VT2>::BT), \
                   "Incompatible types to a write to a vector register"); \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
       __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
@@ -1436,6 +1455,15 @@ ALWAYS_INLINE static bool BNot(bool a) {
       ret.elems[i] = op(L.elems[i], R.elems[i]); \
     } \
     return ret; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static T op##VI##size(const T &L, const T &R) { \
+    T ret{}; \
+    _Pragma("unroll") for (auto i = 0UL; i < GetVectorElemsNum(L); ++i) { \
+      ret[i] = op(L[i], R[i]); \
+    } \
+    return ret; \
   }
 
 // Unary broadcast operator.
@@ -1445,6 +1473,15 @@ ALWAYS_INLINE static bool BNot(bool a) {
     T ret{}; \
     _Pragma("unroll") for (auto i = 0UL; i < NumVectorElems(R); ++i) { \
       ret.elems[i] = op(R.elems[i]); \
+    } \
+    return ret; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static T op##VI##size(const T &R) { \
+    T ret{}; \
+    _Pragma("unroll") for (auto i = 0UL; i < GetVectorElemsNum(R); ++i) { \
+      ret[i] = op(R[i]); \
     } \
     return ret; \
   }
@@ -1539,11 +1576,9 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 // MAKE MACRO of FExtractVI(...) etc...
 #define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
   template <typename T> \
-  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
-    using _ecv_vt = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
-    _ecv_vt bit_casted_vec = *reinterpret_cast<_ecv_vt *>(&vec.val); \
-    return out(bit_casted_vec[id]); \
-  }
+  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(T vec, size_t id) { \
+    return out(vec[id]); \
+  }  // namespace
 
 MAKE_EXTRACTVI(8, uint8_t, Unsigned, U)
 MAKE_EXTRACTVI(16, uint16_t, Unsigned, U)
@@ -1657,35 +1692,59 @@ ALWAYS_INLINE static auto UAbs(typename IntegerType<T>::UT val) -> typename Inte
 
 // #undef MAKE_UPDATEV
 
-// template <typename U, typename T>
-// ALWAYS_INLINE static constexpr T _ZeroVec(void) {
-//   static_assert(std::is_same<U, typename VectorType<T>::BT>::value,
-//                 "Vector type and base don't match.");
-//   return {};
-// }
+template <typename U, typename T>
+ALWAYS_INLINE static constexpr T _ZeroVec(void) {
+  return {};
+}
 
-// #define _ClearV(base_type, ...)
+#define _ClearV(base_type, ...)
 
-// #define UClearV8(...) _ZeroVec<uint8_t, decltype(__VA_ARGS__)>()
-// #define UClearV16(...) _ZeroVec<uint16_t, decltype(__VA_ARGS__)>()
-// #define UClearV32(...) _ZeroVec<uint32_t, decltype(__VA_ARGS__)>()
-// #define UClearV64(...) _ZeroVec<uint64_t, decltype(__VA_ARGS__)>()
+#define UClearV8(...) _ZeroVec<uint8_t, decltype(__VA_ARGS__)>()
+#define UClearV16(...) _ZeroVec<uint16_t, decltype(__VA_ARGS__)>()
+#define UClearV32(...) _ZeroVec<uint32_t, decltype(__VA_ARGS__)>()
+#define UClearV64(...) _ZeroVec<uint64_t, decltype(__VA_ARGS__)>()
 
-// #if !defined(REMILL_DISABLE_INT128)
-// #  define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
-// #endif
+#if !defined(REMILL_DISABLE_INT128)
+#  define UClearV128(...) _ZeroVec<uint128_t, decltype(__VA_ARGS__)>()
+#endif
 
-// #define SClearV8(...) _ZeroVec<int8_t, decltype(__VA_ARGS__)>()
-// #define SClearV16(...) _ZeroVec<int16_t, decltype(__VA_ARGS__)>()
-// #define SClearV32(...) _ZeroVec<int32_t, decltype(__VA_ARGS__)>()
-// #define SClearV64(...) _ZeroVec<int64_t, decltype(__VA_ARGS__)>()
+#define SClearV8(...) _ZeroVec<int8_t, decltype(__VA_ARGS__)>()
+#define SClearV16(...) _ZeroVec<int16_t, decltype(__VA_ARGS__)>()
+#define SClearV32(...) _ZeroVec<int32_t, decltype(__VA_ARGS__)>()
+#define SClearV64(...) _ZeroVec<int64_t, decltype(__VA_ARGS__)>()
 
-// #if !defined(REMILL_DISABLE_INT128)
-// #  define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
-// #endif
+#if !defined(REMILL_DISABLE_INT128)
+#  define SClearV128(...) _ZeroVec<int128_t, decltype(__VA_ARGS__)>()
+#endif
 
-// #define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
-// #define FClearV64(...) _ZeroVec<float64_t, decltype(__VA_ARGS__)>()
+#define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
+#define FClearV64(...) _ZeroVec<float64_t, decltype(__VA_ARGS__)>()
+
+template <typename U, typename T>
+ALWAYS_INLINE static constexpr T _ZeroVI(void) {
+  return {};
+}
+
+#define UClearVI8(vec) _ZeroVI<uint8_t, decltype(vec)>()
+#define UClearVI16(vec) _ZeroVI<uint16_t, decltype(vec)>()
+#define UClearVI32(vec) _ZeroVI<uint32_t, decltype(vec)>()
+#define UClearVI64(vec) _ZeroVI<uint64_t, decltype(vec)>()
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define UClearVI128(vec) _ZeroVI<uint128_t, decltype(vec)>()
+#endif
+
+#define SClearVI8(vec) _ZeroVI<int8_t, decltype(vec)>()
+#define SClearVI16(vec) _ZeroVI<int16_t, decltype(vec)>()
+#define SClearVI32(vec) _ZeroVI<int32_t, decltype(vec)>()
+#define SClearVI64(vec) _ZeroVI<int64_t, decltype(vec)>()
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SClearVI128(vec) _ZeroVI<int128_t, decltype(vec)>()
+#endif
+
+#define FClearVI32(vec) _ZeroVI<float32_t, decltype(vec)>()
+#define FClearVI64(vec) _ZeroVI<float64_t, decltype(vec)>()
 
 // Something has gone terribly wrong and we need to stop because there is
 // an error.
@@ -1760,7 +1819,6 @@ MAKE_PRED(Register, MnW, false)
 MAKE_PRED(Register, MVn, false)
 MAKE_PRED(Register, MVnW, false)
 MAKE_PRED(Register, MVI, false)
-MAKE_PRED(Register, MVIW, false)
 
 MAKE_PRED(RuntimeManager, Rn, false)
 MAKE_PRED(RuntimeManager, RnW, false)
@@ -1771,7 +1829,6 @@ MAKE_PRED(RuntimeManager, MnW, true)
 MAKE_PRED(RuntimeManager, MVn, true)
 MAKE_PRED(RuntimeManager, MVnW, true)
 MAKE_PRED(RuntimeManager, MVI, true)
-MAKE_PRED(RuntimeManager, MVIW, true)
 
 MAKE_PRED(Immediate, Rn, false)
 MAKE_PRED(Immediate, RnW, false)
@@ -1782,7 +1839,6 @@ MAKE_PRED(Immediate, MnW, false)
 MAKE_PRED(Immediate, MVn, false)
 MAKE_PRED(Immediate, MVnW, false)
 MAKE_PRED(Immediate, MVI, false)
-MAKE_PRED(Immediate, MVIW, false)
 
 #undef MAKE_PRED
 #define MAKE_PRED(name, T, val) \
@@ -1824,11 +1880,6 @@ ALWAYS_INLINE static MVnW<T> GetElementPtr(MVnW<T> addr, addr_t index) {
 
 template <typename T>
 ALWAYS_INLINE static MVI<T> GetElementPtr(MVI<T> addr, addr_t index) {
-  return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
-}
-
-template <typename T>
-ALWAYS_INLINE static MVIW<T> GetElementPtr(MVIW<T> addr, addr_t index) {
   return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
 }
 
@@ -1915,11 +1966,6 @@ ALWAYS_INLINE static MVnW<T> DisplaceAddress(MVnW<T> addr, addr_t disp) {
 template <typename T>
 ALWAYS_INLINE static MVI<T> DisplaceAddress(MVI<T> addr, addr_t disp) {
   return MVI<T>{addr.addr + disp};
-}
-
-template <typename T>
-ALWAYS_INLINE static MVIW<T> DisplaceAddress(MVIW<T> addr, addr_t disp) {
-  return MVIW<T>{addr.addr + disp};
 }
 
 template <typename T>

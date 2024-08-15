@@ -19,6 +19,12 @@
 #include "remill/Arch/AArch64/Runtime/Types.h"
 #include "remill/Arch/Runtime/Definitions.h"
 
+template <typename T>
+struct TPair {
+  T r1;
+  T r2;
+} __attribute__((packed));
+
 typedef struct {
   uint64_t r1;
   uint64_t r2;
@@ -35,31 +41,24 @@ typedef struct {
 } U32U32 __attribute__((packed));
 
 typedef struct {
-  float32_t r1;
-  uint64_t r2;
-} F32U64 __attribute__((packed));
-
-typedef struct {
   float64_t r1;
   uint64_t r2;
 } F64U64 __attribute__((packed));
 
 typedef struct {
-  __uint128_t r1;
-  uint64_t r2;
-} U128U64 __attribute__((packed));
+  float32_t r1;
+  float32_t r2;
+} F32F32 __attribute__((packed));
 
 typedef struct {
-  uint32_t r1;
-  uint32_t r2;
-  uint64_t r3;
-} U32U32U64 __attribute__((packed));
+  float64_t r1;
+  float64_t r2;
+} F64F64 __attribute__((packed));
 
 typedef struct {
-  uint64_t r1;
-  uint64_t r2;
-  uint64_t r3;
-} U64U64U64 __attribute__((packed));
+  _ecv_u128v1_t r1;
+  _ecv_u128v1_t r2;
+} V128V128 __attribute__((packed));
 
 // Define a semantics implementing function for aarch64 target.
 #define DEF_SEM_VOID(name, ...) ALWAYS_INLINE __attribute__((flatten)) static void name(__VA_ARGS__)
@@ -188,45 +187,25 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static U32U32 name(RuntimeManager *runtime_manager, \
                                                             ##__VA_ARGS__)
 
-#define DEF_SEM_F32U64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F32U64 name(__VA_ARGS__)
+#define DEF_SEM_F64F64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F64F64 name(__VA_ARGS__)
 
-#define DEF_SEM_F32U64_STATE(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F32U64 name(State &state, ##__VA_ARGS__)
+#define DEF_SEM_F64F64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F64F64 name(State &state, ##__VA_ARGS__)
 
-#define DEF_SEM_F32U64_RUN(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F32U64 name(RuntimeManager *runtime_manager, \
+#define DEF_SEM_F64F64_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F64F64 name(RuntimeManager *runtime_manager, \
                                                             ##__VA_ARGS__)
 
-#define DEF_SEM_F64U64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F64U64 name(__VA_ARGS__)
+#define DEF_SEM_F32F32(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F32F32 name(__VA_ARGS__)
 
-#define DEF_SEM_F64U64_STATE(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F64U64 name(State &state, ##__VA_ARGS__)
+#define DEF_SEM_F32F32_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F32F32 name(State &state, ##__VA_ARGS__)
 
-#define DEF_SEM_F64U64_RUN(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static F64U64 name(RuntimeManager *runtime_manager, \
+#define DEF_SEM_F32F32_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static F32F32 name(RuntimeManager *runtime_manager, \
                                                             ##__VA_ARGS__)
-
-#define DEF_SEM_U64U64U64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U64U64U64 name(__VA_ARGS__)
-
-#define DEF_SEM_U64U64U64_STATE(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U64U64U64 name(State &state, ##__VA_ARGS__)
-
-#define DEF_SEM_U64U64U64_RUN(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U64U64U64 name(RuntimeManager *runtime_manager, \
-                                                               ##__VA_ARGS__)
-
-#define DEF_SEM_U32U32U64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U32U32U64 name(__VA_ARGS__)
-
-#define DEF_SEM_U32U32U64_STATE(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U32U32U64 name(State &state, ##__VA_ARGS__)
-
-#define DEF_SEM_U32U32U64_RUN(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U32U32U64 name(RuntimeManager *runtime_manager, \
-                                                               ##__VA_ARGS__)
 
 #define DEF_SEM_U128(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static __uint128_t name(__VA_ARGS__)
@@ -238,15 +217,15 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static __uint128_t name(RuntimeManager *runtime_manager, \
                                                                  ##__VA_ARGS__)
 
-#define DEF_SEM_U128U64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U128U64 name(__VA_ARGS__)
+#define DEF_SEM_V64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static _ecv_u64v1_t name(__VA_ARGS__)
 
-#define DEF_SEM_U128U64_STATE(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U128U64 name(State &state, ##__VA_ARGS__)
+#define DEF_SEM_V64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static _ecv_u64v1_t name(State &state, ##__VA_ARGS__)
 
-#define DEF_SEM_U128U64_RUN(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static U128U64 name(RuntimeManager *runtime_manager, \
-                                                             ##__VA_ARGS__)
+#define DEF_SEM_V64_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static _ecv_u64v1_t name(RuntimeManager *runtime_manager, \
+                                                                  ##__VA_ARGS__)
 
 #define DEF_SEM_V128(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u128v1_t name(__VA_ARGS__)
@@ -257,3 +236,13 @@ typedef struct {
 #define DEF_SEM_V128_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u128v1_t name( \
       RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_V128V128(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(__VA_ARGS__)
+
+#define DEF_SEM_V128V128_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_V128V128_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(RuntimeManager *runtime_manager, \
+                                                              ##__VA_ARGS__)

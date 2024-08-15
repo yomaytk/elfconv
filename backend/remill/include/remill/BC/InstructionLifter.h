@@ -88,8 +88,11 @@ class OperandLifter {
 #define RUNTIME_ORDER 35
 #define BRANCH_TAKEN_ORDER 36
 #define ECV_NZCV_ORDER 37
-#define WZR_ORDER 38  // Actually, not used
-#define XZR_ORDER 39  // Actually, not used
+#define IGNORE_WRITE_TO_WZR_ORDER 38
+#define IGNORE_WRITE_TO_XZR_ORDER 39
+#define MONITOR_ORDER 40
+#define WZR_ORDER 41  // Actually, not used
+#define XZR_ORDER 42  // Actually, not used
 
 enum class EcvRegClass : uint32_t {
   RegW = 'W' - 'A',

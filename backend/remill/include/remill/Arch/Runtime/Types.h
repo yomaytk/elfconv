@@ -385,6 +385,9 @@ struct MVIW final {
   addr_t addr;
 };
 
+template <typename T>
+using VI = T;
+
 // Note: We use `addr_t` as the internal type for `Rn` and `In` struct templates
 //       because this will be the default register size used for parameter
 //       passing in the underlying ABI that Clang chooses to use when converting
@@ -468,10 +471,6 @@ struct VnW final {
 
 // vector register which doesn't use memory.
 // T is used to deciding the accessed memory bit width.
-template <typename T>
-struct VI final {
-  T val;
-};
 
 // EcvBaseType of _ecv_*
 template <typename T>
@@ -809,9 +808,6 @@ struct BaseType<RVn<T>> : public BaseType<T> {};
 
 template <typename T>
 struct BaseType<RVnW<T>> : public BaseType<T> {};
-
-template <typename T>
-struct BaseType<VI<T>> : public BaseType<T> {};
 
 template <typename T>
 struct NextLargerIntegerType;
