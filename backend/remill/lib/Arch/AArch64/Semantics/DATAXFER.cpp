@@ -260,7 +260,7 @@ namespace {
 
 DEF_SEM_U32U32_RUN(LoadPairUpdateIndex32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
-  return {vec[0], vec[1]};
+  return U32U32{vec[0], vec[1]};
 }
 
 DEF_SEM_U64U64_RUN(LoadPairUpdateIndex64, MVI128 src_mem) {

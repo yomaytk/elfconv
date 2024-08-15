@@ -1038,7 +1038,7 @@ namespace {
 
 #define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
   template <typename VI, typename V> \
-  DEF_SEM_U128(F##prefix##_V##elem_size, VI src1, VI src2) { \
+  DEF_SEM_T(F##prefix##_V##elem_size, VI src1, VI src2) { \
     /* it might be good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto srcv1 = FReadVI##elem_size(src1); \
     auto srcv2 = FReadVI##elem_size(src2); \
