@@ -429,8 +429,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
 
       if (kLiftedInstruction != lift_status) {
-        LOG(FATAL) << "lifted_status is invalid at: " << inst.function;
+        // LOG(FATAL) << "lifted_status is invalid at: " << inst.function;
         AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
+#if defined(WARNING_OUTPUT)
+        if (manager.isWithinFunction(trace_addr, inst.next_pc)) {
+          DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
+        }
+#endif
         continue;
       }
 
