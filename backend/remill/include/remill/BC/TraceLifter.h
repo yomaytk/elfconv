@@ -212,6 +212,11 @@ class VirtualRegsOpt {
 
   void OptimizeVirtualRegsUsage();
 
+  void DebugStreamReset() {
+    debug_stream.clear();
+    debug_stream << "\n";
+  }
+
   llvm::Function *func;
   TraceLifter::Impl *impl;
 
@@ -220,6 +225,7 @@ class VirtualRegsOpt {
   uint64_t block_num;
   std::string func_name;
   size_t relay_bb_num;
+  std::ostringstream debug_stream;
 
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.

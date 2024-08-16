@@ -31,6 +31,22 @@
 
 namespace remill {
 
+#if defined(OPT_DEBUG)
+#  define ECV_LOG(stream, ...) EcvLog(stream, __VA_ARGS__)
+#else
+#  define ECV_LOG(stream, ...)
+#endif
+
+std::ostringstream &EcvLog(std::ostringstream &_ecv_stream) {
+  return _ecv_stream;
+}
+
+template <typename T, typename... Args>
+std::ostringstream &EcvLog(std::ostringstream &_ecv_stream, T &&value, const Args &...args) {
+  _ecv_stream << value << " ";
+  return EcvLog(_ecv_stream, args...);
+}
+
 /*
     TraceManager methods
   */
@@ -871,13 +887,11 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
     return to_inst;
   }
 
-  auto type_asserct_check = [&from_inst, &to_inst_ty](bool condition, const char *message) {
-    if (!condition) {
-      llvm::outs() << "[ERROR]: from_inst: " << *from_inst << ", to_inst type: ";
-      to_inst_ty->print(llvm::outs());
-      llvm::outs() << "\n" << message << "\n";
-      LOG(FATAL);
-    }
+  auto type_asserct_check = [this, &from_inst, &to_inst_ty](bool condition, const char *message) {
+    CHECK(condition) << "[ERROR]: from_inst: " << LLVMThingToString(from_inst)
+                     << ", to_inst type: " << LLVMThingToString(to_inst_ty) << "\n"
+                     << message << "\n"
+                     << debug_stream.str();
   };
 
   if (from_inst_size < to_inst_size) {
@@ -894,7 +908,11 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
 
       return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
-      type_asserct_check(false, "RegKind::Special register must not be used different types.");
+      type_asserct_check(
+          /* 8 bit of the ECV_NZCV */ from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
+          "RegKind::Special register must not be used different types other than ECV_NZCV.");
+
+      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     }
   } else if (from_inst_size > to_inst_size) {
     if (RegKind::General == target_ecv_reg.reg_kind) {
@@ -910,7 +928,11 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
 
       return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
-      type_asserct_check(false, "RegKind::Special register must not be used different types.");
+      type_asserct_check(
+          from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
+          "RegKind::Special register must not be used different types other than ECV_NZCV.");
+
+      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     }
   } else {
     type_asserct_check(
@@ -954,6 +976,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   auto &inst_lifter = impl->inst.GetLifter();
   impl->virtual_regs_opt = this;
+  ECV_LOG(debug_stream, "\n", std::hex, func->getName().str(), "\n");
 
   // Flatten the control flow graph
   llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
@@ -982,7 +1005,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     auto child_num = target_terminator->getNumSuccessors();
     if (2 < child_num) {
       LOG(FATAL)
-          << "Every block of the lifted function by elfconv must not have the child blocks more than two.";
+          << "Every block of the lifted function by elfconv must not have the child blocks more than two."
+          << debug_stream.str();
     } else if (2 == child_num) {
       push_successor_bb_queue(target_terminator->getSuccessor(0));
       push_successor_bb_queue(target_terminator->getSuccessor(1));
@@ -1061,6 +1085,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     if (finished.contains(target_bb)) {
       continue;
     }
+    ECV_LOG(debug_stream, "0x", target_bb, ":\n");
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[target_bb];
     auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
     auto &reg_latest_inst_map = bb_reg_info_node_map[target_bb]->reg_latest_inst_map;
@@ -1145,6 +1170,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
+      ECV_LOG(debug_stream, "\t", LLVMThingToString(target_inst_it), "\n");
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1402,7 +1428,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           CHECK(true);
           target_inst_it = target_inst_it->getNextNode();
         } else {
-          LOG(FATAL) << "Unexpected inst when adding phi instructions.";
+          LOG(FATAL) << "Unexpected inst when adding phi instructions." << debug_stream.str();
         }
       }
     }
@@ -1464,8 +1490,11 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   }
 #endif
   CHECK(func->size() == finished.size() + relay_bb_num)
-      << "func->size: " << func->size() << "finished size: " << finished.size()
-      << ". They must be equal.\n";
+      << "func->size: " << func->size() << ", finished size: " << finished.size()
+      << ", relay_bb_num: " << relay_bb_num << "\n"
+      << debug_stream.str();
+
+  DebugStreamReset();
 }
 
 llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
@@ -1482,7 +1511,8 @@ llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
     default: break;
   }
 
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ.";
+  LOG(FATAL) << "[Bug]: Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ."
+             << debug_stream.str();
   return nullptr;
 }
 
@@ -1522,9 +1552,9 @@ EcvRegClass VirtualRegsOpt::GetRegZFromLLVMType(llvm::Type *value_type) {
     return EcvRegClass::RegP;
   }
 
-  llvm::outs() << "[Bug]: Reach the unreachable code at VirtualregsOpt::GetRegZfromLLVMType. Type: "
-               << *value_type << "\n";
-  LOG(FATAL);
+  LOG(FATAL) << "[Bug]: Reach the unreachable code at VirtualregsOpt::GetRegZfromLLVMType. Type: "
+             << LLVMThingToString(value_type) << "\n"
+             << debug_stream.str();
 }
 
 llvm::Value *
