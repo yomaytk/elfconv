@@ -38,12 +38,13 @@ namespace remill {
 #endif
 
 std::ostringstream &EcvLog(std::ostringstream &_ecv_stream) {
+  _ecv_stream << "\n";
   return _ecv_stream;
 }
 
 template <typename T, typename... Args>
 std::ostringstream &EcvLog(std::ostringstream &_ecv_stream, T &&value, const Args &...args) {
-  _ecv_stream << value << " ";
+  _ecv_stream << value;
   return EcvLog(_ecv_stream, args...);
 }
 
@@ -976,7 +977,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   auto &inst_lifter = impl->inst.GetLifter();
   impl->virtual_regs_opt = this;
-  ECV_LOG(debug_stream, "\n", std::hex, func->getName().str(), "\n");
+  ECV_LOG(debug_stream, "\n", std::hex,
+          "[DEBUG LOG]. func: VirtualRegsOpt::OptimizeVritualRegsUsage. target function: ",
+          func->getName().str(), ".");
 
   // Flatten the control flow graph
   llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
@@ -1082,10 +1085,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   while (!phi_bb_queue.empty()) {
     auto target_bb = phi_bb_queue.front();
     phi_bb_queue.pop();
-    if (finished.contains(target_bb)) {
+    if (finished.contains(target_bb) || relay_bb_cache.contains(target_bb)) {
       continue;
     }
-    ECV_LOG(debug_stream, "0x", target_bb, ":\n");
+    ECV_LOG(debug_stream, "0x", target_bb, ":");
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[target_bb];
     auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
     auto &reg_latest_inst_map = bb_reg_info_node_map[target_bb]->reg_latest_inst_map;
@@ -1132,10 +1135,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
         // Get the every virtual register from all the parent bb.
         auto par_bb_it = bb_parents[target_bb].begin();
-        std::set<llvm::BasicBlock *> finished;
+        std::set<llvm::BasicBlock *> _finished;
         while (par_bb_it != bb_parents[target_bb].end()) {
           auto par_bb = *par_bb_it;
-          if (finished.contains(par_bb)) {
+          if (_finished.contains(par_bb)) {
             ++par_bb_it;
             continue;
           }
@@ -1144,14 +1147,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           if (auto from_phi_inst = llvm::dyn_cast<llvm::Instruction>(derived_reg_value)) {
             auto true_par = from_phi_inst->getParent();
             reg_derived_phi->addIncoming(derived_reg_value, true_par);
-            finished.insert(true_par);
+            _finished.insert(true_par);
             if (par_bb != true_par) {
               par_bb_it = bb_parents[target_bb].begin();
               continue;
             }
           } else {
             reg_derived_phi->addIncoming(derived_reg_value, par_bb);
-            finished.insert(par_bb);
+            _finished.insert(par_bb);
           }
           ++par_bb_it;
         }
@@ -1170,7 +1173,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
-      ECV_LOG(debug_stream, "\t", LLVMThingToString(target_inst_it), "\n");
+      ECV_LOG(debug_stream, "\t", LLVMThingToString(target_inst_it));
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1446,6 +1449,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   // Reset PhiRegsBBBagNode.
   PhiRegsBBBagNode::Reset();
+  PhiRegsBBBagNode::debug_stream.clear();
 
 // Check
 #if defined(OPT_DEBUG)
@@ -1489,12 +1493,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 #endif
-  CHECK(func->size() == finished.size() + relay_bb_num)
+  CHECK(func->size() == finished.size() + relay_bb_cache.size())
       << "func->size: " << func->size() << ", finished size: " << finished.size()
-      << ", relay_bb_num: " << relay_bb_num << "\n"
+      << ", relay_bb_num: " << relay_bb_cache.size() << "\n"
       << debug_stream.str();
-
-  DebugStreamReset();
 }
 
 llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
@@ -1622,10 +1624,10 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         {target_ecv_reg, {phi_ecv_reg_class, reg_phi, 0}});
     // Get the every virtual register from all the parent bb.
     auto par_bb_it = bb_parents[target_bb].begin();
-    std::set<llvm::BasicBlock *> finished;
+    std::set<llvm::BasicBlock *> _finished;
     while (par_bb_it != bb_parents[target_bb].end()) {
       auto par_bb = *par_bb_it;
-      if (finished.contains(par_bb)) {
+      if (_finished.contains(par_bb)) {
         ++par_bb_it;
         continue;
       }
@@ -1633,14 +1635,14 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       if (auto from_inst = llvm::dyn_cast<llvm::Instruction>(derived_reg_value)) {
         auto true_par = from_inst->getParent();
         reg_phi->addIncoming(derived_reg_value, true_par);
-        finished.insert(true_par);
+        _finished.insert(true_par);
         if (par_bb != true_par) {
           par_bb_it = bb_parents[target_bb].begin();
           continue;
         }
       } else {
         reg_phi->addIncoming(derived_reg_value, par_bb);
-        finished.insert(par_bb);
+        _finished.insert(par_bb);
       }
       ++par_bb_it;
     }
@@ -1679,7 +1681,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
           bb_parents.insert({relay_bb, {target_bb}});
         }
       }
-      relay_bb_num++;
+      relay_bb_cache.insert(relay_bb);
 
       // Add relay_bb to the PhiRegsBBBagNode and BBRegInfoNode.
       // (WARNING!): bag_inherited_read_reg_map and bag_read_write_reg_map is incorrect for the relay_bb. However, it is not matter.
@@ -1800,6 +1802,10 @@ void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
 }
 
 void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
+
+  ECV_LOG(PhiRegsBBBagNode::debug_stream,
+          "[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
+          root_bb->getParent()->getName().str());
   {
 
 #define TUPLE_ELEM_T \
@@ -1813,7 +1819,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     std::set<PhiRegsBBBagNode *> finished;
 
     for (auto [_, bag] : bb_regs_bag_map) {
-      CHECK(!bag->converted_bag);
+      CHECK(!bag->converted_bag) << PhiRegsBBBagNode::debug_stream.str();
       bag->converted_bag = bag;
     }
 
@@ -1841,7 +1847,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
         PhiRegsBBBagNode *pre_loop_bag = nullptr;
         std::set<PhiRegsBBBagNode *> deleted_bags;
         for (;;) {
-          CHECK(!pre_path.empty());
+          CHECK(!pre_path.empty()) << PhiRegsBBBagNode::debug_stream.str();
           it_loop_bag = pre_path.rbegin();
           auto moved_bag = (*it_loop_bag)->GetTrueBag();
           pre_path.pop_back();
@@ -1870,7 +1876,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           bag_num--;
 
           if (it_loop_bag == pre_path.rend()) {
-            LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop().";
+            LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop()."
+                       << PhiRegsBBBagNode::debug_stream.str();
           }
         }
 
@@ -1896,7 +1903,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
             continue;
           }
           CHECK(child_bag != target_bag)
-              << "[Bug]: self-loop must not be included in the PhiRegsBBBagNode graph.";
+              << "[Bug]: self-loop must not be included in the PhiRegsBBBagNode graph."
+              << PhiRegsBBBagNode::debug_stream.str();
           search_finished = false;
           auto child_pre_path = pre_path;
           auto child_visited = visited;

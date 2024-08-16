@@ -119,6 +119,8 @@ class PhiRegsBBBagNode {
   static void Reset() {
     bb_regs_bag_map.clear();
     bag_num = 0;
+    debug_stream.str("");
+    debug_stream.clear(std::ostringstream::goodbit);
   }
 
   static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
@@ -128,6 +130,7 @@ class PhiRegsBBBagNode {
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
+  static inline std::ostringstream debug_stream = {};
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
@@ -192,7 +195,7 @@ class VirtualRegsOpt {
       : func(__func),
         impl(__impl),
         fun_vma(__fun_vma),
-        relay_bb_num(0) {}
+        relay_bb_cache({}) {}
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
 
@@ -212,11 +215,6 @@ class VirtualRegsOpt {
 
   void OptimizeVirtualRegsUsage();
 
-  void DebugStreamReset() {
-    debug_stream.clear();
-    debug_stream << "\n";
-  }
-
   llvm::Function *func;
   TraceLifter::Impl *impl;
 
@@ -224,7 +222,6 @@ class VirtualRegsOpt {
   uint64_t fun_vma;
   uint64_t block_num;
   std::string func_name;
-  size_t relay_bb_num;
   std::ostringstream debug_stream;
 
   // All llvm::CallInst* of the lifted function.
@@ -233,6 +230,8 @@ class VirtualRegsOpt {
 
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
   std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
+
+  std::set<llvm::BasicBlock *> relay_bb_cache;
 
   // map llvm::Value* and the corresponding CPU register (for debug).
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
