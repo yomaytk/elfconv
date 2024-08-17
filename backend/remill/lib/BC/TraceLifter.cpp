@@ -31,21 +31,41 @@
 
 namespace remill {
 
+
 #if defined(OPT_DEBUG)
-#  define ECV_LOG(stream, ...) EcvLog(stream, __VA_ARGS__)
+#  define ECV_LOG(...) EcvLog(__VA_ARGS__)
+#  define ECV_LOG_NL(...) EcvLogNL(__VA_ARGS__)
 #else
-#  define ECV_LOG(stream, ...)
+#  define ECV_LOG(...)
+#  define ECV_LOG_NL(...)
 #endif
 
-std::ostringstream &EcvLog(std::ostringstream &_ecv_stream) {
-  _ecv_stream << "\n";
-  return _ecv_stream;
+std::ostringstream ECV_DEBUG_STREAM;
+
+static void DebugStreamReset() {
+  ECV_DEBUG_STREAM.str("");
+  ECV_DEBUG_STREAM.clear(std::ostringstream::goodbit);
+}
+
+std::ostringstream &EcvLog() {
+  return ECV_DEBUG_STREAM;
 }
 
 template <typename T, typename... Args>
-std::ostringstream &EcvLog(std::ostringstream &_ecv_stream, T &&value, const Args &...args) {
-  _ecv_stream << value;
-  return EcvLog(_ecv_stream, args...);
+std::ostringstream &EcvLog(T &&value, const Args &...args) {
+  ECV_DEBUG_STREAM << value;
+  return EcvLog(args...);
+}
+
+std::ostringstream &EcvLogNL() {
+  ECV_DEBUG_STREAM << "\n";
+  return ECV_DEBUG_STREAM;
+}
+
+template <typename T, typename... Args>
+std::ostringstream &EcvLogNL(T &&value, const Args &...args) {
+  ECV_DEBUG_STREAM << value;
+  return EcvLogNL(args...);
 }
 
 /*
@@ -884,15 +904,15 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
   auto to_inst_size = impl->data_layout.getTypeAllocSizeInBits(to_inst_ty);
 
   if (from_inst_ty == to_inst_ty) {
-    CHECK(to_inst) << "[Bug]: to_inst must not be NULL when from_inst_ty == to_inst_ty.";
+    CHECK(to_inst) << "[Bug] to_inst must not be NULL when from_inst_ty == to_inst_ty.";
     return to_inst;
   }
 
-  auto type_asserct_check = [this, &from_inst, &to_inst_ty](bool condition, const char *message) {
+  auto type_asserct_check = [&from_inst, &to_inst_ty](bool condition, const char *message) {
     CHECK(condition) << "[ERROR]: from_inst: " << LLVMThingToString(from_inst)
                      << ", to_inst type: " << LLVMThingToString(to_inst_ty) << "\n"
                      << message << "\n"
-                     << debug_stream.str();
+                     << ECV_DEBUG_STREAM.str();
   };
 
   if (from_inst_size < to_inst_size) {
@@ -977,9 +997,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   auto &inst_lifter = impl->inst.GetLifter();
   impl->virtual_regs_opt = this;
-  ECV_LOG(debug_stream, "\n", std::hex,
-          "[DEBUG LOG]. func: VirtualRegsOpt::OptimizeVritualRegsUsage. target function: ",
-          func->getName().str(), ".");
+  ECV_LOG_NL("\n", std::hex,
+             "[DEBUG LOG]. func: VirtualRegsOpt::OptimizeVritualRegsUsage. target function: ",
+             func->getName().str(), ".");
 
   // Flatten the control flow graph
   llvm::BasicBlock *target_bb;  // the parent bb of the joined bb
@@ -1000,6 +1020,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   };
 
+  if (func->getName().str() == "__wrap_main") {
+    printf("fefe");
+  }
+
   while (!bb_queue.empty()) {
     auto target_bb = bb_queue.front();
     bb_queue.pop();
@@ -1009,7 +1033,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     if (2 < child_num) {
       LOG(FATAL)
           << "Every block of the lifted function by elfconv must not have the child blocks more than two."
-          << debug_stream.str();
+          << ECV_DEBUG_STREAM.str();
     } else if (2 == child_num) {
       push_successor_bb_queue(target_terminator->getSuccessor(0));
       push_successor_bb_queue(target_terminator->getSuccessor(1));
@@ -1052,6 +1076,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 
+  DebugStreamReset();
+
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
     auto phi_regs_bag = new PhiRegsBBBagNode(bb_reg_info_node->bb_load_reg_map,
@@ -1061,12 +1087,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   }
   PhiRegsBBBagNode::bag_num = PhiRegsBBBagNode::bb_regs_bag_map.size();
 
-  for (auto &bb_parent : bb_parents) {
-    auto bb = bb_parent.first;
-    auto &pars = bb_parent.second;
+  for (auto [bb, pars] : bb_parents) {
     for (auto par : pars) {
       auto par_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[par];
       auto child_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[bb];
+      // Remove self-loop because it is not needed for the PhiRegsBBBagNode* Graph.
+      if (par_phi_regs_bag == child_phi_regs_bag) {
+        continue;
+      }
       par_phi_regs_bag->children.insert(child_phi_regs_bag);
       child_phi_regs_bag->parents.insert(par_phi_regs_bag);
     }
@@ -1088,7 +1116,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     if (finished.contains(target_bb) || relay_bb_cache.contains(target_bb)) {
       continue;
     }
-    ECV_LOG(debug_stream, "0x", target_bb, ":");
+    ECV_LOG_NL("0x", target_bb, ":");
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[target_bb];
     auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
     auto &reg_latest_inst_map = bb_reg_info_node_map[target_bb]->reg_latest_inst_map;
@@ -1173,7 +1201,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
-      ECV_LOG(debug_stream, "\t", LLVMThingToString(target_inst_it));
+      ECV_LOG_NL("\t", LLVMThingToString(target_inst_it));
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1431,7 +1459,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           CHECK(true);
           target_inst_it = target_inst_it->getNextNode();
         } else {
-          LOG(FATAL) << "Unexpected inst when adding phi instructions." << debug_stream.str();
+          LOG(FATAL) << "Unexpected inst when adding phi instructions." << ECV_DEBUG_STREAM.str();
         }
       }
     }
@@ -1449,7 +1477,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   // Reset PhiRegsBBBagNode.
   PhiRegsBBBagNode::Reset();
-  PhiRegsBBBagNode::debug_stream.clear();
+  DebugStreamReset();
 
 // Check
 #if defined(OPT_DEBUG)
@@ -1496,7 +1524,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   CHECK(func->size() == finished.size() + relay_bb_cache.size())
       << "func->size: " << func->size() << ", finished size: " << finished.size()
       << ", relay_bb_num: " << relay_bb_cache.size() << "\n"
-      << debug_stream.str();
+      << ECV_DEBUG_STREAM.str();
 }
 
 llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
@@ -1513,8 +1541,8 @@ llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
     default: break;
   }
 
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ."
-             << debug_stream.str();
+  LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ."
+             << ECV_DEBUG_STREAM.str();
   return nullptr;
 }
 
@@ -1554,9 +1582,9 @@ EcvRegClass VirtualRegsOpt::GetRegZFromLLVMType(llvm::Type *value_type) {
     return EcvRegClass::RegP;
   }
 
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at VirtualregsOpt::GetRegZfromLLVMType. Type: "
+  LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualregsOpt::GetRegZfromLLVMType. Type: "
              << LLVMThingToString(value_type) << "\n"
-             << debug_stream.str();
+             << ECV_DEBUG_STREAM.str();
 }
 
 llvm::Value *
@@ -1803,9 +1831,9 @@ void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
 
 void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
-  ECV_LOG(PhiRegsBBBagNode::debug_stream,
-          "[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
-          root_bb->getParent()->getName().str());
+  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
+             root_bb->getParent()->getName().str());
+  std::unordered_map<PhiRegsBBBagNode *, uint32_t> bag_map;
   {
 
 #define TUPLE_ELEM_T \
@@ -1817,10 +1845,12 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
                                       {}));  // Why (remill::PhiResgBBBagNode *) is needed?
 
     std::set<PhiRegsBBBagNode *> finished;
+    uint32_t bag_i = 0;
 
     for (auto [_, bag] : bb_regs_bag_map) {
-      CHECK(!bag->converted_bag) << PhiRegsBBBagNode::debug_stream.str();
+      CHECK(!bag->converted_bag) << ECV_DEBUG_STREAM.str();
       bag->converted_bag = bag;
+      bag_map.insert({bag, bag_i++});
     }
 
     while (!bag_stack.empty()) {
@@ -1831,6 +1861,30 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       if (finished.contains(target_bag)) {
         continue;
       }
+      // ECV_LOG_NL("remove loop target bb: ", bag_map[target_bag]);
+      // std::set<PhiRegsBBBagNode *> __bags;
+      // ECV_LOG("PhiRegsBBBagNode * G Parents: ");
+      // for (auto [__bag, __bag_i] : bag_map) {
+      //   auto __t_bag = __bag->GetTrueBag();
+      //   if (__bags.contains(__t_bag)) {
+      //     continue;
+      //   } else {
+      //     __bags.insert(__t_bag);
+      //     ECV_LOG("[[", bag_map[__t_bag], "] <- [");
+      //     auto _p_bag = __t_bag->parents.begin();
+      //     while (_p_bag != __t_bag->parents.end()) {
+      //       auto _t_p_bag = (*_p_bag)->GetTrueBag();
+      //       ECV_LOG(bag_map[_t_p_bag]);
+      //       if (++_p_bag == __t_bag->parents.end()) {
+      //         break;
+      //       }
+      //       ECV_LOG(", ");
+      //     }
+      //     ECV_LOG("]] ");
+      //   }
+      // }
+      // ECV_LOG_NL();
+      // ECV_LOG_NL();
       bool target_bag_is_in_visited = false;
       std::set<PhiRegsBBBagNode *> true_visited;
       for (auto _bag : visited) {
@@ -1845,9 +1899,9 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       if (target_bag_is_in_visited) {
         auto it_loop_bag = pre_path.rbegin();
         PhiRegsBBBagNode *pre_loop_bag = nullptr;
-        std::set<PhiRegsBBBagNode *> deleted_bags;
+        std::set<PhiRegsBBBagNode *> true_deleted_bags;
         for (;;) {
-          CHECK(!pre_path.empty()) << PhiRegsBBBagNode::debug_stream.str();
+          CHECK(!pre_path.empty()) << ECV_DEBUG_STREAM.str();
           it_loop_bag = pre_path.rbegin();
           auto moved_bag = (*it_loop_bag)->GetTrueBag();
           pre_path.pop_back();
@@ -1859,7 +1913,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           }
 
           pre_loop_bag = moved_bag;
-          deleted_bags.insert(moved_bag);
+          true_deleted_bags.insert(moved_bag);
 
           // translates moved_bag
           target_bag->bag_succeeding_load_reg_map.merge(moved_bag->bag_succeeding_load_reg_map);
@@ -1877,15 +1931,15 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
           if (it_loop_bag == pre_path.rend()) {
             LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop()."
-                       << PhiRegsBBBagNode::debug_stream.str();
+                       << ECV_DEBUG_STREAM.str();
           }
         }
 
         // All the moved_bags in the loop should be deleted from the parents and children of the target_bag.
         // Assume that added parents and children are the true bags.
-        for (auto &deleted_bag : deleted_bags) {
-          target_bag->parents.erase(deleted_bag);
-          target_bag->children.erase(deleted_bag);
+        for (auto &t_deleted_bag : true_deleted_bags) {
+          target_bag->parents.erase(t_deleted_bag);
+          target_bag->children.erase(t_deleted_bag);
         }
         target_bag->parents.erase(target_bag);
         target_bag->children.erase(target_bag);
@@ -1903,8 +1957,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
             continue;
           }
           CHECK(child_bag != target_bag)
-              << "[Bug]: self-loop must not be included in the PhiRegsBBBagNode graph."
-              << PhiRegsBBBagNode::debug_stream.str();
+              << "[Bug] Self-loop must not be included in the PhiRegsBBBagNode graph."
+              << ECV_DEBUG_STREAM.str();
           search_finished = false;
           auto child_pre_path = pre_path;
           auto child_visited = visited;
@@ -1969,22 +2023,48 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     }
   }
   // Check whether G of PhiregsBBBagNode* doesn't have loop. (for debug)
+
+  // std::set<PhiRegsBBBagNode *> __bags;
+  // ECV_LOG("PhiRegsBBBagNode * G Parents: ");
+  // for (auto [__bag, __bag_i] : bag_map) {
+  //   auto __t_bag = __bag->GetTrueBag();
+  //   if (__bags.contains(__t_bag)) {
+  //     continue;
+  //   } else {
+  //     __bags.insert(__t_bag);
+  //     ECV_LOG("[[", bag_map[__t_bag], "] <- [");
+  //     auto _p_bag = __t_bag->parents.begin();
+  //     while (_p_bag != __t_bag->parents.end()) {
+  //       auto _t_p_bag = (*_p_bag)->GetTrueBag();
+  //       ECV_LOG(bag_map[_t_p_bag]);
+  //       if (++_p_bag == __t_bag->parents.end()) {
+  //         break;
+  //       }
+  //       ECV_LOG(", ");
+  //     }
+  //     ECV_LOG("]] ");
+  //   }
+  //   ECV_LOG_NL();
+  // }
+  // ECV_LOG_NL();
+
   {
-    std::vector<PhiRegsBBBagNode *> bag_stack;
+    std::stack<PhiRegsBBBagNode *> bag_stack;
     std::set<PhiRegsBBBagNode *> visited, finished;
-    bag_stack.push_back(bb_regs_bag_map[root_bb]);
+    bag_stack.push(bb_regs_bag_map[root_bb]);
 
     while (!bag_stack.empty()) {
-      auto target_bag = bag_stack.back();
-      bag_stack.pop_back();
+      auto target_bag = bag_stack.top();
+      bag_stack.pop();
       if (finished.contains(target_bag)) {
-        LOG(FATAL) << "[Bug]: Unreachable this line.";
+        continue;
       }
       if (visited.contains(target_bag)) {
         for (auto child : target_bag->children) {
           if (!finished.contains(child)) {
             LOG(FATAL)
-                << "[Bug]: The loop was detected from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop.";
+                << "[Bug] The loop was detected from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop."
+                << ECV_DEBUG_STREAM.str();
           }
         }
         finished.insert(target_bag);
@@ -1992,21 +2072,25 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       }
       visited.insert(target_bag);
       // after searching all children, re-search this target_bag.
-      bag_stack.push_back(target_bag);
+      bag_stack.push(target_bag);
       for (auto child : target_bag->children) {
         if (!finished.contains(child)) {
-          bag_stack.push_back(child);
+          bag_stack.push(child);
         }
       }
     }
     CHECK(bag_num == finished.size())
-        << "[Bug]: bag_num: " << bag_num << ", finished.size(): " << finished.size()
-        << ". They should be equal at PhiRegsBBBagNode::RemoveLoop.";
+        << "[Bug] bag_num: " << bag_num << ", finished.size(): " << finished.size()
+        << ". They should be equal at PhiRegsBBBagNode::RemoveLoop." << ECV_DEBUG_STREAM.str();
   }
+
+  DebugStreamReset();
 #endif
 }
 
 void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
+  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetPrecedingVirtualRegsBags. target func: ",
+             root_bb->getParent()->getName().str());
   std::queue<PhiRegsBBBagNode *> bag_queue;
   std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_pars_num_map;
   std::set<PhiRegsBBBagNode *> finished;
@@ -2047,11 +2131,16 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   }
 
   CHECK(finished.size() == bag_num)
-      << "[Bug]: bag_num: " << bag_num << ", finished_bag.size(): " << finished.size()
-      << ". They should be equal after PhiRegsBBagNode::GetPrecedingVirtualRegsBags.";
+      << "[Bug] bag_num: " << bag_num << ", finished_bag.size(): " << finished.size()
+      << ". They should be equal after PhiRegsBBagNode::GetPrecedingVirtualRegsBags."
+      << ECV_DEBUG_STREAM.str();
+
+  DebugStreamReset();
 }
 
 void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
+  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetSucceedingVirtualRegsBags. target func: ",
+             root_bb->getParent()->getName().str());
   std::stack<PhiRegsBBBagNode *> bag_stack;
   std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_children_num_map;
   std::set<PhiRegsBBBagNode *> finished;
@@ -2061,8 +2150,7 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
     auto target_bag = bag_stack.top();
     bag_stack.pop();
     if (finished.contains(target_bag)) {
-      LOG(FATAL)
-          << "[Bug]: Search algorithm is incorrect of PhiRegsBBBagNode::GetPhiDerivedRegsBags: Unreachable.";
+      continue;
     }
     finished_children_num_map.insert({target_bag, 0});
     if (target_bag->children.size() == finished_children_num_map[target_bag]) {
@@ -2091,7 +2179,10 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   }
 
   CHECK(finished.size() == finished_children_num_map.size() && finished.size() == bag_num)
-      << "Search argorithm is incorrect of PhiRegsBBBagNode::GetPhiDerivedRegsBags: Search is insufficient.";
+      << "[Bug] Search argorithm is incorrect of PhiRegsBBBagNode::GetPhiDerivedRegsBags: Search is insufficient."
+      << ECV_DEBUG_STREAM.str();
+
+  DebugStreamReset();
 }
 
 void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {

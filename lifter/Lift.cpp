@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
-#include "Lift.h"
+#if defined(__linux__)
+#  include <signal.h>
+#  include <utils/Util.h>
+#  include <utils/elfconv.h>
+#endif
 
+#include "Lift.h"
 #include "MainLifter.h"
 #include "TraceManager.h"
 
@@ -38,7 +43,26 @@ DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 
+extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
+  std::cout << remill::ECV_DEBUG_STREAM.str();
+  std::cout << "(Custom) Segmantation Fault." << std::endl;
+  exit(EXIT_FAILURE);
+}
+
+void lift_set_sigaction() {
+#if defined(__linux__)
+  struct sigaction segv_action;
+  segv_action.sa_flags = SA_SIGINFO;
+  segv_action.sa_sigaction = debug_stream_out_sigaction;
+  if (sigaction(SIGSEGV, &segv_action, NULL) < 0) {
+    elfconv_runtime_error("sigaction for SIGSEGV failed.\n");
+  }
+#endif
+}
+
 int main(int argc, char *argv[]) {
+  // set custom signal handler for SIGSEGV.
+  lift_set_sigaction();
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 

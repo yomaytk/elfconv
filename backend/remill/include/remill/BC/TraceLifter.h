@@ -25,6 +25,8 @@
 
 namespace remill {
 
+extern std::ostringstream ECV_DEBUG_STREAM;
+
 using TraceMap = std::unordered_map<uint64_t, llvm::Function *>;
 using DecoderWorkList = std::set<uint64_t>;  // For ordering.
 
@@ -119,8 +121,6 @@ class PhiRegsBBBagNode {
   static void Reset() {
     bb_regs_bag_map.clear();
     bag_num = 0;
-    debug_stream.str("");
-    debug_stream.clear(std::ostringstream::goodbit);
   }
 
   static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
@@ -130,7 +130,6 @@ class PhiRegsBBBagNode {
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
-  static inline std::ostringstream debug_stream = {};
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
@@ -222,7 +221,6 @@ class VirtualRegsOpt {
   uint64_t fun_vma;
   uint64_t block_num;
   std::string func_name;
-  std::ostringstream debug_stream;
 
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.
