@@ -412,6 +412,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
 
       bb_reg_info_node = new BBRegInfoNode();
+      // map the block to the bb_reg_info_node
+      CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(block))
+          << "The block and the bb_reg_info_node have already been appended to the map.";
+      virtual_regs_opt->bb_reg_info_node_map.insert({block, bb_reg_info_node});
 
       // Check to see if this instruction corresponds with an existing
       // trace head, and if so, tail-call into that trace directly without
@@ -448,10 +452,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               ? inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node, inst_addr)
               : inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node,
                                                 UINT64_MAX);
-      // map the block to the bb_reg_info_node
-      CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(block))
-          << "The block and the bb_reg_info_node have already been appended to the map.";
-      virtual_regs_opt->bb_reg_info_node_map.insert({block, bb_reg_info_node});
 
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
@@ -1020,10 +1020,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   };
 
-  if (func->getName().str() == "__wrap_main") {
-    printf("fefe");
-  }
-
   while (!bb_queue.empty()) {
     auto target_bb = bb_queue.front();
     bb_queue.pop();
@@ -1052,8 +1048,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         target_bb->splice(target_bb->end(), joined_bb);
         // join BBRegInfoNode
         auto joined_bb_reg_info_node = bb_reg_info_node_map.extract(joined_bb).mapped();
-        auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
-        target_bb_reg_info_node->join_reg_info_node(joined_bb_reg_info_node);
+        bb_reg_info_node_map[target_bb]->join_reg_info_node(joined_bb_reg_info_node);
         // update bb_parents
         bb_parents.erase(joined_bb);
         target_terminator = target_bb->getTerminator();
@@ -1541,8 +1536,10 @@ llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
     default: break;
   }
 
-  LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ."
-             << ECV_DEBUG_STREAM.str();
+  LOG(FATAL)
+      << "[Bug] Reach the unreachable code at VirtualRegsOpt::GetLLVMTypeFromRegZ. ecv_reg_class: "
+      << std::underlying_type<EcvRegClass>::type(ecv_reg_class) << "\n"
+      << ECV_DEBUG_STREAM.str();
   return nullptr;
 }
 
