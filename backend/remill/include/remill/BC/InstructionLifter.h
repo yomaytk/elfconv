@@ -102,7 +102,7 @@ enum class EcvRegClass : uint32_t {
   RegS = 'S' - 'A',
   RegD = 'D' - 'A',
   Reg8B = 'V' + 'B' - 'A' + 8,
-  Reg16B = 'V' + 'B' - 'A' + 16,
+  Reg16B = 'V' + 'B' - 'A' + 1,  // not 16 for EcvReg::GetRegInfo.
   Reg4H = 'V' + 'H' - 'A' + 4,
   Reg8H = 'V' + 'H' - 'A' + 8,
   Reg2S = 'V' + 'S' - 'A' + 2,
@@ -151,10 +151,9 @@ class EcvReg {
   }
 
   // get reg_info from general or vector registers
-  static std::optional<std::pair<EcvReg, EcvRegClass>> GetRegInfo(const std::string &_reg_name);
+  static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
 
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
-  std::string GetWholeRegName() const;
   bool CheckNoChangedReg() const;
 
   class Hash {

@@ -18,9 +18,6 @@
 
 #include "remill/BC/HelperMacro.h"
 
-#include <cstdlib>
-#include <stdexcept>
-
 namespace remill {
 namespace {
 
@@ -48,32 +45,37 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 // get EcvRegClass from the register name.
 std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) {
-  int gotten_num;
-  auto [reg_name_str_ptr, ec] =
-      std::from_chars(_reg_name.data(), _reg_name.data() + _reg_name.size(), &gotten_num);
-  // vector type register
-  if (std::errc() == ec) {
-    if ('F' == reg_name_str_ptr[1]) {
+  auto c0 = _reg_name[0];
+  auto c1 = _reg_name[1];
+  // vector type register (e.g. 16B8, 4S20, 2DF30)
+  if (std::isdigit(c0)) {
+    EcvRegClass res_ecv_reg_class;
+    uint8_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
+    auto corr_val = c0 - '0';
+    uint8_t reg_num;
+    if ('F' == _reg_name[reg_kind_str_off + 1]) /* e.g. 4SF, 2DF */ {
       // float vector
-      auto res_ecv_reg_class =
-          static_cast<EcvRegClass>('V' + reg_name_str_ptr[0] + 'F' - 'A' + gotten_num);
+      res_ecv_reg_class =
+          static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] + 'F' - 'A' + corr_val);
+      reg_num = static_cast<uint8_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
     }
     // integer vector
     else {
-      auto res_ecv_reg_class =
-          static_cast<EcvRegClass>('V' + reg_name_str_ptr[0] - 'A' + gotten_num);
+      res_ecv_reg_class =
+          static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
+      reg_num = static_cast<uint8_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
     }
-    return EcvReg(RegKind::Vector, res_ecv_reg_class);
+    return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
   }
   // general register
-  else if (std::isdigit(_reg_name[1])) {
-    auto _ecv_reg_class = static_cast<EcvRegClass>(_reg_name[0] - 'A');
+  else if (std::isdigit(c1)) {
+    auto res_ecv_reg_class = static_cast<EcvRegClass>(c0 - 'A');
     return std::make_pair(
-        EcvReg((EcvRegClass::RegW == _ecv_reg_class || EcvRegClass::RegX == _ecv_reg_class)
+        EcvReg((EcvRegClass::RegW == res_ecv_reg_class || EcvRegClass::RegX == res_ecv_reg_class)
                    ? RegKind::General
                    : RegKind::Vector,
                static_cast<uint8_t>(std::stoi(_reg_name.substr(1)))),
-        _ecv_reg_class);
+        res_ecv_reg_class);
   }
   // system register
   else {
@@ -143,48 +145,6 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
   return "";
 }
 
-std::string EcvReg::GetWholeRegName() const {
-  if (number <= 31) {
-    if (RegKind::General == reg_kind) {
-      std::string reg_name("X");
-      reg_name += std::to_string(number);
-      return reg_name;
-    } else {
-      CHECK(RegKind::Vector == reg_kind);
-      std::string reg_name("V");
-      reg_name += std::to_string(number);
-      return reg_name;
-    }
-  }
-  // RegKind::Special register.
-  else if (SP_ORDER == number) {
-    return "SP";
-  } else if (PC_ORDER == number) {
-    return "PC";
-  } else if (STATE_ORDER == number) {
-    return "STATE";
-  } else if (RUNTIME_ORDER == number) {
-    return "RUNTIME";
-  } else if (BRANCH_TAKEN_ORDER == number) {
-    return "BRANCH_TAKEN";
-  } else if (ECV_NZCV_ORDER == number) {
-    return "ECV_NZCV";
-  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_WZR";
-  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_XZR";
-  } else if (MONITOR_ORDER == number) {
-    return "MONITOR";
-  } else if (WZR_ORDER == number) {
-    return "WZR";
-  } else if (XZR_ORDER == number) {
-    return "XZR";
-  }
-
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWholeRegName.";
-  return "";
-}
-
 bool EcvReg::CheckNoChangedReg() const {
   return STATE_ORDER == number || RUNTIME_ORDER == number;
 }
@@ -197,8 +157,19 @@ std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
     case EcvRegClass::RegH: return "RegH"; break;
     case EcvRegClass::RegS: return "RegS"; break;
     case EcvRegClass::RegD: return "RegD"; break;
-    case EcvRegClass::RegV: return "RegV"; break;
     case EcvRegClass::RegQ: return "RegQ"; break;
+    case EcvRegClass::Reg8B: return "Reg8B"; break;
+    case EcvRegClass::Reg16B: return "Reg16B"; break;
+    case EcvRegClass::Reg4H: return "Reg4H"; break;
+    case EcvRegClass::Reg8H: return "Reg8H"; break;
+    case EcvRegClass::Reg2S: return "Reg2S"; break;
+    case EcvRegClass::Reg2SF: return "Reg2SF"; break;
+    case EcvRegClass::Reg4S: return "Reg4S"; break;
+    case EcvRegClass::Reg4SF: return "Reg4SF"; break;
+    case EcvRegClass::Reg1D: return "Reg1D"; break;
+    case EcvRegClass::Reg1DF: return "Reg1DF"; break;
+    case EcvRegClass::Reg2D: return "Reg2D"; break;
+    case EcvRegClass::Reg2DF: return "Reg2DF"; break;
     case EcvRegClass::RegP: return "RegP"; break;
     case EcvRegClass::RegNULL: return "RegNULL"; break;
     default: break;
@@ -373,7 +344,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
     if ((reg_need && base_reg_need) || (reg_need && shift_reg_need) ||
         (base_reg_need && shift_reg_need)) {
-      LOG(FATAL) << "Must implement the pattern that both reg_need and base_reg_need are true.";
+      LOG(FATAL)
+          << "[Bug] Must implement the pattern that both reg_need and base_reg_need are true.";
     } else if (base_reg_need) {
       target_reg = &op.addr.base_reg;
     } else if (shift_reg_need) {
@@ -381,12 +353,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
 
     if (!target_reg->name.empty()) {
-      auto ecv_reg_info = EcvReg::GetRegInfo(target_reg->name);
-      if (!ecv_reg_info) {
-        ecv_reg_info = EcvReg::GetSpecialRegInfo(target_reg->name);
-      }
-      ecv_reg = ecv_reg_info.value().first;
-      ecv_reg_class = ecv_reg_info.value().second;
+      auto [ecv_reg, ecv_reg_class] = EcvReg::GetRegInfo(target_reg->name);
       if (Operand::Action::kActionRead == op.action) {
         // skip the case where the load register is `XZR` or `WZR`.
         if (31 != target_reg->number || "PC" == target_reg->name) {
@@ -464,12 +431,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
     // args[args.size() - 1] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
     auto updated_op = ir.CreateStore(args[args.size() - 1], update_reg_ptr_reg, false);
-    auto updated_ecv_reg_info = EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
-    if (!updated_ecv_reg_info) {
-      updated_ecv_reg_info = EcvReg::GetSpecialRegInfo(arch_inst.updated_addr_reg.name);
-    }
-    auto updated_ecv_reg = updated_ecv_reg_info.value().first;
-    auto updated_ecv_reg_class = updated_ecv_reg_info.value().second;
+    auto [updated_ecv_reg, updated_ecv_reg_class] =
+        EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
     write_regs.push_back({updated_ecv_reg, updated_ecv_reg_class});
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
