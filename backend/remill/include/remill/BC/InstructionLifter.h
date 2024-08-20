@@ -101,9 +101,21 @@ enum class EcvRegClass : uint32_t {
   RegH = 'H' - 'A',
   RegS = 'S' - 'A',
   RegD = 'D' - 'A',
+  Reg8B = 'V' + 'B' - 'A' + 8,
+  Reg16B = 'V' + 'B' - 'A' + 16,
+  Reg4H = 'V' + 'H' - 'A' + 4,
+  Reg8H = 'V' + 'H' - 'A' + 8,
+  Reg2S = 'V' + 'S' - 'A' + 2,
+  Reg2SF = 'V' + 'S' + 'F' - 'A' + 2,
+  Reg4S = 'V' + 'S' - 'A' + 4,
+  Reg4SF = 'V' + 'S' + 'F' - 'A' + 4,
+  Reg1D = 'V' + 'D' - 'A' + 1,
+  Reg1DF = 'V' + 'D' + 'F' - 'A' + 1,
+  Reg2D = 'V' + 'D' - 'A' + 2,
+  Reg2DF = 'V' + 'D' + 'F' - 'A' + 2,
   RegQ = 'Q' - 'A',
-  RegP = 100,
-  RegNULL = 101
+  RegP = 10000,
+  RegNULL = 10001
 };
 
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
@@ -141,7 +153,6 @@ class EcvReg {
   // get reg_info from general or vector registers
   static std::optional<std::pair<EcvReg, EcvRegClass>> GetRegInfo(const std::string &_reg_name);
 
-  static std::pair<EcvReg, EcvRegClass> GetSpecialRegInfo(const std::string &_reg_name);
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
   std::string GetWholeRegName() const;
   bool CheckNoChangedReg() const;

@@ -358,9 +358,10 @@ MAKE_MREADV(F, 64, doubles, f64)
 
 #define MAKE_READVI(prefix, size, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadVI##size(VI<T> vec)-> \
-      typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
+  ALWAYS_INLINE static T _##prefix##ReadVI##size(VI<T> vec) { \
     using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    static_assert(std::is_same<T, vector_type>::value, \
+                  "T and vector type must be equal. at _" #prefix "ReadVI" #size); \
     return *reinterpret_cast<vector_type *>(&vec); \
   }  // namespace
 
@@ -1576,7 +1577,7 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 // MAKE MACRO of FExtractVI(...) etc...
 #define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
   template <typename T> \
-  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(T vec, size_t id) { \
+  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
     return out(vec[id]); \
   }  // namespace
 

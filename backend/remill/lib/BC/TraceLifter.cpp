@@ -919,40 +919,31 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
     if (RegKind::General == target_ecv_reg.reg_kind) {
       type_asserct_check(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
-
       return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
-      type_asserct_check(
-          (to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy()) ||
-              (to_inst_ty->isFloatingPointTy() && from_inst_ty->isFloatingPointTy()),
-          "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType on the vector register. (from_inst_size < to_inst_size)");
 
       return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
       type_asserct_check(
           /* 8 bit of the ECV_NZCV */ from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
-
       return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     }
   } else if (from_inst_size > to_inst_size) {
     if (RegKind::General == target_ecv_reg.reg_kind) {
       type_asserct_check(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
-
       return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
       type_asserct_check(
           (to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy()) ||
               (to_inst_ty->isFloatingPointTy() && from_inst_ty->isFloatingPointTy()),
           "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType on the vector register. (from_inst_size > to_inst_size)");
-
       return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
       type_asserct_check(
           from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
-
       return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
     }
   } else {
@@ -1369,9 +1360,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           auto stored_value = store_inst->getValueOperand();
           auto stored_reg_name = store_inst->getPointerOperand()->getName().str();
           auto stored_ecv_reg_info = EcvReg::GetRegInfo(stored_reg_name);
-          if (!stored_ecv_reg_info) {
-            stored_ecv_reg_info = EcvReg::GetSpecialRegInfo(stored_reg_name);
-          }
           // Update cache.
           ascend_reg_inst_map.insert_or_assign(
               stored_ecv_reg_info.value().first,

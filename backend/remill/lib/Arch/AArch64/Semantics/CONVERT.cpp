@@ -38,7 +38,7 @@ DEF_SEM_T(UCVTF_UIntToFloat, S src) {
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_T(UCVTF_Uint32ToFloat32_FROMV, VI128 src) {
+DEF_SEM_T(UCVTF_Uint32ToFloat32_FROMV, VIu32v4 src) {
   _ecv_f32v4_t res = {};
   auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
@@ -48,7 +48,7 @@ DEF_SEM_T(UCVTF_Uint32ToFloat32_FROMV, VI128 src) {
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_T(UCVTF_Uint64ToFloat64_FROMV, VI128 src) {
+DEF_SEM_T(UCVTF_Uint64ToFloat64_FROMV, VIu64v2 src) {
   _ecv_f64v2_t res = {};
   auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
@@ -142,7 +142,7 @@ DEF_SEM_T(SCVTF_IntToFloat, S src) {
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_T(SCVTF_Int32ToFloat32_FROMV, VI128 src) {
+DEF_SEM_T(SCVTF_Int32ToFloat32_FROMV, VIi32v4 src) {
   _ecv_f32v4_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
     res[i] = CheckedCast<int32_t, float32_t>(SExtractVI32(SReadVI32(src), i));
@@ -151,7 +151,7 @@ DEF_SEM_T(SCVTF_Int32ToFloat32_FROMV, VI128 src) {
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_T(SCVTF_Int64ToFloat64_FROMV, VI128 src) {
+DEF_SEM_T(SCVTF_Int64ToFloat64_FROMV, VIi64v2 src) {
   _ecv_f64v2_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
     res[i] = CheckedCast<int64_t, float64_t>(SExtractVI64(SReadVI64(src), i));

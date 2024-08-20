@@ -18,6 +18,9 @@
 
 #include "remill/BC/HelperMacro.h"
 
+#include <cstdlib>
+#include <stdexcept>
+
 namespace remill {
 namespace {
 
@@ -43,10 +46,27 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
-// EcvReg
-std::optional<std::pair<EcvReg, EcvRegClass>> EcvReg::GetRegInfo(const std::string &_reg_name) {
-  auto c1 = _reg_name[1];
-  if (std::isdigit(c1)) {
+// get EcvRegClass from the register name.
+std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) {
+  int gotten_num;
+  auto [reg_name_str_ptr, ec] =
+      std::from_chars(_reg_name.data(), _reg_name.data() + _reg_name.size(), &gotten_num);
+  // vector type register
+  if (std::errc() == ec) {
+    if ('F' == reg_name_str_ptr[1]) {
+      // float vector
+      auto res_ecv_reg_class =
+          static_cast<EcvRegClass>('V' + reg_name_str_ptr[0] + 'F' - 'A' + gotten_num);
+    }
+    // integer vector
+    else {
+      auto res_ecv_reg_class =
+          static_cast<EcvRegClass>('V' + reg_name_str_ptr[0] - 'A' + gotten_num);
+    }
+    return EcvReg(RegKind::Vector, res_ecv_reg_class);
+  }
+  // general register
+  else if (std::isdigit(_reg_name[1])) {
     auto _ecv_reg_class = static_cast<EcvRegClass>(_reg_name[0] - 'A');
     return std::make_pair(
         EcvReg((EcvRegClass::RegW == _ecv_reg_class || EcvRegClass::RegX == _ecv_reg_class)
@@ -54,37 +74,36 @@ std::optional<std::pair<EcvReg, EcvRegClass>> EcvReg::GetRegInfo(const std::stri
                    : RegKind::Vector,
                static_cast<uint8_t>(std::stoi(_reg_name.substr(1)))),
         _ecv_reg_class);
-  } else {
-    return std::nullopt;
   }
-}
+  // system register
+  else {
+    if ("SP" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
+    } else if ("PC" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
+    } else if ("STATE" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
+    } else if ("RUNTIME" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
+    } else if ("BRANCH_TAKEN" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
+    } else if ("ECV_NZCV" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
+    } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), EcvRegClass::RegW);
+    } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), EcvRegClass::RegX);
+    } else if ("MONITOR" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
+    } else if ("WZR" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
+    } else if ("XZR" == _reg_name) {
+      return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
+    }
+  }
 
-std::pair<EcvReg, EcvRegClass> EcvReg::GetSpecialRegInfo(const std::string &_reg_name) {
-  if ("SP" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
-  } else if ("PC" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
-  } else if ("STATE" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
-  } else if ("RUNTIME" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
-  } else if ("BRANCH_TAKEN" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
-  } else if ("ECV_NZCV" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
-  } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), EcvRegClass::RegW);
-  } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), EcvRegClass::RegX);
-  } else if ("MONITOR" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
-  } else if ("WZR" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
-  } else if ("XZR" == _reg_name) {
-    return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
-  } else {
-    LOG(FATAL) << "invalid special register name at EcvReg::GetSepcialRegInfo. " << _reg_name;
-  }
+  LOG(FATAL) << "Unexpected register name at GetRegInfo. reg_name: " << _reg_name;
+  std::terminate();
 }
 
 std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
@@ -178,6 +197,7 @@ std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
     case EcvRegClass::RegH: return "RegH"; break;
     case EcvRegClass::RegS: return "RegS"; break;
     case EcvRegClass::RegD: return "RegD"; break;
+    case EcvRegClass::RegV: return "RegV"; break;
     case EcvRegClass::RegQ: return "RegQ"; break;
     case EcvRegClass::RegP: return "RegP"; break;
     case EcvRegClass::RegNULL: return "RegNULL"; break;
@@ -340,32 +360,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   }
 
   std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
-
-  // if (arch_inst.pc == 0x400788) {
-  //   printf("in!");
-  //   llvm::outs() << "Function name: " << isel_func->getName() << "\n";
-
-  //   // 引数を出力
-  //   llvm::outs() << "Arguments:\n";
-  //   for (auto &Arg : isel_func->args()) {
-  //     llvm::outs() << "  " << Arg.getName() << ": ";
-  //     Arg.getType()->print(llvm::outs());
-  //     llvm::outs() << "\n";
-  //   }
-
-  //   // 基本ブロックを出力
-  //   llvm::outs() << "Basic Blocks:\n";
-  //   for (auto &BB : *isel_func) {
-  //     llvm::outs() << "  Basic Block: " << BB.getName() << "\n";
-
-  //     // 命令を出力
-  //     for (auto &Inst : BB) {
-  //       llvm::outs() << "    ";
-  //       Inst.print(llvm::outs());
-  //       llvm::outs() << "\n";
-  //     }
-  //   }
-  // }
 
   for (auto &op : arch_inst.operands) {
     // update bb_reg_info_node

@@ -33,11 +33,37 @@ typedef VnW<vec64_t> V64W;
 typedef Vn<vec128_t> V128;
 typedef VnW<vec128_t> V128W;
 
-typedef VI<uint8_t> VI8;
-typedef VI<uint16_t> VI16;
-typedef VI<uint32_t> VI32;
-typedef VI<uint64_t> VI64;
-typedef VI<uint128_t> VI128;
+// 64bit vector
+// unsigned
+typedef VI<_ecv_u8v8_t> VIu8v8;
+typedef VI<_ecv_u16v4_t> VIu16v4;
+typedef VI<_ecv_u32v2_t> VIu32v2;
+typedef VI<_ecv_u64v1_t> VIu64v1;
+// signed
+typedef VI<_ecv_i8v8_t> VIi8v8;
+typedef VI<_ecv_i16v4_t> VIi16v4;
+typedef VI<_ecv_i32v2_t> VIi32v2;
+typedef VI<_ecv_i64v1_t> VIi64v1;
+// float
+typedef VI<_ecv_f32v2_t> VIf32v2;
+typedef VI<_ecv_f64v1_t> VIf64v1;
+
+// 128bit vector
+// unsigned
+typedef VI<_ecv_u8v16_t> VIu8v16;
+typedef VI<_ecv_u16v8_t> VIu16v8;
+typedef VI<_ecv_u32v4_t> VIu32v4;
+typedef VI<_ecv_u64v2_t> VIu64v2;
+typedef VI<_ecv_u128v1_t> VIu128v1;
+// signed
+typedef VI<_ecv_i8v16_t> VIi8v16;
+typedef VI<_ecv_i16v8_t> VIi16v8;
+typedef VI<_ecv_i32v4_t> VIi32v4;
+typedef VI<_ecv_i64v2_t> VIi64v2;
+typedef VI<_ecv_i128v1_t> VIi128v1;
+// float
+typedef VI<_ecv_f32v4_t> VIf32v4;
+typedef VI<_ecv_f64v2_t> VIf64v2;
 
 typedef MVI<_ecv_u8v1_t> MVI8;
 typedef MVI<_ecv_u16v1_t> MVI16;
