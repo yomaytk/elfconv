@@ -272,7 +272,7 @@ static_assert(104 == sizeof(SR), "Invalid packing of `struct SR`.");
 enum : size_t { kNumVecRegisters = 32 };
 
 struct alignas(16) SIMD {
-  _ecv_u128v1_t v[kNumVecRegisters];
+  uint128_t v[kNumVecRegisters];
 };
 
 static_assert(512 == sizeof(SIMD), "Invalid packing of `struct SIMD`.");
