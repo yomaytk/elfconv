@@ -4703,8 +4703,8 @@ static void AddArrangementSpecifier(Instruction &inst, uint64_t total_size, uint
   inst.function = ss.str();
 }
 
-static const RegClass ArrangementRegClass(uint64_t total_size, uint64_t element_size,
-                                          bool is_float = false) {
+static RegClass ArrangementRegClass(uint64_t total_size, uint64_t element_size,
+                                    bool is_float = false) {
   if (128 == total_size) {
     switch (element_size) {
       case 8: return kReg16B;

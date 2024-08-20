@@ -2228,14 +2228,8 @@ std::pair<size_t, llvm::Type *> BuildIndexes(const llvm::DataLayout &dl, llvm::T
     indexes_out.push_back(llvm::ConstantInt::get(index_type, index, false));
     return BuildIndexes(dl, elem_type, offset, goal_offset, indexes_out);
   } else if (auto fvt_type = llvm::dyn_cast<llvm::FixedVectorType>(type); fvt_type) {
-    const auto elem_type = fvt_type->getElementType();
-    const auto elem_size = dl.getTypeAllocSize(elem_type);
-    CHECK(sizeof(__uint128_t) == elem_size)
-        << "Expected size: " << sizeof(__uint128_t) << ", Actual: " << elem_size;
-    const auto num_elems = fvt_type->getNumElements();
-    CHECK(1 == num_elems) << "Expected Num Elements: " << 1 << ", Actual: " << num_elems;
 
-    return {offset, fvt_type};
+    LOG(FATAL) << "Called BuildIndexed on unsupported type: " << remill::LLVMThingToString(type);
   } else if (auto svt_type = llvm::dyn_cast<llvm::ScalableVectorType>(type); svt_type) {
 
     // same as above, but for scalable vectors
