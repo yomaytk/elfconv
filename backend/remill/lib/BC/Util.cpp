@@ -218,41 +218,56 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
 
   llvm::StringRef name(name_.data(), name_.size());
   auto &context = function->getContext();
-  auto get_type_from_reg_name = [&context](llvm::StringRef &name) -> llvm::Type * {
-    auto name_str = name.str();
 
-    // Special register
-    if ("SP" == name_str || "PC" == name_str || "BRANCH_TAKEN" == name_str ||
-        "ECV_NZCV" == name_str || "IGNORE_WRITE_TO_XZR" == name_str || "MONITOR" == name_str) {
-      return llvm::Type::getInt64Ty(context);
-    } else if ("RUNTIME" == name_str || "STATE" == name_str) {
-      return llvm::Type::getInt64PtrTy(context);
-    } else if ("IGNORE_WRITE_TO_WZR" == name_str) {
-      return llvm::Type::getInt32Ty(context);
+  static std::unordered_map<const char *, llvm::Type *> RegNameTypeMap = {
+      {"W", llvm::Type::getInt32Ty(context)},
+      {"X", llvm::Type::getInt64Ty(context)},
+      {"B", llvm::Type::getInt8Ty(context)},
+      {"H", llvm::Type::getHalfTy(context)},
+      {"S", llvm::Type::getFloatTy(context)},
+      {"D", llvm::Type::getDoubleTy(context)},
+      {"Q", llvm::Type::getInt128Ty(context)},
+      {"8B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false)},
+      {"16B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false)},
+      {"4H", llvm::VectorType::get(llvm::Type::getHalfTy(context), 4, false)},
+      {"8H", llvm::VectorType::get(llvm::Type::getHalfTy(context), 8, false)},
+      {"2S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false)},
+      {"2SF", llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false)},
+      {"4S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false)},
+      {"4SF", llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false)},
+      {"1D", llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false)},
+      {"1DF", llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false)},
+      {"2D", llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false)},
+      {"2DF", llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false)},
+  };
+
+  auto get_type_from_reg_name = [&context](std::string_view &__name) -> llvm::Type * {
+    auto name_size = __name.size();
+    auto ec0 = (__name.data() + name_size - 1)[0];
+    auto ec1 = (__name.data() + name_size - 2)[0];
+    if (std::isdigit(ec0) && std::isdigit(ec1)) {
+      return RegNameTypeMap[__name.substr(0, name_size - 2).data()];
+    } else if (std::isdigit(ec0)) {
+      return RegNameTypeMap[__name.substr(0, name_size - 1).data()];
+    } else {
+      if ("RUNTIME" == __name || "STATE" == __name) {
+        return llvm::Type::getInt64PtrTy(context);
+      } else if ("IGNORE_WRITE_TO_WZR" == __name) {
+        return llvm::Type::getInt32Ty(context);
+      } else {
+        return llvm::Type::getInt64Ty(context);
+      }
     }
-
-    // General or Vector register
-    switch (name[0]) {
-      case 'W': return llvm::Type::getInt32Ty(context);
-      case 'X': return llvm::Type::getInt64Ty(context);
-      case 'B': return llvm::Type::getInt8Ty(context);
-      case 'H': return llvm::Type::getHalfTy(context);
-      case 'S': return llvm::Type::getFloatTy(context);
-      case 'D': return llvm::Type::getDoubleTy(context);
-      case 'Q':
-      case 'V': return llvm::Type::getInt128Ty(context);
-      default: LOG(FATAL) << "Unexpected register at FindVarInFunction. reg: " << name_str;
-    };
   };
 
   if (!function->empty()) {
     for (auto &instr : function->getEntryBlock()) {
       if (instr.getName() == name) {
         if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
-          return {alloca, get_type_from_reg_name(name)};
+          return {alloca, get_type_from_reg_name(name_)};
         }
         if (auto *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
-          return {gep, get_type_from_reg_name(name)};
+          return {gep, get_type_from_reg_name(name_)};
         }
       }
     }
