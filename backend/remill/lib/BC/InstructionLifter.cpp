@@ -109,10 +109,17 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
 }
 
 std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
+  static std::unordered_map<EcvRegClass, std::string> EcvRegClassRegNameMap = {
+      {EcvRegClass::RegW, "W"},     {EcvRegClass::RegX, "X"},     {EcvRegClass::RegB, "B"},
+      {EcvRegClass::RegH, "H"},     {EcvRegClass::RegS, "S"},     {EcvRegClass::RegD, "D"},
+      {EcvRegClass::Reg8B, "8B"},   {EcvRegClass::Reg16B, "16B"}, {EcvRegClass::Reg4H, "4H"},
+      {EcvRegClass::Reg8H, "8H"},   {EcvRegClass::Reg2S, "2S"},   {EcvRegClass::Reg2SF, "2SF"},
+      {EcvRegClass::Reg4S, "4S"},   {EcvRegClass::Reg4SF, "4SF"}, {EcvRegClass::Reg1D, "1D"},
+      {EcvRegClass::Reg1DF, "1DF"}, {EcvRegClass::Reg2D, "2D"},   {EcvRegClass::Reg2DF, "2DF"},
+      {EcvRegClass::RegQ, "Q"}};
   // General or Vector register.
   if (number <= 31) {
-    std::string reg_name = "";
-    reg_name += 'A' + static_cast<uint32_t>(ecv_reg_class);
+    auto reg_name = EcvRegClassRegNameMap[ecv_reg_class];
     reg_name += std::to_string(number);
     return reg_name;
   }
@@ -324,8 +331,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       sema_func_args_regs.push_back(runtime_reg_info);
       break;
     case SemaFuncArgType::Empty:
-      LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!" << " at: 0x" << std::hex
-                 << arch_inst.pc << ", inst.function: " << arch_inst.function;
+      LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"
+                 << " at: 0x" << std::hex << arch_inst.pc
+                 << ", inst.function: " << arch_inst.function;
       break;
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
   }
@@ -393,7 +401,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                 << " does not have the correct type. Expected "
                                 << LLVMThingToString(arg_type) << " but got "
                                 << LLVMThingToString(op_type) << ". arg_num: " << arg_num - 1
-                                << "address: " << arch_inst.pc;
+                                << ", address: " << arch_inst.pc;
     args.push_back(operand);
 
     sema_func_args_regs.push_back({ecv_reg, ecv_reg_class});
@@ -834,8 +842,8 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
   } else {
     CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy() || arg_type->isVectorTy())
         << "arg_type: " << LLVMThingToString(arg_type) << ", Expected " << arch_reg.name
-        << " to be an integral or float type or vector type" << "for instruction at 0x" << std::hex
-        << inst.pc;
+        << " to be an integral or float type or vector type"
+        << "for instruction at 0x" << std::hex << inst.pc;
 
     if (31 == op.reg.number) {
       if ("XZR" == op.reg.name) {
@@ -932,8 +940,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     if (val_size < arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
-            << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type "
+            << "for instruction at " << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
@@ -952,8 +960,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     } else if (val_size > arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
-            << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type "
+            << "for instruction at " << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
