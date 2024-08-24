@@ -2344,4 +2344,27 @@ std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::
   return {base, total_offset};
 }
 
+void OutLLVMFunc(llvm::Function *func) {
+  llvm::outs() << "define " << *func->getReturnType() << " " << func->getName().str() << " (";
+  auto arg_iter = func->args().begin();
+  for (;;) {
+    auto &arg = *arg_iter;
+    llvm::outs() << *arg.getType() << " " << arg.getName().str();
+    if (++arg_iter == func->args().end()) {
+      llvm::outs() << ") ";
+      break;
+    } else {
+      llvm::outs() << ", ";
+    }
+  }
+  llvm::outs() << "{\n";
+  for (auto &bb : *func) {
+    llvm::outs() << &bb << ":\n";
+    for (auto &inst : bb) {
+      llvm::outs() << "    " << inst << "\n";
+    }
+  }
+  llvm::outs() << "}\n";
+}
+
 }  // namespace remill

@@ -301,4 +301,7 @@ llvm::Value *BuildPointerToOffset(llvm::IRBuilder<> &ir, llvm::Value *ptr, size_
 std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::DataLayout &dl,
                                                                     llvm::Value *base);
 
+// output the args and body of the llvm::Function*
+void OutLLVMFunc(llvm::Function *func);
+
 }  // namespace remill
