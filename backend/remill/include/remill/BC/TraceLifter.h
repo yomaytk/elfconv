@@ -121,6 +121,7 @@ class PhiRegsBBBagNode {
   static void Reset() {
     bb_regs_bag_map.clear();
     bag_num = 0;
+    debug_bag_map.clear();
   }
 
   static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
@@ -130,10 +131,12 @@ class PhiRegsBBBagNode {
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
+  static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
 
+  static void DebugGraphStruct(PhiRegsBBBagNode *target_bag);
 
   // The regsiter set which may be loaded on the way to the basic blocks of this bag node (include the own block).
   EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;

@@ -174,6 +174,13 @@ class BBRegInfoNode {
   BBRegInfoNode() {}
   ~BBRegInfoNode() {}
 
+  static BBRegInfoNode *BBRegInfoNodeWithLoadRuntime() {
+    auto bb_reg_info_node = new BBRegInfoNode();
+    bb_reg_info_node->bb_load_reg_map.insert(
+        {EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP});
+    return bb_reg_info_node;
+  }
+
   void join_reg_info_node(BBRegInfoNode *child) {
     // Join bb_load_reg_map
     for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {

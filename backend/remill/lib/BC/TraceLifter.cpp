@@ -22,6 +22,7 @@
 #include <llvm/IR/Type.h>
 #include <map>
 #include <remill/Arch/Instruction.h>
+#include <remill/Arch/Name.h>
 #include <remill/BC/HelperMacro.h>
 #include <remill/BC/IntrinsicTable.h>
 #include <remill/BC/TraceLifter.h>
@@ -35,9 +36,11 @@ namespace remill {
 #if defined(OPT_DEBUG)
 #  define ECV_LOG(...) EcvLog(__VA_ARGS__)
 #  define ECV_LOG_NL(...) EcvLogNL(__VA_ARGS__)
+#  define DEBUG_REMOVE_LOOP_GRAPH(bag) PhiRegsBBBagNode::DebugGraphStruct(bag)
 #else
 #  define ECV_LOG(...)
 #  define ECV_LOG_NL(...)
+#  define DEBUG_REMOVE_LOOP_GRAPH(bag)
 #endif
 
 std::ostringstream ECV_DEBUG_STREAM;
@@ -534,6 +537,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           try_add_delay_slot(true, block);
           /* indirectbr entry block */
           indirectbr_block = GetOrCreateIndirectJmpBlock();
+          if (!virtual_regs_opt->bb_reg_info_node_map.contains(indirectbr_block)) {
+            virtual_regs_opt->bb_reg_info_node_map.insert(
+                {indirectbr_block, BBRegInfoNode::BBRegInfoNodeWithLoadRuntime()});
+          }
           br_blocks.push_back({block, FindIndirectBrAddress(block)});
           /* jmp to indirectbr block */
           DirectBranchWithSaveParents(indirectbr_block, block);
@@ -546,7 +553,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
 
           // if the next instruction is not included in this function, jumping to it is illegal.
-          // Therefore, we force to return at this block because we assumet that this instruction don't come back to.
+          // Therefore, we force to return at this block because we assume that this instruction don't come back to.
           if (manager.isFunctionEntry(inst.next_pc)) {
             llvm::ReturnInst::Create(context, block);
           } else {
@@ -557,21 +564,20 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         /* case: BLR instruction (only BLR in glibc) */
         case Instruction::kCategoryIndirectFunctionCall: {
           try_add_delay_slot(true, block);
-          const auto fall_through_block = llvm::BasicBlock::Create(context, "", func);
-
-          DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), fall_through_block);
-
+          auto not_taken_block = GetOrCreateBranchNotTakenBlock();
           // indirect jump address is value of %Xzzz just before
           auto lifted_func_call =
               AddCall(block, intrinsics->function_call, *intrinsics, FindIndirectBrAddress(block));
+          DirectBranchWithSaveParents(not_taken_block, block);
           virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
-          DirectBranchWithSaveParents(fall_through_block, block);
-          block = fall_through_block;
+          block = not_taken_block;
           continue;
         }
 
         // no instruction in aarch64?
         case Instruction::kCategoryConditionalIndirectFunctionCall: {
+          CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+              << "`Instruction::kCategoryConditionalIndirectFunctionCall` instruction exists in aarch64?";
           auto taken_block = llvm::BasicBlock::Create(context, "", func);
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
           const auto orig_not_taken_block = not_taken_block;
@@ -626,9 +632,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           continue;
         }
 
-        // no instruction in aarch64?
         case Instruction::kCategoryConditionalDirectFunctionCall: {
-          LOG(FATAL) << "kCategoryConditionalDirectFunctionCall exist in aarch64?";
+          CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+              << "`Instruction::kCategoryConditionalDirectFunctionCall` instruction exists in aarch64?";
           if (inst.branch_not_taken_pc == inst.branch_taken_pc) {
             goto direct_func_call;
           }
@@ -673,6 +679,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         //
         // TODO(pag): Delay slots?
         case Instruction::kCategoryConditionalAsyncHyperCall: {
+          CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+              << "`Instruction::kCategoryConditionalAsyncHyperCall` instruction exists in aarch64?";
           auto do_hyper_call = llvm::BasicBlock::Create(context, "", func);
           ConditionalBranchWithSaveParents(do_hyper_call, GetOrCreateNextBlock(),
                                            LoadBranchTaken(block), block);
@@ -698,6 +706,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           break;
 
         case Instruction::kCategoryConditionalFunctionReturn: {
+          CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+              << "`Instruction::kCategoryConditionalFunctionReturn` instruction exists in aarch64?";
           auto taken_block = llvm::BasicBlock::Create(context, "", func);
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
           const auto orig_not_taken_block = not_taken_block;
@@ -734,6 +744,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           // new blocks (for the delayed instruction) between the branch
           // and its original targets.
           if (try_delay) {
+            CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+                << "try delay of `Instruction::kCategoryConditionalBranch` instruction exists in aarch64?";
             auto new_taken_block = llvm::BasicBlock::Create(context, "", func);
             auto new_not_taken_block = llvm::BasicBlock::Create(context, "", func);
 
@@ -753,6 +765,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         }
         // no instruction in aarch64?
         case Instruction::kCategoryConditionalIndirectJump: {
+          CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
+              << "Instruction::kCategoryConditionalIndirectJump` instruction exists in aarch64?";
           auto taken_block = llvm::BasicBlock::Create(context, "", func);
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
           const auto orig_not_taken_block = not_taken_block;
@@ -843,10 +857,26 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         indirect_br_i->addDestination(_block);
       }
       indirect_br_i->addDestination(br_to_func_block);
-      /* br_to_func_block */
+      // Update cache for `remill_jump` block.
+      virtual_regs_opt->bb_parents.insert({br_to_func_block, {indirectbr_block}});
+      CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(br_to_func_block))
+          << "The entry block has been already added illegally to the VirtualRegsOpt.";
+      virtual_regs_opt->bb_reg_info_node_map.insert(
+          {br_to_func_block, BBRegInfoNode::BBRegInfoNodeWithLoadRuntime()});
+      // Add terminate.
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
     } else {
       no_indirect_lifted_funcs.insert(func);
+
+#if defined(OPT_DEBUG_2)
+      CHECK(!bb_error) << "[Bug] PhiRegsBBBagNode elements error. func: " << func->getName().str();
+      CHECK(virtual_regs_opt->bb_parents.size() + 1 ==
+            virtual_regs_opt->bb_reg_info_node_map.size())
+          << "[Bug] BBRegInfoNodeMap is invalid. bb_parents size + 1: "
+          << virtual_regs_opt->bb_parents.size() + 1
+          << ", bb_reg_info_node_map.size: " << virtual_regs_opt->bb_reg_info_node_map.size()
+          << ", func: " << func->getName().str() << "\n";
+#endif
     }
 
     // add terminator to the all basic block to avoid error on CFG flat
@@ -899,61 +929,90 @@ void TraceLifter::Impl::Optimize() {
 llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst,
                                           llvm::Type *to_inst_ty, llvm::Instruction *inst_at_before,
                                           llvm::Value *to_inst) {
-  auto from_inst_ty = from_inst->getType();
-  auto from_inst_size = impl->data_layout.getTypeAllocSizeInBits(from_inst_ty);
-  auto to_inst_size = impl->data_layout.getTypeAllocSizeInBits(to_inst_ty);
+  auto &context = func->getContext();
+  auto twine_null = llvm::Twine::createNull();
 
-  if (from_inst_ty == to_inst_ty) {
+  llvm::Value *t_from_inst;
+
+  if (from_inst->getType() == to_inst_ty) {
     CHECK(to_inst) << "[Bug] to_inst must not be NULL when from_inst_ty == to_inst_ty.";
     return to_inst;
+  } else if (from_inst->getType() == llvm::Type::getVoidTy(context)) {
+    auto store_from_inst = llvm::dyn_cast<llvm::StoreInst>(from_inst);
+    CHECK(store_from_inst)
+        << "[Bug] If the type of the from_inst is `void`, from_inst must be llvm::StoreInst at CastFromInst. from_inst: "
+        << LLVMThingToString(from_inst) << "\n"
+        << ECV_DEBUG_STREAM.str();
+    t_from_inst = store_from_inst->getValueOperand();
+  } else {
+    t_from_inst = from_inst;
   }
 
-  auto type_asserct_check = [&from_inst, &to_inst_ty](bool condition, const char *message) {
-    CHECK(condition) << "[ERROR]: from_inst: " << LLVMThingToString(from_inst)
+  auto t_from_inst_size = impl->data_layout.getTypeAllocSizeInBits(t_from_inst->getType());
+  auto t_from_inst_ty = t_from_inst->getType();
+  auto to_inst_size = impl->data_layout.getTypeAllocSizeInBits(to_inst_ty);
+
+  auto type_asserct_check = [&t_from_inst, &to_inst_ty](bool condition, const char *message) {
+    CHECK(condition) << "[ERROR]: from_inst: " << LLVMThingToString(t_from_inst)
                      << ", to_inst type: " << LLVMThingToString(to_inst_ty) << "\n"
                      << message << "\n"
                      << ECV_DEBUG_STREAM.str();
   };
 
-  if (from_inst_size < to_inst_size) {
+  if (t_from_inst_size < to_inst_size) {
     if (RegKind::General == target_ecv_reg.reg_kind) {
-      type_asserct_check(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy(),
+      type_asserct_check(to_inst_ty->isIntegerTy() && t_from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
-      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      return new llvm::ZExtInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
-
-      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      if (t_from_inst_ty->isVectorTy() || t_from_inst_ty->isFloatingPointTy()) {
+        auto mono_from =
+            new llvm::BitCastInst(t_from_inst, llvm::Type::getIntNTy(context, t_from_inst_size),
+                                  twine_null, inst_at_before);
+        auto zext_mono_from = new llvm::ZExtInst(
+            mono_from, llvm::Type::getIntNTy(context, to_inst_size), twine_null, inst_at_before);
+        return new llvm::BitCastInst(zext_mono_from, to_inst_ty, twine_null, inst_at_before);
+      } else {
+        auto zext_mono_from = new llvm::ZExtInst(
+            t_from_inst, llvm::Type::getIntNTy(context, to_inst_size), twine_null, inst_at_before);
+        return new llvm::BitCastInst(zext_mono_from, to_inst_ty, twine_null, inst_at_before);
+      }
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
       type_asserct_check(
-          /* 8 bit of the ECV_NZCV */ from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
+          /* 8 bit of the ECV_NZCV */ t_from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
-      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      return new llvm::ZExtInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     }
-  } else if (from_inst_size > to_inst_size) {
+  } else if (t_from_inst_size > to_inst_size) {
     if (RegKind::General == target_ecv_reg.reg_kind) {
-      type_asserct_check(to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy(),
+      type_asserct_check(to_inst_ty->isIntegerTy() && t_from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
-      return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      return new llvm::TruncInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
-      type_asserct_check(
-          (to_inst_ty->isIntegerTy() && from_inst_ty->isIntegerTy()) ||
-              (to_inst_ty->isFloatingPointTy() && from_inst_ty->isFloatingPointTy()),
-          "(FIXME!): occurs implicit cast between IntegerType and FloatingPointType on the vector register. (from_inst_size > to_inst_size)");
-      return new llvm::TruncInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      if (t_from_inst_ty->isVectorTy() || t_from_inst_ty->isFloatingPointTy()) {
+        auto mono_from =
+            new llvm::BitCastInst(t_from_inst, llvm::Type::getIntNTy(context, t_from_inst_size),
+                                  twine_null, inst_at_before);
+        auto trunc_mono_from = new llvm::TruncInst(
+            mono_from, llvm::Type::getIntNTy(context, to_inst_size), twine_null, inst_at_before);
+        return new llvm::BitCastInst(trunc_mono_from, to_inst_ty, twine_null, inst_at_before);
+      } else {
+        auto trunc_mono_from = new llvm::TruncInst(
+            t_from_inst, llvm::Type::getIntNTy(context, to_inst_size), twine_null, inst_at_before);
+        return new llvm::BitCastInst(trunc_mono_from, to_inst_ty, twine_null, inst_at_before);
+      }
+      return new llvm::TruncInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     } else if (RegKind::Special == target_ecv_reg.reg_kind) {
       type_asserct_check(
-          from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
+          t_from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
-      return new llvm::ZExtInst(from_inst, to_inst_ty, llvm::Twine::createNull(), inst_at_before);
+      return new llvm::ZExtInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     }
   } else {
-    CHECK(RegKind::Vector == target_ecv_reg.reg_kind)
-        << "[Bug] register kind must be Regkind::Vector at CastFromInst.";
-    LOG(FATAL) << "from_inst_size is equal to to_inst_size!";
+    return new llvm::BitCastInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
   }
 
-  // unreachable
-  return nullptr;
+  std::terminate();
 }
 
 llvm::Value *VirtualRegsOpt::GetRegValueFromCacheMap(
@@ -988,7 +1047,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   auto &inst_lifter = impl->inst.GetLifter();
   impl->virtual_regs_opt = this;
-  ECV_LOG_NL("\n", std::hex,
+  ECV_LOG_NL(std::hex,
              "[DEBUG LOG]. func: VirtualRegsOpt::OptimizeVritualRegsUsage. target function: ",
              func->getName().str(), ".");
 
@@ -1063,6 +1122,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   }
 
   DebugStreamReset();
+  ECV_LOG_NL("target_func: ", func->getName().str());
 
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
@@ -1089,6 +1149,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   // Calculate the registers which needs to get on the phis instruction for every basic block.
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
 
+  ECV_LOG_NL("target_func: ", func->getName().str());
+
   // Add the phi instructions to the every basic block.
   std::queue<llvm::BasicBlock *> phi_bb_queue;
   std::set<llvm::BasicBlock *> finished;
@@ -1103,6 +1165,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
       continue;
     }
     ECV_LOG_NL("0x", target_bb, ":");
+    // std::cout << std::hex << "0x" << target_bb << ":\n";
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map[target_bb];
     auto target_bb_reg_info_node = bb_reg_info_node_map[target_bb];
     auto &reg_latest_inst_map = bb_reg_info_node_map[target_bb]->reg_latest_inst_map;
@@ -1188,6 +1251,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     // Replace all the `load` to the CPU registers memory with the value of the phi instructions.
     while (target_inst_it) {
       ECV_LOG_NL("\t", LLVMThingToString(target_inst_it));
+      // std::cout << "\t" << LLVMThingToString(target_inst_it) << "\n";
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1369,6 +1433,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           CHECK(!br_inst) << "There are multiple branch instructions in the one BB.";
           br_inst = __br_inst;
           target_inst_it = br_inst->getNextNode();
+          ECV_LOG_NL("jump block: 0x", std::hex, br_inst->getSuccessor(0));
+          // std::cout << " to_block: 0x" << std::hex << br_inst->getSuccessor(0) << "\n";
         }
         // Target: llvm::ExtractValueInst
         else if (auto extract_inst = llvm::dyn_cast<llvm::ExtractValueInst>(target_inst_it)) {
@@ -1513,14 +1579,35 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
   auto &context = func->getContext();
   switch (ecv_reg_class) {
-    case EcvRegClass::RegW: return llvm::Type::getInt32Ty(context); break;
-    case EcvRegClass::RegX: return llvm::Type::getInt64Ty(context); break;
-    case EcvRegClass::RegB: return llvm::Type::getInt8Ty(context); break;
-    case EcvRegClass::RegH: return llvm::Type::getHalfTy(context); break;
-    case EcvRegClass::RegS: return llvm::Type::getFloatTy(context); break;
-    case EcvRegClass::RegD: return llvm::Type::getDoubleTy(context); break;
-    case EcvRegClass::RegQ: return llvm::Type::getInt128Ty(context); break;
-    case EcvRegClass::RegP: return llvm::Type::getInt64PtrTy(context); break;
+    case EcvRegClass::RegW: return llvm::Type::getInt32Ty(context);
+    case EcvRegClass::RegX: return llvm::Type::getInt64Ty(context);
+    case EcvRegClass::RegB: return llvm::Type::getInt8Ty(context);
+    case EcvRegClass::RegH: return llvm::Type::getHalfTy(context);
+    case EcvRegClass::RegS: return llvm::Type::getFloatTy(context);
+    case EcvRegClass::RegD: return llvm::Type::getDoubleTy(context);
+    case EcvRegClass::RegQ: return llvm::Type::getInt128Ty(context);
+    case EcvRegClass::Reg8B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false);
+    case EcvRegClass::Reg16B:
+      return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false);
+    case EcvRegClass::Reg4H: return llvm::VectorType::get(llvm::Type::getHalfTy(context), 4, false);
+    case EcvRegClass::Reg8H: return llvm::VectorType::get(llvm::Type::getHalfTy(context), 8, false);
+    case EcvRegClass::Reg2S:
+      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false);
+    case EcvRegClass::Reg2SF:
+      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false);
+    case EcvRegClass::Reg4S:
+      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false);
+    case EcvRegClass::Reg4SF:
+      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false);
+    case EcvRegClass::Reg1D:
+      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false);
+    case EcvRegClass::Reg1DF:
+      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false);
+    case EcvRegClass::Reg2D:
+      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false);
+    case EcvRegClass::Reg2DF:
+      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false);
+    case EcvRegClass::RegP: return llvm::Type::getInt64PtrTy(context);
     default: break;
   }
 
@@ -1545,8 +1632,33 @@ EcvRegClass VirtualRegsOpt::GetRegZFromLLVMType(llvm::Type *value_type) {
     return EcvRegClass::RegS;
   } else if (llvm::Type::getDoubleTy(context) == value_type) {
     return EcvRegClass::RegD;
-  } else if (llvm::Type::getInt128Ty(context) == value_type) {
+  } else if (llvm::Type::getInt128Ty(context) == value_type ||
+             llvm::VectorType::get(llvm::Type::getInt128Ty(context), 1, false) == value_type) {
     return EcvRegClass::RegQ;
+  } else if (llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false) == value_type) {
+    return EcvRegClass::Reg8B;
+  } else if (llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false) == value_type) {
+    return EcvRegClass::Reg16B;
+  } else if (llvm::VectorType::get(llvm::Type::getHalfTy(context), 4, false) == value_type) {
+    return EcvRegClass::Reg4H;
+  } else if (llvm::VectorType::get(llvm::Type::getHalfTy(context), 8, false) == value_type) {
+    return EcvRegClass::Reg8H;
+  } else if (llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false) == value_type) {
+    return EcvRegClass::Reg2S;
+  } else if (llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false) == value_type) {
+    return EcvRegClass::Reg2SF;
+  } else if (llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false) == value_type) {
+    return EcvRegClass::Reg4S;
+  } else if (llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false) == value_type) {
+    return EcvRegClass::Reg4SF;
+  } else if (llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false) == value_type) {
+    return EcvRegClass::Reg1D;
+  } else if (llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false) == value_type) {
+    return EcvRegClass::Reg1DF;
+  } else if (llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false) == value_type) {
+    return EcvRegClass::Reg2D;
+  } else if (llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false) == value_type) {
+    return EcvRegClass::Reg2DF;
   } else if (llvm::Type::getInt64PtrTy(context) == value_type) {
     return EcvRegClass::RegP;
   }
@@ -1801,9 +1913,8 @@ void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
 
 void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
-  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
+  ECV_LOG_NL(std::dec, "[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
              root_bb->getParent()->getName().str());
-  std::unordered_map<PhiRegsBBBagNode *, uint32_t> bag_map;
   {
 
 #define TUPLE_ELEM_T \
@@ -1820,7 +1931,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     for (auto [_, bag] : bb_regs_bag_map) {
       CHECK(!bag->converted_bag) << ECV_DEBUG_STREAM.str();
       bag->converted_bag = bag;
-      bag_map.insert({bag, bag_i++});
+      debug_bag_map.insert({bag, bag_i++});
     }
 
     while (!bag_stack.empty()) {
@@ -1831,30 +1942,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       if (finished.contains(target_bag)) {
         continue;
       }
-      // ECV_LOG_NL("remove loop target bb: ", bag_map[target_bag]);
-      // std::set<PhiRegsBBBagNode *> __bags;
-      // ECV_LOG("PhiRegsBBBagNode * G Parents: ");
-      // for (auto [__bag, __bag_i] : bag_map) {
-      //   auto __t_bag = __bag->GetTrueBag();
-      //   if (__bags.contains(__t_bag)) {
-      //     continue;
-      //   } else {
-      //     __bags.insert(__t_bag);
-      //     ECV_LOG("[[", bag_map[__t_bag], "] <- [");
-      //     auto _p_bag = __t_bag->parents.begin();
-      //     while (_p_bag != __t_bag->parents.end()) {
-      //       auto _t_p_bag = (*_p_bag)->GetTrueBag();
-      //       ECV_LOG(bag_map[_t_p_bag]);
-      //       if (++_p_bag == __t_bag->parents.end()) {
-      //         break;
-      //       }
-      //       ECV_LOG(", ");
-      //     }
-      //     ECV_LOG("]] ");
-      //   }
-      // }
-      // ECV_LOG_NL();
-      // ECV_LOG_NL();
+      DEBUG_REMOVE_LOOP_GRAPH(target_bag);
       bool target_bag_is_in_visited = false;
       std::set<PhiRegsBBBagNode *> true_visited;
       for (auto _bag : visited) {
@@ -1868,7 +1956,6 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
       if (target_bag_is_in_visited) {
         auto it_loop_bag = pre_path.rbegin();
-        PhiRegsBBBagNode *pre_loop_bag = nullptr;
         std::set<PhiRegsBBBagNode *> true_deleted_bags;
         for (;;) {
           CHECK(!pre_path.empty()) << ECV_DEBUG_STREAM.str();
@@ -1878,11 +1965,10 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
           if (target_bag == moved_bag) {
             break;
-          } else if (pre_loop_bag == moved_bag) {
+          } else if (true_deleted_bags.contains(moved_bag)) {
             continue;
           }
 
-          pre_loop_bag = moved_bag;
           true_deleted_bags.insert(moved_bag);
 
           // translates moved_bag
@@ -1905,15 +1991,6 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           }
         }
 
-        // All the moved_bags in the loop should be deleted from the parents and children of the target_bag.
-        // Assume that added parents and children are the true bags.
-        for (auto &t_deleted_bag : true_deleted_bags) {
-          target_bag->parents.erase(t_deleted_bag);
-          target_bag->children.erase(t_deleted_bag);
-        }
-        target_bag->parents.erase(target_bag);
-        target_bag->children.erase(target_bag);
-
         // re-search this target_bag
         visited.erase(target_bag);
         bag_stack.emplace(target_bag, pre_path, visited);
@@ -1923,12 +2000,9 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
         bool search_finished = true;
         for (auto __child_bag : target_bag->children) {
           auto child_bag = __child_bag->GetTrueBag();
-          if (finished.contains(child_bag)) {
+          if (finished.contains(child_bag) || child_bag == target_bag) {
             continue;
           }
-          CHECK(child_bag != target_bag)
-              << "[Bug] Self-loop must not be included in the PhiRegsBBBagNode graph."
-              << ECV_DEBUG_STREAM.str();
           search_finished = false;
           auto child_pre_path = pre_path;
           auto child_visited = visited;
@@ -1956,13 +2030,21 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       // Update parents
       std::set<PhiRegsBBBagNode *> new_pars;
       for (auto par : target_true_bag->parents) {
-        new_pars.insert(par->GetTrueBag());
+        auto t_par = par->GetTrueBag();
+        if (t_par == target_true_bag) {
+          continue;
+        }
+        new_pars.insert(t_par);
       }
       target_true_bag->parents = new_pars;
       // Update children
       std::set<PhiRegsBBBagNode *> new_children;
       for (auto child : target_true_bag->children) {
-        new_children.insert(child->GetTrueBag());
+        auto t_child = child->GetTrueBag();
+        if (t_child == target_true_bag) {
+          continue;
+        }
+        new_children.insert(t_child);
       }
       target_true_bag->children = new_children;
     }
@@ -1973,6 +2055,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
   }
 
 #if defined(OPT_DEBUG)
+
   // Check the consistency of the parents and children
   {
     std::set<PhiRegsBBBagNode *> bag_set;
@@ -1992,32 +2075,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
       }
     }
   }
+
   // Check whether G of PhiregsBBBagNode* doesn't have loop. (for debug)
-
-  // std::set<PhiRegsBBBagNode *> __bags;
-  // ECV_LOG("PhiRegsBBBagNode * G Parents: ");
-  // for (auto [__bag, __bag_i] : bag_map) {
-  //   auto __t_bag = __bag->GetTrueBag();
-  //   if (__bags.contains(__t_bag)) {
-  //     continue;
-  //   } else {
-  //     __bags.insert(__t_bag);
-  //     ECV_LOG("[[", bag_map[__t_bag], "] <- [");
-  //     auto _p_bag = __t_bag->parents.begin();
-  //     while (_p_bag != __t_bag->parents.end()) {
-  //       auto _t_p_bag = (*_p_bag)->GetTrueBag();
-  //       ECV_LOG(bag_map[_t_p_bag]);
-  //       if (++_p_bag == __t_bag->parents.end()) {
-  //         break;
-  //       }
-  //       ECV_LOG(", ");
-  //     }
-  //     ECV_LOG("]] ");
-  //   }
-  //   ECV_LOG_NL();
-  // }
-  // ECV_LOG_NL();
-
   {
     std::stack<PhiRegsBBBagNode *> bag_stack;
     std::set<PhiRegsBBBagNode *> visited, finished;
@@ -2182,6 +2241,42 @@ void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {
       finished.insert(phi_regs_bag);
     }
   }
+}
+
+void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
+  ECV_LOG_NL("target bag: ", debug_bag_map[target_bag]);
+  std::set<PhiRegsBBBagNode *> __bags;
+  ECV_LOG("PhiRegsBBBagNode * G Parents: ");
+  // stdout PhiRegsBBBagNode* G.
+  for (auto [__bag, __bag_i] : debug_bag_map) {
+    auto __t_bag = __bag->GetTrueBag();
+    if (__bags.contains(__t_bag)) {
+      continue;
+    } else {
+      __bags.insert(__t_bag);
+      ECV_LOG("[[", debug_bag_map[__t_bag], "] -> [");
+      auto _p_bag = __t_bag->children.begin();
+      std::set<PhiRegsBBBagNode *> __t_out_bags;
+      while (_p_bag != __t_bag->children.end()) {
+        auto _t_p_bag = (*_p_bag)->GetTrueBag();
+        if (__t_out_bags.contains(_t_p_bag)) {
+          ++_p_bag;
+          continue;
+        }
+        if (_p_bag != __t_bag->children.begin()) {
+          ECV_LOG(", ");
+        }
+        ECV_LOG(debug_bag_map[_t_p_bag]);
+        __t_out_bags.insert(_t_p_bag);
+        if (++_p_bag == __t_bag->children.end()) {
+          break;
+        }
+      }
+      ECV_LOG("]] ");
+    }
+  }
+  ECV_LOG_NL();
+  ECV_LOG_NL();
 }
 
 }  // namespace remill
