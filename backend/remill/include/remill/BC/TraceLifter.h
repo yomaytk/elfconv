@@ -197,7 +197,15 @@ class VirtualRegsOpt {
       : func(__func),
         impl(__impl),
         fun_vma(__fun_vma),
-        relay_bb_cache({}) {}
+        relay_bb_cache({}) {
+    for (auto &arg : func->args()) {
+      if (arg.getName() == "state") {
+        arg_state_val = &arg;
+        break;
+      }
+      CHECK(arg_state_val) << "State arg is empty at the initialization of VirtualRegsOpt.";
+    }
+  }
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
 
@@ -217,6 +225,7 @@ class VirtualRegsOpt {
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
+  llvm::Value *arg_state_val;
 
   // for debug
   uint64_t fun_vma;

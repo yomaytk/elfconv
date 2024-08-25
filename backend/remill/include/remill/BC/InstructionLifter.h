@@ -95,25 +95,25 @@ class OperandLifter {
 #define XZR_ORDER 42  // Actually, not used
 
 enum class EcvRegClass : uint32_t {
-  RegW = 'W' - 'A',
-  RegX = 'X' - 'A',
-  RegB = 'B' - 'A',
-  RegH = 'H' - 'A',
-  RegS = 'S' - 'A',
-  RegD = 'D' - 'A',
-  Reg8B = 'V' + 'B' - 'A' + 8,
-  Reg16B = 'V' + 'B' - 'A' + 1,  // not 16 for EcvReg::GetRegInfo.
-  Reg4H = 'V' + 'H' - 'A' + 4,
-  Reg8H = 'V' + 'H' - 'A' + 8,
-  Reg2S = 'V' + 'S' - 'A' + 2,
-  Reg2SF = 'V' + 'S' + 'F' - 'A' + 2,
-  Reg4S = 'V' + 'S' - 'A' + 4,
-  Reg4SF = 'V' + 'S' + 'F' - 'A' + 4,
-  Reg1D = 'V' + 'D' - 'A' + 1,
-  Reg1DF = 'V' + 'D' + 'F' - 'A' + 1,
-  Reg2D = 'V' + 'D' - 'A' + 2,
-  Reg2DF = 'V' + 'D' + 'F' - 'A' + 2,
-  RegQ = 'Q' - 'A',
+  RegW = 'W' - 'A',  // 22
+  RegX = 'X' - 'A',  // 23
+  RegB = 'B' - 'A',  // 1
+  RegH = 'H' - 'A',  // 7
+  RegS = 'S' - 'A',  // 18
+  RegD = 'D' - 'A',  // 3
+  Reg8B = 'V' + 'B' - 'A' + 8,  // 95
+  Reg16B = 'V' + 'B' - 'A' + 1,  // 88 (not 16 for EcvReg::GetRegInfo).
+  Reg4H = 'V' + 'H' - 'A' + 4,  // 97
+  Reg8H = 'V' + 'H' - 'A' + 8,  // 101
+  Reg2S = 'V' + 'S' - 'A' + 2,  // 106
+  Reg2SF = 'V' + 'S' + 'F' - 'A' + 2,  // 176
+  Reg4S = 'V' + 'S' - 'A' + 4,  // 108
+  Reg4SF = 'V' + 'S' + 'F' - 'A' + 4,  // 178
+  Reg1D = 'V' + 'D' - 'A' + 1,  // 90
+  Reg1DF = 'V' + 'D' + 'F' - 'A' + 1,  // 160
+  Reg2D = 'V' + 'D' - 'A' + 2,  // 91
+  Reg2DF = 'V' + 'D' + 'F' - 'A' + 2,  // 161
+  RegQ = 'Q' - 'A',  // 16
   RegP = 10000,
   RegNULL = 10001
 };
@@ -121,18 +121,18 @@ enum class EcvRegClass : uint32_t {
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
 
 enum class RegKind : uint32_t {
-  General,
-  Vector,
-  Special,  // SP ~ XZR
+  General,  // 0
+  Vector,  // 1
+  Special,  // 2
 };
 
 class EcvReg {
  public:
   RegKind reg_kind;
-  uint8_t number;
+  uint32_t number;
 
   EcvReg() {}
-  EcvReg(RegKind __reg_kind, uint8_t __number) : reg_kind(__reg_kind), number(__number) {}
+  EcvReg(RegKind __reg_kind, uint32_t __number) : reg_kind(__reg_kind), number(__number) {}
 
   bool operator==(const EcvReg &rhs) const {
     return reg_kind == rhs.reg_kind && number == rhs.number;
@@ -161,7 +161,7 @@ class EcvReg {
     std::size_t operator()(const EcvReg &ecv_reg) const {
       return std::hash<uint32_t>()(
                  static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
-             std::hash<uint8_t>()(ecv_reg.number);
+             std::hash<uint32_t>()(ecv_reg.number);
     }
   };  // namespace remill
 };

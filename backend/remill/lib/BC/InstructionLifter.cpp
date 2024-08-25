@@ -50,20 +50,20 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
   // vector type register (e.g. 16B8, 4S20, 2DF30)
   if (std::isdigit(c0)) {
     EcvRegClass res_ecv_reg_class;
-    uint8_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
+    uint32_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
     auto corr_val = c0 - '0';
-    uint8_t reg_num;
+    uint32_t reg_num;
     if ('F' == _reg_name[reg_kind_str_off + 1]) /* e.g. 4SF, 2DF */ {
       // float vector
       res_ecv_reg_class =
           static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] + 'F' - 'A' + corr_val);
-      reg_num = static_cast<uint8_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
+      reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
     }
     // integer vector
     else {
       res_ecv_reg_class =
           static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
-      reg_num = static_cast<uint8_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
+      reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
     }
     return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
   }
@@ -74,7 +74,7 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
         EcvReg((EcvRegClass::RegW == res_ecv_reg_class || EcvRegClass::RegX == res_ecv_reg_class)
                    ? RegKind::General
                    : RegKind::Vector,
-               static_cast<uint8_t>(std::stoi(_reg_name.substr(1)))),
+               static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
         res_ecv_reg_class);
   }
   // system register
