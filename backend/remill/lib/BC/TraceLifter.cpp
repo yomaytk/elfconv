@@ -907,19 +907,19 @@ void TraceLifter::Impl::Optimize() {
 
 #if defined(OPT_DEBUG_2)
   // Insert `debug_llvmir_u64value`
-  uint64_t debug_unique_value = 0;
+  auto debug_llvmir_u64value_fun = module->getFunction("debug_llvmir_u64value");
   for (auto lifted_func : no_indirect_lifted_funcs) {
+    auto virtual_regs_opt = func_virtual_regs_opt_map[lifted_func];
     for (auto &bb : *lifted_func) {
+      auto &sema_func_vma_map = virtual_regs_opt->bb_reg_info_node_map.at(&bb)->sema_func_vma_map;
       for (auto __inst = &*bb.begin(); __inst; __inst = __inst->getNextNode()) {
-        if (llvm::dyn_cast<llvm::PHINode>(__inst)) {
-          continue;
+        auto __call_inst = llvm::dyn_cast<llvm::CallInst>(__inst);
+        if (sema_func_vma_map.contains(__call_inst)) {
+          llvm::CallInst::Create(debug_llvmir_u64value_fun,
+                                 {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
+                                                         sema_func_vma_map.at(__call_inst))},
+                                 llvm::Twine::createNull(), __inst);
         }
-        auto debug_llvmir_u64value_fun = module->getFunction("debug_llvmir_u64value");
-        llvm::CallInst::Create(
-            debug_llvmir_u64value_fun,
-            {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), debug_unique_value)},
-            llvm::Twine::createNull(), __inst);
-        debug_unique_value++;
       }
     }
   }

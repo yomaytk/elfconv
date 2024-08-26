@@ -202,6 +202,10 @@ class BBRegInfoNode {
     for (auto key_value : child->sema_func_args_reg_map) {
       sema_func_args_reg_map.insert(key_value);
     }
+    // Join sema_func_vma_map (for debug)
+    for (auto key_value : child->sema_func_vma_map) {
+      sema_func_vma_map.insert(key_value);
+    }
   }
 
   // The register set which is `load`ed in this block.
@@ -225,6 +229,9 @@ class BBRegInfoNode {
       referred_able_added_inst_reg_map;
   // Map the register and added instructions.
   EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
+
+  // Map the sema function and the vma. for debug.
+  std::unordered_map<llvm::CallInst *, uint64_t> sema_func_vma_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {

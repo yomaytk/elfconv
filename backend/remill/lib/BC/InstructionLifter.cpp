@@ -426,6 +426,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // Call the function that implements the instruction semantics.
   auto sema_inst = ir.CreateCall(isel_func, args);
   bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
+  bb_reg_info_node->sema_func_vma_map.insert({sema_inst, arch_inst.pc});
 
   // insert the instruction which explains the latest specified register.
   for (std::size_t i = 0; i < write_regs.size(); i++) {
