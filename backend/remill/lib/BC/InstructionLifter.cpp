@@ -218,8 +218,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   /* append debug_insn function call */
   if (UINT64_MAX != debug_insn_addr) {
     llvm::IRBuilder<> __debug_ir(block);
-    auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    __debug_ir.CreateCall(_debug_insn_fn);
 #if defined(LIFT_MEMORY_VALUE_CHANGE)
     auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
     auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);

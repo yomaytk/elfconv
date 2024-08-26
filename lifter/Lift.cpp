@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* target function control flow */
-  std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
+  std::unordered_map<uint64_t, bool> control_flow_debug_list = {{0x423360, true}};
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
       /* append the address of necesarry debug function */
@@ -75,8 +75,8 @@ int main(int argc, char *argv[]) {
         break;
       }
     }
-    main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
+  main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   /* declare debug function */
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */

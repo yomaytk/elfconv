@@ -223,7 +223,7 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
 // observe the value change of runtime memory
 extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
   // step 1. set target vma
-  static uint64_t target_vma = 0x493258;
+  static uint64_t target_vma = 0x499f98;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
