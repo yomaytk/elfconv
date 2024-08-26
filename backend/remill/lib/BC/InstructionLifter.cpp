@@ -187,6 +187,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // Call the function that implements the instruction semantics.
   ir.CreateCall(isel_func, args);
 
+  // Add the function that stdout the vma of this instruction.
+  auto debug_fun = module->getFunction("debug_llvmir_u64value");
+  ir.CreateCall(debug_fun, {llvm::ConstantInt::get(llvm::Type::getInt64Ty(debug_fun->getContext()),
+                                                   arch_inst.pc)});
+
   // End an atomic block.
   // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
@@ -605,9 +610,9 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
   if (arch_op.size > impl->arch->address_size) {
     CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
         << "Argument to semantics function for instruction at " << std::hex << inst.pc
-        << " is not an integer. This may not be surprising because " << "the immediate operand is "
-        << arch_op.size << " bits, but the " << "machine word size is " << impl->arch->address_size
-        << " bits.";
+        << " is not an integer. This may not be surprising because "
+        << "the immediate operand is " << arch_op.size << " bits, but the "
+        << "machine word size is " << impl->arch->address_size << " bits.";
 
     CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
                               << "Operand structure encodes a truncated " << arch_op.size << " bit "
@@ -657,8 +662,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     if (val_size < arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
-            << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type "
+            << "for instruction at " << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
@@ -677,8 +682,8 @@ llvm::Value *InstructionLifter::LiftExpressionOperand(Instruction &inst, llvm::B
     } else if (val_size > arg_size) {
       if (arg_type->isIntegerTy()) {
         CHECK(val_type->isIntegerTy())
-            << "Expected " << op.Serialize() << " to be an integral type " << "for instruction at "
-            << std::hex << inst.pc;
+            << "Expected " << op.Serialize() << " to be an integral type "
+            << "for instruction at " << std::hex << inst.pc;
 
         CHECK(word_size == arg_size) << "Expected integer argument to be machine word size ("
                                      << word_size << " bits) but is is " << arg_size << " instead "
