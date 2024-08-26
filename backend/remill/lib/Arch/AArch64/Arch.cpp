@@ -449,8 +449,9 @@ static void AddWriteRegMemOperand(Instruction &inst, Action action, RegClass rcl
   inst.operands.push_back(op);
 }
 
-static void AddAddressUpdateRegOperand(Instruction &inst, aarch64::RegNum reg_num) {
+static void AddAddressUpdateRegOperand(Instruction &inst, aarch64::RegNum reg_num, uint64_t disp) {
   inst.updated_addr_reg = Reg(kActionWrite, kRegX, kUseAsAddress, reg_num);
+  inst.updated_post_offset = disp;
 }
 
 static void AddShiftRegOperand(Instruction &inst, RegClass rclass, RegUsage rtype,
@@ -648,7 +649,7 @@ static void AddPreIndexMemOp(Instruction &inst, Action action, uint64_t access_s
   // one of `WZR` or `ZR`.
 
   // The register that will be updated
-  AddAddressUpdateRegOperand(inst, base_reg);
+  AddAddressUpdateRegOperand(inst, base_reg, 0);
 }
 
 // Post-index memory operands write back the result of the displaced address
@@ -680,7 +681,7 @@ static void AddPostIndexMemOp(Instruction &inst, Action action, uint64_t access_
   // one of `WZR` or `ZR`.
 
   // The register that will be updated
-  AddAddressUpdateRegOperand(inst, base_reg);
+  AddAddressUpdateRegOperand(inst, base_reg, disp);
 }
 
 // Post-index memory operands write back the result of the displaced address
@@ -1334,6 +1335,9 @@ bool TryDecodeLDR_64_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
+  if (inst.pc == 0x400838) {
+    printf("in!!!");
+  }
   AddPostIndexMemOp(inst, kActionRead, 64, data.Rn, offset, data.Rt);
   return true;
 }
@@ -6166,8 +6170,8 @@ bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst) {
 
 }  // namespace aarch64
 
-auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_,
-                      ArchName arch_name_) -> ArchPtr {
+auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
   return std::make_unique<AArch64Arch>(context_, os_name_, arch_name_);
 }
 

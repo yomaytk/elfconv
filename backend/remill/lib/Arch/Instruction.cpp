@@ -319,6 +319,7 @@ void Instruction::Reset(void) {
   bytes.clear();
   next_expr_index = 0;
   updated_addr_reg.name.clear();
+  updated_post_offset = 0;
 }
 
 OperandExpression *Instruction::AllocateExpression(void) {
@@ -722,22 +723,26 @@ std::string Instruction::Serialize(void) const {
     case Instruction::kCategoryDirectFunctionCall:
       ss << " (DIRECT_CALL (TAKEN " << std::hex << branch_taken_pc;
       maybe_stream_branch_taken_arch();
-      ss << ")" << " (RETURN " << branch_not_taken_pc << std::dec << "))";
+      ss << ")"
+         << " (RETURN " << branch_not_taken_pc << std::dec << "))";
       break;
     case Instruction::kCategoryIndirectFunctionCall:
       ss << " (INDIRECT_CALL (TAKEN <unknown>";
       maybe_stream_branch_taken_arch();
-      ss << ")" << " (RETURN " << std::hex << branch_not_taken_pc << std::dec << "))";
+      ss << ")"
+         << " (RETURN " << std::hex << branch_not_taken_pc << std::dec << "))";
       break;
     case Instruction::kCategoryConditionalBranch:
       ss << " (COND_BRANCH (TAKEN " << std::hex << branch_taken_pc;
       maybe_stream_branch_taken_arch();
-      ss << ")" << " (NOT_TAKEN " << branch_not_taken_pc << std::dec << "))";
+      ss << ")"
+         << " (NOT_TAKEN " << branch_not_taken_pc << std::dec << "))";
       break;
     case kCategoryConditionalIndirectJump:
       ss << " (COND_BRANCH (TAKEN <unknown>";
       maybe_stream_branch_taken_arch();
-      ss << ")" << " (NOT_TAKEN " << std::hex << branch_not_taken_pc << std::dec << "))";
+      ss << ")"
+         << " (NOT_TAKEN " << std::hex << branch_not_taken_pc << std::dec << "))";
       break;
     default: break;
   }

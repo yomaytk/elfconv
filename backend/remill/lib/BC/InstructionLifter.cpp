@@ -222,8 +222,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                             uint64_t debug_insn_addr, bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
+  auto &context = func->getContext();
   llvm::Function *isel_func = nullptr;
   auto status = kLiftedInstruction;
+
 
   // Cache invalidation.
   if (func != impl->last_func) {
@@ -439,13 +441,20 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     const auto [update_reg_ptr_reg, _] =
         LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
     // args[args.size() - 1] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
-    auto updated_op = ir.CreateStore(args[args.size() - 1], update_reg_ptr_reg, false);
+    auto updated_addr_value = args[args.size() - 1];
+    if (arch_inst.updated_post_offset > 0) {
+      updated_addr_value =
+          ir.CreateAdd(updated_addr_value, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
+                                                                  arch_inst.updated_post_offset));
+    }
+    ir.CreateStore(updated_addr_value, update_reg_ptr_reg, false);
+    // Update cache.
     auto [updated_ecv_reg, updated_ecv_reg_class] =
         EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
     write_regs.push_back({updated_ecv_reg, updated_ecv_reg_class});
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_op, 0));
+        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_addr_value, 0));
   }
 
   // update the sema_call_written_reg_map

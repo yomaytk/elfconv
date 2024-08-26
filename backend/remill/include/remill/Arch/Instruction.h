@@ -194,6 +194,7 @@ class Instruction {
 
   // The update reg by the Post or Pre index operation.
   Operand::Register updated_addr_reg;
+  uint64_t updated_post_offset;
 
   // Program counter of the delayed instruction for taken/not-taken paths.
   uint64_t delayed_pc;
