@@ -302,6 +302,6 @@ std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::
                                                                     llvm::Value *base);
 
 // output the args and body of the llvm::Function*
-void OutLLVMFunc(llvm::Function *func);
+std::stringstream OutLLVMFunc(llvm::Function *func);
 
 }  // namespace remill

@@ -239,6 +239,7 @@ class VirtualRegsOpt {
   std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
   std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
 
+  std::queue<llvm::BasicBlock *> phi_bb_queue;
   std::set<llvm::BasicBlock *> relay_bb_cache;
 
   // map llvm::Value* and the corresponding CPU register (for debug).

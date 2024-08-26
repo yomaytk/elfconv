@@ -223,14 +223,14 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
       {"W", llvm::Type::getInt32Ty(context)},
       {"X", llvm::Type::getInt64Ty(context)},
       {"B", llvm::Type::getInt8Ty(context)},
-      {"H", llvm::Type::getHalfTy(context)},
+      {"H", llvm::Type::getInt16Ty(context)},
       {"S", llvm::Type::getFloatTy(context)},
       {"D", llvm::Type::getDoubleTy(context)},
       {"Q", llvm::Type::getInt128Ty(context)},
       {"8B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false)},
       {"16B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false)},
-      {"4H", llvm::VectorType::get(llvm::Type::getHalfTy(context), 4, false)},
-      {"8H", llvm::VectorType::get(llvm::Type::getHalfTy(context), 8, false)},
+      {"4H", llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false)},
+      {"8H", llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false)},
       {"2S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false)},
       {"2SF", llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false)},
       {"4S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false)},
@@ -2344,27 +2344,33 @@ std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::
   return {base, total_offset};
 }
 
-void OutLLVMFunc(llvm::Function *func) {
-  llvm::outs() << "define " << *func->getReturnType() << " " << func->getName().str() << " (";
+std::stringstream OutLLVMFunc(llvm::Function *func) {
+  std::stringstream ss;
+  ss << "define " << LLVMThingToString(func->getReturnType()) << " " << func->getName().str()
+     << " (";
   auto arg_iter = func->args().begin();
   for (;;) {
     auto &arg = *arg_iter;
-    llvm::outs() << *arg.getType() << " " << arg.getName().str();
+    ss << LLVMThingToString(arg.getType()) << " " << arg.getName().str();
     if (++arg_iter == func->args().end()) {
-      llvm::outs() << ") ";
+      ss << ") ";
       break;
     } else {
-      llvm::outs() << ", ";
+      ss << ", ";
     }
   }
-  llvm::outs() << "{\n";
+  ss << "{\n";
   for (auto &bb : *func) {
-    llvm::outs() << &bb << ":\n";
+    ss << &bb << ":\n";
     for (auto &inst : bb) {
-      llvm::outs() << "    " << inst << "\n";
+      std::string inst_str;
+      llvm::raw_string_ostream rso(inst_str);
+      inst.print(rso);
+      ss << "    " << rso.str() << "\n";
     }
   }
-  llvm::outs() << "}\n";
+  ss << "}\n";
+  return ss;
 }
 
 }  // namespace remill
