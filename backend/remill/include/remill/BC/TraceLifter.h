@@ -201,10 +201,13 @@ class VirtualRegsOpt {
     for (auto &arg : func->args()) {
       if (arg.getName() == "state") {
         arg_state_val = &arg;
-        break;
+      } else if (arg.getName() == "runtime_manager") {
+        arg_runtime_val = &arg;
       }
-      CHECK(arg_state_val) << "State arg is empty at the initialization of VirtualRegsOpt.";
     }
+    CHECK(arg_state_val) << "[Bug] state arg is empty at the initialization of VirtualRegsOpt.";
+    CHECK(arg_runtime_val)
+        << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt.";
   }
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
@@ -227,6 +230,7 @@ class VirtualRegsOpt {
   llvm::Function *func;
   TraceLifter::Impl *impl;
   llvm::Value *arg_state_val;
+  llvm::Value *arg_runtime_val;
 
   // for debug
   uint64_t fun_vma;
@@ -311,8 +315,6 @@ class TraceLifter::Impl {
   uint64_t PopTraceAddress(void);
 
   uint64_t PopInstructionAddress(void);
-
-  llvm::Value *GetRuntimePtrOnEntry();
 
   /* Global variable array definition helper (need override) */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(

@@ -173,15 +173,20 @@ using EcvRegMap = std::unordered_map<EcvReg, VT, EcvReg::Hash>;
 
 class BBRegInfoNode {
  public:
-  BBRegInfoNode() {}
-  ~BBRegInfoNode() {}
-
-  static BBRegInfoNode *BBRegInfoNodeWithLoadRuntime() {
-    auto bb_reg_info_node = new BBRegInfoNode();
-    bb_reg_info_node->bb_load_reg_map.insert(
-        {EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP});
-    return bb_reg_info_node;
+  BBRegInfoNode(llvm::Function *func, llvm::Value *state_val, llvm::Value *runtime_val) {
+    for (auto &arg : func->args()) {
+      if (arg.getName().str() == "state") {
+        reg_latest_inst_map.insert({EcvReg(RegKind::Special, STATE_ORDER),
+                                    std::make_tuple(EcvRegClass::RegP, state_val, 0)});
+      } else if (arg.getName().str() == "runtime_manager") {
+        reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
+                                    std::make_tuple(EcvRegClass::RegP, runtime_val, 0)});
+      }
+    }
+    CHECK(reg_latest_inst_map.size() == 2)
+        << "[Bug] BBRegInfoNode cannot be initialized with invalid reg_latest_inst_map.";
   }
+  ~BBRegInfoNode() {}
 
   void join_reg_info_node(BBRegInfoNode *child) {
     // Join bb_load_reg_map

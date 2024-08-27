@@ -283,26 +283,6 @@ bool TraceLifter::Lift(uint64_t addr, const char *fn_name,
   return impl->Lift(addr, fn_name, callback);
 }
 
-llvm::Value *TraceLifter::Impl::GetRuntimePtrOnEntry() {
-  llvm::StringRef runtime_name(kRuntimeVariableName);
-  llvm::Value *runtime_manager_ptr = nullptr;
-  if (!func->empty()) {
-    for (auto &instr : func->getEntryBlock()) {
-      if (instr.getName() == runtime_name) {
-        if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
-          runtime_manager_ptr = alloca;
-        }
-      }
-    }
-  }
-
-  if (!runtime_manager_ptr) {
-    LOG(FATAL) << "Cannot find `RUNTIME` at the entry block of the Lifted function.";
-  }
-
-  return runtime_manager_ptr;
-}
-
 // Lift one or more traces starting from `addr`.
 bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                              std::function<void(uint64_t, llvm::Function *)> callback) {
@@ -367,6 +347,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     // variables jumps to the block that will contain the first instruction
     // of the trace.
     arch->InitializeEmptyLiftedFunction(func);
+
+    auto state_ptr = NthArgument(func, kStatePointerArgNum);
+    auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
+
 /* insert debug call stack function (for debug) */
 #if defined(LIFT_CALLSTACK_DEBUG)
     do {
@@ -379,20 +363,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         printf("[ERROR] debug_call_stack_fn is undeclared.\n");
         abort();
       }
-      auto runtime_manager_ptr = GetRuntimePtrOnEntry();
       std::vector<llvm::Value *> args = {
-          __debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr)
-              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)};
+          runtime_ptr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)};
       __debug_ir.CreateCall(_debug_call_stack_push_fn, args);
     } while (false);
 #endif
 
-    auto state_ptr = NthArgument(func, kStatePointerArgNum);
 
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
       DirectBranchWithSaveParents(GetOrCreateBlock(trace_addr), entry_block);
-      auto entry_bb_reg_info_node = new BBRegInfoNode();
+      auto entry_bb_reg_info_node = new BBRegInfoNode(func, state_ptr, runtime_ptr);
       CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(entry_block))
           << "The entry block has been already added illegally to the VirtualRegsOpt.";
       virtual_regs_opt->bb_reg_info_node_map.insert({entry_block, entry_bb_reg_info_node});
@@ -416,7 +397,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         continue;
       }
 
-      bb_reg_info_node = new BBRegInfoNode();
+      bb_reg_info_node = new BBRegInfoNode(func, state_ptr, runtime_ptr);
       // map the block to the bb_reg_info_node
       CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(block))
           << "The block and the bb_reg_info_node have already been appended to the map.";
@@ -461,10 +442,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
         auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
-        auto runtime_manager_ptr = GetRuntimePtrOnEntry();
-        std::vector<llvm::Value *> args = {
-            ir.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr),
-            ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
+        std::vector<llvm::Value *> args = {runtime_ptr,
+                                           ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
         auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
         ir.CreateCall(tmp_patch_fn, args);
         tmp_patch_fn_check = true;
@@ -541,7 +520,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           indirectbr_block = GetOrCreateIndirectJmpBlock();
           if (!virtual_regs_opt->bb_reg_info_node_map.contains(indirectbr_block)) {
             virtual_regs_opt->bb_reg_info_node_map.insert(
-                {indirectbr_block, BBRegInfoNode::BBRegInfoNodeWithLoadRuntime()});
+                {indirectbr_block, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
           }
           br_blocks.push_back({block, FindIndirectBrAddress(block)});
           /* jmp to indirectbr block */
@@ -847,11 +826,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         br_vma_phi->addIncoming(dest_addr, br_block);
         virtual_regs_opt->bb_parents[br_block].insert(indirectbr_block);
       }
-      auto runtime_manager_ptr = GetRuntimePtrOnEntry();
       auto target_bb_i64 = ir_1.CreateCall(
           g_get_jmp_helper_fn,
-          {ir_1.CreateLoad(llvm::Type::getInt64PtrTy(context), runtime_manager_ptr),
-           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr), br_vma_phi});
+          {runtime_ptr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr),
+           br_vma_phi});
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());
@@ -864,7 +842,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(br_to_func_block))
           << "The entry block has been already added illegally to the VirtualRegsOpt.";
       virtual_regs_opt->bb_reg_info_node_map.insert(
-          {br_to_func_block, BBRegInfoNode::BBRegInfoNodeWithLoadRuntime()});
+          {br_to_func_block, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
       // Add terminate.
       AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
 
@@ -1206,9 +1184,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
 
   ECV_LOG_NL(OutLLVMFunc(func).str().c_str());
-  if (func->getName().str().starts_with("__memcpy_generic")) {
-    debug_func_reg_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER)});
-  }
+  // if (func->getName().str().starts_with("__memcpy_generic")) {
+  //   debug_func_reg_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER)});
+  // }
 
   // Add the phi nodes to the every basic block.
   std::set<llvm::BasicBlock *> finished;
@@ -1233,9 +1211,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         bb_reg_info_node_map.at(target_bb)->referred_able_added_inst_reg_map;
 
     std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
-        ascend_reg_inst_map = {{EcvReg(RegKind::Special, STATE_ORDER),
-                                std::make_tuple(EcvRegClass::RegP, arg_state_val,
-                                                0)}};  // state is defined as the argument
+        ascend_reg_inst_map = {
+            {EcvReg(RegKind::Special, STATE_ORDER),
+             std::make_tuple(EcvRegClass::RegP, arg_state_val, 0)},
+            {EcvReg(RegKind::Special, RUNTIME_ORDER),
+             std::make_tuple(EcvRegClass::RegP, arg_runtime_val,
+                             0)}};  // %state and %runtime_manager is defined as the argument
 
     llvm::BranchInst *br_inst = nullptr;
     llvm::ReturnInst *ret_inst = nullptr;
@@ -1917,7 +1898,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       // (WARNING!): bag_inherited_read_reg_map and bag_read_write_reg_map is incorrect for the relay_bb. However, it is not matter.
       auto request_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map.at(request_bb);
       PhiRegsBBBagNode::bb_regs_bag_map.insert({relay_bb, request_phi_regs_bag});
-      auto relay_bb_reg_info_node = new BBRegInfoNode();
+      auto relay_bb_reg_info_node = new BBRegInfoNode(func, arg_state_val, arg_runtime_val);
       bb_reg_info_node_map.insert({relay_bb, relay_bb_reg_info_node});
 
       auto relay_terminator = relay_bb->getTerminator();

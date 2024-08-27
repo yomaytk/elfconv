@@ -725,13 +725,12 @@ std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *bl
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
+  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
+  args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
+
   if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
-    args[kStatePointerArgNum] = LoadStatePointer(block);
     args[kPCArgNum] = LoadProgramCounter(block, intrinsics);
   } else {
-    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
-    args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
     args[kPCArgNum] = NthArgument(func, kPCArgNum);
   }
 
@@ -746,15 +745,9 @@ LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &int
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
-  if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
-    args[kStatePointerArgNum] = LoadStatePointer(block);
-    args[kPCArgNum] = pc_value;
-  } else {
-    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
-    args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
-    args[kPCArgNum] = pc_value;
-  }
+  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
+  args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
+  args[kPCArgNum] = pc_value;
 
   return args;
 }

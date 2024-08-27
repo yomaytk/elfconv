@@ -310,12 +310,14 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
   std::vector<std::pair<EcvReg, EcvRegClass>> sema_func_args_regs;
 
+  auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
+
   // set the State ptr or RuntimeManager ptr to the semantics function.
   switch (arch_inst.sema_func_arg_type) {
     case SemaFuncArgType::Nothing: arg_num = 0; break;
     case SemaFuncArgType::Runtime:
       arg_num = 1;
-      args.push_back(nullptr);
+      args.push_back(runtime_ptr);
       load_reg_map.insert(runtime_reg_info);
       sema_func_args_regs.push_back(runtime_reg_info);
       break;
@@ -328,7 +330,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     case SemaFuncArgType::StateRuntime:
       arg_num = 2;
       args.push_back(state_ptr);
-      args.push_back(nullptr);
+      args.push_back(runtime_ptr);
       load_reg_map.insert(state_reg_info);
       load_reg_map.insert(runtime_reg_info);
       sema_func_args_regs.push_back(state_reg_info);
@@ -418,14 +420,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   }
 
   llvm::IRBuilder<> ir(block);
-  const auto [runtime_ptr_ref, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
-
-  if (SemaFuncArgType::Runtime == arch_inst.sema_func_arg_type) {
-    // Pass in current value of the runtime pointer.
-    args[0] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
-  } else if (SemaFuncArgType::StateRuntime == arch_inst.sema_func_arg_type) {
-    args[1] = ir.CreateLoad(impl->runtime_ptr_type, runtime_ptr_ref);
-  }
 
   // Call the function that implements the instruction semantics.
   auto sema_inst = ir.CreateCall(isel_func, args);
