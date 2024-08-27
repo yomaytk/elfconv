@@ -163,7 +163,7 @@ class PhiRegsBBBagNode {
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
- protected:
+ public:
   class Impl;
   std::unique_ptr<Impl> impl;
 
@@ -210,6 +210,7 @@ class VirtualRegsOpt {
   ~VirtualRegsOpt() {}
 
   llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
+  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
   EcvRegClass GetRegZFromLLVMType(llvm::Type *value_type);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
                                           std::pair<EcvReg, EcvRegClass> ecv_reg_info);
@@ -244,6 +245,7 @@ class VirtualRegsOpt {
 
   // map llvm::Value* and the corresponding CPU register (for debug).
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
+  std::set<EcvReg> debug_func_reg_map = {};
 };
 
 class TraceLifter::Impl {
@@ -357,7 +359,7 @@ class TraceLifter::Impl {
   std::string inst_bytes;
   Instruction inst;
   Instruction delayed_inst;
-  std::unordered_map<uint64_t, bool> control_flow_debug_list;
+  std::set<uint64_t> control_flow_debug_fnvma_set;
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
   DecoderWorkList dead_inst_work_list;
@@ -367,6 +369,7 @@ class TraceLifter::Impl {
 
   std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
   std::set<llvm::Function *> no_indirect_lifted_funcs;
+  std::set<llvm::Function *> lifted_funcs;
 
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_func_args_regs_map;

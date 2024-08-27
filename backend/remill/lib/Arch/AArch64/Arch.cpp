@@ -1335,9 +1335,6 @@ bool TryDecodeLDR_64_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
-  if (inst.pc == 0x400838) {
-    printf("in!!!");
-  }
   AddPostIndexMemOp(inst, kActionRead, 64, data.Rn, offset, data.Rt);
   return true;
 }

@@ -60,9 +60,8 @@ void MainLifter::Optimize() {
 }
 
 /* Set Control Flow debug list */
-void MainLifter::SetControlFlowDebugList(
-    std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {
-  static_cast<WrapImpl *>(impl.get())->SetControlFlowDebugList(__control_flow_debug_list);
+void MainLifter::SetControlFlowDebugList(std::set<uint64_t> &__control_flow_debug_fnvma_set) {
+  static_cast<WrapImpl *>(impl.get())->SetControlFlowDebugList(__control_flow_debug_fnvma_set);
 }
 
 /* Declare debug function */
@@ -281,8 +280,8 @@ void MainLifter::WrapImpl::AddTestFailedBlock() {
 
 /* Set control flow debug list */
 void MainLifter::WrapImpl::SetControlFlowDebugList(
-    std::unordered_map<uint64_t, bool> &__control_flow_debug_list) {
-  control_flow_debug_list = __control_flow_debug_list;
+    std::set<uint64_t> &__control_flow_debug_fnvma_set) {
+  control_flow_debug_fnvma_set = __control_flow_debug_fnvma_set;
 }
 
 /* Declare debug function */
@@ -330,8 +329,13 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
                          llvm::Function::ExternalLinkage, debug_insn_name, *module);
   // void debug_reach()
-  return llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
-                                llvm::Function::ExternalLinkage, debug_reach_name, *module);
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false),
+                         llvm::Function::ExternalLinkage, debug_reach_name, *module);
+  // void debug_string()
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt8PtrTy(context)}, false),
+                         llvm::Function::ExternalLinkage, debug_string_name, *module);
+  return nullptr;
 }
 
 /* Set lifted function symbol name table */

@@ -38,6 +38,8 @@ class Type;
 
 namespace remill {
 
+extern std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map;
+
 class Arch;
 class Instruction;
 class IntrinsicTable;
@@ -184,7 +186,7 @@ class BBRegInfoNode {
   void join_reg_info_node(BBRegInfoNode *child) {
     // Join bb_load_reg_map
     for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
-      bb_load_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+      bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
     }
     // Join bb_store_reg_map
     for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
@@ -201,10 +203,6 @@ class BBRegInfoNode {
     // Join sema_func_args_reg_map
     for (auto key_value : child->sema_func_args_reg_map) {
       sema_func_args_reg_map.insert(key_value);
-    }
-    // Join sema_func_vma_map (for debug)
-    for (auto key_value : child->sema_func_vma_map) {
-      sema_func_vma_map.insert(key_value);
     }
   }
 
@@ -229,9 +227,6 @@ class BBRegInfoNode {
       referred_able_added_inst_reg_map;
   // Map the register and added instructions.
   EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
-
-  // Map the sema function and the vma. for debug.
-  std::unordered_map<llvm::CallInst *, uint64_t> sema_func_vma_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {

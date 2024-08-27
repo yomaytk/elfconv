@@ -228,7 +228,7 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
 // observe the value change of runtime memory
 extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
   // step 1. set target vma
-  static uint64_t target_vma = 0x493258;
+  static uint64_t target_vma = 0x499f18;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
@@ -254,6 +254,10 @@ extern "C" void debug_memory_value(RuntimeManager *runtime_manager) {
     auto target_pma = (double *) runtime_manager->TranslateVMA(target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
+}
+
+extern "C" void debug_string(const char *str) {
+  std::cout << str << std::endl;
 }
 
 // temp patch for correct stdout behavior

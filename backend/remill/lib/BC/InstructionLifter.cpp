@@ -43,6 +43,8 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
+std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map = {};
+
 // get EcvRegClass from the register name.
 std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) {
   auto c0 = _reg_name[0];
@@ -376,8 +378,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
           // skip the case where the store register is `XZR` or `WZR`.
           if (!target_reg->name.starts_with("IGNORE_WRITE_TO")) {
             store_reg_map.insert({ecv_reg, ecv_reg_class});
-            write_regs.push_back({ecv_reg, ecv_reg_class});
           }
+          write_regs.push_back({ecv_reg, ecv_reg_class});
           continue;
         }
       } else {
@@ -428,13 +430,22 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // Call the function that implements the instruction semantics.
   auto sema_inst = ir.CreateCall(isel_func, args);
   bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
-  bb_reg_info_node->sema_func_vma_map.insert({sema_inst, arch_inst.pc});
+  Sema_func_vma_map.insert({sema_inst, arch_inst.pc});
 
-  // insert the instruction which explains the latest specified register.
+  // Insert the instruction which explains the latest specified register.
   for (std::size_t i = 0; i < write_regs.size(); i++) {
+    if (IGNORE_WRITE_TO_WZR_ORDER == write_regs[i].first.number ||
+        IGNORE_WRITE_TO_XZR_ORDER == write_regs[i].first.number) {
+      continue;
+    }
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
   }
+
+  // Update the sema_call_written_reg_map
+  CHECK(!bb_reg_info_node->sema_call_written_reg_map.contains(sema_inst))
+      << "Unexpected to multiple lift the call instruction.";
+  bb_reg_info_node->sema_call_written_reg_map.insert({sema_inst, write_regs});
 
   // Update pre-post index for the target register.
   if (!arch_inst.updated_addr_reg.name.empty()) {
@@ -451,16 +462,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // Update cache.
     auto [updated_ecv_reg, updated_ecv_reg_class] =
         EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
-    write_regs.push_back({updated_ecv_reg, updated_ecv_reg_class});
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_addr_value, 0));
   }
-
-  // update the sema_call_written_reg_map
-  CHECK(!bb_reg_info_node->sema_call_written_reg_map.contains(sema_inst))
-      << "Unexpected to multiple lift the call instruction.";
-  bb_reg_info_node->sema_call_written_reg_map.insert({sema_inst, write_regs});
 
   // End an atomic block.
   // (FIXME) In the current design, we don't consider the atomic instructions.
@@ -488,8 +493,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   /* append debug_insn function call */
   if (UINT64_MAX != debug_insn_addr) {
     llvm::IRBuilder<> __debug_ir(block);
-    auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    __debug_ir.CreateCall(_debug_insn_fn);
 #if defined(LIFT_MEMORY_VALUE_CHANGE)
     auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
     auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);

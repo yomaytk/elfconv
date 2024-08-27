@@ -258,14 +258,14 @@ DEF_ISEL(LDSETAL_64_MEMOP) = LDSET_MEMOP<R64, M64W>;  // LDSETAL  <Xs>, <Xt>, [<
 
 namespace {
 
-DEF_SEM_U32U32_RUN(LoadPairUpdateIndex32, MVI64 src_mem) {
+DEF_SEM_U64U64_RUN(LoadPairUpdateIndex32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
-  return U32U32{vec[0], vec[1]};
+  return {vec[0], vec[1]};
 }
 
 DEF_SEM_U64U64_RUN(LoadPairUpdateIndex64, MVI128 src_mem) {
   _ecv_u64v2_t vec = UReadMVI64(src_mem);
-  return U64U64{vec[0], vec[1]};
+  return {vec[0], vec[1]};
 }
 
 }  // namespace
@@ -278,7 +278,7 @@ DEF_ISEL(LDP_64_LDSTPAIR_POST) = LoadPairUpdateIndex64;  // LDP  <Xt1>, <Xt2>, [
 
 namespace {
 
-DEF_SEM_U32U32_RUN(LoadPair32, MVI64 src_mem) {
+DEF_SEM_U64U64_RUN(LoadPair32, MVI64 src_mem) {
   _ecv_u32v2_t vec = UReadMVI32(src_mem);
   return {vec[0], vec[1]};
 }

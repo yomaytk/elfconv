@@ -89,18 +89,18 @@ int main(int argc, char *argv[]) {
 #endif
 
   /* target function control flow */
-  std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
+  std::set<uint64_t> control_flow_debug_fnvma_set = {0x423360};
   if (!FLAGS_dbg_fun_cfg.empty()) {
     for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
       /* append the address of necesarry debug function */
       if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length() + 4).c_str(),
                   (FLAGS_dbg_fun_cfg + "_____").c_str(), FLAGS_dbg_fun_cfg.length() + 4) == 0) {
-        control_flow_debug_list[fn_addr] = true;
+        control_flow_debug_fnvma_set.insert(fn_addr);
         break;
       }
     }
-    main_lifter.SetControlFlowDebugList(control_flow_debug_list);
   }
+  main_lifter.SetControlFlowDebugList(control_flow_debug_fnvma_set);
   /* declare debug function */
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */

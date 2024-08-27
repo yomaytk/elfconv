@@ -68,11 +68,11 @@ namespace {
     auto unsigned_result = UAdd(UAdd(ZExt(lhs), ZExt(rhs)), ZExt(carry)); \
     auto signed_result = SAdd(SAdd(SExt(lhs), SExt(rhs)), Signed(ZExt(carry))); \
     auto result = TruncTo<res_type>(unsigned_result); \
-    uint64_t flag_n = ZExtTo<uint64_t>(SignFlag(result, lhs, actual_rhs)); \
-    uint64_t flag_z = ZExtTo<uint64_t>(ZeroFlag(result, lhs, actual_rhs)); \
-    uint64_t flag_c = ZExtTo<uint64_t>(UCmpNeq(ZExt(result), unsigned_result)); \
-    uint64_t flag_v = ZExtTo<uint64_t>(__remill_flag_computation_overflow( \
-        SCmpNeq(SExt(result), signed_result), lhs, actual_rhs, result)); \
+    uint64_t flag_n = SignFlag(result, lhs, actual_rhs); \
+    uint64_t flag_z = ZeroFlag(result, lhs, actual_rhs); \
+    uint64_t flag_c = UCmpNeq(ZExt(result), unsigned_result); \
+    uint64_t flag_v = __remill_flag_computation_overflow(SCmpNeq(SExt(result), signed_result), \
+                                                         lhs, actual_rhs, result); \
     uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v); \
     return U##res_size##U64{result, flag_nzcv}; \
   }
