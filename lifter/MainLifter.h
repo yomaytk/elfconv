@@ -39,7 +39,8 @@ class MainLifter : public TraceLifter {
           debug_llvmir_f64value_name("debug_llvmir_f64value"),
           debug_memory_value_name("debug_memory_value"),
           debug_reach_name("debug_reach"),
-          debug_string_name("debug_string") {}
+          debug_string_name("debug_string"),
+          debug_vma_and_registers_name("debug_vma_and_registers") {}
 
     virtual ~WrapImpl() override {}
 
@@ -70,6 +71,7 @@ class MainLifter : public TraceLifter {
     std::string debug_memory_value_name;
     std::string debug_reach_name;
     std::string debug_string_name;
+    std::string debug_vma_and_registers_name;
 
     // Set RuntimeManager class to global context
     void SetRuntimeManagerClass();
@@ -126,6 +128,8 @@ class MainLifter : public TraceLifter {
     /* Set lifted function symbol name table */
     llvm::GlobalVariable *
     SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+    // set register name gvar
+    void SetRegisterNames();
   };
 
  public:
@@ -153,6 +157,7 @@ class MainLifter : public TraceLifter {
   void SetControlFlowDebugList(std::set<uint64_t> &control_flow_debug_fnvma_set);
   void DeclareDebugFunction();
   void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+  void SetRegisterNames();
 
  private:
   MainLifter(void) = delete;

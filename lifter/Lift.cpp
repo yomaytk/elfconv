@@ -105,6 +105,8 @@ int main(int argc, char *argv[]) {
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */
   main_lifter.DeclareHelperFunction();
+  // set global register names
+  main_lifter.SetRegisterNames();
 
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {

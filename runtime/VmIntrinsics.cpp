@@ -260,6 +260,40 @@ extern "C" void debug_string(const char *str) {
   std::cout << str << std::endl;
 }
 
+extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
+  va_list args;
+  va_start(args, args_num);
+
+  std::cout << std::hex << "pc: 0x" << pc << " ";
+
+  if (args_num & 0b1) {
+    elfconv_runtime_error("args_num must be even number at debug_vma_and_registers. args_num: %ld",
+                          args_num);
+  }
+
+  for (size_t i = 0; i < args_num; i += 2) {
+    char *reg_name = va_arg(args, char *);
+    // General
+    if ('W' == reg_name[0] || 'X' == reg_name[0]) {
+      uint64_t reg_val = va_arg(args, uint64_t);
+      std::cout << reg_name << ": 0x" << reg_val << " ";
+    }
+    // Vector
+    else if (std::isdigit(reg_name[0]) || 'B' == reg_name[0] || 'H' == reg_name[0] ||
+             'S' == reg_name[0] || 'D' == reg_name[0] || 'Q' == reg_name[0]) {
+      uint128_t reg_val = va_arg(args, uint128_t);
+      uint64_t high = static_cast<uint64_t>(reg_val >> 64);
+      uint64_t low = static_cast<uint64_t>(reg_val & 0xffff'ffff'ffff'ffff);
+      std::cout << reg_name << ": 0x" << std::hex << std::setw(16) << std::setfill('0') << high
+                << std::setw(16) << std::setfill('0') << low << " ";
+    }
+  }
+
+  std::cout << std::endl;
+
+  va_end(args);
+}
+
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {
   uint64_t *pma = (uint64_t *) runtime_manager->TranslateVMA(f_flags_vma);

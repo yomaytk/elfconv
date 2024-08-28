@@ -43,6 +43,12 @@ namespace remill {
 #  define DEBUG_REMOVE_LOOP_GRAPH(bag)
 #endif
 
+#if defined(OPT_DEBUG_2)
+#  define DEBUG_VMA_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
+#else
+#  define DEBUG_VMA_AND_REGISTERS(...)
+#endif
+
 std::ostringstream ECV_DEBUG_STREAM;
 
 static void DebugStreamReset() {
@@ -935,21 +941,8 @@ void TraceLifter::Impl::Optimize() {
   std::cout << std::endl;
 
 #if defined(OPT_DEBUG_2)
-  // Insert `debug_llvmir_u64value`
   // Insert `debug_string` for the every function
-  auto debug_llvmir_u64value_fun = module->getFunction("debug_llvmir_u64value");
   for (auto lifted_func : lifted_funcs) {
-    for (auto &bb : *lifted_func) {
-      for (auto __inst = &*bb.begin(); __inst; __inst = __inst->getNextNode()) {
-        auto __call_inst = llvm::dyn_cast<llvm::CallInst>(__inst);
-        if (Sema_func_vma_map.contains(__call_inst)) {
-          llvm::CallInst::Create(debug_llvmir_u64value_fun,
-                                 {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
-                                                         Sema_func_vma_map.at(__call_inst))},
-                                 llvm::Twine::createNull(), __inst);
-        }
-      }
-    }
     auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
     auto debug_string_fn = module->getFunction("debug_string");
     auto fun_name_val =
@@ -1192,9 +1185,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
 
   ECV_LOG_NL(OutLLVMFunc(func).str().c_str());
-  // if (func->getName().str().starts_with("__memcpy_generic")) {
-  //   debug_func_reg_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER)});
-  // }
+
+  // stdout the specified registers for the every semantics function.
+  debug_reg_set.insert({EcvReg(RegKind::General, 1)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 21)});
 
   // Add the phi nodes to the every basic block.
   std::set<llvm::BasicBlock *> finished;
@@ -1209,7 +1203,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
       continue;
     }
     ECV_LOG_NL(target_bb, ":");
-    // std::cout << std::hex << "0x" << target_bb << ":\n";
     auto target_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map.at(target_bb);
     auto target_bb_reg_info_node = bb_reg_info_node_map.at(target_bb);
     auto &reg_latest_inst_map = bb_reg_info_node_map.at(target_bb)->reg_latest_inst_map;
@@ -1218,13 +1211,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     auto &referred_able_added_inst_reg_map =
         bb_reg_info_node_map.at(target_bb)->referred_able_added_inst_reg_map;
 
-    std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
-        ascend_reg_inst_map = {
-            {EcvReg(RegKind::Special, STATE_ORDER),
-             std::make_tuple(EcvRegClass::RegP, arg_state_val, 0)},
-            {EcvReg(RegKind::Special, RUNTIME_ORDER),
-             std::make_tuple(EcvRegClass::RegP, arg_runtime_val,
-                             0)}};  // %state and %runtime_manager is defined as the argument
+    EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> ascend_reg_inst_map = {
+        {EcvReg(RegKind::Special, STATE_ORDER),
+         std::make_tuple(EcvRegClass::RegP, arg_state_val, 0)},
+        {EcvReg(RegKind::Special, RUNTIME_ORDER),
+         std::make_tuple(EcvRegClass::RegP, arg_runtime_val,
+                         0)}};  // %state and %runtime_manager is defined as the argument
 
     llvm::BranchInst *br_inst = nullptr;
     llvm::ReturnInst *ret_inst = nullptr;
@@ -1296,29 +1288,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     reg_latest_inst_map.clear();
     auto target_inst_it = inst_start_it;
     ECV_LOG_NL("insts:");
-#if defined(OPT_DEBUG_2)
-    auto debug_inst_it = inst_start_it;
-    auto debug_ecv_reg = *debug_func_reg_map.begin();
-    if (!debug_func_reg_map.empty()) {
-      while (llvm::dyn_cast<llvm::PHINode>(debug_inst_it)) {
-        debug_inst_it = debug_inst_it->getNextNode();
-      }
-      if (ascend_reg_inst_map.contains(debug_ecv_reg)) {
-        auto [debug_ecv_reg_class, target_phi, _] = ascend_reg_inst_map.at(debug_ecv_reg);
-        auto debug_u64val_fun = impl->module->getFunction("debug_llvmir_u64value");
-        llvm::CallInst::Create(
-            debug_u64val_fun,
-            {CastFromInst(debug_ecv_reg, target_phi, llvm::Type::getInt64Ty(func->getContext()),
-                          debug_inst_it, target_phi)},
-            "", debug_inst_it);
-      }
-    }
-#endif
 
     // Replace all the `load` to the CPU registers memory with the value of the phi nodes.
     while (target_inst_it) {
       ECV_LOG_NL("\t", LLVMThingToString(target_inst_it));
-      // std::cout << "\t" << LLVMThingToString(target_inst_it) << "\n";
       // The target instruction was added. only update cache.
       if (referred_able_added_inst_reg_map.contains(&*target_inst_it)) {
         auto &[added_ecv_reg, added_ecv_reg_class] =
@@ -1466,6 +1439,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               value_reg_map.insert({req_value, {req_ecv_reg, req_ecv_reg_class}});
             }
             target_inst_it = call_next_inst;
+            DEBUG_VMA_AND_REGISTERS(call_next_inst, ascend_reg_inst_map, 0xffff'ffff'ffff'ffff);
           }
           // Call the general semantic functions.
           else {
@@ -1486,6 +1460,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               }
             }
             target_inst_it = call_inst->getNextNode();
+            DEBUG_VMA_AND_REGISTERS(call_inst->getNextNode(), ascend_reg_inst_map,
+                                    Sema_func_vma_map.contains(call_inst)
+                                        ? Sema_func_vma_map.at(call_inst)
+                                        : 0xffff'ffff'ffff'ffff);
           }
         }
         // Target: llvm::StoreInst
@@ -1673,6 +1651,34 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   // Reset PhiRegsBBBagNode.
   PhiRegsBBBagNode::Reset();
   DebugStreamReset();
+}
+
+void VirtualRegsOpt::InsertDebugVmaAndRegisters(
+    llvm::Instruction *inst_at_before,
+    EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &ascend_reg_inst_map, uint64_t pc) {
+  if (!debug_reg_set.empty()) {
+    auto debug_vma_and_regiters_fun = impl->module->getFunction("debug_vma_and_registers");
+
+    std::vector<llvm::Value *> args;
+    args.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), pc));
+    args.push_back(nullptr);
+
+    for (auto debug_ecv_reg : debug_reg_set) {
+      if (ascend_reg_inst_map.contains(debug_ecv_reg)) {
+        std::string x_or_v = RegKind::General == debug_ecv_reg.reg_kind ? "X" : "V";
+        auto reg_name_gvar =
+            impl->module->getGlobalVariable("debug_" + x_or_v + to_string(debug_ecv_reg.number));
+        args.push_back(reg_name_gvar);
+        args.push_back(GetRegValueFromCacheMap(debug_ecv_reg,
+                                               GetWholeLLVMTypeFromRegZ(debug_ecv_reg),
+                                               inst_at_before, ascend_reg_inst_map));
+      }
+    }
+
+    args[1] = llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), args.size() - 2);
+    llvm::CallInst::Create(debug_vma_and_regiters_fun, args, llvm::Twine::createNull(),
+                           inst_at_before);
+  }
 }
 
 llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {

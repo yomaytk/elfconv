@@ -196,8 +196,8 @@ class VirtualRegsOpt {
   VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
       : func(__func),
         impl(__impl),
-        fun_vma(__fun_vma),
-        relay_bb_cache({}) {
+        relay_bb_cache({}),
+        fun_vma(__fun_vma) {
     for (auto &arg : func->args()) {
       if (arg.getName() == "state") {
         arg_state_val = &arg;
@@ -232,11 +232,6 @@ class VirtualRegsOpt {
   llvm::Value *arg_state_val;
   llvm::Value *arg_runtime_val;
 
-  // for debug
-  uint64_t fun_vma;
-  uint64_t block_num;
-  std::string func_name;
-
   // All llvm::CallInst* of the lifted function.
   // Use to distinguish semantic function and lifted function.
   std::set<llvm::CallInst *> lifted_func_caller_set;
@@ -247,9 +242,18 @@ class VirtualRegsOpt {
   std::queue<llvm::BasicBlock *> phi_bb_queue;
   std::set<llvm::BasicBlock *> relay_bb_cache;
 
-  // map llvm::Value* and the corresponding CPU register (for debug).
+  // for debug
+  uint64_t fun_vma;
+  uint64_t block_num;
+  std::string func_name;
+  // map llvm::Value* and the corresponding CPU register.
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
-  std::set<EcvReg> debug_func_reg_map = {};
+  static inline std::set<EcvReg> debug_reg_set = {};
+
+  void InsertDebugVmaAndRegisters(
+      llvm::Instruction *inst_at_before,
+      EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &ascend_reg_inst_map,
+      uint64_t pc);
 };
 
 class TraceLifter::Impl {
