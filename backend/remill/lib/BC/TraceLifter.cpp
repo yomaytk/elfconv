@@ -861,9 +861,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             if (write_regs.size() == 1) {
               auto store_ecv_reg = write_regs[0].first;
               auto store_ecv_reg_class = write_regs[0].second;
-              inst_lifter->StoreRegValueBeforeInst(&bb, state_ptr,
-                                                   store_ecv_reg.GetRegName(store_ecv_reg_class),
-                                                   call_inst, call_next_inst);
+              inst_lifter->StoreRegValueBeforeInst(
+                  &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
+                  virtual_regs_opt->CastFromInst(
+                      store_ecv_reg, call_inst,
+                      virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst,
+                      call_inst),
+                  call_next_inst);
             } else if (write_regs.size() > 1) {
               for (uint32_t i = 0; i < write_regs.size(); i++) {
                 CHECK((llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
@@ -878,9 +882,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                     store_ecv_reg.number == IGNORE_WRITE_TO_XZR_ORDER) {
                   continue;
                 }
-                inst_lifter->StoreRegValueBeforeInst(&bb, state_ptr,
-                                                     store_ecv_reg.GetRegName(store_ecv_reg_class),
-                                                     from_extracted_inst, call_next_inst);
+                inst_lifter->StoreRegValueBeforeInst(
+                    &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
+                    virtual_regs_opt->CastFromInst(
+                        store_ecv_reg, from_extracted_inst,
+                        virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst,
+                        from_extracted_inst),
+                    call_next_inst);
               }
             }
           }
