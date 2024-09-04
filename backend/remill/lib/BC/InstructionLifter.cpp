@@ -118,7 +118,7 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
       {EcvRegClass::Reg8H, "8H"},   {EcvRegClass::Reg2S, "2S"},   {EcvRegClass::Reg2SF, "2SF"},
       {EcvRegClass::Reg4S, "4S"},   {EcvRegClass::Reg4SF, "4SF"}, {EcvRegClass::Reg1D, "1D"},
       {EcvRegClass::Reg1DF, "1DF"}, {EcvRegClass::Reg2D, "2D"},   {EcvRegClass::Reg2DF, "2DF"},
-      {EcvRegClass::RegQ, "Q"}};
+      {EcvRegClass::RegQ, "Q"},     {EcvRegClass::RegV, "V"}};
   // General or Vector register.
   if (number <= 31) {
     auto reg_name = EcvRegClassRegNameMap[ecv_reg_class];
@@ -155,7 +155,8 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
 }
 
 bool EcvReg::CheckNoChangedReg() const {
-  return STATE_ORDER == number || RUNTIME_ORDER == number;
+  return STATE_ORDER == number || RUNTIME_ORDER == number || IGNORE_WRITE_TO_WZR_ORDER == number ||
+         IGNORE_WRITE_TO_XZR_ORDER == number;
 }
 
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
@@ -167,6 +168,7 @@ std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
     case EcvRegClass::RegS: return "RegS"; break;
     case EcvRegClass::RegD: return "RegD"; break;
     case EcvRegClass::RegQ: return "RegQ"; break;
+    case EcvRegClass::RegV: return "RegV"; break;
     case EcvRegClass::Reg8B: return "Reg8B"; break;
     case EcvRegClass::Reg16B: return "Reg16B"; break;
     case EcvRegClass::Reg4H: return "Reg4H"; break;
@@ -215,6 +217,49 @@ LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBl
                                                 uint64_t debug_insn_addr, bool is_delayed) {
   return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
                        bb_reg_info_node, debug_insn_addr, is_delayed);
+}
+
+llvm::Type *get_llvm_type(llvm::LLVMContext &context, EcvRegClass ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case EcvRegClass::RegW: return llvm::Type::getInt32Ty(context);
+    case EcvRegClass::RegX: return llvm::Type::getInt64Ty(context);
+    case EcvRegClass::RegB: return llvm::Type::getInt8Ty(context);
+    case EcvRegClass::RegH: return llvm::Type::getInt16Ty(context);
+    case EcvRegClass::RegS: return llvm::Type::getFloatTy(context);
+    case EcvRegClass::RegD: return llvm::Type::getDoubleTy(context);
+    case EcvRegClass::RegQ: return llvm::Type::getInt128Ty(context);
+    case EcvRegClass::RegV:
+      return llvm::VectorType::get(llvm::Type::getInt128Ty(context), 1, false);
+    case EcvRegClass::Reg8B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false);
+    case EcvRegClass::Reg16B:
+      return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false);
+    case EcvRegClass::Reg4H:
+      return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false);
+    case EcvRegClass::Reg8H:
+      return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false);
+    case EcvRegClass::Reg2S:
+      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false);
+    case EcvRegClass::Reg2SF:
+      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false);
+    case EcvRegClass::Reg4S:
+      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false);
+    case EcvRegClass::Reg4SF:
+      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false);
+    case EcvRegClass::Reg1D:
+      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false);
+    case EcvRegClass::Reg1DF:
+      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false);
+    case EcvRegClass::Reg2D:
+      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false);
+    case EcvRegClass::Reg2DF:
+      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false);
+    case EcvRegClass::RegP: return llvm::Type::getInt64PtrTy(context);
+    default: break;
+  }
+
+  LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualRegsOpt::get_llvm_type. ecv_reg_class: "
+             << std::underlying_type<EcvRegClass>::type(ecv_reg_class) << "\n";
+  return nullptr;
 }
 
 // Lift a single instruction into a basic block.
@@ -304,10 +349,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto &load_reg_map = bb_reg_info_node->bb_load_reg_map;
   auto &store_reg_map = bb_reg_info_node->bb_store_reg_map;
 
-  auto state_reg_info = std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
-  auto runtime_reg_info =
-      std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
-
   std::vector<std::pair<EcvReg, EcvRegClass>> sema_func_args_regs;
 
   auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
@@ -318,23 +359,15 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     case SemaFuncArgType::Runtime:
       arg_num = 1;
       args.push_back(runtime_ptr);
-      load_reg_map.insert(runtime_reg_info);
-      sema_func_args_regs.push_back(runtime_reg_info);
       break;
     case SemaFuncArgType::State:
       arg_num = 1;
       args.push_back(state_ptr);
-      load_reg_map.insert(state_reg_info);
-      sema_func_args_regs.push_back(state_reg_info);
       break;
     case SemaFuncArgType::StateRuntime:
       arg_num = 2;
       args.push_back(state_ptr);
       args.push_back(runtime_ptr);
-      load_reg_map.insert(state_reg_info);
-      load_reg_map.insert(runtime_reg_info);
-      sema_func_args_regs.push_back(state_reg_info);
-      sema_func_args_regs.push_back(runtime_reg_info);
       break;
     case SemaFuncArgType::Empty:
       LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"
@@ -376,13 +409,18 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
           ecv_reg_class = EcvRegClass::RegNULL;
         }
       } else if (Operand::Action::kActionWrite == op.action) {
+        // write to register.
         if (Operand::Usage::kValue == target_reg->usage) {
-          // skip the case where the store register is `XZR` or `WZR`.
           if (!target_reg->name.starts_with("IGNORE_WRITE_TO")) {
+            // skip the case where the store register is `XZR` or `WZR`.
             store_reg_map.insert({ecv_reg, ecv_reg_class});
           }
           write_regs.push_back({ecv_reg, ecv_reg_class});
           continue;
+        }
+        // write to memory.
+        else {
+          load_reg_map.insert({ecv_reg, ecv_reg_class});
         }
       } else {
         LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
@@ -425,6 +463,13 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto sema_inst = ir.CreateCall(isel_func, args);
   bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
   Sema_func_vma_map.insert({sema_inst, arch_inst.pc});
+  if (auto struct_ty = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
+    CHECK(struct_ty->getNumElements() == write_regs.size());
+  } else if (auto array_ty = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
+    CHECK(array_ty->getNumElements() == write_regs.size());
+  } else if (!sema_inst->getType()->isVoidTy()) {
+    CHECK(write_regs.size() == 1);
+  }
 
   // Insert the instruction which explains the latest specified register.
   for (std::size_t i = 0; i < write_regs.size(); i++) {
@@ -434,6 +479,23 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
+    // if (auto aaa = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
+    //   CHECK(aaa->getElementType(i) == get_llvm_type(context, write_regs[i].second))
+    //       << " lhs type: " << LLVMThingToString(aaa->getElementType(i))
+    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
+    //       << " call_inst: " << LLVMThingToString(sema_inst);
+    // } else if (auto bbb = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
+    //   CHECK(bbb->getElementType() == get_llvm_type(context, write_regs[i].second))
+    //       << " lhs type: " << LLVMThingToString(bbb->getElementType())
+    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
+    //       << " call_inst: " << LLVMThingToString(sema_inst);
+    // } else {
+    //   CHECK(i == 0);
+    //   CHECK(sema_inst->getType() == get_llvm_type(context, write_regs[i].second))
+    //       << "call_inst type: " << LLVMThingToString(sema_inst->getType())
+    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
+    //       << " call_inst: " << LLVMThingToString(sema_inst);
+    // }
   }
 
   // Update the sema_call_written_reg_map
@@ -588,7 +650,7 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
   // TODO(pag): Eventually refactor into a higher-level issue, perhaps a
   //            a hyper call to read an unknown register, or a lifting failure,
   //            with a more elaborate status value returned.
-  LOG(ERROR) << "Could not locate variable or register " << reg_name_;
+  LOG(FATAL) << "Could not locate variable or register " << reg_name_;
 
   return {new llvm::GlobalVariable(*module, impl->word_type, false,
                                    llvm::GlobalValue::ExternalLinkage,
@@ -610,13 +672,13 @@ llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block, llvm::Valu
   return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), block);
 }
 
-llvm::Value *InstructionLifter::LoadRegValueBeforeInst(llvm::BasicBlock *block,
-                                                       llvm::Value *state_ptr,
-                                                       std::string_view reg_name,
-                                                       llvm::Instruction *instBefore) const {
+llvm::Value *
+InstructionLifter::LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                          std::string_view reg_name, llvm::Instruction *instBefore,
+                                          std::string var_name) const {
   auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
   CHECK_NOTNULL(ptr);
-  return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), instBefore);
+  return new llvm::LoadInst(ptr_ty, ptr, var_name, instBefore);
 }
 
 // Store the value of a register (Assume that the store_value already has been casted).

@@ -321,7 +321,12 @@ DEF_SEM_T(Load, S src) {
 }
 
 template <typename S>  // e.g. Load<M8>
-DEF_SEM_T_RUN(LoadMem, S src_mem) {
+DEF_SEM_U32_RUN(LoadMem_32, S src_mem) {
+  return ReadMem(src_mem);
+}
+
+template <typename S>  // e.g. Load<M8>
+DEF_SEM_U64_RUN(LoadMem_64, S src_mem) {
   return ReadMem(src_mem);
 }
 
@@ -336,43 +341,48 @@ DEF_SEM_U64_RUN(LoadMemUpdateIndex_64, S src_mem) {
 }
 
 template <typename M>  // e.g. LoadMemFromOffset<M8>
-DEF_SEM_T_RUN(LoadMemFromOffset, M base, ADDR offset) {
+DEF_SEM_U32_RUN(LoadMemFromOffset_32, M base, ADDR offset) {
+  return ReadMem(DisplaceAddress(base, Read(offset)));
+}
+
+template <typename M>  // e.g. LoadMemFromOffset<M8>
+DEF_SEM_U64_RUN(LoadMemFromOffset_64, M base, ADDR offset) {
   return ReadMem(DisplaceAddress(base, Read(offset)));
 }
 }  // namespace
 
-DEF_ISEL(LDRB_32_LDST_POS) = LoadMem<M8>;  // LDRB  <Wt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRB_32_LDST_POS) = LoadMem_32<M8>;  // LDRB  <Wt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDRB_32_LDST_IMMPOST) = LoadMemUpdateIndex_32<M8>;  // LDRB  <Wt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDRB_32_LDST_IMMPRE) = LoadMemUpdateIndex_32<M8>;  // LDRB  <Wt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDRB_32B_LDST_REGOFF) =
-    LoadMemFromOffset<M8>;  // LDRB  <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+    LoadMemFromOffset_32<M8>;  // LDRB  <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 DEF_ISEL(LDRB_32BL_LDST_REGOFF) =
-    LoadMemFromOffset<M8>;  // LDRB  <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}]
+    LoadMemFromOffset_32<M8>;  // LDRB  <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}]
 
-DEF_ISEL(LDRH_32_LDST_POS) = LoadMem<M16>;  // LDRH  <Wt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRH_32_LDST_POS) = LoadMem_32<M16>;  // LDRH  <Wt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDRH_32_LDST_IMMPOST) = LoadMemUpdateIndex_32<M16>;  // LDRH  <Wt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDRH_32_LDST_IMMPRE) = LoadMemUpdateIndex_32<M16>;  // LDRH  <Wt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDRH_32_LDST_REGOFF) =
-    LoadMemFromOffset<M16>;  // LDRH  <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+    LoadMemFromOffset_32<M16>;  // LDRH  <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 
-DEF_ISEL(LDR_32_LDST_POS) = LoadMem<M32>;  // LDR  <Wt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDR_32_LDST_POS) = LoadMem_32<M32>;  // LDR  <Wt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDR_32_LDST_IMMPOST) = LoadMemUpdateIndex_32<M32>;  // LDR  <Wt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_32_LDST_IMMPRE) = LoadMemUpdateIndex_32<M32>;  // LDR  <Wt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDR_32_LDST_REGOFF) =
-    LoadMemFromOffset<M32>;  // LDR  <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
-DEF_ISEL(LDR_32_LOADLIT) = LoadMem<M32>;  // LDR  <Wt>, <label>
+    LoadMemFromOffset_32<M32>;  // LDR  <Wt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+DEF_ISEL(LDR_32_LOADLIT) = LoadMem_32<M32>;  // LDR  <Wt>, <label>
 
-DEF_ISEL(LDR_64_LDST_POS) = LoadMem<M64>;  // LDR  <Xt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDR_64_LDST_POS) = LoadMem_64<M64>;  // LDR  <Xt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDR_64_LDST_IMMPOST) = LoadMemUpdateIndex_64<M64>;  // LDR  <Xt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_64_LDST_IMMPRE) = LoadMemUpdateIndex_64<M64>;  // LDR  <Xt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDR_64_LDST_REGOFF) =
-    LoadMemFromOffset<M64>;  // LDR  <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
-DEF_ISEL(LDR_64_LOADLIT) = LoadMem<M64>;  // LDRSW  <Xt>, <label>
+    LoadMemFromOffset_64<M64>;  // LDR  <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
+DEF_ISEL(LDR_64_LOADLIT) = LoadMem_64<M64>;  // LDRSW  <Xt>, <label>
 
-DEF_ISEL(LDURB_32_LDST_UNSCALED) = LoadMem<M8>;  // LDURB  <Wt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDURH_32_LDST_UNSCALED) = LoadMem<M16>;  // LDURH  <Wt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDUR_32_LDST_UNSCALED) = LoadMem<M32>;  // LDUR  <Wt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDUR_64_LDST_UNSCALED) = LoadMem<M64>;  // LDUR  <Xt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURB_32_LDST_UNSCALED) = LoadMem_32<M8>;  // LDURB  <Wt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURH_32_LDST_UNSCALED) = LoadMem_32<M16>;  // LDURH  <Wt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDUR_32_LDST_UNSCALED) = LoadMem_32<M32>;  // LDUR  <Wt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDUR_64_LDST_UNSCALED) = LoadMem_64<M64>;  // LDUR  <Xt>, [<Xn|SP>{, #<simm>}]
 
 DEF_ISEL(STURB_32_LDST_UNSCALED) = Store<R32, M8W>;  // STURB  <Wt>, [<Xn|SP>{, #<simm>}]
 DEF_ISEL(STURH_32_LDST_UNSCALED) = Store<R32, M16W>;  // STURH  <Wt>, [<Xn|SP>{, #<simm>}]
@@ -533,11 +543,11 @@ DEF_ISEL(LDRSW_64_LOADLIT) = LoadSExt<M32, int64_t>;  // LDRSW  <Xt>, <label>
 namespace {
 
 template <typename D, typename S>
-DEF_SEM_T(MoveWithKeep, S src, I64 imm, I8 shift_) {
-  auto shift = ZExtTo<uint64_t>(Read(shift_));
-  auto val = UShl(Read(imm), shift);
+DEF_SEM_T(MoveWithKeep, S src, I16 imm, I8 shift_) {
+  auto shift = ZExtTo<S>(Read(shift_));
+  auto val = UShl(ZExtTo<S>(Read(imm)), shift);
   auto mask = UNot(UShl((0xFFFFULL), shift));
-  auto reg = ZExtTo<uint64_t>(Read(src));
+  auto reg = ZExtTo<S>(Read(src));
   return UOr(UAnd(reg, mask), val);
 }
 

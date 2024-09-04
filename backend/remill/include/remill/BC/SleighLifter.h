@@ -99,7 +99,8 @@ class SleighLifterWithState final : public InstructionLifterIntf {
 
   virtual llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                               std::string_view reg_name,
-                                              llvm::Instruction *instBefore) const override final;
+                                              llvm::Instruction *instBefore,
+                                              std::string var_name = "") const override final;
 
   virtual llvm::Instruction *
   StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,

@@ -28,7 +28,7 @@ namespace {
 // BLR  <Xn>
 // x30 will be changed.
 template <typename S>
-DEF_SEM_U64(CALL, PC ret_addr) {
+DEF_SEM_U64(CALL, R64 next_addr, PC ret_addr) {
   return Read(ret_addr);
 }
 

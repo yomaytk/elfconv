@@ -197,6 +197,7 @@ class VirtualRegsOpt {
       : func(__func),
         impl(__impl),
         relay_bb_cache({}),
+        phi_val_order(0),
         fun_vma(__fun_vma) {
     for (auto &arg : func->args()) {
       if (arg.getName() == "state") {
@@ -241,6 +242,8 @@ class VirtualRegsOpt {
 
   std::queue<llvm::BasicBlock *> phi_bb_queue;
   std::set<llvm::BasicBlock *> relay_bb_cache;
+
+  uint64_t phi_val_order;
 
   // for debug
   uint64_t fun_vma;

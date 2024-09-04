@@ -33,86 +33,86 @@ namespace {
 #define SR_ECV_NZCV__V (ecv_nzcv & 0b1)
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-inline uint8_t CondGE(uint64_t ecv_nzcv) {
+inline uint64_t CondGE(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__N == SR_ECV_NZCV__V;
   // return __remill_compare_sge(FLAG_N == FLAG_V);
 }
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
-inline uint8_t CondLT(uint64_t ecv_nzcv) {
+inline uint64_t CondLT(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__N != SR_ECV_NZCV__V;
   // return __remill_compare_slt(FLAG_N != FLAG_V);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-inline uint8_t CondEQ(uint64_t ecv_nzcv) {
+inline uint64_t CondEQ(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__Z;
   // return __remill_compare_eq(FLAG_Z);
 }
 
 // when '000' result = (PSTATE.Z == '1'); // EQ or NE
-inline uint8_t CondNE(uint64_t ecv_nzcv) {
+inline uint64_t CondNE(uint64_t ecv_nzcv) {
   return !SR_ECV_NZCV__Z;
   // return __remill_compare_neq(!FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-inline uint8_t CondGT(uint64_t ecv_nzcv) {
+inline uint64_t CondGT(uint64_t ecv_nzcv) {
   return (SR_ECV_NZCV__N == SR_ECV_NZCV__V) && !SR_ECV_NZCV__Z;
   // return __remill_compare_sgt((FLAG_N == FLAG_V) && !FLAG_Z);
 }
 
 // when '110' result = (PSTATE.N == PSTATE.V && PSTATE.Z == '0'); // GT or LE
-inline uint8_t CondLE(uint64_t ecv_nzcv) {
+inline uint64_t CondLE(uint64_t ecv_nzcv) {
   return (SR_ECV_NZCV__N != SR_ECV_NZCV__V) || SR_ECV_NZCV__Z;
   // return __remill_compare_sle((FLAG_N != FLAG_V) || FLAG_Z);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-inline uint8_t CondCS(uint64_t ecv_nzcv) {
+inline uint64_t CondCS(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__C;
   // return __remill_compare_uge(FLAG_C);
 }
 
 // when '001' result = (PSTATE.C == '1'); // CS or CC
-inline uint8_t CondCC(uint64_t ecv_nzcv) {
+inline uint64_t CondCC(uint64_t ecv_nzcv) {
   return !SR_ECV_NZCV__C;
   // return __remill_compare_ult(!FLAG_C);
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-inline uint8_t CondMI(uint64_t ecv_nzcv) {
+inline uint64_t CondMI(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__N;
 }
 
 // when '010' result = (PSTATE.N == '1'); // MI or PL
-inline uint8_t CondPL(uint64_t ecv_nzcv) {
+inline uint64_t CondPL(uint64_t ecv_nzcv) {
   return !SR_ECV_NZCV__N;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-inline uint8_t CondVS(uint64_t ecv_nzcv) {
+inline uint64_t CondVS(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__V;
 }
 
 // when '011' result = (PSTATE.V == '1'); // VS or VC
-inline uint8_t CondVC(uint64_t ecv_nzcv) {
+inline uint64_t CondVC(uint64_t ecv_nzcv) {
   return !SR_ECV_NZCV__V;
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-inline uint8_t CondHI(uint64_t ecv_nzcv) {
+inline uint64_t CondHI(uint64_t ecv_nzcv) {
   return SR_ECV_NZCV__C && !SR_ECV_NZCV__Z;
   // return __remill_compare_ugt(FLAG_C && !FLAG_Z);
 }
 
 // when '100' result = (PSTATE.C == '1' && PSTATE.Z == '0'); // HI or LS
-inline uint8_t CondLS(uint64_t ecv_nzcv) {
+inline uint64_t CondLS(uint64_t ecv_nzcv) {
   return !SR_ECV_NZCV__C || SR_ECV_NZCV__Z;
   // return __remill_compare_ule(!FLAG_C || FLAG_Z);
 }
 
-inline uint8_t CondAL(uint64_t ecv_nzcv) {
+inline uint64_t CondAL(uint64_t ecv_nzcv) {
   return true;
 }
 
@@ -150,8 +150,8 @@ DEF_SEM_VOID(DoDirectBranch) {}
 DEF_SEM_VOID(DoIndirectBranch, R64) {}
 
 // B.<cond>  <label>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>
-DEF_SEM_U8(DirectCondBranch, R64 ecv_nzcv_src) {
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
+DEF_SEM_U64(DirectCondBranch, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src));
 }
 

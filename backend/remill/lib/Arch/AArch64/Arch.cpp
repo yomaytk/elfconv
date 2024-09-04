@@ -55,6 +55,7 @@ namespace remill {
 namespace {
 
 static constexpr int kInstructionSize = 4;  // In bytes.
+static constexpr int kPCWidth = 64;  // In bits.
 
 template <uint32_t bit, typename T>
 static inline T Select(T val) {
@@ -136,6 +137,7 @@ enum RegClass {
   kRegS,  // Single-precision float.
   kRegD,  // Doubleword, Double precision float.
   kRegQ,  // Quadword.
+  kRegV,  // Vector
   kReg8B,  // 8B
   kReg16B,  // 16B
   kReg4H,  // 4H
@@ -283,6 +285,8 @@ static std::string RegNameFP(Action action, RegClass rclass, RegUsage rtype,
     ss << "D";
   } else if (kRegQ == rclass) {
     ss << "Q";
+  } else if (kRegV == rclass) {
+    ss << "V";
   } else if (kReg8B == rclass) {
     ss << "8B";
   } else if (kReg16B == rclass) {
@@ -326,6 +330,7 @@ static std::string RegName(Action action, RegClass rclass, RegUsage rtype, aarch
     case kRegS:
     case kRegD:
     case kRegQ:
+    case kRegV:
     case kReg8B:
     case kReg16B:
     case kReg4H:
@@ -358,6 +363,7 @@ static uint64_t ReadRegSize(RegClass rclass) {
     case kReg1D:
     case kReg1DF: return 64;
     case kRegQ:
+    case kRegV:
     case kReg16B:
     case kReg8H:
     case kReg4S:
@@ -384,6 +390,7 @@ static uint64_t WriteRegSize(RegClass rclass) {
     case kReg1D:
     case kReg1DF: return 64;
     case kRegQ:
+    case kRegV:
     case kReg16B:
     case kReg8H:
     case kReg4S:
@@ -956,6 +963,21 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
 namespace aarch64 {
 namespace {
 
+static void DecodeFallThroughPC(Instruction &inst) {
+  Operand not_taken_op = {};
+  not_taken_op.action = Operand::kActionRead;
+  not_taken_op.type = Operand::kTypeAddress;
+  not_taken_op.size = kPCWidth;
+  not_taken_op.addr.address_size = kPCWidth;
+  not_taken_op.addr.base_reg.name = "PC";
+  not_taken_op.addr.base_reg.size = kPCWidth;
+  not_taken_op.addr.displacement = kInstructionSize;
+  not_taken_op.addr.kind = Operand::Address::kControlFlowTarget;
+  inst.operands.push_back(not_taken_op);
+
+  inst.branch_not_taken_pc = inst.next_pc;
+}
+
 static uint64_t DecodeScale(const InstData &data) {
   uint64_t scale = ((data.opc & 0x2ULL) << 1ULL) | data.size;
   return scale;
@@ -991,7 +1013,7 @@ bool TryDecodeBLR_64_BRANCH_REG(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, RegNum(30));
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
-  inst.branch_not_taken_pc = inst.next_pc;
+  DecodeFallThroughPC(inst);
   return true;
 }
 
@@ -1808,7 +1830,7 @@ bool TryDecodeMOVK_32_MOVEWIDE(const InstData &data, Instruction &inst) {
     return false;  // if sf == '0' && hw<1> == '1' then UnallocatedEncoding();
   }
   AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rd);
-  AddImmOperand(inst, data.imm16.uimm);
+  AddImmOperand(inst, data.imm16.uimm, kUnsigned, 16);
   AddImmOperand(inst, data.hw << 4, kUnsigned, 8);  // pos = UInt(hw:'0000');
   return true;
 }
@@ -1817,7 +1839,7 @@ bool TryDecodeMOVK_32_MOVEWIDE(const InstData &data, Instruction &inst) {
 bool TryDecodeMOVK_64_MOVEWIDE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   AddRegOperand(inst, kActionReadWrite, kRegX, kUseAsValue, data.Rd);
-  AddImmOperand(inst, data.imm16.uimm);
+  AddImmOperand(inst, data.imm16.uimm, kUnsigned, 16);
   AddImmOperand(inst, data.hw << 4, kUnsigned, 8);  // pos = UInt(hw:'0000');
   return true;
 }
@@ -1962,6 +1984,7 @@ bool TryDecodeBL_ONLY_BRANCH_IMM(const InstData &data, Instruction &inst) {
   inst.branch_not_taken_pc = inst.next_pc;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, RegNum(30));
   AddPCDisp(inst, data.imm26.simm26 << 2LL);
+  DecodeFallThroughPC(inst);
   return true;
 }
 
@@ -4312,7 +4335,7 @@ bool TryDecodeLDP_D_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 bool TryDecodeLDP_Q_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_POST(data, inst, kRegQ);
+  return TryDecodeLDP_Vn_LDSTPAIR_POST(data, inst, kRegV);
 }
 
 static bool TryDecodeLDP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst, RegClass rclass) {
@@ -4343,7 +4366,7 @@ bool TryDecodeLDP_D_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
 bool TryDecodeLDP_Q_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_PRE(data, inst, kRegQ);
+  return TryDecodeLDP_Vn_LDSTPAIR_PRE(data, inst, kRegV);
 }
 
 static bool TryDecodeLDP_Vn_LDSTPAIR_OFF(const InstData &data, Instruction &inst, RegClass rclass) {
@@ -4374,7 +4397,7 @@ bool TryDecodeLDP_D_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>{, #<imm>}]
 bool TryDecodeLDP_Q_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_OFF(data, inst, kRegQ);
+  return TryDecodeLDP_Vn_LDSTPAIR_OFF(data, inst, kRegV);
 }
 
 // CLZ  <Wd>, <Wn>
@@ -4494,7 +4517,7 @@ bool TryDecodeCCMP_32_CONDCMP_IMM(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -4505,7 +4528,7 @@ bool TryDecodeCCMP_64_CONDCMP_IMM(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -4516,7 +4539,7 @@ bool TryDecodeCCMP_32_CONDCMP_REG(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -4527,7 +4550,7 @@ bool TryDecodeCCMP_64_CONDCMP_REG(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -4538,7 +4561,7 @@ bool TryDecodeCCMN_32_CONDCMP_IMM(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -4549,7 +4572,7 @@ bool TryDecodeCCMN_64_CONDCMP_IMM(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   AddImmOperand(inst, data.imm5.uimm);
   AddImmOperand(inst, data.nzcv);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 

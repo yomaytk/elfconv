@@ -1416,9 +1416,8 @@ std::map<OpCode, SleighLifter::PcodeToLLVMEmitIntoBlock::BinaryOperator>
                return bldr.CreateMul(lhs, rhs);
              }},
             {OpCode::CPUI_INT_DIV,
-             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-               return bldr.CreateUDiv(lhs, rhs);
-             }},
+             [](llvm::Value *lhs, llvm::Value *rhs,
+                llvm::IRBuilder<> &bldr) { return bldr.CreateUDiv(lhs, rhs); }},
             {OpCode::CPUI_INT_SDIV,
              [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
                return bldr.CreateSDiv(lhs, rhs);
@@ -1675,7 +1674,8 @@ LiftStatus SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBl
 llvm::Value *SleighLifterWithState::LoadRegValueBeforeInst(llvm::BasicBlock *block,
                                                            llvm::Value *state_ptr,
                                                            std::string_view reg_name,
-                                                           llvm::Instruction *instBefore) const {
+                                                           llvm::Instruction *instBefore,
+                                                           std::string var_name) const {
   LOG(FATAL) << "SleighLifterWithState::LoadRegValueBeforeInst must not be called.";
   return nullptr;
 }

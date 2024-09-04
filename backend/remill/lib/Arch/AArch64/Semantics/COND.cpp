@@ -28,23 +28,23 @@
 namespace {
 
 // CSEL  <Wd>, <Wn>, <Wm>, <cond>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_U32(CSEL32, R32 src1, R32 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_U64(CSEL64, R64 src1, R64 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
 // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_F32(FCSEL32, RF32 src1, RF32 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv)>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_F64(FCSEL64, RF64 src1, RF64 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
@@ -76,7 +76,7 @@ DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL64)  // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
 namespace {
 
 // CSNEG  <Wd>, <Wn>, <Wm>, <cond>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
 DEF_SEM_T(CSNEG, S1 src1, S2 src2, R64 ecv_nzcv_src) {
   return Select(check_cond(Read(ecv_nzcv_src)), Read(src1), UAdd(UNot(Read(src2)), ZExtTo<S1>(1)));
 }
@@ -89,7 +89,7 @@ DEF_COND_ISEL(CSNEG_64_CONDSEL, CSNEG, R64, R64)  // CSNEG  <Xd>, <Xn>, <Xm>, <c
 namespace {
 
 // CSINC  <Wd>, <Wn>, <Wm>, <cond>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
 DEF_SEM_T(CSINC, S1 src1, S2 src2, R64 ecv_nzcv_src) {
   return Select(check_cond(Read(ecv_nzcv_src)), Read(src1), UAdd(Read(src2), 1));
 }
@@ -101,7 +101,7 @@ DEF_COND_ISEL(CSINC_64_CONDSEL, CSINC, R64, R64)  // CSINC  <Xd>, <Xn>, <Xm>, <c
 namespace {
 
 // CSINV  <Wd>, <Wn>, <Wm>, <cond>
-template <uint8_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
+template <uint64_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2>
 DEF_SEM_T(CSINV, S1 src1, S2 src2, R64 ecv_nzcv_src) {
   return Select(check_cond(Read(ecv_nzcv_src)), Read(src1), UNot(Read(src2)));
 }
@@ -114,7 +114,7 @@ namespace {
 
 // CCMP  <Wn>, #<imm>, #<nzcv>, <cond>
 #define MAKE_CCMP(esize) \
-  template <uint8_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2> \
+  template <uint64_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2> \
   DEF_SEM_U64(CCMP##esize, S1 src1, S2 src2, S2 nzcv, R64 ecv_nzcv_src) { \
     using T = typename BaseType<S1>::BT; \
     static_assert(sizeof(T) == esize / 8); \
@@ -139,7 +139,7 @@ MAKE_CCMP(64)
 
 // CCMN  <Wn>, #<imm>, #<nzcv>, <cond>
 #define MAKE_CCMN(esize) \
-  template <uint8_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2> \
+  template <uint64_t (*check_cond)(uint64_t ecv_nzcv), typename S1, typename S2> \
   DEF_SEM_U64(CCMN##esize, S1 src1, S2 src2, S2 nzcv, R64 ecv_nzcv_src) { \
     using T = typename BaseType<S1>::BT; \
     static_assert(sizeof(T) == esize / 8); \

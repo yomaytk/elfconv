@@ -70,9 +70,9 @@ class OperandLifter {
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const = 0;
 
-  virtual llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                                              std::string_view reg_name,
-                                              llvm::Instruction *instBefore) const = 0;
+  virtual llvm::Value *
+  LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr, std::string_view reg_name,
+                         llvm::Instruction *instBefore, std::string var_name = "") const = 0;
 
   virtual llvm::Instruction *
   StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
@@ -116,6 +116,7 @@ enum class EcvRegClass : uint32_t {
   Reg2D = 'V' + 'D' - 'A' + 2,  // 91
   Reg2DF = 'V' + 'D' + 'F' - 'A' + 2,  // 161
   RegQ = 'Q' - 'A',  // 16
+  RegV = 'V' - 'A',  // 21
   RegP = 10000,
   RegNULL = 10001
 };
@@ -286,8 +287,8 @@ class InstructionLifter : public InstructionLifterIntf {
                             std::string_view reg_name) const override final;
 
   llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                                      std::string_view reg_name,
-                                      llvm::Instruction *instBefore) const override final;
+                                      std::string_view reg_name, llvm::Instruction *instBefore,
+                                      std::string var_name = "") const override final;
 
   // Store the value of a register (Assume that the store_value already has been casted).
   llvm::Instruction *StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
