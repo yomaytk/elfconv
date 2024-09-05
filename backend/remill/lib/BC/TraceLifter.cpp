@@ -1184,7 +1184,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     }
   }
 
-  // Calculate the registers which needs to get on the phis instruction for every basic block.
+  // Calculate the registers which needs to get on the phi nodes for every basic block.
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock());
 
   ECV_LOG_NL(OutLLVMFunc(func).str().c_str());
@@ -1347,10 +1347,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         else if (auto call_inst = llvm::dyn_cast<llvm::CallInst>(target_inst_it)) {
           // Call the lifted function (includes `__remill_function_call`).
           if (lifted_func_caller_set.contains(call_inst)) {
-            // Store already stored `within_store_map`
+            // Store already stored `bb_store_reg_map`
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
               if (within_store_ecv_reg.CheckNoChangedReg() ||
-                  !target_phi_regs_bag->bag_within_store_reg_map.contains(within_store_ecv_reg)) {
+                  !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
               }
               auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
@@ -1365,9 +1365,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
               if (preceding_store_ecv_reg.CheckNoChangedReg() ||
-                  (target_phi_regs_bag->bag_within_store_reg_map.contains(
-                       preceding_store_ecv_reg) &&
-                   ascend_reg_inst_map.contains(preceding_store_ecv_reg))) {
+                  target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
               }
               inst_lifter->StoreRegValueBeforeInst(
@@ -1432,7 +1430,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Store target: x0 ~ x5, x8
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
               if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
-                  !target_phi_regs_bag->bag_within_store_reg_map.contains(within_store_ecv_reg)) {
+                  !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
               }
               auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
@@ -1447,9 +1445,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
               if (!(preceding_store_ecv_reg.number < 6 || preceding_store_ecv_reg.number == 8) ||
-                  (target_phi_regs_bag->bag_within_store_reg_map.contains(
-                       preceding_store_ecv_reg) &&
-                   ascend_reg_inst_map.contains(preceding_store_ecv_reg))) {
+                  target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
               }
               inst_lifter->StoreRegValueBeforeInst(
@@ -1605,7 +1601,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           ret_inst = __ret_inst;
           for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
             if (within_store_ecv_reg.CheckNoChangedReg() ||
-                !target_phi_regs_bag->bag_within_store_reg_map.contains(within_store_ecv_reg)) {
+                !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
               continue;
             }
             auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
@@ -1620,8 +1616,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                target_phi_regs_bag->bag_preceding_store_reg_map) {
             if (preceding_store_ecv_reg.CheckNoChangedReg() ||
-                (target_phi_regs_bag->bag_within_store_reg_map.contains(preceding_store_ecv_reg) &&
-                 ascend_reg_inst_map.contains(preceding_store_ecv_reg))) {
+                target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
               continue;
             }
             inst_lifter->StoreRegValueBeforeInst(
@@ -2084,6 +2079,32 @@ PhiRegsBBBagNode *PhiRegsBBBagNode::GetTrueBag() {
   return res;
 }
 
+void PhiRegsBBBagNode::MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag) {
+  // Merge bag_preceding_load_reg_map
+  for (auto [pre_load_r, pre_load_r_c] : moved_bag->bag_preceding_load_reg_map) {
+    if (bag_preceding_load_reg_map.contains(pre_load_r)) {
+      if (GetRegClassSize(bag_preceding_load_reg_map.at(pre_load_r)) <
+          GetRegClassSize(pre_load_r_c)) {
+        bag_preceding_load_reg_map.insert_or_assign(pre_load_r, pre_load_r_c);
+      }
+    } else {
+      bag_preceding_load_reg_map.insert({pre_load_r, pre_load_r_c});
+    }
+  }
+  // Merge bag_preceding_load_reg_map
+  for (auto [pre_store_r, pre_store_r_c] : moved_bag->bag_preceding_store_reg_map) {
+    if (bag_preceding_store_reg_map.contains(pre_store_r)) {
+      if (GetRegClassSize(bag_preceding_store_reg_map.at(pre_store_r)) <
+          GetRegClassSize(pre_store_r_c)) {
+        bag_preceding_store_reg_map.insert_or_assign(pre_store_r, pre_store_r_c);
+      }
+    } else {
+      bag_preceding_store_reg_map.insert({pre_store_r, pre_store_r_c});
+    }
+  }
+  // Merge bag_within_store
+}
+
 void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
   for (auto merged_par : merged_bag->parents) {
     auto true_merged_par = merged_par->GetTrueBag();
@@ -2158,9 +2179,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           true_deleted_bags.insert(moved_bag);
 
           // translates moved_bag
-          target_bag->bag_succeeding_load_reg_map.merge(moved_bag->bag_succeeding_load_reg_map);
-          target_bag->bag_preceding_load_reg_map.merge(moved_bag->bag_preceding_load_reg_map);
-          target_bag->bag_within_store_reg_map.merge(moved_bag->bag_within_store_reg_map);
+          target_bag->MergePrecedingRegMap(moved_bag);
           target_bag->MergeFamilyConvertedBags(moved_bag);
           for (auto moved_bb : moved_bag->in_bbs) {
             target_bag->in_bbs.insert(moved_bb);
@@ -2320,15 +2339,13 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
     finished_pars_num_map.insert({target_bag, 0});
     if (target_bag->parents.size() == finished_pars_num_map.at(target_bag)) {
       // can finish the target_bag.
-      for (auto par : target_bag->parents) {
-        for (auto ecv_reg_info : par->bag_preceding_load_reg_map) {
+      for (auto par_bag : target_bag->parents) {
+        // preceding load reg. priority: target_bag > par_bag.
+        for (auto ecv_reg_info : par_bag->bag_preceding_load_reg_map) {
           target_bag->bag_preceding_load_reg_map.insert(ecv_reg_info);
         }
-        // priority: within > preceding.
-        for (auto ecv_reg_info : par->bag_within_store_reg_map) {
-          target_bag->bag_preceding_store_reg_map.insert(ecv_reg_info);
-        }
-        for (auto ecv_reg_info : par->bag_preceding_store_reg_map) {
+        // preceding store reg. priority: target_bag > par_bag.
+        for (auto ecv_reg_info : par_bag->bag_preceding_store_reg_map) {
           target_bag->bag_preceding_store_reg_map.insert(ecv_reg_info);
         }
       }
@@ -2371,6 +2388,7 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
     if (target_bag->children.size() == finished_children_num_map.at(target_bag)) {
       // Can finish the target_bag.
       for (auto child_bag : target_bag->children) {
+        // succeeding load reg. priority: target_bag > child_bag
         for (auto ecv_reg_info : child_bag->bag_succeeding_load_reg_map) {
           target_bag->bag_succeeding_load_reg_map.insert(ecv_reg_info);
         }
@@ -2401,13 +2419,19 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
 }
 
 void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {
-  // remove loop from the graph of PhiRegsBBBagNode.
+  // Remove loop from the graph of PhiRegsBBBagNode.
   PhiRegsBBBagNode::RemoveLoop(root_bb);
-  // calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
+  // Prepare the bug_succeeding_load_reg_map.
+  for (auto [_, bag] : bb_regs_bag_map) {
+    if (bag->bag_succeeding_load_reg_map.empty()) {
+      bag->bag_succeeding_load_reg_map = bag->bag_preceding_load_reg_map;
+    }
+  }
+  // Calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(root_bb);
-  // calculate the bag_succeeding_load_reg_map for the every PhiRegsBBBagNode.
+  // Calculate the bag_succeeding_load_reg_map for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(root_bb);
-  // calculate the bag_req_reg_map.
+  // Calculate the bag_req_reg_map.
   std::set<PhiRegsBBBagNode *> finished;
   for (auto [_, phi_regs_bag] : bb_regs_bag_map) {
     if (!finished.contains(phi_regs_bag)) {
@@ -2417,13 +2441,18 @@ void PhiRegsBBBagNode::GetPhiRegsBags(llvm::BasicBlock *root_bb) {
                                      ? succeeding_load_reg_map
                                      : preceding_load_reg_map;
       phi_regs_bag->bag_req_reg_map = phi_regs_bag->bag_preceding_store_reg_map;
-      for (auto &[ecv_reg, ecv_reg_class] : more_small_reg_map) {
+      for (auto &[ecv_reg, _] : more_small_reg_map) {
         if (succeeding_load_reg_map.contains(ecv_reg) && preceding_load_reg_map.contains(ecv_reg)) {
-          phi_regs_bag->bag_load_reg_map.insert({ecv_reg, succeeding_load_reg_map.at(ecv_reg)});
-          phi_regs_bag->bag_req_reg_map.insert({ecv_reg, succeeding_load_reg_map.at(ecv_reg)});
+          auto t_ecv_r_c = succeeding_load_reg_map.at(ecv_reg);
+          if (phi_regs_bag->bag_req_reg_map.contains(ecv_reg) &&
+              GetRegClassSize(phi_regs_bag->bag_req_reg_map.at(ecv_reg)) <
+                  GetRegClassSize(t_ecv_r_c)) {
+            phi_regs_bag->bag_req_reg_map.insert_or_assign(ecv_reg, t_ecv_r_c);
+          } else {
+            phi_regs_bag->bag_req_reg_map.insert({ecv_reg, t_ecv_r_c});
+          }
         }
       }
-
       finished.insert(phi_regs_bag);
     }
   }

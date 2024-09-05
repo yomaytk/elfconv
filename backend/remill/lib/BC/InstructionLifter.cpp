@@ -187,6 +187,35 @@ std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
   }
 }
 
+uint64_t GetRegClassSize(EcvRegClass ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case EcvRegClass::RegB: return 8;
+    case EcvRegClass::RegH: return 16;
+    case EcvRegClass::RegW:
+    case EcvRegClass::RegS: return 32;
+    case EcvRegClass::RegX:
+    case EcvRegClass::RegP:
+    case EcvRegClass::RegD:
+    case EcvRegClass::Reg8B:
+    case EcvRegClass::Reg4H:
+    case EcvRegClass::Reg2S:
+    case EcvRegClass::Reg2SF:
+    case EcvRegClass::Reg1D:
+    case EcvRegClass::Reg1DF: return 64;
+    case EcvRegClass::RegQ:
+    case EcvRegClass::RegV:
+    case EcvRegClass::Reg16B:
+    case EcvRegClass::Reg8H:
+    case EcvRegClass::Reg4S:
+    case EcvRegClass::Reg4SF:
+    case EcvRegClass::Reg2D:
+    case EcvRegClass::Reg2DF: return 128;
+    default:
+      LOG(FATAL) << "Unexpected reg class: "
+                 << static_cast<std::underlying_type<EcvRegClass>::type>(ecv_reg_class);
+  }
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),

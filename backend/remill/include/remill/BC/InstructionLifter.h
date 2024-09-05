@@ -122,6 +122,7 @@ enum class EcvRegClass : uint32_t {
 };
 
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
+uint64_t GetRegClassSize(EcvRegClass ecv_reg_class);
 
 enum class RegKind : uint32_t {
   General,  // 0
