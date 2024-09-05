@@ -33,7 +33,7 @@
 namespace remill {
 
 
-#if defined(OPT_DEBUG)
+#if defined(OPT_ALGO_DEBUG)
 #  define ECV_LOG(...) EcvLog(__VA_ARGS__)
 #  define ECV_LOG_NL(...) EcvLogNL(__VA_ARGS__)
 #  define DEBUG_REMOVE_LOOP_GRAPH(bag) PhiRegsBBBagNode::DebugGraphStruct(bag)
@@ -43,7 +43,7 @@ namespace remill {
 #  define DEBUG_REMOVE_LOOP_GRAPH(bag)
 #endif
 
-#if defined(OPT_DEBUG_2)
+#if defined(OPT_REAL_REGS_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
     ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
@@ -944,10 +944,10 @@ void TraceLifter::Impl::Optimize() {
   }
   std::cout << std::endl;
 
-#if defined(OPT_DEBUG_2)
   // Insert `debug_string` for the every function
   for (auto lifted_func : lifted_funcs) {
     auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
+#if defined(OPT_CALL_FUNC_DEBUG) || defined(OPT_REAL_REGS_DEBUG)
     auto debug_string_fn = module->getFunction("debug_string");
     auto fun_name_val =
         llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
@@ -955,10 +955,12 @@ void TraceLifter::Impl::Optimize() {
         *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage, fun_name_val,
         lifted_func->getName().str() + "debug_name");
     llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
+#endif
+#if defined(OPT_REAL_REGS_DEBUG)
     auto debug_state_machine_fun = module->getFunction("debug_state_machine");
     llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
-  }
 #endif
+  }
 }
 
 llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst,
@@ -1543,14 +1545,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           CHECK(!br_inst) << "There are multiple branch instructions in the one BB.";
           br_inst = __br_inst;
           target_inst_it = br_inst->getNextNode();
-#if defined(OPT_DEBUG)
-          std::stringstream ss;
-          ss << "jump block: " << std::hex << br_inst->getSuccessor(0);
-          if (br_inst->getNumSuccessors() == 2) {
-            ss << ", " << br_inst->getSuccessor(1);
-          }
-          ECV_LOG_NL(ss.str());
-#endif
         }
         // Target: llvm::CastInst
         else if (auto cast_inst = llvm::dyn_cast<llvm::CastInst>(target_inst_it)) {
@@ -1630,7 +1624,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   }
 
 // Check
-#if defined(OPT_DEBUG)
+#if defined(OPT_GEN_IR_DEBUG)
   // Check the parent-child relationship
   for (auto &bb : *func) {
     auto inst_terminator = bb.getTerminator();
@@ -1997,7 +1991,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
             !target_phi_regs_bag->bag_req_reg_map.contains(need_ecv_reg)) {
           auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
               relay_bb, state_ptr, need_ecv_reg.GetRegName(need_ecv_reg_class), relay_terminator,
-              to_string(phi_val_order++) + "A");
+              VAR_NAME(need_ecv_reg, need_ecv_reg_class));
           // Update cache.
           relay_bb_reg_info_node->reg_latest_inst_map.insert(
               {need_ecv_reg, {need_ecv_reg_class, load_value, 0}});
@@ -2022,7 +2016,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       auto state_ptr = NthArgument(func, kStatePointerArgNum);
       auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
           target_bb, state_ptr, target_ecv_reg.GetRegName(req_ecv_reg_class), target_terminator,
-          to_string(phi_val_order++) + "A");
+          VAR_NAME(target_ecv_reg, req_ecv_reg_class));
       req_value = load_value;
       // Update cache.
       target_bb_reg_info_node->reg_derived_added_inst_map.insert({target_ecv_reg, load_value});
@@ -2232,7 +2226,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     }
   }
 
-#if defined(OPT_DEBUG)
+#if defined(OPT_ALGO_DEBUG)
 
   // Check the consistency of the parents and children
   {
