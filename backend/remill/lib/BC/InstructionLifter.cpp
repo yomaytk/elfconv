@@ -508,23 +508,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
-    // if (auto aaa = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
-    //   CHECK(aaa->getElementType(i) == get_llvm_type(context, write_regs[i].second))
-    //       << " lhs type: " << LLVMThingToString(aaa->getElementType(i))
-    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
-    //       << " call_inst: " << LLVMThingToString(sema_inst);
-    // } else if (auto bbb = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
-    //   CHECK(bbb->getElementType() == get_llvm_type(context, write_regs[i].second))
-    //       << " lhs type: " << LLVMThingToString(bbb->getElementType())
-    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
-    //       << " call_inst: " << LLVMThingToString(sema_inst);
-    // } else {
-    //   CHECK(i == 0);
-    //   CHECK(sema_inst->getType() == get_llvm_type(context, write_regs[i].second))
-    //       << "call_inst type: " << LLVMThingToString(sema_inst->getType())
-    //       << " rhs type: " << LLVMThingToString(get_llvm_type(context, write_regs[i].second))
-    //       << " call_inst: " << LLVMThingToString(sema_inst);
-    // }
   }
 
   // Update the sema_call_written_reg_map

@@ -1394,7 +1394,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                     << ", userd_val type: " << LLVMThingToString(userd_val->getType()) << "\n";
               }
               // Replace with new loaded register.
-              // std::cout << "userd_val: " << LLVMThingToString(userd_val) << "\n";
               for (auto user : userd_val->users()) {
                 auto user_inst = llvm::dyn_cast<llvm::Instruction>(user);
                 if (user_inst->getParent() != target_bb) {
@@ -1507,37 +1506,11 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             if (target_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
               auto &sema_func_write_regs =
                   target_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
-              // auto call_next = call_inst->getNextNode();
               // Load all the referenced registers.
               for (std::size_t i = 0; i < sema_func_write_regs.size(); i++) {
-                // llvm::Instruction* save_inst = call_inst;
-                // if (auto str_ty = llvm::dyn_cast<llvm::StructType>(call_inst->getType())) {
-                //   if (str_ty->getElementType(i) != GetLLVMTypeFromRegZ(sema_func_write_regs[i].second)) {
-                //     save_inst = CastFromInst(sema_func_write_regs[i].first, )
-                //   }
-                // } else if (auto arr_ty = llvm::dyn_cast<llvm::ArrayType>(call_inst->getType())) {
-
-                // }
                 ascend_reg_inst_map.insert_or_assign(
                     sema_func_write_regs[i].first,
                     std::make_tuple(sema_func_write_regs[i].second, call_inst, i));
-                // if (auto aaa = llvm::dyn_cast<llvm::StructType>(call_inst->getType())) {
-                //   CHECK(aaa->getElementType(i) ==
-                //         GetLLVMTypeFromRegZ(sema_func_write_regs[i].second));
-                // } else if (auto bbb = llvm::dyn_cast<llvm::ArrayType>(call_inst->getType())) {
-                //   CHECK(bbb->getElementType() ==
-                //         GetLLVMTypeFromRegZ(sema_func_write_regs[i].second))
-                //       << " lhs type: " << LLVMThingToString(bbb->getElementType()) << ", rhs type: "
-                //       << LLVMThingToString(GetLLVMTypeFromRegZ(sema_func_write_regs[i].second))
-                //       << "call_inst: " << LLVMThingToString(call_inst) << "\n";
-                // } else {
-                //   CHECK(i == 0);
-                //   CHECK(call_inst->getType() == GetLLVMTypeFromRegZ(sema_func_write_regs[i].second))
-                //       << "call_inst type: " << LLVMThingToString(call_inst->getType())
-                //       << " rhs type: "
-                //       << LLVMThingToString(GetLLVMTypeFromRegZ(sema_func_write_regs[i].second))
-                //       << " call_inst: " << LLVMThingToString(call_inst);
-                // }
               }
               // for debug
               // if the return type is struct, this key value is not used.
@@ -1983,7 +1956,6 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       relay_bb_cache.insert(relay_bb);
 
       // Add relay_bb to the PhiRegsBBBagNode and BBRegInfoNode.
-      // (WARNING!): bag_inherited_read_reg_map and bag_read_write_reg_map is incorrect for the relay_bb. However, it is not matter.
       auto request_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map.at(request_bb);
       PhiRegsBBBagNode::bb_regs_bag_map.insert({relay_bb, request_phi_regs_bag});
       auto relay_bb_reg_info_node = new BBRegInfoNode(func, arg_state_val, arg_runtime_val);
