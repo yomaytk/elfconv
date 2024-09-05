@@ -417,9 +417,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // decoding or lifting the instruction.
       if (inst_addr != trace_addr) {
         if (auto inst_as_trace = get_trace_decl(inst_addr)) {
-          AddTerminatingTailCall(
+          auto inst_as_trace_call = AddTerminatingTailCall(
               block, inst_as_trace, *intrinsics, trace_addr,
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
+          virtual_regs_opt->lifted_func_caller_set.insert(inst_as_trace_call);
           continue;
         }
       }
