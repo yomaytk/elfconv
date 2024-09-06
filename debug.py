@@ -21,7 +21,7 @@ def extract_states(log_file):
                     current_state = {}
                 else:
                     raise RuntimeError("current state should be valid.")
-            elif line.startswith("x:") or line.startswith("sp"):
+            elif line.startswith("x") or line.startswith("sp"):
                 reg_val_pairs = [ pair.split(":") for pair in line.split(',') ]
                 if 'registers' in current_state:
                     current_state['registers'].update({key.strip(): value.strip() for key, value in reg_val_pairs})
@@ -32,7 +32,6 @@ def extract_states(log_file):
                     assert current_state == {}
                     current_state['function'] = line.strip()
                     current_state['line'] = l_num
-                    
     return states
 
 def compare_states(states_a, states_b):
