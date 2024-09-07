@@ -1,5 +1,6 @@
 #include "Runtime.h"
 
+#include <cassert>
 #include <cstdarg>
 #include <iomanip>
 #include <iostream>
@@ -261,16 +262,87 @@ extern "C" void debug_string(const char *str) {
 }
 
 extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
+
+  static std::string reg_space = " 0x                 ";
+  static std::string org_debug_str =
+      "PC:" + reg_space + "X0:" + reg_space + "X1:" + reg_space + "X2:" + reg_space +
+      "X3:" + reg_space + "X4:" + reg_space + "X5:" + reg_space + "X6:" + reg_space +
+      "X7:" + reg_space + "X8:" + reg_space + "X9:" + reg_space + "PC:" + reg_space +
+      "X10:" + reg_space + "X11:" + reg_space + "X12:" + reg_space + "X13:" + reg_space +
+      "X14:" + reg_space + "X15:" + reg_space + "X16:" + reg_space + "X17:" + reg_space +
+      "X18:" + reg_space + "X19:" + reg_space + "PC:" + reg_space + "X20:" + reg_space +
+      "X21:" + reg_space + "X22:" + reg_space + "X23:" + reg_space + "X24:" + reg_space +
+      "X25:" + reg_space + "X26:" + reg_space + "X27:" + reg_space + "X28:" + reg_space +
+      "X29:" + reg_space + "X30:" + reg_space + "SP:" + reg_space + "ECV_NZCV" + reg_space;
+
+#define __SP_INDEX 31
+#define __ECV_NZCV_INDEX 32
+
+  static uint64_t general_regs_offsets[] = {
+      /* 0 */ 3 * 2 + reg_space.length() + 3,
+      /* 1 */ 3 * 3 + reg_space.length() * 2 + 3,
+      /* 2 */ 3 * 4 + reg_space.length() * 3 + 3,
+      /* 3 */ 3 * 5 + reg_space.length() * 4 + 3,
+      /* 4 */ 3 * 6 + reg_space.length() * 5 + 3,
+      /* 5 */ 3 * 7 + reg_space.length() * 6 + 3,
+      /* 6 */ 3 * 8 + reg_space.length() * 7 + 3,
+      /* 7 */ 3 * 9 + reg_space.length() * 8 + 3,
+      /* 8 */ 3 * 10 + reg_space.length() * 9 + 3,
+      /* 9 */ 3 * 11 + reg_space.length() * 10 + 3,
+      /* 10 (skip 1 PC) */ 3 * 12 + 4 * 1 + reg_space.length() * 12 + 3,
+      /* 11 */ 3 * 12 + 4 * 2 + reg_space.length() * 13 + 3,
+      /* 12 */ 3 * 12 + 4 * 3 + reg_space.length() * 14 + 3,
+      /* 13 */ 3 * 12 + 4 * 4 + reg_space.length() * 15 + 3,
+      /* 14 */ 3 * 12 + 4 * 5 + reg_space.length() * 16 + 3,
+      /* 15 */ 3 * 12 + 4 * 6 + reg_space.length() * 17 + 3,
+      /* 16 */ 3 * 12 + 4 * 7 + reg_space.length() * 18 + 3,
+      /* 17 */ 3 * 12 + 4 * 8 + reg_space.length() * 19 + 3,
+      /* 18 */ 3 * 12 + 4 * 9 + reg_space.length() * 20 + 3,
+      /* 19 */ 3 * 12 + 4 * 10 + reg_space.length() * 21 + 3,
+      /* 20 (skip 2 PC) */ 3 * 13 + 4 * 11 + reg_space.length() * 23 + 3,
+      /* 21 */ 3 * 13 + 4 * 12 + reg_space.length() * 24 + 3,
+      /* 22 */ 3 * 13 + 4 * 13 + reg_space.length() * 25 + 3,
+      /* 23 */ 3 * 13 + 4 * 14 + reg_space.length() * 26 + 3,
+      /* 24 */ 3 * 13 + 4 * 15 + reg_space.length() * 27 + 3,
+      /* 25 */ 3 * 13 + 4 * 16 + reg_space.length() * 28 + 3,
+      /* 26 */ 3 * 13 + 4 * 17 + reg_space.length() * 29 + 3,
+      /* 27 */ 3 * 13 + 4 * 18 + reg_space.length() * 30 + 3,
+      /* 28 */ 3 * 13 + 4 * 19 + reg_space.length() * 31 + 3,
+      /* 29 */ 3 * 13 + 4 * 20 + reg_space.length() * 32 + 3,
+      /* 30 */ 3 * 13 + 4 * 21 + reg_space.length() * 33 + 3,
+      /* SP */ 3 * 13 + 4 * 22 + reg_space.length() * 34 + 3,
+      /* ECV_NZCV */ 3 * 13 + 4 * 22 + 8 + reg_space.length() * 35 + 3,
+  };
+
   va_list args;
   va_start(args, args_num);
-
-  std::cout << std::hex << "pc: 0x" << pc << "    ";
 
   if (args_num & 0b1) {
     elfconv_runtime_error("args_num must be even number at debug_vma_and_registers. args_num: %ld",
                           args_num);
   }
 
+  std::string general_regs_str = org_debug_str;
+  std::stringstream vector_regs_str("");
+  std::stringstream tmp_str;
+
+  // PC
+  tmp_str << std::hex << pc;
+  auto pc_str_len = tmp_str.str().length();
+
+  general_regs_str.replace(3 + 3 + (16 - pc_str_len), pc_str_len,
+                           tmp_str.str());  // 1 PC
+  general_regs_str.replace(general_regs_offsets[9] + reg_space.length() + 3 + (16 - pc_str_len),
+                           pc_str_len,
+                           tmp_str.str());  // 2 PC
+  general_regs_str.replace(general_regs_offsets[19] + reg_space.length() + 3 + (16 - pc_str_len),
+                           pc_str_len,
+                           tmp_str.str());  // 3 PC
+
+  tmp_str.str("");
+  tmp_str.clear(std::stringstream::goodbit);
+
+  // All regs
   for (size_t i = 0; i < args_num; i += 2) {
     char *reg_name = va_arg(args, char *);
     // Vector
@@ -279,17 +351,32 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
       uint128_t reg_val = va_arg(args, uint128_t);
       uint64_t high = static_cast<uint64_t>(reg_val >> 64);
       uint64_t low = static_cast<uint64_t>(reg_val & 0xffff'ffff'ffff'ffff);
-      std::cout << reg_name << ": 0x" << std::hex << std::setw(16) << std::setfill('0') << high
-                << std::setw(16) << std::setfill('0') << low << " ";
+      vector_regs_str << reg_name << ": 0x" << std::hex << std::setw(16) << std::setfill('0')
+                      << high << std::setw(16) << std::setfill('0') << low << " ";
     }
     // General or Special
     else {
       uint64_t reg_val = va_arg(args, uint64_t);
-      std::cout << reg_name << ": 0x" << reg_val << " ";
+      tmp_str.str("");
+      tmp_str.clear(std::stringstream::goodbit);
+      tmp_str << std::hex << reg_val;
+      auto tmp_str_len = tmp_str.str().length();
+      size_t reg_index;
+      if (reg_name[0] == 'X') {
+        reg_index = std::atoi(reg_name + 1);
+      } else if (strncmp(reg_name, "ECV_NZCV", 8) == 0) {
+        reg_index = __ECV_NZCV_INDEX;
+      } else if (strncmp(reg_name, "SP", 2) == 0) {
+        reg_index = __SP_INDEX;
+      } else {
+        assert(strncmp(reg_name, "PC", 2) == 0);
+      }
+      general_regs_str.replace(general_regs_offsets[reg_index] + (16 - tmp_str_len), tmp_str_len,
+                               tmp_str.str());
     }
   }
 
-  std::cout << std::endl;
+  std::cout << general_regs_str << " " << vector_regs_str.str() << std::endl;
 
   va_end(args);
 }

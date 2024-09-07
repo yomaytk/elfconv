@@ -49,7 +49,7 @@ namespace remill {
     ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
 #else
 #  define DEBUG_PC_AND_REGISTERS(...)
-#  define VAR_NAME(...) llvm::Twine::createNull()
+#  define VAR_NAME(...) ""
 #endif
 
 std::ostringstream ECV_DEBUG_STREAM;
@@ -945,9 +945,10 @@ void TraceLifter::Impl::Optimize() {
   std::cout << std::endl;
 
   // Insert `debug_string` for the every function
+#if defined(OPT_CALL_FUNC_DEBUG) || defined(OPT_REAL_REGS_DEBUG)
   for (auto lifted_func : lifted_funcs) {
     auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
-#if defined(OPT_CALL_FUNC_DEBUG) || defined(OPT_REAL_REGS_DEBUG)
+#  if defined(OPT_CALL_FUNC_DEBUG)
     auto debug_string_fn = module->getFunction("debug_string");
     auto fun_name_val =
         llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
@@ -955,12 +956,13 @@ void TraceLifter::Impl::Optimize() {
         *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage, fun_name_val,
         lifted_func->getName().str() + "debug_name");
     llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
-#endif
-#if defined(OPT_REAL_REGS_DEBUG)
+#  endif
+#  if defined(OPT_REAL_REGS_DEBUG)
     auto debug_state_machine_fun = module->getFunction("debug_state_machine");
     llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
-#endif
+#  endif
   }
+#endif
 }
 
 llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst,
@@ -1197,8 +1199,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   debug_reg_set.insert({EcvReg(RegKind::General, 2)});
   debug_reg_set.insert({EcvReg(RegKind::General, 1)});
   debug_reg_set.insert({EcvReg(RegKind::General, 3)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 0)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 10)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 11)});
   debug_reg_set.insert({EcvReg(RegKind::General, 20)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 8)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 9)});
+  debug_reg_set.insert({EcvReg(RegKind::General, 4)});
   debug_reg_set.insert({EcvReg(RegKind::Special, ECV_NZCV_ORDER)});
 
   // Add the phi nodes to the every basic block.
@@ -1388,19 +1394,21 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               auto [req_r_c, userd_val, order] = tuple_set;
               auto req_load = llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
                   target_bb, state_ptr, req_ecv_reg.GetRegName(req_r_c), call_next_inst));
-              if (llvm::dyn_cast<llvm::StructType>(userd_val->getType()) ||
-                  llvm::dyn_cast<llvm::ArrayType>(userd_val->getType())) {
-              } else {
-                CHECK(GetLLVMTypeFromRegZ(req_r_c) == userd_val->getType())
-                    << "req_r_c type: " << LLVMThingToString(GetLLVMTypeFromRegZ(req_r_c))
-                    << ", userd_val type: " << LLVMThingToString(userd_val->getType()) << "\n";
-              }
               // Replace with new loaded register.
-              for (auto user : userd_val->users()) {
-                auto user_inst = llvm::dyn_cast<llvm::Instruction>(user);
+              std::set<llvm::User *> fin_users;
+              auto user = userd_val->user_begin();
+              while (userd_val->user_end() != user) {
+                if (fin_users.contains(*user)) {
+                  user++;
+                  continue;
+                }
+                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
                 if (user_inst->getParent() != target_bb) {
                   CHECK(0 == order);
                   user_inst->replaceUsesOfWith(userd_val, req_load);
+                  fin_users.insert(*user);
+                  user = userd_val->user_begin();
+                  continue;
                 } else if (req_load->comesBefore(user_inst)) {
                   // user_inst is ExtractValueInst.
                   if (auto extr_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
@@ -1409,14 +1417,20 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                           << "req_load: " << LLVMThingToString(req_load)
                           << ", userd_val: " << LLVMThingToString(extr_user) << "\n";
                       extr_user->replaceAllUsesWith(req_load);
+                      // extr_user->eraseFromParent();
                     } else {
+                      user++;
                       continue;
                     }
                   } else {
                     CHECK(order == 0);
                     user_inst->replaceUsesOfWith(userd_val, req_load);
                   }
+                  fin_users.insert(*user);
+                  user = userd_val->user_begin();
+                  continue;
                 }
+                user++;
               }
               // Update cache.
               ascend_reg_inst_map.insert_or_assign(req_ecv_reg,
@@ -1468,14 +1482,20 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               auto req_load = llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
                   target_bb, state_ptr, req_ecv_reg.GetRegName(req_r_c), call_next_inst));
               // Replace with new loaded register.
-              for (auto user : userd_val->users()) {
-                auto user_inst = llvm::dyn_cast<llvm::Instruction>(user);
+              std::set<llvm::User *> fin_users;
+              auto user = userd_val->user_begin();
+              while (userd_val->user_end() != user) {
+                if (fin_users.contains(*user)) {
+                  user++;
+                  continue;
+                }
+                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
                 if (user_inst->getParent() != target_bb) {
-                  CHECK(req_load->getType() == userd_val->getType())
-                      << "req_load: " << LLVMThingToString(req_load)
-                      << ", userd_val: " << LLVMThingToString(userd_val) << "\n";
                   CHECK(0 == order);
                   user_inst->replaceUsesOfWith(userd_val, req_load);
+                  fin_users.insert(*user);
+                  user = userd_val->user_begin();
+                  continue;
                 } else if (req_load->comesBefore(user_inst)) {
                   // user_inst is ExtractValueInst.
                   if (auto extr_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
@@ -1484,14 +1504,20 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                           << "req_load: " << LLVMThingToString(req_load)
                           << ", userd_val: " << LLVMThingToString(extr_user) << "\n";
                       extr_user->replaceAllUsesWith(req_load);
+                      // extr_user->eraseFromParent();
                     } else {
+                      user++;
                       continue;
                     }
                   } else {
                     CHECK(order == 0);
                     user_inst->replaceUsesOfWith(userd_val, req_load);
                   }
+                  fin_users.insert(*user);
+                  user = userd_val->user_begin();
+                  continue;
                 }
+                user++;
               }
               // Update cache.
               ascend_reg_inst_map.insert_or_assign(req_ecv_reg,
@@ -2117,18 +2143,18 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
         continue;
       }
       DEBUG_REMOVE_LOOP_GRAPH(target_bag);
-      bool target_bag_is_in_visited = false;
+      bool loop_found = false;
       std::set<PhiRegsBBBagNode *> true_visited;
       for (auto _bag : visited) {
         auto true_bag = _bag->GetTrueBag();
         if (true_bag == target_bag) {
-          target_bag_is_in_visited = true;
+          loop_found = true;
         }
         true_visited.insert(true_bag);
       }
       visited = true_visited;
 
-      if (target_bag_is_in_visited) {
+      if (loop_found) {
         auto it_loop_bag = pre_path.rbegin();
         std::set<PhiRegsBBBagNode *> true_deleted_bags;
         for (;;) {
