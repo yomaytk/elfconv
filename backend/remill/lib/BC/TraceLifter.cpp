@@ -1194,18 +1194,18 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
   ECV_LOG_NL(OutLLVMFunc(func).str().c_str());
 
-  // stdout the specified registers for the every semantics function.
+// stdout the specified registers for the every semantics function.
+#if defined(OPT_REAL_REGS_DEBUG)
+  for (size_t i = 0; i < 31; i++) {
+    debug_reg_set.insert({EcvReg(RegKind::General, i)});
+    // debug_reg_set.insert({EcvReg(RegKind::Vector, i)});
+  }
   // debug_reg_set.insert({EcvReg(RegKind::General, 3)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 2)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 1)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 3)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 10)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 11)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 20)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 8)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 9)});
-  debug_reg_set.insert({EcvReg(RegKind::General, 4)});
-  debug_reg_set.insert({EcvReg(RegKind::Special, ECV_NZCV_ORDER)});
+  // debug_reg_set.insert({EcvReg(RegKind::General, 1)});
+  // debug_reg_set.insert({EcvReg(RegKind::General, 21)});
+  // debug_reg_set.insert({EcvReg(RegKind::General, 24)});
+  // debug_reg_set.insert({EcvReg(RegKind::Special, ECV_NZCV_ORDER)});
+#endif
 
   // Add the phi nodes to the every basic block.
   std::set<llvm::BasicBlock *> finished;
@@ -1335,9 +1335,6 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             target_inst_it = llvm::dyn_cast<llvm::Instruction>(load_inst)->getNextNode();
             // Replace all the Users.
             load_inst->replaceAllUsesWith(new_ecv_reg_inst);
-            // Update cache.
-            ascend_reg_inst_map.insert_or_assign(
-                target_ecv_reg, std::make_tuple(load_ecv_reg_class, new_ecv_reg_inst, 0));
             CHECK(new_ecv_reg_inst->getType() == GetLLVMTypeFromRegZ(load_ecv_reg_class));
             // Delete load_inst.
             load_inst->eraseFromParent();
@@ -1346,6 +1343,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           else {
             new_ecv_reg_inst = load_inst;
             target_inst_it = llvm::dyn_cast<llvm::Instruction>(load_inst)->getNextNode();
+            // Update cache.
+            ascend_reg_inst_map.insert_or_assign(
+                target_ecv_reg, std::make_tuple(load_ecv_reg_class, new_ecv_reg_inst, 0));
           }
 
           // for debug
@@ -1581,6 +1581,11 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         }
         // Target: llvm::BinaryOperator
         else if (auto binary_inst = llvm::dyn_cast<llvm::BinaryOperator>(target_inst_it)) {
+          if (target_bb_reg_info_node->post_update_regs.contains(binary_inst)) {
+            auto [bin_e_r, bin_e_r_c] = target_bb_reg_info_node->post_update_regs.at(binary_inst);
+            ascend_reg_inst_map.insert_or_assign(bin_e_r,
+                                                 std::make_tuple(bin_e_r_c, binary_inst, 0));
+          }
           target_inst_it = target_inst_it->getNextNode();
           // for debug
           auto lhs = binary_inst->getOperand(0);
@@ -1886,9 +1891,6 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         // Update cache.
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
-        CHECK(from_extracted_inst->getType() == GetLLVMTypeFromRegZ(from_extracted_inst_reg_class))
-            << "from_extracted_inst: " << LLVMThingToString(from_extracted_inst) << ", class "
-            << LLVMThingToString(GetLLVMTypeFromRegZ(from_extracted_inst_reg_class));
         target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
             target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
         req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
@@ -1955,9 +1957,15 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
   // The target_bb doesn't have the target register, so need to `load` the register.
   else {
     bool relay_bb_need = false;
+    auto load_e_r_c = req_ecv_reg_class;
     for (std::size_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
-      relay_bb_need |= !PhiRegsBBBagNode::bb_regs_bag_map.at(target_terminator->getSuccessor(i))
-                            ->bag_req_reg_map.contains(target_ecv_reg);
+      auto &succi_bag_req_reg_map =
+          PhiRegsBBBagNode::bb_regs_bag_map.at(target_terminator->getSuccessor(i))->bag_req_reg_map;
+      relay_bb_need |= !succi_bag_req_reg_map.contains(target_ecv_reg);
+      if (succi_bag_req_reg_map.contains(target_ecv_reg) &&
+          GetRegClassSize(load_e_r_c) < GetRegClassSize(succi_bag_req_reg_map.at(target_ecv_reg))) {
+        load_e_r_c = succi_bag_req_reg_map.at(target_ecv_reg);
+      }
     }
 
     // Need to insert `relay_bb`
@@ -2041,21 +2049,17 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       // Add `load` instruction.
       auto state_ptr = NthArgument(func, kStatePointerArgNum);
       auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
-          target_bb, state_ptr, target_ecv_reg.GetRegName(req_ecv_reg_class), target_terminator,
-          VAR_NAME(target_ecv_reg, req_ecv_reg_class));
-      req_value = load_value;
+          target_bb, state_ptr, target_ecv_reg.GetRegName(load_e_r_c), target_terminator,
+          VAR_NAME(target_ecv_reg, load_e_r_c));
+      req_value = CastFromInst(target_ecv_reg, load_value, GetLLVMTypeFromRegZ(req_ecv_reg_class),
+                               target_terminator, load_value);
       // Update cache.
-      target_bb_reg_info_node->reg_derived_added_inst_map.insert({target_ecv_reg, load_value});
       target_bb_reg_info_node->reg_latest_inst_map.insert(
-          {target_ecv_reg, {req_ecv_reg_class, req_value, 0}});
+          {target_ecv_reg, {load_e_r_c, load_value, 0}});
       target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
           {req_value, {target_ecv_reg, req_ecv_reg_class}});
-      CHECK(req_value->getType() == GetLLVMTypeFromRegZ(req_ecv_reg_class))
-          << "req_value: " << LLVMThingToString(req_value)
-          << ", rhs type: " << LLVMThingToString(GetLLVMTypeFromRegZ(req_ecv_reg_class));
       // for debug
-      value_reg_map.insert(
-          {load_value, {target_ecv_reg, GetRegZFromLLVMType(load_value->getType())}});
+      value_reg_map.insert({load_value, {target_ecv_reg, load_e_r_c}});
       value_reg_map.insert({req_value, {target_ecv_reg, req_ecv_reg_class}});
     }
   }

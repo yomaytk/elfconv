@@ -216,6 +216,50 @@ uint64_t GetRegClassSize(EcvRegClass ecv_reg_class) {
   }
 }
 
+BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
+                             llvm::Value *runtime_val) {
+  for (auto &arg : func->args()) {
+    if (arg.getName().str() == "state") {
+      reg_latest_inst_map.insert({EcvReg(RegKind::Special, STATE_ORDER),
+                                  std::make_tuple(EcvRegClass::RegP, state_val, 0)});
+    } else if (arg.getName().str() == "runtime_manager") {
+      reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
+                                  std::make_tuple(EcvRegClass::RegP, runtime_val, 0)});
+    }
+  }
+  CHECK(reg_latest_inst_map.size() == 2)
+      << "[Bug] BBRegInfoNode cannot be initialized with invalid reg_latest_inst_map.";
+}
+
+void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
+  // Join bb_load_reg_map
+  for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
+    bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
+  }
+  // Join bb_store_reg_map
+  for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
+    bb_store_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+  }
+  // Join reg_latest_inst_map
+  for (auto [_ecv_reg, reg_inst_value] : child->reg_latest_inst_map) {
+    if (!reg_latest_inst_map.contains(_ecv_reg)) {
+      reg_latest_inst_map.insert({_ecv_reg, reg_inst_value});
+    } else if (child->bb_store_reg_map.contains(_ecv_reg) ||
+               GetRegClassSize(std::get<EcvRegClass>(reg_latest_inst_map.at(_ecv_reg))) <=
+                   GetRegClassSize(std::get<EcvRegClass>(reg_inst_value))) {
+      reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
+    }
+  }
+  // Join sema_call_written_reg_map
+  for (auto key_value : child->sema_call_written_reg_map) {
+    sema_call_written_reg_map.insert(key_value);
+  }
+  // Join sema_func_args_reg_map
+  for (auto key_value : child->sema_func_args_reg_map) {
+    sema_func_args_reg_map.insert(key_value);
+  }
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
@@ -429,10 +473,12 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     }
 
     if (!target_reg->name.empty()) {
-      auto [ecv_reg, ecv_reg_class] = EcvReg::GetRegInfo(target_reg->name);
+      auto e_r_info = EcvReg::GetRegInfo(target_reg->name);
+      ecv_reg = e_r_info.first;
+      ecv_reg_class = e_r_info.second;
       if (Operand::Action::kActionRead == op.action) {
         // skip the case where the load register is `XZR` or `WZR`.
-        if (31 != target_reg->number || "PC" == target_reg->name) {
+        if (31 != target_reg->number || "SP" == target_reg->name) {
           load_reg_map.insert({ecv_reg, ecv_reg_class});
         } else {
           ecv_reg_class = EcvRegClass::RegNULL;
@@ -519,17 +565,19 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (!arch_inst.updated_addr_reg.name.empty()) {
     const auto [update_reg_ptr_reg, _] =
         LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
+    auto [updated_ecv_reg, updated_ecv_reg_class] =
+        EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
     // args[args.size() - 1] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
     auto updated_addr_value = args[args.size() - 1];
     if (arch_inst.updated_post_offset > 0) {
       updated_addr_value =
           ir.CreateAdd(updated_addr_value, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
                                                                   arch_inst.updated_post_offset));
+      bb_reg_info_node->post_update_regs.insert(
+          {updated_addr_value, {updated_ecv_reg, updated_ecv_reg_class}});
     }
     ir.CreateStore(updated_addr_value, update_reg_ptr_reg, false);
     // Update cache.
-    auto [updated_ecv_reg, updated_ecv_reg_class] =
-        EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
         updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_addr_value, 0));
@@ -982,9 +1030,15 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
                                                      llvm::Argument *arg, Operand &arch_op) {
   if (arg->getType()->isIntegerTy()) {
     return llvm::ConstantInt::get(arg->getType(), arch_op.imm.val, arch_op.imm.is_signed);
-  } else if (arg->getType()->isFloatingPointTy()) {
-    return llvm::ConstantFP::get(arg->getType(), arch_op.imm.val);
-  } else {
+  } else if (arg->getType()->isFloatTy()) {
+    auto float_val = *reinterpret_cast<float *>(&arch_op.imm.val);
+    return llvm::ConstantFP::get(arg->getType(), float_val);
+  } else if (arg->getType()->isDoubleTy()) {
+    auto double_val = *reinterpret_cast<double *>(&arch_op.imm.val);
+    return llvm::ConstantFP::get(arg->getType(), double_val);
+  }
+
+  else {
     LOG(FATAL) << "Unexpected type of the Immediate. arg type: "
                << LLVMThingToString(arg->getType());
   }

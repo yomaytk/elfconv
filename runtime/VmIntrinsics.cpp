@@ -346,8 +346,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
   for (size_t i = 0; i < args_num; i += 2) {
     char *reg_name = va_arg(args, char *);
     // Vector
-    if (std::isdigit(reg_name[0]) || 'B' == reg_name[0] || 'H' == reg_name[0] ||
-        'S' == reg_name[0] || 'D' == reg_name[0] || 'Q' == reg_name[0]) {
+    if ('V' == reg_name[0]) {
       uint128_t reg_val = va_arg(args, uint128_t);
       uint64_t high = static_cast<uint64_t>(reg_val >> 64);
       uint64_t low = static_cast<uint64_t>(reg_val & 0xffff'ffff'ffff'ffff);

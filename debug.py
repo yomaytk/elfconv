@@ -11,9 +11,8 @@ def extract_states(log_file):
     current_state = {}
 
     with open(log_file, 'r') as file:
-        l_num = 0
+        l_num = 1
         for line in file:
-            l_num += 1
             if line.startswith("tpidr_el0:"):
                 if current_state:
                     reg_val_pairs = [ pair.split(":") for pair in line.split(',') ]
@@ -33,6 +32,21 @@ def extract_states(log_file):
                     assert current_state == {}
                     current_state['function'] = line.strip()
                     current_state['line'] = l_num
+            l_num += 1
+    return states
+
+def extract_call_funcs(log_file):
+    """Extracts the all called functions"""
+    states = []
+
+    with open(log_file, 'r') as file:
+        l_num = 1
+        for line in file:
+            current_state = {}
+            current_state['function'] = line.strip()
+            current_state['line'] = l_num
+            states.append(current_state)
+            l_num += 1
     return states
 
 def compare_states(states_a, states_b):
@@ -75,29 +89,45 @@ def compare_call_funcs(states_a, states_b):
     return True
         
 def main():
-    if len(sys.argv) < 3:
+    
+    if len(sys.argv) < 4:
         print("Usage: python3 app.py path/to/FA.log path/to/FB.log")
         sys.exit(1)
 
-    global file_a, file_b
-    file_a = sys.argv[1]
-    file_b = sys.argv[2]
+    mode = sys.argv[1]
 
-    global ignore_regs
-    if len(sys.argv) > 3:
-        if sys.argv[3] == "--ignore":
-            for i in range(4, len(sys.argv), 2):
-                ignore_regs[sys.argv[i]] = sys.argv[i+1]
-    
-    # Extract states from both files
-    states_fa = extract_states(file_a)
-    states_fb = extract_states(file_b)
-    
-    called_func_order = compare_call_funcs(states_fa, states_fb)
-    
-    if called_func_order:
-       print("[INFO] Called funcs order is correct!")
-       compare_states(states_fa, states_fb)
+    global file_a, file_b
+    file_a = sys.argv[2]
+    file_b = sys.argv[3]
+
+    if mode == "--call-stack":
+        call_funcs_fa = extract_call_funcs(file_a)
+        call_funcs_fb = extract_call_funcs(file_b)
+        res = compare_call_funcs(call_funcs_fa, call_funcs_fb)
+        if res:
+            print('[INFO] call stack is equal.')
+    elif mode == "--all-regs":
+        global ignore_regs
+        if len(sys.argv) > 4:
+            if sys.argv[4] == "--ignore":
+                for i in range(5, len(sys.argv), 2):
+                    ignore_regs[sys.argv[i]] = sys.argv[i+1]
+            else:
+                raise RuntimeError(f'invalid option {sys.argv[4]}')
+        
+        # Extract states from both files
+        states_fa = extract_states(file_a)
+        states_fb = extract_states(file_b)
+        
+        called_func_order = compare_call_funcs(states_fa, states_fb)
+        
+        if called_func_order:
+          print("[INFO] Called funcs order is correct!")
+          compare_states(states_fa, states_fb)
+    else:
+        raise RuntimeError(f'invalid mode {mode}.')
+        
+
 
 if __name__ == "__main__":
     main()

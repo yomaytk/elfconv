@@ -22,6 +22,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <tuple>
 
 namespace llvm {
 class Argument;
@@ -175,43 +176,10 @@ using EcvRegMap = std::unordered_map<EcvReg, VT, EcvReg::Hash>;
 
 class BBRegInfoNode {
  public:
-  BBRegInfoNode(llvm::Function *func, llvm::Value *state_val, llvm::Value *runtime_val) {
-    for (auto &arg : func->args()) {
-      if (arg.getName().str() == "state") {
-        reg_latest_inst_map.insert({EcvReg(RegKind::Special, STATE_ORDER),
-                                    std::make_tuple(EcvRegClass::RegP, state_val, 0)});
-      } else if (arg.getName().str() == "runtime_manager") {
-        reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
-                                    std::make_tuple(EcvRegClass::RegP, runtime_val, 0)});
-      }
-    }
-    CHECK(reg_latest_inst_map.size() == 2)
-        << "[Bug] BBRegInfoNode cannot be initialized with invalid reg_latest_inst_map.";
-  }
+  BBRegInfoNode(llvm::Function *func, llvm::Value *state_val, llvm::Value *runtime_val);
   ~BBRegInfoNode() {}
 
-  void join_reg_info_node(BBRegInfoNode *child) {
-    // Join bb_load_reg_map
-    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
-      bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
-    }
-    // Join bb_store_reg_map
-    for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
-      bb_store_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
-    }
-    // Join reg_latest_inst_map
-    for (auto [_ecv_reg, reg_inst_value] : child->reg_latest_inst_map) {
-      reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
-    }
-    // Join sema_call_written_reg_map
-    for (auto key_value : child->sema_call_written_reg_map) {
-      sema_call_written_reg_map.insert(key_value);
-    }
-    // Join sema_func_args_reg_map
-    for (auto key_value : child->sema_func_args_reg_map) {
-      sema_func_args_reg_map.insert(key_value);
-    }
-  }
+  void join_reg_info_node(BBRegInfoNode *child);
 
   // The register set which is `load`ed in this block.
   EcvRegMap<EcvRegClass> bb_load_reg_map;
@@ -227,6 +195,8 @@ class BBRegInfoNode {
   // Save the args registers by semantic functions (for debug)
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_func_args_reg_map;
+
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> post_update_regs;
 
   // Map the added instructions that can be refered later on and register
   // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
