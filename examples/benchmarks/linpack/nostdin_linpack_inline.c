@@ -98,8 +98,10 @@ int main(void)
     printf("    Reps Time(s) DGEFA   DGESL  OVERHEAD    KFLOPS\n");
     printf("----------------------------------------------------\n");
     nreps = 1;
-    while (linpack(nreps, arsize) < 10.)
+    while (nreps < 100000) {
+      linpack(nreps, arsize);
       nreps *= 2;
+    }
     free(mempool);
     printf("\n");
   } while (0);
@@ -125,7 +127,7 @@ static REAL linpack(long nreps, int arsize)
   ipvt = (int *) &b[arsize];
   tdgesl = 0;
   tdgefa = 0;
-  totalt = second();
+  // totalt = second();
   for (i = 0; i < nreps; i++) {
     // matgen(a, lda, n, b, &norma);
     // matgen
@@ -147,12 +149,12 @@ static REAL linpack(long nreps, int arsize)
           b[i] = b[i] + a[lda * j + i];
     }
 
-    t1 = second();
+    // t1 = second();
     dgefa(a, lda, n, ipvt, &info, 1);
-    tdgefa += second() - t1;
-    t1 = second();
+    // tdgefa += second() - t1;
+    // t1 = second();
     dgesl(a, lda, n, ipvt, b, 0, 1);
-    tdgesl += second() - t1;
+    // tdgesl += second() - t1;
   }
   for (i = 0; i < nreps; i++) {
     // matgen(a, lda, n, b, &norma);
@@ -174,27 +176,26 @@ static REAL linpack(long nreps, int arsize)
         for (i = 0; i < n; i++)
           b[i] = b[i] + a[lda * j + i];
     }
-    t1 = second();
+    // t1 = second();
     dgefa(a, lda, n, ipvt, &info, 0);
-    tdgefa += second() - t1;
-    t1 = second();
+    // tdgefa += second() - t1;
+    // t1 = second();
     dgesl(a, lda, n, ipvt, b, 0, 0);
-    tdgesl += second() - t1;
+    // tdgesl += second() - t1;
   }
-  totalt = second() - totalt;
+  // totalt = second() - totalt;
   // if (totalt < 0.5 || tdgefa + tdgesl < 0.2)
   //   return (0.);
-  kflops = 2. * nreps * ops / (1000. * (tdgefa + tdgesl));
-  toverhead = totalt - tdgefa - tdgesl;
-  if (tdgefa < 0.)
-    tdgefa = 0.;
-  if (tdgesl < 0.)
-    tdgesl = 0.;
-  if (toverhead < 0.)
-    toverhead = 0.;
-  printf("%8ld %6.2f %6.2f%% %6.2f%% %6.2f%%  %9.3f\n", nreps, totalt, 100. * tdgefa / totalt,
-         100. * tdgesl / totalt, 100. * toverhead / totalt, kflops);
-  return (totalt);
+  // kflops = 2. * nreps * ops / (1000. * (tdgefa + tdgesl));
+  // toverhead = totalt - tdgefa - tdgesl;
+  // if (tdgefa < 0.)
+  //   tdgefa = 0.;
+  // if (tdgesl < 0.)
+  //   tdgesl = 0.;
+  // if (toverhead < 0.)
+  //   toverhead = 0.;
+  printf("%8ld end!\n", nreps);
+  return nreps;
 }
 
 
