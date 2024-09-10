@@ -5257,6 +5257,34 @@ bool TryDecodeFMLA_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+bool TryDecodeFMLA_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t total_size, elem_size, index;
+  total_size = data.Q ? 128 : 64;
+  if (0b011111 /* (single | double)-precision */ == data.opcode) {
+    elem_size = data.sz ? 64 : 32;
+  } else {
+    std::__throw_runtime_error(
+        "[ERROR] invalid opcode of InstData at 'TryDecodeFMLA_ASIMDELEM_R_SD'\n");
+  }
+  if (0 == data.sz) {
+    index = (data.H << 1) + data.L;
+  } else if (1 == data.sz && 0 == data.L) {
+    index = data.H;
+  } else {
+    std::__throw_runtime_error(
+        "[ERROR] invalid 'sz' or 'L' of InstData at TryDecodeFMLA_ASIMDELEM_R_SD\n");
+  }
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  auto rclass = ArrangementRegClass(total_size, elem_size, true);
+  AddRegOperand(inst, kActionReadWrite, rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
+  AddImmOperand(inst, index, kUnsigned, 64);
+  return true;
+}
+
 // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFADD_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;

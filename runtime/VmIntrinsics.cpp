@@ -261,6 +261,8 @@ extern "C" void debug_string(const char *str) {
   std::cout << str << std::endl;
 }
 
+
+#if defined(__linux__)
 extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   static std::string reg_space = " 0x                 ";
@@ -275,8 +277,8 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
       "X25:" + reg_space + "X26:" + reg_space + "X27:" + reg_space + "X28:" + reg_space +
       "X29:" + reg_space + "X30:" + reg_space + "SP:" + reg_space + "ECV_NZCV" + reg_space;
 
-#define __SP_INDEX 31
-#define __ECV_NZCV_INDEX 32
+#  define __SP_INDEX 31
+#  define __ECV_NZCV_INDEX 32
 
   static uint64_t general_regs_offsets[] = {
       /* 0 */ 3 * 2 + reg_space.length() + 3,
@@ -324,7 +326,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   std::string general_regs_str = org_debug_str;
   std::stringstream vector_regs_str("");
-  std::stringstream tmp_str;
+  std::stringstream tmp_str("");
 
   // PC
   tmp_str << std::hex << pc;
@@ -379,6 +381,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   va_end(args);
 }
+#endif
 
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {

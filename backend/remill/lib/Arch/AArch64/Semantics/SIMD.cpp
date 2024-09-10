@@ -594,30 +594,30 @@ DEF_ISEL(SMAXP_ASIMDSAME_ONLY_4S) = SMAXP_32<VIi32v4>;  // SMAXP  <Vd>.<T>, <Vn>
 namespace {
 
 template <typename VI, typename B>
-ALWAYS_INLINE static auto Reduce2(const VI &vec, B binop,
-                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+ALWAYS_INLINE static auto Reduce2(const VI &vec, B binop, size_t base = 0)
+    -> decltype(binop(vec[0], vec[1])) {
   return binop(vec[base + 0], vec[base + 1]);
 }
 
 template <typename VI, typename B>
-ALWAYS_INLINE static auto Reduce4(const VI &vec, B binop,
-                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+ALWAYS_INLINE static auto Reduce4(const VI &vec, B binop, size_t base = 0)
+    -> decltype(binop(vec[0], vec[1])) {
   auto lo = Reduce2(vec, binop, base + 0);
   auto hi = Reduce2(vec, binop, base + 2);
   return binop(lo, hi);
 }
 
 template <typename VI, typename B>
-ALWAYS_INLINE static auto Reduce8(const VI &vec, B binop,
-                                  size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+ALWAYS_INLINE static auto Reduce8(const VI &vec, B binop, size_t base = 0)
+    -> decltype(binop(vec[0], vec[1])) {
   auto lo = Reduce4(vec, binop, base + 0);
   auto hi = Reduce4(vec, binop, base + 4);
   return binop(lo, hi);
 }
 
 template <typename VI, typename B>
-ALWAYS_INLINE static auto Reduce16(const VI &vec, B binop,
-                                   size_t base = 0) -> decltype(binop(vec[0], vec[1])) {
+ALWAYS_INLINE static auto Reduce16(const VI &vec, B binop, size_t base = 0)
+    -> decltype(binop(vec[0], vec[1])) {
   auto lo = Reduce8(vec, binop, base + 0);
   auto hi = Reduce8(vec, binop, base + 8);
   return binop(lo, hi);
@@ -954,7 +954,7 @@ namespace {
                                  FExtractVI##elem_size(res, i)); \
     } \
     return res; \
-  }  // namespace
+  }
 
 // no support of float16
 MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 32, Mul, Add);
@@ -968,6 +968,46 @@ MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 64, Mul, Add);
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S) = FMLA_V32<VIf32v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S) = FMLA_V32<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D) = FMLA_V64<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+// FMLA_ASIMDELEM_R_SD
+namespace {
+
+#define MAKE_FTWICEOP_ASIMDELEM_R_SD(prefix, elem_size, op1, op2) \
+  template <typename V> \
+  DEF_SEM_T(F##prefix##_ELEM_V##elem_size, V dst_src, V src1, V src2, I64 index) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto dst_src_v = FReadVI##elem_size(dst_src); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    auto id = Read(index); \
+    V res = {}; \
+    /* res = Vn op1 Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, id)); \
+    } \
+    /* res = res op2 Vd */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
+      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+                                 FExtractVI##elem_size(res, i)); \
+    } \
+    return res; \
+  }
+
+MAKE_FTWICEOP_ASIMDELEM_R_SD(MLA, 32, Mul, Add);
+MAKE_FTWICEOP_ASIMDELEM_R_SD(MLA, 64, Mul, Add);
+
+#undef MAKE_FTWICEOP_ASIMDELEM_R_SD
+
+}  // namespace
+
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_2S) =
+    FMLA_ELEM_V32<VIf32v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_4S) =
+    FMLA_ELEM_V32<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_2D) =
+    FMLA_ELEM_V64<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> once operation
 // FMUL_ASIMDSAME_ONLY
