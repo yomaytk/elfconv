@@ -7,6 +7,8 @@
 #include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
+#include <sstream>
+#include <unordered_map>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
@@ -125,9 +127,14 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
+
+
 void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
-  if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
-    // std::cout << "indirect: " << runtime_manager->addr_fn_symbol_map[fn_vma] << std::endl;
+  static std::unordered_map<addr_t, LiftedFunc> vma_cache;
+  if (auto jmp_fn_cache = vma_cache[fn_vma]; jmp_fn_cache) {
+    jmp_fn_cache(&state, fn_vma, runtime_manager);
+  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
+    vma_cache.insert({fn_vma, jmp_fn});
     jmp_fn(&state, fn_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
@@ -139,7 +146,11 @@ void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime
 
 /* BR instruction */
 void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
-  if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
+  static std::unordered_map<addr_t, LiftedFunc> vma_cache_2;
+  if (auto jmp_fn_cache = vma_cache_2[fn_vma]; jmp_fn_cache) {
+    jmp_fn_cache(&state, fn_vma, runtime_manager);
+  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
+    vma_cache_2.insert({fn_vma, jmp_fn});
     jmp_fn(&state, fn_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
@@ -262,7 +273,6 @@ extern "C" void debug_string(const char *str) {
 }
 
 
-#if defined(__linux__)
 extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   static std::string reg_space = " 0x                 ";
@@ -277,8 +287,8 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
       "X25:" + reg_space + "X26:" + reg_space + "X27:" + reg_space + "X28:" + reg_space +
       "X29:" + reg_space + "X30:" + reg_space + "SP:" + reg_space + "ECV_NZCV" + reg_space;
 
-#  define __SP_INDEX 31
-#  define __ECV_NZCV_INDEX 32
+#define __SP_INDEX 31
+#define __ECV_NZCV_INDEX 32
 
   static uint64_t general_regs_offsets[] = {
       /* 0 */ 3 * 2 + reg_space.length() + 3,
@@ -381,7 +391,6 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   va_end(args);
 }
-#endif
 
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {
