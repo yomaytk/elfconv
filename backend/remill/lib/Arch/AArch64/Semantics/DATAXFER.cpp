@@ -648,8 +648,8 @@ DEF_SEM_F64_RUN(LDR_D, MVI64 src_mem) {
   return FReadMVI64(src_mem)[0];
 }
 
-DEF_SEM_U128_RUN(LDR_Q, MVI128 src_mem) {
-  return UReadMVI128(src_mem)[0];
+DEF_SEM_V128_RUN(LDR_Q, MVI128 src_mem) {
+  return UReadMVI128(src_mem);
 }
 
 // DEF_SEM(LDR_B_UpdateIndex, VI128 dst, MVI8 src, ADDR next_addr) {
@@ -670,8 +670,8 @@ DEF_SEM_F64_RUN(LDR_D_UpdateIndex, MVI64 src_mem) {
   return FReadMVI64(src_mem)[0];
 }
 
-DEF_SEM_U128_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
-  return UReadMVI128(src_mem)[0];
+DEF_SEM_V128_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
+  return UReadMVI128(src_mem);
 }
 
 // DEF_SEM(LDR_B_FromOffset, VI128 dst, MVI8 src, ADDR offset) {
@@ -690,8 +690,8 @@ DEF_SEM_F64_RUN(LDR_D_FromOffset, MVI64 src_mem, ADDR offset) {
   return FReadMVI64(DisplaceAddress(src_mem, Read(offset)))[0];
 }
 
-DEF_SEM_U128_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
-  return UReadMVI128(DisplaceAddress(src, Read(offset)))[0];
+DEF_SEM_V128_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
+  return UReadMVI128(DisplaceAddress(src, Read(offset)));
 }
 
 }  // namespace

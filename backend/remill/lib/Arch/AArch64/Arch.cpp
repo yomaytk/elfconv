@@ -2609,7 +2609,7 @@ bool TryDecodeLDUR_D_LDST_UNSCALED(const InstData &data, Instruction &inst) {
 // LDUR  <Qt>, [<Xn|SP>{, #<simm>}]
 bool TryDecodeLDUR_Q_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDUR_Vn_LDST_UNSCALED(data, inst, kRegQ);
+  return TryDecodeLDUR_Vn_LDST_UNSCALED(data, inst, kRegV);
 }
 
 static bool TryDecodeLDUR_n_LDST_UNSCALED(const InstData &data, Instruction &inst, RegClass rclass,
@@ -4140,7 +4140,7 @@ bool TryDecodeLDR_D_LDST_POS(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>{, #<pimm>}]
 bool TryDecodeLDR_Q_LDST_POS(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_POS(data, inst, kRegQ);
+  return TryDecodeLDR_Vn_LDST_POS(data, inst, kRegV);
 }
 
 static bool TryDecodeLDR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
@@ -4193,7 +4193,7 @@ bool TryDecodeLDR_D_LDST_REGOFF(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 bool TryDecodeLDR_Q_LDST_REGOFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_REGOFF(data, inst, kRegQ);
+  return TryDecodeLDR_Vn_LDST_REGOFF(data, inst, kRegV);
 }
 
 static bool TryDecodeLDR_Vn_LDST_IMMPOST(const InstData &data, Instruction &inst,
@@ -4236,7 +4236,7 @@ bool TryDecodeLDR_D_LDST_IMMPOST(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>], #<simm>
 bool TryDecodeLDR_Q_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_IMMPOST(data, inst, kRegQ);
+  return TryDecodeLDR_Vn_LDST_IMMPOST(data, inst, kRegV);
 }
 
 static bool TryDecodeLDR_Vn_LDST_IMMPRE(const InstData &data, Instruction &inst,
@@ -4279,7 +4279,7 @@ bool TryDecodeLDR_D_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeLDR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_IMMPRE(data, inst, kRegQ);
+  return TryDecodeLDR_Vn_LDST_IMMPRE(data, inst, kRegV);
 }
 
 // LDR  <St>, <label>
@@ -4301,7 +4301,7 @@ bool TryDecodeLDR_D_LOADLIT(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, <label>
 bool TryDecodeLDR_Q_LOADLIT(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionWrite, kRegQ, kUseAsValue, data.Rt);
+  AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rt);
   AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
