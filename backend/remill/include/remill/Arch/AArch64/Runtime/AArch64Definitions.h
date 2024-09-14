@@ -56,7 +56,7 @@ typedef struct {
 } F64F64 __attribute__((packed));
 
 #if defined(__x86_64__)
-typedef _ecv_u128v2_t V128V128
+typedef _ecv_u128v2_t V128V128;
 #else
 typedef struct {
   _ecv_u128v1_t r1;
