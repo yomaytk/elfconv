@@ -215,15 +215,59 @@ FindVarInFunction(llvm::BasicBlock *block, std::string_view name, bool allow_fai
 // this to find register variables.
 std::pair<llvm::Value *, llvm::Type *>
 FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_failure) {
+
   llvm::StringRef name(name_.data(), name_.size());
+  auto &context = function->getContext();
+
+  static std::unordered_map<const char *, llvm::Type *> RegNameTypeMap = {
+      {"W", llvm::Type::getInt32Ty(context)},
+      {"X", llvm::Type::getInt64Ty(context)},
+      {"B", llvm::Type::getInt8Ty(context)},
+      {"H", llvm::Type::getInt16Ty(context)},
+      {"S", llvm::Type::getFloatTy(context)},
+      {"D", llvm::Type::getDoubleTy(context)},
+      {"Q", llvm::Type::getInt128Ty(context)},
+      {"8B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false)},
+      {"16B", llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false)},
+      {"4H", llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false)},
+      {"8H", llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false)},
+      {"2S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false)},
+      {"2SF", llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false)},
+      {"4S", llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false)},
+      {"4SF", llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false)},
+      {"1D", llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false)},
+      {"1DF", llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false)},
+      {"2D", llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false)},
+      {"2DF", llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false)},
+  };
+
+  auto get_type_from_reg_name = [&context](std::string_view &__name) -> llvm::Type * {
+    auto name_size = __name.size();
+    auto ec0 = (__name.data() + name_size - 1)[0];
+    auto ec1 = (__name.data() + name_size - 2)[0];
+    if (std::isdigit(ec0) && std::isdigit(ec1)) {
+      return RegNameTypeMap[__name.substr(0, name_size - 2).data()];
+    } else if (std::isdigit(ec0)) {
+      return RegNameTypeMap[__name.substr(0, name_size - 1).data()];
+    } else {
+      if ("RUNTIME" == __name || "STATE" == __name) {
+        return llvm::Type::getInt64PtrTy(context);
+      } else if ("IGNORE_WRITE_TO_WZR" == __name) {
+        return llvm::Type::getInt32Ty(context);
+      } else {
+        return llvm::Type::getInt64Ty(context);
+      }
+    }
+  };
+
   if (!function->empty()) {
     for (auto &instr : function->getEntryBlock()) {
       if (instr.getName() == name) {
         if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
-          return {alloca, alloca->getAllocatedType()};
+          return {alloca, get_type_from_reg_name(name_)};
         }
         if (auto *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
-          return {gep, gep->getResultElementType()};
+          return {gep, get_type_from_reg_name(name_)};
         }
       }
     }
@@ -287,7 +331,7 @@ llvm::Value *LoadProgramCounterRef(llvm::BasicBlock *block) {
 
 // Return a reference to the next program counter.
 llvm::Value *LoadNextProgramCounterRef(llvm::BasicBlock *block) {
-  return FindVarInFunction(block->getParent(), kNextPCVariableName).first;
+  return FindVarInFunction(block->getParent(), "DELETED_NEXT_PC").first;
 }
 
 // Return the next program counter.
@@ -326,9 +370,9 @@ llvm::Value *LoadBranchTaken(llvm::BasicBlock *block) {
 
 llvm::Value *LoadBranchTaken(llvm::IRBuilder<> &ir) {
   auto block = ir.GetInsertBlock();
-  auto i8_type = llvm::Type::getInt8Ty(block->getContext());
-  auto cond =
-      ir.CreateLoad(i8_type, FindVarInFunction(block->getParent(), kBranchTakenVariableName).first);
+  auto i64_type = llvm::Type::getInt64Ty(block->getContext());
+  auto cond = ir.CreateLoad(i64_type,
+                            FindVarInFunction(block->getParent(), kBranchTakenVariableName).first);
   auto true_val = llvm::ConstantInt::get(cond->getType(), 1);
   return ir.CreateICmpEQ(cond, true_val);
 }
@@ -681,13 +725,12 @@ std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *bl
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
+  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
+  args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
+
   if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
-    args[kStatePointerArgNum] = LoadStatePointer(block);
     args[kPCArgNum] = LoadProgramCounter(block, intrinsics);
   } else {
-    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
-    args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
     args[kPCArgNum] = NthArgument(func, kPCArgNum);
   }
 
@@ -702,15 +745,9 @@ LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &int
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
-  if (FindVarInFunction(func, kPCVariableName, true).first) {
-    args[kRuntimePointerArgNum] = LoadRuntimePointer(block, intrinsics);
-    args[kStatePointerArgNum] = LoadStatePointer(block);
-    args[kPCArgNum] = pc_value;
-  } else {
-    args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
-    args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
-    args[kPCArgNum] = pc_value;
-  }
+  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
+  args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
+  args[kPCArgNum] = pc_value;
 
   return args;
 }
@@ -1865,6 +1902,7 @@ llvm::Value *LoadFromMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> 
         case 2: return ir.CreateCall(intrinsics.read_memory_16, args_2);
         case 4: return ir.CreateCall(intrinsics.read_memory_32, args_2);
         case 8: return ir.CreateCall(intrinsics.read_memory_64, args_2);
+        case 16: return ir.CreateCall(intrinsics.read_memory_128, args_2);
         default: break;
       }
       [[clang::fallthrough]];
@@ -2025,6 +2063,7 @@ llvm::Value *StoreToMemory(const IntrinsicTable &intrinsics, llvm::IRBuilder<> &
         case 2: return ir.CreateCall(intrinsics.write_memory_16, args_3);
         case 4: return ir.CreateCall(intrinsics.write_memory_32, args_3);
         case 8: return ir.CreateCall(intrinsics.write_memory_64, args_3);
+        case 16: return ir.CreateCall(intrinsics.write_memory_128, args_3);
         default: break;
       }
       [[clang::fallthrough]];
@@ -2198,10 +2237,7 @@ std::pair<size_t, llvm::Type *> BuildIndexes(const llvm::DataLayout &dl, llvm::T
     return BuildIndexes(dl, elem_type, offset, goal_offset, indexes_out);
   } else if (auto fvt_type = llvm::dyn_cast<llvm::FixedVectorType>(type); fvt_type) {
 
-    // It is possible that this gets called on an unexpected type
-    // such as FixedVectorType; if so, report the issue and fix if/when it
-    // happens
-    LOG(FATAL) << "Called BuildIndexes on unsupported type: " << remill::LLVMThingToString(type);
+    LOG(FATAL) << "Called BuildIndexed on unsupported type: " << remill::LLVMThingToString(type);
   } else if (auto svt_type = llvm::dyn_cast<llvm::ScalableVectorType>(type); svt_type) {
 
     // same as above, but for scalable vectors
@@ -2299,6 +2335,41 @@ std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::
     }
   }
   return {base, total_offset};
+}
+
+bool isu128v2Ty(llvm::LLVMContext &context, llvm::Type *arg_type) {
+  auto vector_ty = llvm::dyn_cast<llvm::VectorType>(arg_type);
+  return vector_ty && vector_ty->getElementType() == llvm::Type::getInt128Ty(context) &&
+         vector_ty->getElementCount().getFixedValue() == 2;
+}
+
+std::stringstream OutLLVMFunc(llvm::Function *func) {
+  std::stringstream ss;
+  ss << "define " << LLVMThingToString(func->getReturnType()) << " " << func->getName().str()
+     << " (";
+  auto arg_iter = func->args().begin();
+  for (;;) {
+    auto &arg = *arg_iter;
+    ss << LLVMThingToString(arg.getType()) << " " << arg.getName().str();
+    if (++arg_iter == func->args().end()) {
+      ss << ") ";
+      break;
+    } else {
+      ss << ", ";
+    }
+  }
+  ss << "{\n";
+  for (auto &bb : *func) {
+    ss << &bb << ":\n";
+    for (auto &inst : bb) {
+      std::string inst_str;
+      llvm::raw_string_ostream rso(inst_str);
+      inst.print(rso);
+      ss << "    " << rso.str() << "\n";
+    }
+  }
+  ss << "}\n";
+  return ss;
 }
 
 }  // namespace remill

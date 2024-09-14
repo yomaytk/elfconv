@@ -20,9 +20,12 @@
 #include "remill/BC/Lifter.h"
 
 #include <functional>
+#include <queue>
 #include <unordered_map>
 
 namespace remill {
+
+extern std::ostringstream ECV_DEBUG_STREAM;
 
 using TraceMap = std::unordered_map<uint64_t, llvm::Function *>;
 using DecoderWorkList = std::set<uint64_t>;  // For ordering.
@@ -102,9 +105,62 @@ class TraceManager {
   uint64_t _io_file_xsputn_vma = 0;
 };
 
+class PhiRegsBBBagNode {
+ public:
+  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> __preceding_load_reg_map,
+                   EcvRegMap<EcvRegClass> &&__succeeding_load_reg_map,
+                   EcvRegMap<EcvRegClass> &&__within_store_reg_map,
+                   std::set<llvm::BasicBlock *> &&__in_bbs)
+      : bag_preceding_load_reg_map(std::move(__preceding_load_reg_map)),
+        bag_succeeding_load_reg_map(std::move(__succeeding_load_reg_map)),
+        bag_preceding_store_reg_map(std::move(__within_store_reg_map)),
+        in_bbs(std::move(__in_bbs)),
+        converted_bag(nullptr) {}
+
+  PhiRegsBBBagNode() {}
+  static void Reset() {
+    bb_regs_bag_map.clear();
+    bag_num = 0;
+    debug_bag_map.clear();
+  }
+
+  static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
+  static void GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb);
+  static void RemoveLoop(llvm::BasicBlock *bb);
+  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+
+  static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
+  static inline std::size_t bag_num = 0;
+  static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
+
+  PhiRegsBBBagNode *GetTrueBag();
+  void MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag);
+  void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
+
+  static void DebugGraphStruct(PhiRegsBBBagNode *target_bag);
+
+  // The regsiter set which may be loaded on the way to the basic blocks of this bag node (include the own block).
+  EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;
+  // The register set which may be loaded on the succeeding block (includes the own block).
+  EcvRegMap<EcvRegClass> bag_succeeding_load_reg_map;
+
+  // The register set which is stored in the way to the bag node (includes the own block) (required).
+  EcvRegMap<EcvRegClass> bag_preceding_store_reg_map;
+  // bag_preceding_store_reg_map + (bag_preceding_load_reg_map & bag_succeeding_load_reg_map)
+  EcvRegMap<EcvRegClass> bag_req_reg_map;
+
+  // The basic block set which is included in this bag.
+  std::set<llvm::BasicBlock *> in_bbs;
+
+  std::set<PhiRegsBBBagNode *> parents;
+  std::set<PhiRegsBBBagNode *> children;
+
+  PhiRegsBBBagNode *converted_bag;
+};
+
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
- protected:
+ public:
   class Impl;
   std::unique_ptr<Impl> impl;
 
@@ -128,6 +184,76 @@ class TraceLifter {
 
  private:
   TraceLifter(void) = delete;
+
+  friend class VirtualRegsOpt;
+};
+
+class VirtualRegsOpt {
+ public:
+  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
+      : func(__func),
+        impl(__impl),
+        relay_bb_cache({}),
+        phi_val_order(0),
+        fun_vma(__fun_vma) {
+    for (auto &arg : func->args()) {
+      if (arg.getName() == "state") {
+        arg_state_val = &arg;
+      } else if (arg.getName() == "runtime_manager") {
+        arg_runtime_val = &arg;
+      }
+    }
+    CHECK(arg_state_val) << "[Bug] state arg is empty at the initialization of VirtualRegsOpt.";
+    CHECK(arg_runtime_val)
+        << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt.";
+  }
+  VirtualRegsOpt() {}
+  ~VirtualRegsOpt() {}
+
+  llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
+  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
+  EcvRegClass GetRegZFromLLVMType(llvm::Type *value_type);
+  llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
+                                          std::pair<EcvReg, EcvRegClass> ecv_reg_info);
+  llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
+                            llvm::Instruction *inst_at_before, llvm::Value *to_inst = nullptr);
+
+  llvm::Value *GetRegValueFromCacheMap(
+      EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
+      std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
+          &cache_map);
+
+  void OptimizeVirtualRegsUsage();
+
+  llvm::Function *func;
+  TraceLifter::Impl *impl;
+  llvm::Value *arg_state_val;
+  llvm::Value *arg_runtime_val;
+
+  // All llvm::CallInst* of the lifted function.
+  // Use to distinguish semantic function and lifted function.
+  std::set<llvm::CallInst *> lifted_func_caller_set;
+
+  std::unordered_map<llvm::BasicBlock *, std::set<llvm::BasicBlock *>> bb_parents;
+  std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> bb_reg_info_node_map;
+
+  std::queue<llvm::BasicBlock *> phi_bb_queue;
+  std::set<llvm::BasicBlock *> relay_bb_cache;
+
+  uint64_t phi_val_order;
+
+  // for debug
+  uint64_t fun_vma;
+  uint64_t block_num;
+  std::string func_name;
+  // map llvm::Value* and the corresponding CPU register.
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
+  static inline std::set<EcvReg> debug_reg_set = {};
+
+  void InsertDebugVmaAndRegisters(
+      llvm::Instruction *inst_at_before,
+      EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &ascend_reg_inst_map,
+      uint64_t pc);
 };
 
 class TraceLifter::Impl {
@@ -142,8 +268,8 @@ class TraceLifter::Impl {
         manager(*manager_),
         func(nullptr),
         block(nullptr),
-        switch_inst(nullptr),
-        // TODO(Ian): The trace lfiter is not supporting contexts
+        bb_reg_info_node(nullptr),
+        // TODO(Ian): The trace lifter is not supporting contexts
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
         runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
@@ -151,7 +277,8 @@ class TraceLifter::Impl {
         debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),
         debug_call_stack_push_name("debug_call_stack_push"),
-        debug_call_stack_pop_name("debug_call_stack_pop") {
+        debug_call_stack_pop_name("debug_call_stack_pop"),
+        data_layout(llvm::DataLayout(module)) {
     inst_bytes.reserve(max_inst_bytes);
   }
 
@@ -193,8 +320,6 @@ class TraceLifter::Impl {
 
   uint64_t PopInstructionAddress(void);
 
-  llvm::Value *GetRuntimePtrOnEntry();
-
   /* Global variable array definition helper (need override) */
   virtual llvm::GlobalVariable *GenGlobalArrayHelper(
       llvm::Type *, std::vector<llvm::Constant *> &, const llvm::Twine &Name = "",
@@ -204,14 +329,22 @@ class TraceLifter::Impl {
   /* Declare global helper function called by lifted llvm bitcode (need override) */
   virtual void DeclareHelperFunction();
 
-  /* prepare the virtual machine for instruction test (need override) */
+  /* Prepare the virtual machine for instruction test (need override) */
   virtual llvm::BasicBlock *PreVirtualMachineForInsnTest(uint64_t, TraceManager &,
                                                          llvm::BranchInst *);
-  /* check the virtual machine for instruction test (need override) */
+  /* Check the virtual machine for instruction test (need override) */
   virtual llvm::BranchInst *CheckVirtualMahcineForInsnTest(uint64_t, TraceManager &);
 
-  /* add L_test_failed (need override) */
+  /* Add L_test_failed (need override) */
   virtual void AddTestFailedBlock();
+
+  // Save the basic block parents on the new direct branch
+  void DirectBranchWithSaveParents(llvm::BasicBlock *dst_bb, llvm::BasicBlock *src_bb);
+  // Save the basic block paretns on the new conditional branch
+  void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
+                                        llvm::Value *condition, llvm::BasicBlock *src_bb);
+
+  void Optimize();
 
   const Arch *const arch;
   const remill::IntrinsicTable *intrinsics;
@@ -224,7 +357,7 @@ class TraceLifter::Impl {
   llvm::Function *func;
   llvm::BasicBlock *block;
   llvm::BasicBlock *indirectbr_block;
-  llvm::SwitchInst *switch_inst;
+  BBRegInfoNode *bb_reg_info_node;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
   std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> br_blocks;
   bool lift_all_insn;
@@ -232,12 +365,20 @@ class TraceLifter::Impl {
   std::string inst_bytes;
   Instruction inst;
   Instruction delayed_inst;
-  std::unordered_map<uint64_t, bool> control_flow_debug_list;
+  std::set<uint64_t> control_flow_debug_fnvma_set;
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
   DecoderWorkList dead_inst_work_list;
   uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
+  VirtualRegsOpt *virtual_regs_opt;
+
+  std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
+  std::set<llvm::Function *> no_indirect_lifted_funcs;
+  std::set<llvm::Function *> lifted_funcs;
+
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+      sema_func_args_regs_map;
 
   std::string runtime_manager_name;
 
@@ -247,6 +388,8 @@ class TraceLifter::Impl {
   std::string debug_insn_name;
   std::string debug_call_stack_push_name;
   std::string debug_call_stack_pop_name;
+
+  const llvm::DataLayout data_layout;
 
   bool tmp_patch_fn_check = false;
 };

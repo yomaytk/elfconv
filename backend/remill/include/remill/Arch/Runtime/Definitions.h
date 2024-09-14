@@ -53,16 +53,6 @@
 // Define a conditional execution function.
 #define DEF_COND(name) extern "C" constexpr auto COND_##name [[gnu::used]]
 
-// Define a semantics implementing function.
-#define DEF_SEM(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *runtime_manager, \
-                                                          State &state, ##__VA_ARGS__)
-
-// Define a DEF_SEM that returns uint64_t.
-#define DEF_SEM_RETU64(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(Memory *memory, State &state, \
-                                                              ##__VA_ARGS__)
-
 template <typename R, typename... Args>
 inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*)(Args...) {
   return b;

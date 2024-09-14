@@ -199,8 +199,7 @@ void AArch32ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
                                                          llvm::Function *bb_func) const {
   const auto &dl = module->getDataLayout();
   CHECK_EQ(sizeof(State), dl.getTypeAllocSize(StateStructType()))
-      << "Mismatch between size of State type for aarch32 and what is in "
-      << "the bitcode module";
+      << "Mismatch between size of State type for aarch32 and what is in " << "the bitcode module";
 
   auto &context = module->getContext();
   auto u8 = llvm::Type::getInt8Ty(context);
@@ -214,7 +213,6 @@ void AArch32ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
 
   const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
-  ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, kNextPCVariableName.data()));
   ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, kIgnoreNextPCVariableName.data()));
 
   auto zero_c = ir.CreateAlloca(u8, nullptr, "ZERO_C");

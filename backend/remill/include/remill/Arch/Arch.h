@@ -175,8 +175,8 @@ class Arch {
 
   // Factory method for loading the correct architecture class for a given
   // operating system and architecture class.
-  static auto Get(llvm::LLVMContext &context, std::string_view os, std::string_view arch_name)
-      -> ArchPtr;
+  static auto Get(llvm::LLVMContext &context, std::string_view os,
+                  std::string_view arch_name) -> ArchPtr;
 
   // Factory method for loading the correct architecture class for a given
   // operating system and architecture class.
@@ -325,6 +325,9 @@ class Arch {
   // context of the taken path of a branch or the not-taken path of a branch.
   virtual bool NextInstructionIsDelayed(const Instruction &inst, const Instruction &next_inst,
                                         bool branch_taken_path) const;
+
+  // This method prepares the minimum Instruction to use several InstructionLifter methods for aarch64.
+  virtual void InstanceInstAArch64(Instruction &inst) const = 0;
 
   // Get the architecture related to a module.
   static remill::Arch::ArchPtr GetModuleArch(const llvm::Module &module);

@@ -15808,44 +15808,6 @@ bool TryDecodeFMLA_ASIMDELEM_RH_H(const InstData &, Instruction &) {
   return false;
 }
 
-// FMLA FMLA_asimdelem_R_SD:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 x H        0
-//  12 1
-//  13 0
-//  14 0 o2       0
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x M        0
-//  21 x L        0
-//  22 x sz       0
-//  23 1
-//  24 1
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0 U        0
-//  30 x Q        0
-//  31 0
-// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
-bool TryDecodeFMLA_ASIMDELEM_R_SD(const InstData &, Instruction &) {
-  return false;
-}
-
 // SCVTF SCVTF_asisdmiscfp16_R:
 //   0 x Rd       0
 //   1 x Rd       1
