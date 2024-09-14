@@ -880,17 +880,24 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                   call_next_inst);
             } else if (write_regs.size() > 1) {
               for (uint32_t i = 0; i < write_regs.size(); i++) {
-                CHECK((llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
-                       llvm::dyn_cast<llvm::ArrayType>(call_inst->getType())))
-                    << "[Bug] call_inst: " << LLVMThingToString(call_inst)
-                    << "pc: " << Sema_func_vma_map.at(call_inst);
-                auto from_extracted_inst = llvm::ExtractValueInst::Create(
-                    call_inst, {i}, llvm::Twine::createNull(), call_next_inst);
+                llvm::Instruction *from_extracted_inst;
                 auto store_ecv_reg = write_regs[i].first;
                 auto store_ecv_reg_class = write_regs[i].second;
                 if (store_ecv_reg.number == IGNORE_WRITE_TO_WZR_ORDER ||
                     store_ecv_reg.number == IGNORE_WRITE_TO_XZR_ORDER) {
                   continue;
+                }
+                if (llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
+                    llvm::dyn_cast<llvm::ArrayType>(call_inst->getType())) {
+                  from_extracted_inst =
+                      llvm::ExtractValueInst::Create(call_inst, {i}, "", call_next_inst);
+                } else if (isu128v2Ty(context, call_inst->getType())) {
+                  from_extracted_inst = llvm::ExtractElementInst::Create(
+                      call_inst, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), i), "",
+                      call_next_inst);
+                } else {
+                  LOG(FATAL) << "[Bug] call_inst: " << LLVMThingToString(call_inst)
+                             << "pc: " << Sema_func_vma_map.at(call_inst);
                 }
                 inst_lifter->StoreRegValueBeforeInst(
                     &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
@@ -1073,6 +1080,15 @@ llvm::Value *VirtualRegsOpt::GetRegValueFromCacheMap(
         llvm::dyn_cast<llvm::ArrayType>(from_value->getType())) {
       auto from_extracted_inst = llvm::ExtractValueInst::Create(
           from_value, {from_order}, llvm::Twine::createNull(), inst_at_before);
+      res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before,
+                               from_extracted_inst);
+      // for debug
+      value_reg_map.insert({from_extracted_inst,
+                            {target_ecv_reg, GetRegZFromLLVMType(from_extracted_inst->getType())}});
+    } else if (isu128v2Ty(impl->context, from_value->getType())) {
+      auto from_extracted_inst = llvm::ExtractElementInst::Create(
+          from_value, llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), from_order), "",
+          inst_at_before);
       res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before,
                                from_extracted_inst);
       // for debug
@@ -1411,13 +1427,28 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                   continue;
                 } else if (req_load->comesBefore(user_inst)) {
                   // user_inst is ExtractValueInst.
-                  if (auto extr_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
-                    if (extr_user->getIndices()[0] == order) {
-                      CHECK(req_load->getType() == extr_user->getType())
+                  if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
+                    if (extrv_user->getIndices()[0] == order) {
+                      CHECK(req_load->getType() == extrv_user->getType())
                           << "req_load: " << LLVMThingToString(req_load)
-                          << ", userd_val: " << LLVMThingToString(extr_user) << "\n";
-                      extr_user->replaceAllUsesWith(req_load);
+                          << ", userd_val: " << LLVMThingToString(extrv_user) << "\n";
+                      extrv_user->replaceAllUsesWith(req_load);
                       // extr_user->eraseFromParent();
+                    } else {
+                      user++;
+                      continue;
+                    }
+                  } else if (auto extre_user =
+                                 llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
+                    auto extre_order =
+                        llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
+                            ->getZExtValue();
+                    if (extre_order == order) {
+                      CHECK(req_load->getType() == extre_user->getType())
+                          << "req_load: " << LLVMThingToString(req_load)
+                          << ", userd_val: " << LLVMThingToString(extre_user) << "\n";
+                      extre_user->replaceAllUsesWith(req_load);
+                      // extre_user->eraseFromParent();
                     } else {
                       user++;
                       continue;
@@ -1505,6 +1536,21 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                           << ", userd_val: " << LLVMThingToString(extr_user) << "\n";
                       extr_user->replaceAllUsesWith(req_load);
                       // extr_user->eraseFromParent();
+                    } else {
+                      user++;
+                      continue;
+                    }
+                  } else if (auto extre_user =
+                                 llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
+                    auto extre_order =
+                        llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
+                            ->getZExtValue();
+                    if (extre_order == order) {
+                      CHECK(req_load->getType() == extre_user->getType())
+                          << "req_load: " << LLVMThingToString(req_load)
+                          << ", userd_val: " << LLVMThingToString(extre_user) << "\n";
+                      extre_user->replaceAllUsesWith(req_load);
+                      // extre_user->eraseFromParent();
                     } else {
                       user++;
                       continue;
@@ -1899,7 +1945,25 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         // for debug
         value_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
-      } else {
+      } else if (isu128v2Ty(impl->context, from_inst->getType())) {
+        auto from_extracted_inst = llvm::ExtractElementInst::Create(
+            from_inst, llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), from_order),
+            "", target_terminator);
+        auto from_extracted_inst_reg_class = GetRegZFromLLVMType(from_extracted_inst->getType());
+        // Update cache.
+        target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
+            {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
+        target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+            target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
+        req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
+                                 GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator,
+                                 from_extracted_inst);
+        // for debug
+        value_reg_map.insert(
+            {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
+      }
+
+      else {
         req_value = CastFromInst(target_ecv_reg, from_inst, GetLLVMTypeFromRegZ(req_ecv_reg_class),
                                  target_terminator);
       }

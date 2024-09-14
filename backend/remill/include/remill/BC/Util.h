@@ -301,6 +301,9 @@ llvm::Value *BuildPointerToOffset(llvm::IRBuilder<> &ir, llvm::Value *ptr, size_
 std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::DataLayout &dl,
                                                                     llvm::Value *base);
 
+// Check whether the arg type is <2 x i128>
+bool isu128v2Ty(llvm::LLVMContext &context, llvm::Type *arg_type);
+
 // output the args and body of the llvm::Function*
 std::stringstream OutLLVMFunc(llvm::Function *func);
 

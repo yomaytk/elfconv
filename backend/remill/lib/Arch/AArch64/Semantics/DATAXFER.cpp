@@ -68,6 +68,21 @@ DEF_SEM_VOID_RUN(STP_D, RF64 src1, RF64 src2, MVI128 dst) {
   FWriteMVI64(dst, vec);
 }
 
+#if defined(__x86_64__)
+DEF_SEM_VOID_RUN(STP_Q, VIu64v2 src1, VIu64v2 src2, MVI256 dst) {
+  auto src1_v = *reinterpret_cast<VIu128v1 *>(&src1);
+  auto src2_v = *reinterpret_cast<VIu128v1 *>(&src2);
+  _ecv_u128v2_t vec = {src1_v[0], src2_v[0]};
+  UWriteMVI128(dst, vec);
+}
+
+DEF_SEM_VOID_RUN(STP_Q_UPDATE_ADDR, VIu64v2 src1, VIu64v2 src2, MVI256 dst) {
+  auto src1_v = *reinterpret_cast<VIu128v1 *>(&src1);
+  auto src2_v = *reinterpret_cast<VIu128v1 *>(&src2);
+  _ecv_u128v2_t vec = {src1[0], src2[0]};
+  UWriteMVI128(dst, vec);
+}
+#else
 DEF_SEM_VOID_RUN(STP_Q, R128 src1, R128 src2, MVI256 dst) {
   _ecv_u128v2_t vec = {src1, src2};
   UWriteMVI128(dst, vec);
@@ -77,6 +92,8 @@ DEF_SEM_VOID_RUN(STP_Q_UPDATE_ADDR, R128 src1, R128 src2, MVI256 dst) {
   _ecv_u128v2_t vec = {src1, src2};
   UWriteMVI128(dst, vec);
 }
+#endif
+
 
 }  // namespace
 
@@ -149,9 +166,16 @@ DEF_SEM_VOID_RUN(StoreRelease, S src, D dst) {
   __remill_barrier_store_store(runtime_manager);
 }
 
+#if defined(__x86_64)
+DEF_SEM_VOID_RUN(STR_Q_UPDATE_ADDR, VIu64v2 src, MVI128 dst) {
+  auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
+  UWriteMVI128(dst, src_v[0]);
+}
+#else
 DEF_SEM_VOID_RUN(STR_Q_UPDATE_ADDR, R128 src, MVI128 dst) {
   UWriteMVI128(dst, Read(src));
 }
+#endif
 
 template <typename S, typename D>  // e.g. SWP_MEMOP<R32, M32W>
 DEF_SEM_T_RUN(SWP_MEMOP, S src1, D dst_src_mem) {
@@ -648,7 +672,7 @@ DEF_SEM_F64_RUN(LDR_D, MVI64 src_mem) {
   return FReadMVI64(src_mem)[0];
 }
 
-DEF_SEM_V128_RUN(LDR_Q, MVI128 src_mem) {
+DEF_SEM_U128V1_RUN(LDR_Q, MVI128 src_mem) {
   return UReadMVI128(src_mem);
 }
 
@@ -670,7 +694,7 @@ DEF_SEM_F64_RUN(LDR_D_UpdateIndex, MVI64 src_mem) {
   return FReadMVI64(src_mem)[0];
 }
 
-DEF_SEM_V128_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
+DEF_SEM_U128V1_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
   return UReadMVI128(src_mem);
 }
 
@@ -690,7 +714,7 @@ DEF_SEM_F64_RUN(LDR_D_FromOffset, MVI64 src_mem, ADDR offset) {
   return FReadMVI64(DisplaceAddress(src_mem, Read(offset)))[0];
 }
 
-DEF_SEM_V128_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
+DEF_SEM_U128V1_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
   return UReadMVI128(DisplaceAddress(src, Read(offset)));
 }
 
@@ -749,10 +773,17 @@ DEF_SEM_F64F64_RUN(LDP_D, MVI128 src) {
   return {src_vec[0], src_vec[1]};
 }
 
-DEF_SEM_V128V128_RUN(LDP_Q, MVI256 src) {
+#if defined(__x86_64__)
+DEF_SEM_U128V2_RUN(LDP_Q, MVI256 src) {
+  _ecv_u128v2_t src_vec = UReadMVI128(src);
+  return src_vec;
+}
+#else
+DEF_SEM_U128V2_RUN(LDP_Q, MVI256 src) {
   _ecv_u128v2_t src_vec = UReadMVI128(src);
   return {src_vec[0], src_vec[1]};
 }
+#endif
 
 DEF_SEM_F32F32_RUN(LDP_S_UpdateIndex, MVI64 src) {
   _ecv_f32v2_t src_vec = FReadMVI32(src);
@@ -764,10 +795,17 @@ DEF_SEM_F64F64_RUN(LDP_D_UpdateIndex, MVI128 src) {
   return {src_vec[0], src_vec[1]};
 }
 
-DEF_SEM_V128V128_RUN(LDP_Q_UpdateIndex, MVI256 src) {
+#if defined(__x86_64__)
+DEF_SEM_U128V2_RUN(LDP_Q_UpdateIndex, MVI256 src) {
+  _ecv_u128v2_t src_vec = UReadMVI128(src);
+  return src_vec;
+}
+#else
+DEF_SEM_U128V2_RUN(LDP_Q_UpdateIndex, MVI256 src) {
   _ecv_u128v2_t src_vec = UReadMVI128(src);
   return {src_vec[0], src_vec[1]};
 }
+#endif
 
 }  // namespace
 
@@ -801,6 +839,22 @@ DEF_SEM_VOID_RUN(STR_D, RF64 src, MVI64 dst) {
   FWriteMVI64(dst, src);
 }
 
+#if defined(__x86_64__)
+DEF_SEM_VOID_RUN(STR_Q, VIu64v2 src, MVI128 dst) {
+  auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
+  UWriteMVI128(dst, src_v[0]);
+}
+
+DEF_SEM_VOID_RUN(STR_Q_UpdateIndex, VIu64v2 src, MVI128 dst) {
+  auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
+  UWriteMVI128(dst, src_v[0]);
+}
+
+DEF_SEM_VOID_RUN(STR_Q_FromOffset, VIu64v2 src, MVI128 dst, ADDR offset) {
+  auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
+  UWriteMVI128(DisplaceAddress(dst, Read(offset)), src_v[0]);
+}
+#else
 DEF_SEM_VOID_RUN(STR_Q, R128 src, MVI128 dst) {
   UWriteMVI128(dst, Read(src));
 }
@@ -812,6 +866,8 @@ DEF_SEM_VOID_RUN(STR_Q_UpdateIndex, R128 src, MVI128 dst) {
 DEF_SEM_VOID_RUN(STR_Q_FromOffset, R128 src, MVI128 dst, ADDR offset) {
   UWriteMVI128(DisplaceAddress(dst, Read(offset)), Read(src));
 }
+#endif
+
 }  // namespace
 
 DEF_ISEL(STR_B_LDST_POS) = STR_B;  // STR  <Bt>, [<Xn|SP>{, #<pimm>}]
@@ -901,22 +957,66 @@ DEF_ISEL(LD1_ASISDLSE_R1_1V_4S) = LD1_SINGLE_32<MVI128>;  // LD1  { <Vt>.<T> }, 
 DEF_ISEL(LD1_ASISDLSE_R1_1V_1D) = LD1_SINGLE_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 DEF_ISEL(LD1_ASISDLSE_R1_1V_2D) = LD1_SINGLE_64<MVI128>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
+#if defined(__x86_64__)
 namespace {
 
-#define MAKE_LD1(elem_size) \
-  template <typename S> \
-  DEF_SEM_T_RUN(LD1_PAIR_##elem_size, S src) { \
-    auto elems1 = UReadMVI##elem_size(src); \
-    auto elems2 = UReadMVI##elem_size(GetElementPtr(src, 1U)); \
-    return TPair<decltype(elems1)>{elems1, elems2}; \
-  }
+#  define MAKE_LD1(elem_size, whole_size) \
+    template <typename S> \
+    DEF_SEM_T_RUN(LD1_PAIR_##elem_size##_##whole_size, S src) { \
+      auto elems1 = UReadMVI##elem_size(src); \
+      auto elems2 = UReadMVI##elem_size(GetElementPtr(src, 1U)); \
+      auto cast_elems1 = *reinterpret_cast<_ecv_u##whole_size##v1_t *>(&elems1); \
+      auto cast_elems2 = *reinterpret_cast<_ecv_u##whole_size##v1_t *>(&elems2); \
+      return _ecv_u##whole_size##v2_t{cast_elems1[0], cast_elems2[0]}; \
+    }
+
+MAKE_LD1(8, 64)
+MAKE_LD1(16, 64)
+MAKE_LD1(32, 64)
+MAKE_LD1(64, 64)
+
+MAKE_LD1(8, 128)
+MAKE_LD1(16, 128)
+MAKE_LD1(32, 128)
+MAKE_LD1(64, 128)
+
+#  undef MAKE_LD1
+
+}  // namespace
+
+DEF_ISEL(LD1_ASISDLSE_R2_2V_8B) = LD1_PAIR_8_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSE_R2_2V_16B) =
+    LD1_PAIR_8_128<MVI128>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+
+DEF_ISEL(LD1_ASISDLSE_R2_2V_4H) = LD1_PAIR_16_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSE_R2_2V_8H) =
+    LD1_PAIR_16_128<MVI128>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+
+DEF_ISEL(LD1_ASISDLSE_R2_2V_2S) = LD1_PAIR_32_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSE_R2_2V_4S) =
+    LD1_PAIR_32_128<MVI128>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+
+DEF_ISEL(LD1_ASISDLSE_R2_2V_1D) = LD1_PAIR_64_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSE_R2_2V_2D) =
+    LD1_PAIR_64_128<MVI128>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+#else
+
+namespace {
+
+#  define MAKE_LD1(elem_size) \
+    template <typename S> \
+    DEF_SEM_T_RUN(LD1_PAIR_##elem_size, S src) { \
+      auto elems1 = UReadMVI##elem_size(src); \
+      auto elems2 = UReadMVI##elem_size(GetElementPtr(src, 1U)); \
+      return TPair<decltype(elems1)>{elems1, elems2}; \
+    }
 
 MAKE_LD1(8)
 MAKE_LD1(16)
 MAKE_LD1(32)
 MAKE_LD1(64)
 
-#undef MAKE_LD1
+#  undef MAKE_LD1
 
 }  // namespace
 
@@ -931,6 +1031,8 @@ DEF_ISEL(LD1_ASISDLSE_R2_2V_4S) = LD1_PAIR_32<MVI128>;  // LD1  { <Vt>.<T>, <Vt2
 
 DEF_ISEL(LD1_ASISDLSE_R2_2V_1D) = LD1_PAIR_64<MVI64>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
 DEF_ISEL(LD1_ASISDLSE_R2_2V_2D) = LD1_PAIR_64<MVI128>;  // LD1  { <Vt>.<T>, <Vt2>.<T> }, [<Xn|SP>]
+
+#endif
 
 namespace {
 
@@ -1489,7 +1591,7 @@ namespace {
 
 #define INS_VEC(size, num) \
   template <typename T> \
-  DEF_SEM_V128(INS_##size, VIu##size##v##num dst_src, I64 idx, T src) { \
+  DEF_SEM_U128V1(INS_##size, VIu##size##v##num dst_src, I64 idx, T src) { \
     auto index = Read(idx); \
     auto val = Read(src); \
     auto dst_src_vec = UReadVI##size(dst_src); \
@@ -1547,8 +1649,8 @@ DEF_ISEL(LD1R_ASISDLSO_R1_2D) = LD1R_64<VIu64v2, M64>;  // LD1R  { <Vt>.<T> }, [
 namespace {
 
 #define INS_MOV_VEC(size, num) \
-  DEF_SEM_V128(INS_MOV_##size, VIu##size##v##num dst_src, I64 idx1, VIu##size##v##num src, \
-               I64 idx2) { \
+  DEF_SEM_U128V1(INS_MOV_##size, VIu##size##v##num dst_src, I64 idx1, VIu##size##v##num src, \
+                 I64 idx2) { \
     auto index_1 = Read(idx1); \
     auto index_2 = Read(idx2); \
     auto dst_src_vec = UReadVI##size(dst_src); \
@@ -1606,7 +1708,7 @@ DEF_ISEL(SMOV_ASIMDINS_X_X_S) = SMovFromVec32<int64_t>;  // UMOV  <Xd>, <Vn>.<Ts
 
 namespace {
 
-DEF_SEM_V128(MOVI_D2, I64 src) {
+DEF_SEM_U128V1(MOVI_D2, I64 src) {
   _ecv_u64v2_t dst_vec = {Read(src), Read(src)};
   return dst_vec;
 }

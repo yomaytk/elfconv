@@ -2337,6 +2337,12 @@ std::pair<llvm::Value *, int64_t> StripAndAccumulateConstantOffsets(const llvm::
   return {base, total_offset};
 }
 
+bool isu128v2Ty(llvm::LLVMContext &context, llvm::Type *arg_type) {
+  auto vector_ty = llvm::dyn_cast<llvm::VectorType>(arg_type);
+  return vector_ty && vector_ty->getElementType() == llvm::Type::getInt128Ty(context) &&
+         vector_ty->getElementCount().getFixedValue() == 2;
+}
+
 std::stringstream OutLLVMFunc(llvm::Function *func) {
   std::stringstream ss;
   ss << "define " << LLVMThingToString(func->getReturnType()) << " " << func->getName().str()

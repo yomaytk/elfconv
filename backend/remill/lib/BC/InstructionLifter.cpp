@@ -414,7 +414,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   }
 
   std::vector<llvm::Value *> args;
-  // args.reserve(arch_inst.operands.size() + 2);
 
   auto isel_func_type = isel_func->getFunctionType();
   uint32_t arg_num;
@@ -542,6 +541,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     CHECK(struct_ty->getNumElements() == write_regs.size());
   } else if (auto array_ty = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
     CHECK(array_ty->getNumElements() == write_regs.size());
+  } else if (auto vector_ty = llvm::dyn_cast<llvm::VectorType>(sema_inst->getType());
+             vector_ty &&
+             /* <2 x i128> */ (2 == vector_ty->getElementCount().getFixedValue() &&
+                               llvm::Type::getInt128Ty(context) == vector_ty->getElementType())) {
+    CHECK(vector_ty->getElementCount().getFixedValue() == write_regs.size());
   } else if (!sema_inst->getType()->isVoidTy()) {
     CHECK(write_regs.size() == 1);
   }
@@ -929,9 +933,15 @@ static llvm::Value *ConvertToIntendedType(Instruction &inst, Operand &op, llvm::
     if (intended_type->isIntegerTy() || intended_type->isVectorTy()) {
       return new llvm::BitCastInst(val, intended_type, val->getName(), block);
     }
-  } else {
+  } else if (val_type->isVectorTy()) {
+    const llvm::DataLayout data_layout(block->getModule());
+    auto val_type = val->getType();
+    CHECK(data_layout.getTypeAllocSizeInBits(val_type) ==
+          data_layout.getTypeAllocSizeInBits(intended_type))
+        << "must be equal. intended_type: " << LLVMThingToString(intended_type)
+        << ", val_type: " << LLVMThingToString(val_type);
 
-    printf("in!");
+    return new llvm::BitCastInst(val, intended_type, val->getName(), block);
   }
 
   LOG(FATAL) << "Unable to convert value " << LLVMThingToString(val)

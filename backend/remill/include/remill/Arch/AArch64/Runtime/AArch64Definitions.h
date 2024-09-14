@@ -55,10 +55,14 @@ typedef struct {
   float64_t r2;
 } F64F64 __attribute__((packed));
 
+#if defined(__x86_64__)
+typedef _ecv_u128v2_t V128V128
+#else
 typedef struct {
   _ecv_u128v1_t r1;
   _ecv_u128v1_t r2;
 } V128V128 __attribute__((packed));
+#endif
 
 // Define a semantics implementing function for aarch64 target.
 #define DEF_SEM_VOID(name, ...) ALWAYS_INLINE __attribute__((flatten)) static void name(__VA_ARGS__)
@@ -227,22 +231,22 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u64v1_t name(RuntimeManager *runtime_manager, \
                                                                   ##__VA_ARGS__)
 
-#define DEF_SEM_V128(name, ...) \
+#define DEF_SEM_U128V1(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u128v1_t name(__VA_ARGS__)
 
-#define DEF_SEM_V128_STATE(name, ...) \
+#define DEF_SEM_U128V1_STATE(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u128v1_t name(State &state, ##__VA_ARGS__)
 
-#define DEF_SEM_V128_RUN(name, ...) \
+#define DEF_SEM_U128V1_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static _ecv_u128v1_t name( \
       RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
-#define DEF_SEM_V128V128(name, ...) \
+#define DEF_SEM_U128V2(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(__VA_ARGS__)
 
-#define DEF_SEM_V128V128_STATE(name, ...) \
+#define DEF_SEM_U128V2_STATE(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(State &state, ##__VA_ARGS__)
 
-#define DEF_SEM_V128V128_RUN(name, ...) \
+#define DEF_SEM_U128V2_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static V128V128 name(RuntimeManager *runtime_manager, \
                                                               ##__VA_ARGS__)

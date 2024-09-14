@@ -128,7 +128,6 @@ AArch64Arch::AArch64Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName 
 
 AArch64Arch::~AArch64Arch(void) {}
 
-
 enum RegClass {
   kRegX,  // 64-bit int.
   kRegW,  // Word, 32-bit int.
@@ -151,6 +150,12 @@ enum RegClass {
   kReg2D,  // 2D
   kReg2DF  // 2DF
 };
+
+#if defined(__x86_64__)
+#  define K_REG_Q kReg2D
+#else
+#  define K_REG_Q kRegQ
+#endif
 
 enum RegUsage {
   kUseAsAddress,  // Interpret X31 == SP and W32 == WSP.
@@ -1161,7 +1166,7 @@ bool TryDecodeSTP_D_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
 // STP  <Qt1>, <Qt2>, [<Xn|SP>{, #<imm>}]
 bool TryDecodeSTP_Q_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTP_Vn_LDSTPAIR_OFF(data, inst, kRegQ);
+  return TryDecodeSTP_Vn_LDSTPAIR_OFF(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeSTP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst, RegClass rclass) {
@@ -1181,7 +1186,7 @@ static bool TryDecodeSTP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst
 // STP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
 bool TryDecodeSTP_Q_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTP_Vn_LDSTPAIR_PRE(data, inst, kRegQ);
+  return TryDecodeSTP_Vn_LDSTPAIR_PRE(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeSTP_Vn_LDSTPAIR_POST(const InstData &data, Instruction &inst,
@@ -1202,7 +1207,7 @@ static bool TryDecodeSTP_Vn_LDSTPAIR_POST(const InstData &data, Instruction &ins
 // STP  <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 bool TryDecodeSTP_Q_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTP_Vn_LDSTPAIR_POST(data, inst, kRegQ);
+  return TryDecodeSTP_Vn_LDSTPAIR_POST(data, inst, K_REG_Q);
 }
 
 // LDP  <Wt1>, <Wt2>, [<Xn|SP>], #<imm>
@@ -1495,7 +1500,7 @@ bool TryDecodeSTR_D_LDST_IMMPOST(const InstData &data, Instruction &inst) {
 // STR  <Qt>, [<Xn|SP>], #<simm>
 bool TryDecodeSTR_Q_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionRead, kRegQ, kUseAsValue, data.Rt);
+  AddRegOperand(inst, kActionRead, K_REG_Q, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
   AddPostIndexMemOp(inst, kActionWrite, 128, data.Rn, offset);
   return true;
@@ -2609,7 +2614,7 @@ bool TryDecodeLDUR_D_LDST_UNSCALED(const InstData &data, Instruction &inst) {
 // LDUR  <Qt>, [<Xn|SP>{, #<simm>}]
 bool TryDecodeLDUR_Q_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDUR_Vn_LDST_UNSCALED(data, inst, kRegV);
+  return TryDecodeLDUR_Vn_LDST_UNSCALED(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDUR_n_LDST_UNSCALED(const InstData &data, Instruction &inst, RegClass rclass,
@@ -2708,7 +2713,7 @@ bool TryDecodeSTUR_D_LDST_UNSCALED(const InstData &data, Instruction &inst) {
 // STUR  <Qt>, [<Xn|SP>{, #<simm>}]
 bool TryDecodeSTUR_Q_LDST_UNSCALED(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTUR_Vn_LDST_UNSCALED(data, inst, kRegQ);
+  return TryDecodeSTUR_Vn_LDST_UNSCALED(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeSTUR_n_LDST_UNSCALED(const InstData &data, Instruction &inst, RegClass rclass,
@@ -4051,7 +4056,7 @@ bool TryDecodeSTR_D_LDST_POS(const InstData &data, Instruction &inst) {
 // STR  <Qt>, [<Xn|SP>{, #<pimm>}]
 bool TryDecodeSTR_Q_LDST_POS(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTR_Vn_LDST_POS(data, inst, kRegQ);
+  return TryDecodeSTR_Vn_LDST_POS(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeSTR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
@@ -4080,7 +4085,7 @@ bool TryDecodeSTR_S_LDST_REGOFF(const InstData &data, Instruction &inst) {
 // STR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 bool TryDecodeSTR_Q_LDST_REGOFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTR_Vn_LDST_REGOFF(data, inst, kRegQ);
+  return TryDecodeSTR_Vn_LDST_REGOFF(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeSTR_Vn_LDST_IMMPRE(const InstData &data, Instruction &inst,
@@ -4099,7 +4104,7 @@ static bool TryDecodeSTR_Vn_LDST_IMMPRE(const InstData &data, Instruction &inst,
 // STR  <Qt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeSTR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeSTR_Vn_LDST_IMMPRE(data, inst, kRegQ);
+  return TryDecodeSTR_Vn_LDST_IMMPRE(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDR_Vn_LDST_POS(const InstData &data, Instruction &inst, RegClass val_class) {
@@ -4140,7 +4145,7 @@ bool TryDecodeLDR_D_LDST_POS(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>{, #<pimm>}]
 bool TryDecodeLDR_Q_LDST_POS(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_POS(data, inst, kRegV);
+  return TryDecodeLDR_Vn_LDST_POS(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDR_Vn_LDST_REGOFF(const InstData &data, Instruction &inst,
@@ -4193,7 +4198,7 @@ bool TryDecodeLDR_D_LDST_REGOFF(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 bool TryDecodeLDR_Q_LDST_REGOFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_REGOFF(data, inst, kRegV);
+  return TryDecodeLDR_Vn_LDST_REGOFF(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDR_Vn_LDST_IMMPOST(const InstData &data, Instruction &inst,
@@ -4236,7 +4241,7 @@ bool TryDecodeLDR_D_LDST_IMMPOST(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>], #<simm>
 bool TryDecodeLDR_Q_LDST_IMMPOST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_IMMPOST(data, inst, kRegV);
+  return TryDecodeLDR_Vn_LDST_IMMPOST(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDR_Vn_LDST_IMMPRE(const InstData &data, Instruction &inst,
@@ -4279,7 +4284,7 @@ bool TryDecodeLDR_D_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeLDR_Q_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDR_Vn_LDST_IMMPRE(data, inst, kRegV);
+  return TryDecodeLDR_Vn_LDST_IMMPRE(data, inst, K_REG_Q);
 }
 
 // LDR  <St>, <label>
@@ -4301,7 +4306,7 @@ bool TryDecodeLDR_D_LOADLIT(const InstData &data, Instruction &inst) {
 // LDR  <Qt>, <label>
 bool TryDecodeLDR_Q_LOADLIT(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionWrite, kRegV, kUseAsValue, data.Rt);
+  AddRegOperand(inst, kActionWrite, K_REG_Q, kUseAsValue, data.Rt);
   AddPCRegMemOp(inst, kActionRead, static_cast<uint64_t>(data.imm19.simm19) << 2ULL);
   return true;
 }
@@ -4335,7 +4340,7 @@ bool TryDecodeLDP_D_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 bool TryDecodeLDP_Q_LDSTPAIR_POST(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_POST(data, inst, kRegV);
+  return TryDecodeLDP_Vn_LDSTPAIR_POST(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDP_Vn_LDSTPAIR_PRE(const InstData &data, Instruction &inst, RegClass rclass) {
@@ -4366,7 +4371,7 @@ bool TryDecodeLDP_D_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
 bool TryDecodeLDP_Q_LDSTPAIR_PRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_PRE(data, inst, kRegV);
+  return TryDecodeLDP_Vn_LDSTPAIR_PRE(data, inst, K_REG_Q);
 }
 
 static bool TryDecodeLDP_Vn_LDSTPAIR_OFF(const InstData &data, Instruction &inst, RegClass rclass) {
@@ -4397,7 +4402,7 @@ bool TryDecodeLDP_D_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
 // LDP  <Qt1>, <Qt2>, [<Xn|SP>{, #<imm>}]
 bool TryDecodeLDP_Q_LDSTPAIR_OFF(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  return TryDecodeLDP_Vn_LDSTPAIR_OFF(data, inst, kRegV);
+  return TryDecodeLDP_Vn_LDSTPAIR_OFF(data, inst, K_REG_Q);
 }
 
 // CLZ  <Wd>, <Wn>
@@ -4880,7 +4885,7 @@ bool TryDecodeSTn(const InstData &data, Instruction &inst, uint64_t *total_num_b
   auto num_regs = static_cast<uint8_t>(rpt * selem);
   for (uint8_t i = 0; i < num_regs; ++i) {
     auto tt = static_cast<aarch64::RegNum>((t + i) % 32);
-    AddRegOperand(inst, kActionWrite, data.Q ? kRegQ : kRegD, kUseAsValue, tt);
+    AddRegOperand(inst, kActionWrite, data.Q ? K_REG_Q : kRegD, kUseAsValue, tt);
   }
   return true;
 }
