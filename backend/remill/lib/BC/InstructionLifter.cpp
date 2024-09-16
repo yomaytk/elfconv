@@ -187,11 +187,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // Call the function that implements the instruction semantics.
   ir.CreateCall(isel_func, args);
 
-  // Add the function that stdout the vma of this instruction.
-  auto debug_fun = module->getFunction("debug_llvmir_u64value");
-  ir.CreateCall(debug_fun, {llvm::ConstantInt::get(llvm::Type::getInt64Ty(debug_fun->getContext()),
-                                                   arch_inst.pc)});
-
   // End an atomic block.
   // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
