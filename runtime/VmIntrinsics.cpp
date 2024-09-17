@@ -380,7 +380,10 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
       } else if (strncmp(reg_name, "SP", 2) == 0) {
         reg_index = __SP_INDEX;
       } else {
-        assert(strncmp(reg_name, "PC", 2) == 0);
+        if (strncmp(reg_name, "PC", 2) != 0) {
+          elfconv_runtime_error("invalid reg_name on the debug_vma_and_registers. reg_name: %s\n",
+                                reg_name);
+        }
       }
       general_regs_str.replace(general_regs_offsets[reg_index] + (16 - tmp_str_len), tmp_str_len,
                                tmp_str.str());
