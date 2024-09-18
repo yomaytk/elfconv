@@ -92,10 +92,10 @@ DEF_ISEL(BSL_ASIMDSAME_ONLY_16B) = BSL_Vec<VIu64v2>;  // BSL  <Vd>.<T>, <Vn>.<T>
 
 namespace {
 
-// DEF_SEM(FMOV_VectorToUInt64, R64W dst, VI128 src) {
-//   auto val = UExtractV64(UReadVI64(src), 1);
-//   WriteZExt(dst, val);
-// }
+DEF_SEM_U64(FMOV_VectorToUInt64, VIu64v2 src) {
+  auto val = UExtractVI64(UReadVI64(src), 1);
+  return val;
+}
 
 // DEF_SEM(FMOV_UInt64ToVector, VI128 dst, R64 src) {
 //   auto val = Read(src);
@@ -106,8 +106,8 @@ namespace {
 // }
 }  // namespace
 
-// DEF_ISEL(FMOV_64VX_FLOAT2INT) = FMOV_VectorToUInt64;
-// DEF_ISEL(FMOV_V64I_FLOAT2INT) = FMOV_UInt64ToVector;
+DEF_ISEL(FMOV_64VX_FLOAT2INT) = FMOV_VectorToUInt64;
+// DEF_ISEL(FMOV_V64I_FLOAT2INT) = FMOV_UInt64ToVector
 
 namespace {
 
