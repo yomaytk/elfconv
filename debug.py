@@ -4,6 +4,7 @@ file_a = ''
 file_b = ''
 
 ignore_regs = {}
+from_fun_name = ''
 
 def extract_states(log_file):
     """Extracts states from the log file, ignoring lines starting with 'pc'."""
@@ -52,13 +53,17 @@ def extract_call_funcs(log_file):
 def compare_states(states_a, states_b):
     """Compares states from two lists and prints differences."""
     min_len = min(len(states_a), len(states_b))
-    threshold = 20
+    threshold = 10
     debug_num = 0
+    check = len(from_fun_name) == 0
     for i in range(min_len):
         state_a = states_a[i]
         state_b = states_b[i]
         out_str = ""
         different = False
+        check |= state_a['function'] == from_fun_name
+        if not check:
+            continue
         if state_a['registers'] != state_b['registers']:
             out_str += f"Differences found in State {i + 1}:\n"
             out_str += f"{file_a}'s {state_a['function']} (line: {state_a['line']}) vs {file_b}'s {state_b['function']} (line: {state_b['line']})\n"
@@ -108,13 +113,20 @@ def main():
             print('[INFO] call stack is equal.')
     elif mode == "--all-regs":
         global ignore_regs
+        index = 4
         if len(sys.argv) > 4:
-            if sys.argv[4] == "--ignore":
-                for i in range(5, len(sys.argv), 2):
-                    ignore_regs[sys.argv[i]] = sys.argv[i+1]
-            else:
-                raise RuntimeError(f'invalid option {sys.argv[4]}')
-        
+            if sys.argv[index] == "--ignore":
+                while True:
+                    ignore_regs[sys.argv[index]] = sys.argv[index + 1]
+                    index += 2
+                    if len(sys.argv) <= index or not sys.argv[index].startswith("0x"):
+                        break
+            if sys.argv[index] == "--from-fun":
+                global from_fun_name
+                from_fun_name = sys.argv[index + 1]
+                index += 2
+            if len(sys.argv) != index:
+                raise RuntimeError('invalid options.')
         # Extract states from both files
         states_fa = extract_states(file_a)
         states_fb = extract_states(file_b)
