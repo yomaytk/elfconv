@@ -57,7 +57,7 @@ RUN \
   fi
 
 # WASI Runtimes install
-RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
+# RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
 RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
 
 # git settings
