@@ -40,7 +40,7 @@ if(${CMAKE_ELFLIFT_STATIC_LINK})
   endif() 
   target_link_options(elflift PUBLIC -static)
   target_link_libraries(
-    elflift 
+    elflift
     PRIVATE
     bfd
     elf
@@ -49,7 +49,7 @@ if(${CMAKE_ELFLIFT_STATIC_LINK})
 else()
 # dynamic link
   target_link_libraries(
-    elflift 
+    elflift
     PRIVATE
     bfd
     elf

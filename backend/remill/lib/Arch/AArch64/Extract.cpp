@@ -31963,12 +31963,7 @@ static bool TryExtractFMLA_ASIMDELEM_R_SD(InstData &inst, uint32_t bits) {
       uint32_t M : 1;
       uint32_t L : 1;
       uint32_t sz : 1;
-      uint32_t _23 : 1;  // 1
-      uint32_t _24 : 1;  // 1
-      uint32_t _25 : 1;  // 1
-      uint32_t _26 : 1;  // 1
-      uint32_t _27 : 1;  // 1
-      uint32_t _28 : 1;  // 0
+      uint32_t opcode: 6; // 011111
       uint32_t U : 1;
       uint32_t Q : 1;
       uint32_t _31 : 1;  // 0
@@ -31986,6 +31981,7 @@ static bool TryExtractFMLA_ASIMDELEM_R_SD(InstData &inst, uint32_t bits) {
   inst.Rm = static_cast<uint8_t>(enc.Rm);
   inst.Rn = static_cast<uint8_t>(enc.Rn);
   inst.o2 = static_cast<uint8_t>(enc.o2);
+  inst.opcode = static_cast<uint8_t>(enc.opcode);
   inst.iform = InstForm::FMLA_ASIMDELEM_R_SD;
   inst.iclass = InstName::FMLA;
   return true;

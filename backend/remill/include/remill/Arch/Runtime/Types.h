@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "Definitions.h"
+// #include "Definitions.h"
 #include "Float.h"
 #include "Int.h"
 #include "TypeTraits.h"
@@ -375,8 +375,18 @@ struct MVnW final {
   addr_t addr;
 };
 
-template <typename T, bool = sizeof(T) <= sizeof(addr_t)>
-struct Rn;
+template <typename T>
+struct MVI final {
+  addr_t addr;
+};
+
+template <typename T>
+struct MVIW final {
+  addr_t addr;
+};
+
+template <typename T>
+using VI = T;
 
 // Note: We use `addr_t` as the internal type for `Rn` and `In` struct templates
 //       because this will be the default register size used for parameter
@@ -384,34 +394,13 @@ struct Rn;
 //       this code to bitcode. We want to avoid the issue where a size that's
 //       too small, e.g. `uint8_t` or `uint16_t` in a struct, is passed as an
 //       aligned pointer to a `byval` parameter.
-template <typename T>
-struct Rn<T, true> final {
-  const addr_t val;
-};
 
 template <typename T>
-struct Rn<T, false> final {
-  const T val;
-};
+using Rn = T;
 
 template <typename T>
 struct RnW final {
   T *const val_ref;
-};
-
-template <>
-struct Rn<float32_t> final {
-  const float32_t val;
-};
-
-template <>
-struct Rn<float64_t> final {
-  const float64_t val;
-};
-
-template <>
-struct Rn<float80_t> final {
-  const float80_t val;
 };
 
 template <>
@@ -425,9 +414,7 @@ struct RnW<float64_t> final {
 };
 
 template <typename T>
-struct In final {
-  const addr_t val;
-};
+using In = T;
 
 // Okay so this is *kind of* a hack. The idea is that, in some cases, we want
 // to pass things like 32- or 64-bit GPRs to instructions taking in vectors,
@@ -482,6 +469,294 @@ struct VnW final {
   void *const val_ref;
 };
 
+// vector register which doesn't use memory.
+// T is used to deciding the accessed memory bit width.
+
+// EcvBaseType of _ecv_*
+template <typename T>
+struct EcvBaseTypeBase {
+  using BT = T;
+};
+
+template <typename T>
+struct EcvBaseType : EcvBaseTypeBase<T> {};
+
+// elfconv custom vector type for aarch64
+// these types is for used without accessing memory when using CPU registers.
+
+// 8 bit
+// signed
+typedef int8_t _ecv_i8v1_t __attribute__((vector_size(1)));
+// unsigned
+typedef uint8_t _ecv_u8v1_t __attribute__((vector_size(1)));
+
+// 16bit
+// signed
+typedef int8_t _ecv_i8v2_t __attribute__((vector_size(2)));
+typedef int16_t _ecv_i16v1_t __attribute__((vector_size(2)));
+// unsigned
+typedef uint8_t _ecv_u8v2_t __attribute__((vector_size(2)));
+typedef uint16_t _ecv_u16v1_t __attribute__((vector_size(2)));
+
+// 32bit
+// signed
+typedef int8_t _ecv_i8v4_t __attribute__((vector_size(4)));
+typedef int16_t _ecv_i16v2_t __attribute__((vector_size(4)));
+typedef int32_t _ecv_i32v1_t __attribute__((vector_size(4)));
+// unsigned
+typedef uint8_t _ecv_u8v4_t __attribute__((vector_size(4)));
+typedef uint16_t _ecv_u16v2_t __attribute__((vector_size(4)));
+typedef uint32_t _ecv_u32v1_t __attribute__((vector_size(4)));
+// float
+typedef float32_t _ecv_f32v1_t __attribute__((vector_size(4)));
+
+// 64bit
+// signed
+typedef int8_t _ecv_i8v8_t __attribute__((vector_size(8)));
+typedef int16_t _ecv_i16v4_t __attribute__((vector_size(8)));
+typedef int32_t _ecv_i32v2_t __attribute__((vector_size(8)));
+typedef int64_t _ecv_i64v1_t __attribute__((vector_size(8)));
+// unsigned
+typedef uint8_t _ecv_u8v8_t __attribute__((vector_size(8)));
+typedef uint16_t _ecv_u16v4_t __attribute__((vector_size(8)));
+typedef uint32_t _ecv_u32v2_t __attribute__((vector_size(8)));
+typedef uint64_t _ecv_u64v1_t __attribute__((vector_size(8)));
+// float
+typedef float32_t _ecv_f32v2_t __attribute__((vector_size(8)));
+typedef float64_t _ecv_f64v1_t __attribute__((vector_size(8)));
+
+// 128 bit
+typedef int8_t _ecv_i8v16_t __attribute__((vector_size(16)));
+typedef int16_t _ecv_i16v8_t __attribute__((vector_size(16)));
+typedef int32_t _ecv_i32v4_t __attribute__((vector_size(16)));
+typedef int64_t _ecv_i64v2_t __attribute__((vector_size(16)));
+typedef int128_t _ecv_i128v1_t __attribute__((vector_size(16)));
+// unsigned
+typedef uint8_t _ecv_u8v16_t __attribute__((vector_size(16)));
+typedef uint16_t _ecv_u16v8_t __attribute__((vector_size(16)));
+typedef uint32_t _ecv_u32v4_t __attribute__((vector_size(16)));
+typedef uint64_t _ecv_u64v2_t __attribute__((vector_size(16)));
+typedef uint128_t _ecv_u128v1_t __attribute__((vector_size(16)));
+// float
+typedef float32_t _ecv_f32v4_t __attribute__((vector_size(16)));
+typedef float64_t _ecv_f64v2_t __attribute__((vector_size(16)));
+
+// 256bit (only base type of 128bit)
+// signed
+typedef int128_t _ecv_i128v2_t __attribute__((vector_size(32)));
+// unsigned
+typedef uint128_t _ecv_u128v2_t __attribute__((vector_size(32)));
+
+// 8bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i8v1_t> : EcvBaseTypeBase<int8_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u8v1_t> : EcvBaseTypeBase<uint8_t> {};
+
+// 16bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i8v2_t> : EcvBaseTypeBase<int8_t> {};
+template <>
+struct EcvBaseType<_ecv_i16v1_t> : EcvBaseTypeBase<int16_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u8v2_t> : EcvBaseTypeBase<uint8_t> {};
+template <>
+struct EcvBaseType<_ecv_u16v1_t> : EcvBaseTypeBase<uint16_t> {};
+
+// 32bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i8v4_t> : EcvBaseTypeBase<int8_t> {};
+template <>
+struct EcvBaseType<_ecv_i16v2_t> : EcvBaseTypeBase<int16_t> {};
+template <>
+struct EcvBaseType<_ecv_i32v1_t> : EcvBaseTypeBase<int32_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u8v4_t> : EcvBaseTypeBase<uint8_t> {};
+template <>
+struct EcvBaseType<_ecv_u16v2_t> : EcvBaseTypeBase<uint16_t> {};
+template <>
+struct EcvBaseType<_ecv_u32v1_t> : EcvBaseTypeBase<uint32_t> {};
+// float
+template <>
+struct EcvBaseType<_ecv_f32v1_t> : EcvBaseTypeBase<float32_t> {};
+
+// 64bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i8v8_t> : EcvBaseTypeBase<int8_t> {};
+template <>
+struct EcvBaseType<_ecv_i16v4_t> : EcvBaseTypeBase<int16_t> {};
+template <>
+struct EcvBaseType<_ecv_i32v2_t> : EcvBaseTypeBase<int32_t> {};
+template <>
+struct EcvBaseType<_ecv_i64v1_t> : EcvBaseTypeBase<int64_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u8v8_t> : EcvBaseTypeBase<uint8_t> {};
+template <>
+struct EcvBaseType<_ecv_u16v4_t> : EcvBaseTypeBase<uint16_t> {};
+template <>
+struct EcvBaseType<_ecv_u32v2_t> : EcvBaseTypeBase<uint32_t> {};
+template <>
+struct EcvBaseType<_ecv_u64v1_t> : EcvBaseTypeBase<uint64_t> {};
+// float
+template <>
+struct EcvBaseType<_ecv_f32v2_t> : EcvBaseTypeBase<float32_t> {};
+template <>
+struct EcvBaseType<_ecv_f64v1_t> : EcvBaseTypeBase<float64_t> {};
+
+// 128bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i8v16_t> : EcvBaseTypeBase<int8_t> {};
+template <>
+struct EcvBaseType<_ecv_i16v8_t> : EcvBaseTypeBase<int16_t> {};
+template <>
+struct EcvBaseType<_ecv_i32v4_t> : EcvBaseTypeBase<int32_t> {};
+template <>
+struct EcvBaseType<_ecv_i64v2_t> : EcvBaseTypeBase<int64_t> {};
+template <>
+struct EcvBaseType<_ecv_i128v1_t> : EcvBaseTypeBase<int128_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u8v16_t> : EcvBaseTypeBase<uint8_t> {};
+template <>
+struct EcvBaseType<_ecv_u16v8_t> : EcvBaseTypeBase<uint16_t> {};
+template <>
+struct EcvBaseType<_ecv_u32v4_t> : EcvBaseTypeBase<uint32_t> {};
+template <>
+struct EcvBaseType<_ecv_u64v2_t> : EcvBaseTypeBase<uint64_t> {};
+template <>
+struct EcvBaseType<_ecv_u128v1_t> : EcvBaseTypeBase<uint128_t> {};
+// float
+template <>
+struct EcvBaseType<_ecv_f32v4_t> : EcvBaseTypeBase<float32_t> {};
+template <>
+struct EcvBaseType<_ecv_f64v2_t> : EcvBaseTypeBase<float64_t> {};
+
+// 256bit
+// signed
+template <>
+struct EcvBaseType<_ecv_i128v2_t> : EcvBaseTypeBase<int128_t> {};
+// unsigned
+template <>
+struct EcvBaseType<_ecv_u128v2_t> : EcvBaseTypeBase<uint128_t> {};
+
+template <typename T>
+struct EcvVectorTypeBase {
+  using VT = T;
+};
+
+template <typename T, std::size_t N>
+struct EcvVectorType {};
+
+// 8bit
+// signed
+template <>
+struct EcvVectorType<int8_t, 1> : EcvVectorTypeBase<_ecv_i8v1_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint8_t, 1> : EcvVectorTypeBase<_ecv_u8v1_t> {};
+
+// 16bit
+// signed
+template <>
+struct EcvVectorType<int8_t, 2> : EcvVectorTypeBase<_ecv_i8v2_t> {};
+template <>
+struct EcvVectorType<int16_t, 1> : EcvVectorTypeBase<_ecv_i16v1_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint8_t, 2> : EcvVectorTypeBase<_ecv_u8v2_t> {};
+template <>
+struct EcvVectorType<uint16_t, 1> : EcvVectorTypeBase<_ecv_u16v1_t> {};
+
+// 32bit
+// signed
+template <>
+struct EcvVectorType<int8_t, 4> : EcvVectorTypeBase<_ecv_i8v4_t> {};
+template <>
+struct EcvVectorType<int16_t, 2> : EcvVectorTypeBase<_ecv_i16v2_t> {};
+template <>
+struct EcvVectorType<int32_t, 1> : EcvVectorTypeBase<_ecv_i32v1_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint8_t, 4> : EcvVectorTypeBase<_ecv_u8v4_t> {};
+template <>
+struct EcvVectorType<uint16_t, 2> : EcvVectorTypeBase<_ecv_u16v2_t> {};
+template <>
+struct EcvVectorType<uint32_t, 1> : EcvVectorTypeBase<_ecv_u32v1_t> {};
+// float
+template <>
+struct EcvVectorType<float32_t, 1> : EcvVectorTypeBase<_ecv_f32v1_t> {};
+
+// 64bit
+// signed
+template <>
+struct EcvVectorType<int8_t, 8> : EcvVectorTypeBase<_ecv_i8v8_t> {};
+template <>
+struct EcvVectorType<int16_t, 4> : EcvVectorTypeBase<_ecv_i16v4_t> {};
+template <>
+struct EcvVectorType<int32_t, 2> : EcvVectorTypeBase<_ecv_i32v2_t> {};
+template <>
+struct EcvVectorType<int64_t, 1> : EcvVectorTypeBase<_ecv_i64v1_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint8_t, 8> : EcvVectorTypeBase<_ecv_u8v8_t> {};
+template <>
+struct EcvVectorType<uint16_t, 4> : EcvVectorTypeBase<_ecv_u16v4_t> {};
+template <>
+struct EcvVectorType<uint32_t, 2> : EcvVectorTypeBase<_ecv_u32v2_t> {};
+template <>
+struct EcvVectorType<uint64_t, 1> : EcvVectorTypeBase<_ecv_u64v1_t> {};
+// float
+template <>
+struct EcvVectorType<float32_t, 2> : EcvVectorTypeBase<_ecv_f32v2_t> {};
+template <>
+struct EcvVectorType<float64_t, 1> : EcvVectorTypeBase<_ecv_f64v1_t> {};
+
+// 128bit
+// signed
+template <>
+struct EcvVectorType<int8_t, 16> : EcvVectorTypeBase<_ecv_i8v16_t> {};
+template <>
+struct EcvVectorType<int16_t, 8> : EcvVectorTypeBase<_ecv_i16v8_t> {};
+template <>
+struct EcvVectorType<int32_t, 4> : EcvVectorTypeBase<_ecv_i32v4_t> {};
+template <>
+struct EcvVectorType<int64_t, 2> : EcvVectorTypeBase<_ecv_i64v2_t> {};
+template <>
+struct EcvVectorType<int128_t, 1> : EcvVectorTypeBase<_ecv_i128v1_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint8_t, 16> : EcvVectorTypeBase<_ecv_u8v16_t> {};
+template <>
+struct EcvVectorType<uint16_t, 8> : EcvVectorTypeBase<_ecv_u16v8_t> {};
+template <>
+struct EcvVectorType<uint32_t, 4> : EcvVectorTypeBase<_ecv_u32v4_t> {};
+template <>
+struct EcvVectorType<uint64_t, 2> : EcvVectorTypeBase<_ecv_u64v2_t> {};
+template <>
+struct EcvVectorType<uint128_t, 1> : EcvVectorTypeBase<_ecv_u128v1_t> {};
+// float
+template <>
+struct EcvVectorType<float32_t, 4> : EcvVectorTypeBase<_ecv_f32v4_t> {};
+template <>
+struct EcvVectorType<float64_t, 2> : EcvVectorTypeBase<_ecv_f64v2_t> {};
+
+// 256bit (only the 128bit base type)
+// signed
+template <>
+struct EcvVectorType<int128_t, 2> : EcvVectorTypeBase<_ecv_i128v2_t> {};
+// unsigned
+template <>
+struct EcvVectorType<uint128_t, 2> : EcvVectorTypeBase<_ecv_u128v2_t> {};
+
 // Used to figure out the "base type" of an aggregate type (e.g. vector of BT)
 // or of an integral/float type.
 template <typename T>
@@ -514,13 +789,13 @@ template <typename T>
 struct BaseType<MVnW<T>> : public BaseType<T> {};
 
 template <typename T>
-struct BaseType<Rn<T>> : public BaseType<T> {};
+struct BaseType<MVI<T>> : public BaseType<T> {};
+
+template <typename T>
+struct BaseType<MVIW<T>> : public BaseType<T> {};
 
 template <typename T>
 struct BaseType<RnW<T>> : public BaseType<T> {};
-
-template <typename T>
-struct BaseType<In<T>> : public BaseType<T> {};
 
 template <typename T>
 struct BaseType<Vn<T>> : public BaseType<T> {};
@@ -545,6 +820,12 @@ struct SignedIntegerType;
 
 template <typename T>
 struct UnsignedIntegerType;
+
+// VT is _ecv_*_t
+template <typename VT>
+ALWAYS_INLINE size_t GetVectorElemsNum(const VT &vec) {
+  return sizeof(vec) / sizeof(typename EcvBaseType<VT>::BT);
+}
 
 #define MAKE_SIGNED_INT_CHANGERS(signed_type, unsigned_type) \
   static_assert(sizeof(signed_type) == sizeof(unsigned_type), "Invalid int changer type type."); \

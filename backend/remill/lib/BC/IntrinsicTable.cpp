@@ -92,11 +92,13 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       read_memory_16(FindIntrinsic(module, "__remill_read_memory_16")),
       read_memory_32(FindIntrinsic(module, "__remill_read_memory_32")),
       read_memory_64(FindIntrinsic(module, "__remill_read_memory_64")),
+      read_memory_128(FindIntrinsic(module, "__remill_read_memory_128")),
 
       write_memory_8(FindIntrinsic(module, "__remill_write_memory_8")),
       write_memory_16(FindIntrinsic(module, "__remill_write_memory_16")),
       write_memory_32(FindIntrinsic(module, "__remill_write_memory_32")),
       write_memory_64(FindIntrinsic(module, "__remill_write_memory_64")),
+      write_memory_128(FindIntrinsic(module, "__remill_write_memory_128")),
 
       read_memory_f32(FindIntrinsic(module, "__remill_read_memory_f32")),
       read_memory_f64(FindIntrinsic(module, "__remill_read_memory_f64")),

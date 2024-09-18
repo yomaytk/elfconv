@@ -33,10 +33,10 @@ enum : size_t {
 
 extern const std::string_view kStateVariableName;
 extern const std::string_view kPCVariableName;
-extern const std::string_view kNextPCVariableName;
 extern const std::string_view kReturnPCVariableName;
 extern const std::string_view kBranchTakenVariableName;
 extern const std::string_view kRuntimeVariableName;
+extern const std::string_view kEcvNZCVVariableName;
 
 extern const std::string_view kInvalidInstructionISelName;
 extern const std::string_view kUnsupportedInstructionISelName;

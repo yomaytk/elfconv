@@ -11,6 +11,11 @@
 
 extern State g_state;
 
+#define SR_ECV_NZCV__N ((ecv_nzcv & 0b1000) >> 3)
+#define SR_ECV_NZCV__Z ((ecv_nzcv & 0b100) >> 2)
+#define SR_ECV_NZCV__C ((ecv_nzcv & 0b10) >> 1)
+#define SR_ECV_NZCV__V (ecv_nzcv & 0b1)
+
 /* debug func */
 extern "C" void debug_state_machine() {
   std::cout << "[Debug] State Machine. Program Counter: 0x" << std::hex << std::setw(16)
@@ -50,13 +55,16 @@ extern "C" void debug_state_machine() {
   std::cout << std::hex << "sp: 0x" << g_state.gpr.sp.qword << ", pc: 0x" << g_state.gpr.pc.qword
             << std::endl;
   auto sr = g_state.sr;
+  auto ecv_nzcv = g_state.ecv_nzcv;
   std::cout << "State.SR" << std::dec << std::endl;
   std::cout << std::hex << "tpidr_el0: 0x" << sr.tpidr_el0.qword << ", tpidrro_el0: 0x"
             << sr.tpidrro_el0.qword << ", ctr_el0: 0x" << sr.ctr_el0.qword << ", dczid_el0: 0x"
             << sr.dczid_el0.qword << ", midr_el1: 0x" << sr.midr_el1.qword << std::dec
-            << ", n: " << sr.n << ", z: " << sr.z << ", c: " << sr.c << ", v: " << sr.v
-            << ", ixc: " << sr.ixc << ", ofc: " << sr.ofc << ", ufc: " << sr.ufc
-            << ", idc: " << sr.idc << ", ioc: " << sr.ioc << std::endl;
+            << ", n: " << (uint64_t) SR_ECV_NZCV__N << ", z: " << (uint64_t) SR_ECV_NZCV__Z
+            << ", c: " << (uint64_t) SR_ECV_NZCV__C << ", v: " << (uint64_t) SR_ECV_NZCV__V
+            << ", ixc: " << (uint64_t) sr.ixc << ", ofc: " << (uint64_t) sr.ofc
+            << ", ufc: " << (uint64_t) sr.ufc << ", idc: " << (uint64_t) sr.idc
+            << ", ioc: " << (uint64_t) sr.ioc << std::endl;
 }
 
 extern "C" void debug_state_machine_vectors() {
@@ -66,8 +74,8 @@ extern "C" void debug_state_machine_vectors() {
   std::cout << std::hex;
   for (int i = 0; i < kNumVecRegisters /* = 32 */; i++) {
     std::cout << "v." << std::to_string(i) << " = { [64:127]: 0x"
-              << g_state.simd.v[i].qwords.elems[1] << ", [0:63]: 0x"
-              << g_state.simd.v[i].qwords.elems[0] << " }" << std::endl;
+              << (_ecv_u64v2_t(g_state.simd.v[i]))[1] << ", [0:63]: 0x"
+              << (_ecv_u64v2_t(g_state.simd.v[i]))[0] << " }" << std::endl;
   }
 }
 
@@ -84,6 +92,10 @@ extern "C" void debug_insn() {
   std::cout << "[DEBUG INSN]" << std::endl;
   std::cout << std::hex << "PC: 0x" << gpr.pc.qword << " x0: 0x" << gpr.x0.qword << " x1: 0x"
             << gpr.x1.qword << " x2: 0x" << gpr.x2.qword << " x3: 0x" << gpr.x3.qword << std::endl;
+}
+
+extern "C" void debug_reach() {
+  std::cout << "Reach!" << std::endl;
 }
 
 #if defined(LIFT_DEBUG) && defined(__linux__)

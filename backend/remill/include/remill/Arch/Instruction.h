@@ -69,6 +69,7 @@ class Operand {
   } type;
 
   enum Action { kActionInvalid, kActionRead, kActionWrite } action;
+  enum Usage { kValue, kAddress, kEmpty };
 
   // Size of this operand, in bits.
   uint64_t size;
@@ -81,6 +82,8 @@ class Operand {
 
     std::string name;
     uint64_t size;  // In bits.
+    Usage usage;
+    uint8_t number;
   } reg;
 
   class ShiftRegister {
@@ -169,6 +172,8 @@ class Condition {
   std::string Serialize(void) const;
 };
 
+enum class SemaFuncArgType { Nothing, State, Runtime, StateRuntime, Empty };
+
 // Generic instruction type.
 class Instruction {
  public:
@@ -187,6 +192,10 @@ class Instruction {
   uint64_t pc;
   uint64_t next_pc;
 
+  // The update reg by the Post or Pre index operation.
+  Operand::Register updated_addr_reg;
+  uint64_t updated_post_offset;
+
   // Program counter of the delayed instruction for taken/not-taken paths.
   uint64_t delayed_pc;
 
@@ -197,6 +206,9 @@ class Instruction {
 
   // Name of the architecture used to decode this instruction.
   ArchName arch_name;
+
+  // shows whether this fucntion needs the state or runtime_manager.
+  SemaFuncArgType sema_func_arg_type;
 
   // Name of the minimum instruction set associated with this instruction.
   // Remill's semantics are versioned by sub-architecture, and this tells us
@@ -449,7 +461,7 @@ class Instruction {
   }
 
   inline bool IsValid(void) const {
-    return kCategoryInvalid != category;
+    return kCategoryInvalid != category && !function.empty();
   }
 
   // Returns `true` if this instruction results in a runtime error. An example

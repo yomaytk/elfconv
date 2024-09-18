@@ -16,135 +16,159 @@
 
 namespace {
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(ORN, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UOr(Read(src1), UNot(Read(src2))));
+template <typename S1, typename S2>
+DEF_SEM_T(ORN, S1 src1, S2 src2) {
+  return UOr(Read(src1), UNot(Read(src2)));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(EOR, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UXor(Read(src1), Read(src2)));
+template <typename S1, typename S2>
+DEF_SEM_T(EOR, S1 src1, S2 src2) {
+  return UXor(Read(src1), Read(src2));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(EON, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UXor(Read(src1), UNot(Read(src2))));
+template <typename S1, typename S2>
+DEF_SEM_T(EON, S1 src1, S2 src2) {
+  return UXor(Read(src1), UNot(Read(src2)));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(AND, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UAnd(Read(src1), Read(src2)));
+template <typename S1, typename S2>
+DEF_SEM_T(AND, S1 src1, S2 src2) {
+  return UAnd(Read(src1), Read(src2));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(ORR, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UOr(Read(src1), Read(src2)));
+template <typename S1, typename S2>
+DEF_SEM_T(ORR, S1 src1, S2 src2) {
+  return UOr(Read(src1), Read(src2));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(BIC, D dst, S1 src1, S2 src2) {
-  WriteZExt(dst, UAnd(Read(src1), UNot(Read(src2))));
+template <typename S1, typename S2>
+DEF_SEM_T(BIC, S1 src1, S2 src2) {
+  return UAnd(Read(src1), UNot(Read(src2)));
 }
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(BICS, D dst, S1 src1, S2 src2) {
-  auto res = UAnd(Read(src1), UNot(Read(src2)));
-  WriteZExt(dst, res);
-  FLAG_N = SignFlag(res, src1, src2);
-  FLAG_Z = ZeroFlag(res, src1, src2);
-  FLAG_C = false;
-  FLAG_V = false;
+DEF_SEM_U32U64(BICS_32, R32 src1, I32 src2) {
+  uint32_t res = UAnd(Read(src1), UNot(Read(src2)));
+  uint64_t flag_n, flag_z, flag_c, flag_v;
+  flag_n = SignFlag(res, src1, src2);
+  flag_z = ZeroFlag(res, src1, src2);
+  flag_c = false;
+  flag_v = false;
+  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  return {res, nzcv};
+}
+
+DEF_SEM_U64U64(BICS_64, R64 src1, I64 src2) {
+  uint64_t res = UAnd(Read(src1), UNot(Read(src2)));
+  uint64_t flag_n, flag_z, flag_c, flag_v;
+  flag_n = SignFlag(res, src1, src2);
+  flag_z = ZeroFlag(res, src1, src2);
+  flag_c = false;
+  flag_v = false;
+  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  return {res, nzcv};
 }
 
 }  // namespace
 
 
-DEF_ISEL(ORN_32_LOG_SHIFT) = ORN<R32W, R32, I32>;
-DEF_ISEL(ORN_64_LOG_SHIFT) = ORN<R64W, R64, I64>;
+DEF_ISEL(ORN_32_LOG_SHIFT) = ORN<R32, I32>;  // ORN  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ORN_64_LOG_SHIFT) = ORN<R64, I64>;  // ORN  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 
-DEF_ISEL(EOR_32_LOG_SHIFT) = EOR<R32W, R32, I32>;
-DEF_ISEL(EOR_64_LOG_SHIFT) = EOR<R64W, R64, I64>;
-DEF_ISEL(EOR_32_LOG_IMM) = EOR<R32W, R32, I32>;
-DEF_ISEL(EOR_64_LOG_IMM) = EOR<R64W, R64, I64>;
+DEF_ISEL(EOR_32_LOG_SHIFT) = EOR<R32, I32>;  // EOR  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(EOR_64_LOG_SHIFT) = EOR<R64, I64>;  // EOR  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(EOR_32_LOG_IMM) = EOR<R32, I32>;  // EOR  <Wd|WSP>, <Wn>, #<imm>
+DEF_ISEL(EOR_64_LOG_IMM) = EOR<R64, I64>;  // EOR  <Xd|SP>, <Xn>, #<imm>
 
-DEF_ISEL(EON_32_LOG_SHIFT) = EON<R32W, R32, I32>;
-DEF_ISEL(EON_64_LOG_SHIFT) = EON<R64W, R64, I64>;
+DEF_ISEL(EON_32_LOG_SHIFT) = EON<R32, I32>;  // EON  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(EON_64_LOG_SHIFT) = EON<R64, I64>;  // EON  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 
-DEF_ISEL(AND_32_LOG_SHIFT) = AND<R32W, R32, I32>;
-DEF_ISEL(AND_64_LOG_SHIFT) = AND<R64W, R64, I64>;
-DEF_ISEL(AND_32_LOG_IMM) = AND<R32W, R32, I32>;
-DEF_ISEL(AND_64_LOG_IMM) = AND<R64W, R64, I64>;
+DEF_ISEL(AND_32_LOG_SHIFT) = AND<R32, I32>;  // AND  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(AND_64_LOG_SHIFT) = AND<R64, I64>;  // AND  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(AND_32_LOG_IMM) = AND<R32, I32>;  // AND  <Wd|WSP>, <Wn>, #<imm>
+DEF_ISEL(AND_64_LOG_IMM) = AND<R64, I64>;  // AND  <Xd|SP>, <Xn>, #<imm>
 
-DEF_ISEL(ORR_32_LOG_SHIFT) = ORR<R32W, R32, I32>;
-DEF_ISEL(ORR_64_LOG_SHIFT) = ORR<R64W, R64, I64>;
-DEF_ISEL(ORR_32_LOG_IMM) = ORR<R32W, R32, I32>;
-DEF_ISEL(ORR_64_LOG_IMM) = ORR<R64W, R64, I64>;
+DEF_ISEL(ORR_32_LOG_SHIFT) = ORR<R32, I32>;  // ORR  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ORR_64_LOG_SHIFT) = ORR<R64, I64>;  // ORR  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
+DEF_ISEL(ORR_32_LOG_IMM) = ORR<R32, I32>;  // ORR  <Wd|WSP>, <Wn>, #<imm>
+DEF_ISEL(ORR_64_LOG_IMM) = ORR<R64, I64>;  // ORR  <Xd|SP>, <Xn>, #<imm>
 
-DEF_ISEL(BIC_32_LOG_SHIFT) = BIC<R32W, R32, I32>;
-DEF_ISEL(BIC_64_LOG_SHIFT) = BIC<R64W, R64, I64>;
+DEF_ISEL(BIC_32_LOG_SHIFT) = BIC<R32, I32>;  // BIC  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(BIC_64_LOG_SHIFT) = BIC<R64, I64>;  // BIC  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 
-DEF_ISEL(BICS_32_LOG_SHIFT) = BICS<R32W, R32, I32>;
-DEF_ISEL(BICS_64_LOG_SHIFT) = BICS<R64W, R64, I64>;
+DEF_ISEL(BICS_32_LOG_SHIFT) = BICS_32;  // BICS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(BICS_64_LOG_SHIFT) = BICS_64;  // BICS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 
 namespace {
 
-template <typename D, typename S1, typename S2>
-DEF_SEM(ANDS, D dst, S1 src1, S2 src2) {
-  auto res = UAnd(Read(src1), Read(src2));
-  WriteZExt(dst, res);
-  FLAG_N = SignFlag(res, src1, src2);
-  FLAG_Z = ZeroFlag(res, src1, src2);
-  FLAG_C = false;
-  FLAG_V = false;
+DEF_SEM_U32U64(ANDS_32, R32 src1, I32 src2) {
+  uint32_t res = UAnd(Read(src1), Read(src2));
+  uint64_t flag_n, flag_z, flag_c, flag_v;
+  flag_n = SignFlag(res, src1, src2);
+  flag_z = ZeroFlag(res, src1, src2);
+  flag_c = false;
+  flag_v = false;
+  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  return {res, nzcv};
+}
+
+DEF_SEM_U64U64(ANDS_64, R64 src1, I64 src2) {
+  uint64_t res = UAnd(Read(src1), Read(src2));
+  uint64_t flag_n, flag_z, flag_c, flag_v;
+  flag_n = SignFlag(res, src1, src2);
+  flag_z = ZeroFlag(res, src1, src2);
+  flag_c = false;
+  flag_v = false;
+  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  return {res, nzcv};
 }
 
 }  // namespace
 
-DEF_ISEL(ANDS_32S_LOG_IMM) = ANDS<R32W, R32, I32>;
-DEF_ISEL(ANDS_64S_LOG_IMM) = ANDS<R64W, R64, I64>;
+DEF_ISEL(ANDS_32S_LOG_IMM) = ANDS_32;  // ANDS  <Wd>, <Wn>, #<imm>
+DEF_ISEL(ANDS_64S_LOG_IMM) = ANDS_64;  // ANDS  <Xd>, <Xn>, #<imm>
 
-DEF_ISEL(ANDS_32_LOG_SHIFT) = ANDS<R32W, R32, I32>;
-DEF_ISEL(ANDS_64_LOG_SHIFT) = ANDS<R64W, R64, I64>;
+DEF_ISEL(ANDS_32_LOG_SHIFT) = ANDS_32;  // ANDS  <Wd>, <Wn>, <Wm>{, <shift> #<amount>}
+DEF_ISEL(ANDS_64_LOG_SHIFT) = ANDS_64;  // ANDS  <Xd>, <Xn>, <Xm>{, <shift> #<amount>}
 
 namespace {
 
-template <typename D, typename S>
-DEF_SEM(LSLV, D dst, S src1, S src2) {
+template <typename S>
+DEF_SEM_T(LSLV, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
-  WriteZExt(dst, UShl(Read(src1), URem(Read(src2), size)));
+  return UShl(Read(src1), URem(Read(src2), size));
 }
 
-template <typename D, typename S>
-DEF_SEM(LSRV, D dst, S src1, S src2) {
+template <typename S>
+DEF_SEM_T(LSRV, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
-  WriteZExt(dst, UShr(Read(src1), URem(Read(src2), size)));
+  return UShr(Read(src1), URem(Read(src2), size));
 }
 
-template <typename D, typename S>
-DEF_SEM(ASRV, D dst, S src1, S src2) {
+template <typename S>
+DEF_SEM_T(ASRV, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
-  WriteZExt(dst, Unsigned(SShr(Signed(Read(src1)), Signed(URem(Read(src2), size)))));
+  return Unsigned(SShr(Signed(Read(src1)), Signed(URem(Read(src2), size))));
 }
 
-template <typename D, typename S>
-DEF_SEM(RORV, D dst, S src1, S src2) {
+template <typename S>
+DEF_SEM_T(RORV, S src1, S src2) {
   using T = typename BaseType<S>::BT;
   constexpr auto size = T(sizeof(T) * 8);
-  WriteZExt(dst, Ror(Read(src1), URem(Read(src2), size)));
+  return Ror(Read(src1), URem(Read(src2), size));
 }
 }  // namespace
 
-DEF_ISEL(LSLV_32_DP_2SRC) = LSLV<R32W, R32>;
-DEF_ISEL(LSLV_64_DP_2SRC) = LSLV<R64W, R64>;
+DEF_ISEL(LSLV_32_DP_2SRC) = LSLV<R32>;  // LSLV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(LSLV_64_DP_2SRC) = LSLV<R64>;  // LSLV  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(LSRV_32_DP_2SRC) = LSRV<R32W, R32>;
-DEF_ISEL(LSRV_64_DP_2SRC) = LSRV<R64W, R64>;
+DEF_ISEL(LSRV_32_DP_2SRC) = LSRV<R32>;  // LSRV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(LSRV_64_DP_2SRC) = LSRV<R64>;  // LSRV  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(ASRV_32_DP_2SRC) = ASRV<R32W, R32>;
-DEF_ISEL(ASRV_64_DP_2SRC) = ASRV<R64W, R64>;
+DEF_ISEL(ASRV_32_DP_2SRC) = ASRV<R32>;  // ASRV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(ASRV_64_DP_2SRC) = ASRV<R64>;  // ASRV  <Xd>, <Xn>, <Xm>
 
-DEF_ISEL(RORV_32_DP_2SRC) = RORV<R32W, R32>;
-DEF_ISEL(RORV_64_DP_2SRC) = RORV<R64W, R64>;
+DEF_ISEL(RORV_32_DP_2SRC) = RORV<R32>;  // RORV  <Wd>, <Wn>, <Wm>
+DEF_ISEL(RORV_64_DP_2SRC) = RORV<R64>;  // RORV  <Xd>, <Xn>, <Xm>
