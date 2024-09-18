@@ -3,8 +3,6 @@ elfconv is an experimental AOT compiler that translates a Linux ELF binary to ex
 elfconv converts an original ELF binary to the LLVM bitcode using [remill](https://github.com/lifting-bits/remill) (library for lifting machine code to LLVM bitcode)
 and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (for browser) or [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) (for WASI runtimes) to generate the WASM binary from the LLVM bitcode file.
 
-latest branch (The implementation of the optimization pass for generated LLVM IR): [llvm-opt](https://github.com/yomaytk/elfconv/tree/llvm-opt)
-
 ## Status
 > [!WARNING]
 > "**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Current limitations are as follows.
