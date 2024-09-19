@@ -25,18 +25,16 @@ class RuntimeManager;
 
 namespace {
 
-#if !defined(REMILL_DISABLE_INT128)
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
-                                                        addr_t addr);
+// Note. assume the environment which can uses 128bit type
+// #if !defined(REMILL_DISABLE_INT128)
+// ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
+//                                                         addr_t addr);
 
-ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
-                                                    uint128_t val);
-#endif
+// ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
+//                                                     uint128_t val);
+// #endif
 
 #define MAKE_UNDEF(n) \
-  ALWAYS_INLINE static uint##n##_t Undefined(uint##n##_t) { \
-    return __remill_undefined_##n(); \
-  } \
   ALWAYS_INLINE static uint##n##_t Undefined(Rn<uint##n##_t>) { \
     return __remill_undefined_##n(); \
   } \
@@ -80,37 +78,66 @@ MAKE_SIGNED_MEM_ACCESS(128)
 #endif
 
 // Read a value directly.
-ALWAYS_INLINE static bool _Read(RuntimeManager *, bool val) {
+ALWAYS_INLINE static bool _Read(bool val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint8_t _Read(RuntimeManager *, uint8_t val) {
+ALWAYS_INLINE static uint8_t _Read(uint8_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint16_t _Read(RuntimeManager *, uint16_t val) {
+ALWAYS_INLINE static uint16_t _Read(uint16_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint32_t _Read(RuntimeManager *, uint32_t val) {
+ALWAYS_INLINE static uint32_t _Read(uint32_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static uint64_t _Read(RuntimeManager *, uint64_t val) {
+ALWAYS_INLINE static uint64_t _Read(uint64_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static float32_t _Read(RuntimeManager *, float32_t val) {
+ALWAYS_INLINE static uint128_t _Read(uint128_t val) {
+  return val;
+}
+
+ALWAYS_INLINE static int8_t _Read(int8_t val) {
   return val;
 }
 
 // Read a value directly.
-ALWAYS_INLINE static float64_t _Read(RuntimeManager *, float64_t val) {
+ALWAYS_INLINE static int16_t _Read(int16_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int32_t _Read(int32_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int64_t _Read(int64_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static int128_t _Read(int128_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static float32_t _Read(float32_t val) {
+  return val;
+}
+
+// Read a value directly.
+ALWAYS_INLINE static float64_t _Read(float64_t val) {
   return val;
 }
 
@@ -118,42 +145,24 @@ ALWAYS_INLINE static float64_t _Read(RuntimeManager *, float64_t val) {
 //   return val;
 // }
 
-ALWAYS_INLINE static float32_t _Read(RuntimeManager *, In<float32_t> imm) {
-  return reinterpret_cast<const float32_t &>(imm.val);
-}
-
-ALWAYS_INLINE static float64_t _Read(RuntimeManager *, In<float64_t> imm) {
-  return reinterpret_cast<const float64_t &>(imm.val);
-}
-
 // ALWAYS_INLINE static float80_t _Read(RuntimeManager *, In<float80_t> imm) {
 //   return reinterpret_cast<const float80_t &>(imm.val);
 // }
 
 template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, In<T> imm) {
-  return static_cast<T>(imm.val);
-}
-
-template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, Rn<T> reg) {
-  return static_cast<T>(reg.val);
-}
-
-template <typename T>
-ALWAYS_INLINE static T _Read(RuntimeManager *, RnW<T> reg) {
+ALWAYS_INLINE static T _Read(RnW<T> reg) {
   return static_cast<T>(*(reg.val_ref));
 }
 
 // Make read operators for reading integral values from memory.
 #define MAKE_MREAD(size, ret_size, type_prefix, access_suffix) \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(RuntimeManager *&runtime_manager, \
-                                                       Mn<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+                                                          Mn<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
   } \
 \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _Read(RuntimeManager *&runtime_manager, \
-                                                       MnW<type_prefix##size##_t> op) { \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+                                                          MnW<type_prefix##size##_t> op) { \
     return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
   }
 
@@ -185,13 +194,13 @@ MAKE_MREAD(64, 64, float, f64)
 
 // Basic write form for references.
 template <typename T>
-ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, T &dst, T src) {
+ALWAYS_INLINE static void _Write(T &dst, T src) {
   dst = src;
 }
 
 // Make write operators for writing values to registers.
 #define MAKE_RWRITE(type) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, RnW<type> reg, type val) { \
+  ALWAYS_INLINE static void _Write(RnW<type> reg, type val) { \
     *(reg.val_ref) = val; \
   }
 
@@ -207,8 +216,8 @@ MAKE_RWRITE(float64_t)
 
 // Make write operators for writing values to memory.
 #define MAKE_MWRITE(size, write_size, mem_prefix, type_prefix, access_suffix) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
-                                   type_prefix##write_size##_t val) { \
+  ALWAYS_INLINE static void _MWrite(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
+                                    type_prefix##write_size##_t val) { \
     __remill_write_memory_##access_suffix(runtime_manager, op.addr, val); \
   }
 
@@ -227,6 +236,7 @@ MAKE_MWRITE(64, 64, float, float, f64)
 
 #undef MAKE_MWRITE
 
+// not used in the aarch64 semantics
 #define MAKE_READRV(prefix, size, accessor, base_type) \
   template <typename T> \
   ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, RVnW<T> vec) \
@@ -256,39 +266,40 @@ MAKE_READRV(F, 64, doubles, float64_t)
 
 #undef MAKE_READRV
 
-#define MAKE_READV(prefix, size, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, VnW<T> vec) \
-      ->decltype(T().accessor) { \
-    return reinterpret_cast<T *>(vec.val_ref)->accessor; \
-  } \
-\
-  template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *, Vn<T> vec) \
-      ->decltype(T().accessor) { \
-    return reinterpret_cast<const T *>(vec.val)->accessor; \
-  }
+// read the val from the vector register
+// _UReadV(<VnW | Vn> vec), _FReadV(<VnW | Vn> vec), ...
+// return type: dwords (uin32v2_t, uint32v4_t, ...), qwords (uint64v1_t, uint64v2_t, ...), ...
+// #define MAKE_READV(prefix, size, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(VnW<T> vec)->decltype(T().accessor) { \
+//     return reinterpret_cast<T *>(vec.val_ref)->accessor; \
+//   } \
+// \
+//   template <typename T> \
+//   ALWAYS_INLINE static auto _##prefix##ReadV##size(Vn<T> vec)->decltype(T().accessor) { \
+//     return reinterpret_cast<const T *>(vec.val)->accessor; \
+//   }
 
-MAKE_READV(U, 8, bytes)
-MAKE_READV(U, 16, words)
-MAKE_READV(U, 32, dwords)
-MAKE_READV(U, 64, qwords)
+// MAKE_READV(U, 8, bytes)
+// MAKE_READV(U, 16, words)
+// MAKE_READV(U, 32, dwords)
+// MAKE_READV(U, 64, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_READV(U, 128, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_READV(U, 128, dqwords)
+// #endif
 
-MAKE_READV(S, 8, sbytes)
-MAKE_READV(S, 16, swords)
-MAKE_READV(S, 32, sdwords)
-MAKE_READV(S, 64, sqwords)
+// MAKE_READV(S, 8, sbytes)
+// MAKE_READV(S, 16, swords)
+// MAKE_READV(S, 32, sdwords)
+// MAKE_READV(S, 64, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_READV(S, 128, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_READV(S, 128, sdqwords)
+// #endif
 
-MAKE_READV(F, 32, floats)
-MAKE_READV(F, 64, doubles)
+// MAKE_READV(F, 32, floats)
+// MAKE_READV(F, 64, doubles)
 // MAKE_READV(F, 80, tdouble)
 
 #undef MAKE_READV
@@ -345,6 +356,76 @@ MAKE_MREADV(F, 64, doubles, f64)
 
 #undef MAKE_MREADV
 
+#define MAKE_READVI(prefix, size, base_type) \
+  template <typename T> \
+  ALWAYS_INLINE static T _##prefix##ReadVI##size(VI<T> vec) { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    static_assert(std::is_same<T, vector_type>::value, \
+                  "T and vector type must be equal. at _" #prefix "ReadVI" #size); \
+    return *reinterpret_cast<vector_type *>(&vec); \
+  }  // namespace
+
+MAKE_READVI(U, 8, uint8_t)
+MAKE_READVI(U, 16, uint16_t)
+MAKE_READVI(U, 32, uint32_t)
+MAKE_READVI(U, 64, uint64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READVI(U, 128, uint128_t)
+#endif
+
+MAKE_READVI(S, 8, int8_t)
+MAKE_READVI(S, 16, int16_t)
+MAKE_READVI(S, 32, int32_t)
+MAKE_READVI(S, 64, int64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READVI(S, 128, int128_t)
+#endif
+
+MAKE_READVI(F, 32, float32_t)
+MAKE_READVI(F, 64, float64_t)
+// MAKE_READV(F, 80, tdouble)
+
+#undef MAKE_READVI
+
+#define MAKE_READMVI(prefix, size, base_type, mem_accessor) \
+  template <typename T> \
+  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVI<T> mem) \
+      ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
+    using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
+    vector_type vec = {}; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
+                                                   mem.addr + (i * sizeof(base_type))); \
+    } \
+    return vec; \
+  }
+
+MAKE_READMVI(U, 8, uint8_t, 8)
+MAKE_READMVI(U, 16, uint16_t, 16)
+MAKE_READMVI(U, 32, uint32_t, 32)
+MAKE_READMVI(U, 64, uint64_t, 64)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READMVI(U, 128, uint128_t, 128)
+#endif
+
+MAKE_READMVI(S, 8, int8_t, 8)
+MAKE_READMVI(S, 16, int16_t, 16)
+MAKE_READMVI(S, 32, int32_t, 32)
+MAKE_READMVI(S, 64, int64_t, 64)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_READMVI(S, 128, int128_t, 128)
+#endif
+
+MAKE_READMVI(F, 32, float32_t, f32)
+MAKE_READMVI(F, 64, float64_t, f64)
+// MAKE_MREADV(F, 80, tdoubles, f80)
+
+#undef MAKE_READMVI
+
 // MAKE_WRITEV(U, 16, words, VnW, uint16_t)
 // e.g. _UWriteV16(runtime_manager, vec, value), _FWriteV32(runtime_manager, vec, value), ...
 // -> vec = {value, 0, 0, ...}
@@ -352,8 +433,7 @@ MAKE_MREADV(F, 64, doubles, f64)
 // -> vec = {{vec2}, 0, 0, ...}
 #define MAKE_WRITEV(prefix, size, accessor, kind, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size( \
-      RuntimeManager *runtime_manager, kind<T> vec, base_type val) { \
+  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size(kind<T> vec, base_type val) { \
     auto &sub_vec = reinterpret_cast<T *>(vec.val_ref)->accessor; \
     sub_vec.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 1; i < NumVectorElems(sub_vec); ++i) { \
@@ -362,8 +442,7 @@ MAKE_MREADV(F, 64, doubles, f64)
   } \
 \
   template <typename T, typename V> \
-  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size( \
-      RuntimeManager *runtime_manager, kind<T> vec, const V &val) { \
+  ALWAYS_INLINE static void /* _UWriteV16 */ _##prefix##WriteV##size(kind<T> vec, const V &val) { \
     static_assert(sizeof(T) >= sizeof(V), "Object to WriteV is too big."); \
     typedef decltype(T().accessor.elems[0]) BT; \
     typedef decltype(V().elems[0]) VT; \
@@ -474,8 +553,58 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
 
 #undef MAKE_MWRITEV
 
+#define MAKE_WRITEMVI(prefix, size, mem_accessor, base_type) \
+  template <typename VT> \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
+                                                      MVI<VT> mem, base_type val) { \
+    static_assert(sizeof(VT) >= sizeof(base_type), "Invaild vector size of WriteMVI method."); \
+    using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>::VT; \
+    vector_type vec{}; \
+    vec[0] = val; \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
+                                           vec[i]); \
+    } \
+  } \
+\
+  template <typename VT1, typename VT2> /* _UWriteMVI32(runtime_manager, dstv, srcv) */ \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
+                                                      MVI<VT1> mem, const VT2 &vec) { \
+    static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVI."); \
+    static_assert(sizeof(base_type) == sizeof(typename EcvBaseType<VT2>::BT), \
+                  "Incompatible types to a write to a vector register"); \
+    _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
+      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
+                                           vec[i]); \
+    } \
+  }
+
+MAKE_WRITEMVI(U, 8, 8, uint8_t)
+MAKE_WRITEMVI(U, 16, 16, uint16_t)
+MAKE_WRITEMVI(U, 32, 32, uint32_t)
+MAKE_WRITEMVI(U, 64, 64, uint64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_WRITEMVI(U, 128, 128, uint128_t)
+#endif
+
+MAKE_WRITEMVI(S, 8, s8, int8_t)
+MAKE_WRITEMVI(S, 16, s16, int16_t)
+MAKE_WRITEMVI(S, 32, s32, int32_t)
+MAKE_WRITEMVI(S, 64, s64, int64_t)
+
+#if !defined(REMILL_DISABLE_INT128)
+MAKE_WRITEMVI(S, 128, s128, int128_t)
+#endif
+
+MAKE_WRITEMVI(F, 32, f32, float32_t)
+MAKE_WRITEMVI(F, 64, f64, float64_t)
+// MAKE_WRITEMVI(F, 80, tdoubles, f80, float80_t)
+
+#undef MAKE_WRITEMVI
+
 #define MAKE_WRITE_REF(type) \
-  ALWAYS_INLINE static void _Write(RuntimeManager *runtime_manager, type &ref, type val) { \
+  ALWAYS_INLINE static void _Write(type &ref, type val) { \
     ref = val; \
   }
 
@@ -607,14 +736,23 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 // For the sake of esthetics and hiding the small-step semantics of memory
 // operands, we use this macros to implicitly pass in the `memory` operand,
 // which we know will be defined in semantics functions.
-#define Read(op) _Read(runtime_manager, op)
+// ReadMem(op) accesses the runtime memory so that it needs RuntimeManager* for the argument
+#define ReadMem(op) _ReadMem(runtime_manager, op)
+// Read(op) doesn't access the runtime memory
+#define Read(op) _Read(op)
 
-// Write a source value to a destination operand, where the sizes of the
+// Write a source value to a destination operand (not memory), where the sizes of the
 // values must match.
 #define Write(op, val) \
   do { \
     static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
-    _Write(runtime_manager, op, (val)); \
+    _Write(op, (val)); \
+  } while (false)
+
+#define MWrite(op, val) \
+  do { \
+    static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
+    _MWrite(runtime_manager, op, (val)); \
   } while (false)
 
 #define Write_Dc_Zva(op, diff, val) \
@@ -892,6 +1030,11 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, TruncTo<decltype(op)>(val)); \
   } while (false)
 
+#define MWriteTrunc(op, val) \
+  do { \
+    MWrite(op, TruncTo<decltype(op)>(val)); \
+  } while (false)
+
 // Handle writes of N-bit values to M-bit values with N <= M. If N < M then the
 // source value will be zero-extended to the dest value type. This is useful
 // on x86-64 where writes to 32-bit registers zero-extend to 64-bits. In a
@@ -902,9 +1045,19 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, ZExtTo<decltype(op)>(val)); \
   } while (false)
 
+#define MWriteZExt(op, val) \
+  do { \
+    MWrite(op, ZExtTo<decltype(op)>(val)); \
+  } while (false)
+
 #define WriteSExt(op, val) \
   do { \
     Write(op, Unsigned(SExtTo<decltype(op)>(val))); \
+  } while (false)
+
+#define MWriteSExt(op, val) \
+  do { \
+    MWrite(op, Unsigned(SExtTo<decltype(op)>(val))); \
   } while (false)
 
 #define SWriteV8(op, val) \
@@ -969,6 +1122,129 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     _FWriteV64(runtime_manager, op, (val)); \
   } while (false)
 
+#define SWriteVI8(op, val) \
+  do { \
+    _SWriteVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI8(op, val) \
+  do { \
+    _UWriteVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI16(op, val) \
+  do { \
+    _SWriteVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI16(op, val) \
+  do { \
+    _UWriteVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI32(op, val) \
+  do { \
+    _SWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI32(op, val) \
+  do { \
+    _UWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteVI64(op, val) \
+  do { \
+    _SWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteVI64(op, val) \
+  do { \
+    _UWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SWriteVI128(op, val) \
+    do { \
+      _SWriteVI128(runtime_manager, op, (val)); \
+    } while (false)
+
+#  define UWriteVI128(op, val) \
+    do { \
+      _UWriteVI128(runtime_manager, op, (val)); \
+    } while (false)
+#endif
+
+#define FWriteVI32(op, val) \
+  do { \
+    _FWriteVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define FWriteVI64(op, val) \
+  do { \
+    _FWriteVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI8(op, val) \
+  do { \
+    _SWriteMVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI8(op, val) \
+  do { \
+    _UWriteMVI8(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI16(op, val) \
+  do { \
+    _SWriteMVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI16(op, val) \
+  do { \
+    _UWriteMVI16(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI32(op, val) \
+  do { \
+    _SWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI32(op, val) \
+  do { \
+    _UWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define SWriteMVI64(op, val) \
+  do { \
+    _SWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#define UWriteMVI64(op, val) \
+  do { \
+    _UWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SWriteMVI128(op, val) \
+    do { \
+      _SWriteMVI128(runtime_manager, op, (val)); \
+    } while (false)
+
+#  define UWriteMVI128(op, val) \
+    do { \
+      _UWriteMVI128(runtime_manager, op, (val)); \
+    } while (false)
+#endif
+
+#define FWriteMVI32(op, val) \
+  do { \
+    _FWriteMVI32(runtime_manager, op, (val)); \
+  } while (false)
+
+#define FWriteMVI64(op, val) \
+  do { \
+    _FWriteMVI64(runtime_manager, op, (val)); \
+  } while (false)
 
 #define SReadV8(op) _SReadV8(runtime_manager, op)
 #define UReadV8(op) _UReadV8(runtime_manager, op)
@@ -990,6 +1266,46 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 #define FReadV32(op) _FReadV32(runtime_manager, op)
 #define FReadV64(op) _FReadV64(runtime_manager, op)
 
+#define SReadVI8(op) _SReadVI8(op)
+#define UReadVI8(op) _UReadVI8(op)
+
+#define SReadVI16(op) _SReadVI16(op)
+#define UReadVI16(op) _UReadVI16(op)
+
+#define SReadVI32(op) _SReadVI32(op)
+#define UReadVI32(op) _UReadVI32(op)
+
+#define SReadVI64(op) _SReadVI64(op)
+#define UReadVI64(op) _UReadVI64(op)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SReadVI128(op) _SReadVI128(op)
+#  define UReadVI128(op) _UReadVI128(op)
+#endif
+
+#define FReadVI32(op) _FReadVI32(op)
+#define FReadVI64(op) _FReadVI64(op)
+
+#define SReadMVI8(op) _SReadMVI8(runtime_manager, op)
+#define UReadMVI8(op) _UReadMVI8(runtime_manager, op)
+
+#define SReadMVI16(op) _SReadMVI16(runtime_manager, op)
+#define UReadMVI16(op) _UReadMVI16(runtime_manager, op)
+
+#define SReadMVI32(op) _SReadMVI32(runtime_manager, op)
+#define UReadMVI32(op) _UReadMVI32(runtime_manager, op)
+
+#define SReadMVI64(op) _SReadMVI64(runtime_manager, op)
+#define UReadMVI64(op) _UReadMVI64(runtime_manager, op)
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SReadMVI128(op) _SReadMVI128(runtime_manager, op)
+#  define UReadMVI128(op) _UReadMVI128(runtime_manager, op)
+#endif
+
+#define FReadMVI32(op) _FReadMVI32(runtime_manager, op)
+#define FReadMVI64(op) _FReadMVI64(runtime_manager, op)
+
 // Useful for stubbing out an operator.
 #define MAKE_NOP(...)
 
@@ -1006,7 +1322,7 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
   }
 
 #define MAKE_BOOLBINOP(name, type, widen_type, op) \
-  ALWAYS_INLINE static bool name(type L, type R) { \
+  ALWAYS_INLINE static uint64_t name(type L, type R) { \
     return L op R; \
   }
 
@@ -1140,6 +1456,15 @@ ALWAYS_INLINE static bool BNot(bool a) {
       ret.elems[i] = op(L.elems[i], R.elems[i]); \
     } \
     return ret; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static T op##VI##size(const T &L, const T &R) { \
+    T ret{}; \
+    _Pragma("unroll") for (auto i = 0UL; i < GetVectorElemsNum(L); ++i) { \
+      ret[i] = op(L[i], R[i]); \
+    } \
+    return ret; \
   }
 
 // Unary broadcast operator.
@@ -1149,6 +1474,15 @@ ALWAYS_INLINE static bool BNot(bool a) {
     T ret{}; \
     _Pragma("unroll") for (auto i = 0UL; i < NumVectorElems(R); ++i) { \
       ret.elems[i] = op(R.elems[i]); \
+    } \
+    return ret; \
+  } \
+\
+  template <typename T> \
+  ALWAYS_INLINE static T op##VI##size(const T &R) { \
+    T ret{}; \
+    _Pragma("unroll") for (auto i = 0UL; i < GetVectorElemsNum(R); ++i) { \
+      ret[i] = op(R[i]); \
     } \
     return ret; \
   }
@@ -1207,37 +1541,66 @@ ALWAYS_INLINE static auto NthVectorElem(const T &vec, size_t n) ->
 }
 
 // Access the Nth element of an aggregate vector.
-// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32
-#define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F) => FExtractV32<T>(const T &vec, size_t n)
+// T: uint32v2_t, float32v4_t, ...
+// #define MAKE_EXTRACTV(size, base_type, accessor, out, prefix) \
+//   template <typename T> \
+//   ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
+//     return out(vec.elems[n]); \
+//   }
+
+// MAKE_EXTRACTV(8, uint8_t, bytes, Unsigned, U)
+// MAKE_EXTRACTV(16, uint16_t, words, Unsigned, U)
+// MAKE_EXTRACTV(32, uint32_t, dwords, Unsigned, U)
+// MAKE_EXTRACTV(64, uint64_t, qwords, Unsigned, U)
+
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_EXTRACTV(128, uint128_t, dqwords, Unsigned, U)
+// #endif
+
+// MAKE_EXTRACTV(8, int8_t, bytes, Signed, S)
+// MAKE_EXTRACTV(16, int16_t, words, Signed, S)
+// MAKE_EXTRACTV(32, int32_t, dwords, Signed, S)
+// MAKE_EXTRACTV(64, int64_t, qwords, Signed, S)
+
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_EXTRACTV(128, int128_t, dqwords, Signed, S)
+// #endif
+
+// MAKE_EXTRACTV(32, float32_t, floats, Identity, F)
+// MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
+// // MAKE_EXTRACTV(80, float80_t, tdoubles, Identity, F)
+
+// #undef MAKE_EXTRACTV
+
+// MAKE MACRO of FExtractVI(...) etc...
+#define MAKE_EXTRACTVI(esize, base_type, out, prefix) \
   template <typename T> \
-  ALWAYS_INLINE static base_type prefix##ExtractV##size(const T &vec, size_t n) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
-    return out(vec.elems[n]); \
-  }
+  ALWAYS_INLINE static base_type prefix##ExtractVI##esize(VI<T> vec, size_t id) { \
+    return out(vec[id]); \
+  }  // namespace
 
-MAKE_EXTRACTV(8, uint8_t, bytes, Unsigned, U)
-MAKE_EXTRACTV(16, uint16_t, words, Unsigned, U)
-MAKE_EXTRACTV(32, uint32_t, dwords, Unsigned, U)
-MAKE_EXTRACTV(64, uint64_t, qwords, Unsigned, U)
-
+MAKE_EXTRACTVI(8, uint8_t, Unsigned, U)
+MAKE_EXTRACTVI(16, uint16_t, Unsigned, U)
+MAKE_EXTRACTVI(32, uint32_t, Unsigned, U)
+MAKE_EXTRACTVI(64, uint64_t, Unsigned, U)
 #if !defined(REMILL_DISABLE_INT128)
-MAKE_EXTRACTV(128, uint128_t, dqwords, Unsigned, U)
+MAKE_EXTRACTVI(128, uint128_t, Unsigned, U)
 #endif
 
-MAKE_EXTRACTV(8, int8_t, bytes, Signed, S)
-MAKE_EXTRACTV(16, int16_t, words, Signed, S)
-MAKE_EXTRACTV(32, int32_t, dwords, Signed, S)
-MAKE_EXTRACTV(64, int64_t, qwords, Signed, S)
-
+MAKE_EXTRACTVI(8, int8_t, Signed, S)
+MAKE_EXTRACTVI(16, int16_t, Signed, S)
+MAKE_EXTRACTVI(32, int32_t, Signed, S)
+MAKE_EXTRACTVI(64, int64_t, Signed, S)
 #if !defined(REMILL_DISABLE_INT128)
-MAKE_EXTRACTV(128, int128_t, dqwords, Signed, S)
+MAKE_EXTRACTVI(128, int128_t, Signed, S)
 #endif
 
-MAKE_EXTRACTV(32, float32_t, floats, Identity, F)
-MAKE_EXTRACTV(64, float64_t, doubles, Identity, F)
-// MAKE_EXTRACTV(80, float80_t, tdoubles, Identity, F)
+MAKE_EXTRACTVI(32, float32_t, Identity, F)
+MAKE_EXTRACTVI(64, float64_t, Identity, F)
 
-#undef MAKE_EXTRACTV
+#undef MAKE_EXTRACTVI
 
 ALWAYS_INLINE static int8_t SAbs(int8_t val) {
   return val < 0 ? -val : val;
@@ -1266,74 +1629,72 @@ ALWAYS_INLINE static auto UAbs(typename IntegerType<T>::UT val) -> typename Inte
 }
 
 // Access the Nth element of an aggregate vector.
-#define MAKE_INSERTV(prefix, size, base_type, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
-    vec.elems[n] = val; \
-    return vec; \
-  }
+// #define MAKE_INSERTV(prefix, size, base_type, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static T prefix##InsertV##size(T vec, size_t n, base_type val) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid extract"); \
+//     vec.elems[n] = val; \
+//     return vec; \
+//   }
 
-MAKE_INSERTV(U, 8, uint8_t, bytes)
-MAKE_INSERTV(U, 16, uint16_t, words)
-MAKE_INSERTV(U, 32, uint32_t, dwords)
-MAKE_INSERTV(U, 64, uint64_t, qwords)
+// MAKE_INSERTV(U, 8, uint8_t, bytes)
+// MAKE_INSERTV(U, 16, uint16_t, words)
+// MAKE_INSERTV(U, 32, uint32_t, dwords)
+// MAKE_INSERTV(U, 64, uint64_t, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_INSERTV(U, 128, uint128_t, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_INSERTV(U, 128, uint128_t, dqwords)
+// #endif
 
-MAKE_INSERTV(S, 8, int8_t, sbytes)
-MAKE_INSERTV(S, 16, int16_t, swords)
-MAKE_INSERTV(S, 32, int32_t, sdwords)
-MAKE_INSERTV(S, 64, int64_t, sqwords)
+// MAKE_INSERTV(S, 8, int8_t, sbytes)
+// MAKE_INSERTV(S, 16, int16_t, swords)
+// MAKE_INSERTV(S, 32, int32_t, sdwords)
+// MAKE_INSERTV(S, 64, int64_t, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_INSERTV(S, 128, int128_t, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_INSERTV(S, 128, int128_t, sdqwords)
+// #endif
 
-MAKE_INSERTV(F, 32, float32_t, floats)
-MAKE_INSERTV(F, 64, float64_t, doubles)
-// MAKE_INSERTV(F, 80, float80_t, tdoubles)
+// MAKE_INSERTV(F, 32, float32_t, floats)
+// MAKE_INSERTV(F, 64, float64_t, doubles)
+// // MAKE_INSERTV(F, 80, float80_t, tdoubles)
 
-#undef MAKE_INSERTV
+// #undef MAKE_INSERTV
 
 // Update the Nth element of an aggregate vector.
-#define MAKE_UPDATEV(prefix, size, base_type, accessor) \
-  template <typename T> \
-  ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, base_type val) { \
-    static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid update"); \
-    vec.elems[n] = val; \
-  }
+// #define MAKE_UPDATEV(prefix, size, base_type, accessor) \
+//   template <typename T> \
+//   ALWAYS_INLINE static void prefix##UpdateV##size(T &vec, size_t n, base_type val) { \
+//     static_assert(sizeof(base_type) == sizeof(typename VectorType<T>::BT), "Invalid update"); \
+//     vec.elems[n] = val; \
+//   }
 
-MAKE_UPDATEV(U, 8, uint8_t, bytes)
-MAKE_UPDATEV(U, 16, uint16_t, words)
-MAKE_UPDATEV(U, 32, uint32_t, dwords)
-MAKE_UPDATEV(U, 64, uint64_t, qwords)
+// MAKE_UPDATEV(U, 8, uint8_t, bytes)
+// MAKE_UPDATEV(U, 16, uint16_t, words)
+// MAKE_UPDATEV(U, 32, uint32_t, dwords)
+// MAKE_UPDATEV(U, 64, uint64_t, qwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_UPDATEV(U, 128, uint128_t, dqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_UPDATEV(U, 128, uint128_t, dqwords)
+// #endif
 
-MAKE_UPDATEV(S, 8, int8_t, sbytes)
-MAKE_UPDATEV(S, 16, int16_t, swords)
-MAKE_UPDATEV(S, 32, int32_t, sdwords)
-MAKE_UPDATEV(S, 64, int64_t, sqwords)
+// MAKE_UPDATEV(S, 8, int8_t, sbytes)
+// MAKE_UPDATEV(S, 16, int16_t, swords)
+// MAKE_UPDATEV(S, 32, int32_t, sdwords)
+// MAKE_UPDATEV(S, 64, int64_t, sqwords)
 
-#if !defined(REMILL_DISABLE_INT128)
-MAKE_UPDATEV(S, 128, int128_t, sdqwords)
-#endif
+// #if !defined(REMILL_DISABLE_INT128)
+// MAKE_UPDATEV(S, 128, int128_t, sdqwords)
+// #endif
 
-MAKE_UPDATEV(F, 32, float32_t, floats)
-MAKE_UPDATEV(F, 64, float64_t, doubles)
-// MAKE_UPDATEV(F, 80, float80_t, tdoubles)
+// MAKE_UPDATEV(F, 32, float32_t, floats)
+// MAKE_UPDATEV(F, 64, float64_t, doubles)
+// // MAKE_UPDATEV(F, 80, float80_t, tdoubles)
 
-#undef MAKE_UPDATEV
+// #undef MAKE_UPDATEV
 
 template <typename U, typename T>
 ALWAYS_INLINE static constexpr T _ZeroVec(void) {
-  static_assert(std::is_same<U, typename VectorType<T>::BT>::value,
-                "Vector type and base don't match.");
   return {};
 }
 
@@ -1359,6 +1720,32 @@ ALWAYS_INLINE static constexpr T _ZeroVec(void) {
 
 #define FClearV32(...) _ZeroVec<float32_t, decltype(__VA_ARGS__)>()
 #define FClearV64(...) _ZeroVec<float64_t, decltype(__VA_ARGS__)>()
+
+template <typename U, typename T>
+ALWAYS_INLINE static constexpr T _ZeroVI(void) {
+  return {};
+}
+
+#define UClearVI8(vec) _ZeroVI<uint8_t, decltype(vec)>()
+#define UClearVI16(vec) _ZeroVI<uint16_t, decltype(vec)>()
+#define UClearVI32(vec) _ZeroVI<uint32_t, decltype(vec)>()
+#define UClearVI64(vec) _ZeroVI<uint64_t, decltype(vec)>()
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define UClearVI128(vec) _ZeroVI<uint128_t, decltype(vec)>()
+#endif
+
+#define SClearVI8(vec) _ZeroVI<int8_t, decltype(vec)>()
+#define SClearVI16(vec) _ZeroVI<int16_t, decltype(vec)>()
+#define SClearVI32(vec) _ZeroVI<int32_t, decltype(vec)>()
+#define SClearVI64(vec) _ZeroVI<int64_t, decltype(vec)>()
+
+#if !defined(REMILL_DISABLE_INT128)
+#  define SClearVI128(vec) _ZeroVI<int128_t, decltype(vec)>()
+#endif
+
+#define FClearVI32(vec) _ZeroVI<float32_t, decltype(vec)>()
+#define FClearVI64(vec) _ZeroVI<float64_t, decltype(vec)>()
 
 // Something has gone terribly wrong and we need to stop because there is
 // an error.
@@ -1432,7 +1819,7 @@ MAKE_PRED(Register, Mn, false)
 MAKE_PRED(Register, MnW, false)
 MAKE_PRED(Register, MVn, false)
 MAKE_PRED(Register, MVnW, false)
-MAKE_PRED(Register, In, false)
+MAKE_PRED(Register, MVI, false)
 
 MAKE_PRED(RuntimeManager, Rn, false)
 MAKE_PRED(RuntimeManager, RnW, false)
@@ -1442,7 +1829,7 @@ MAKE_PRED(RuntimeManager, Mn, true)
 MAKE_PRED(RuntimeManager, MnW, true)
 MAKE_PRED(RuntimeManager, MVn, true)
 MAKE_PRED(RuntimeManager, MVnW, true)
-MAKE_PRED(RuntimeManager, In, false)
+MAKE_PRED(RuntimeManager, MVI, true)
 
 MAKE_PRED(Immediate, Rn, false)
 MAKE_PRED(Immediate, RnW, false)
@@ -1452,7 +1839,7 @@ MAKE_PRED(Immediate, Mn, false)
 MAKE_PRED(Immediate, MnW, false)
 MAKE_PRED(Immediate, MVn, false)
 MAKE_PRED(Immediate, MVnW, false)
-MAKE_PRED(Immediate, In, true)
+MAKE_PRED(Immediate, MVI, false)
 
 #undef MAKE_PRED
 #define MAKE_PRED(name, T, val) \
@@ -1489,6 +1876,11 @@ ALWAYS_INLINE static MnW<T> GetElementPtr(MnW<T> addr, addr_t index) {
 
 template <typename T>
 ALWAYS_INLINE static MVnW<T> GetElementPtr(MVnW<T> addr, addr_t index) {
+  return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
+}
+
+template <typename T>
+ALWAYS_INLINE static MVI<T> GetElementPtr(MVI<T> addr, addr_t index) {
   return {addr.addr + (index * static_cast<addr_t>(sizeof(T)))};
 }
 
@@ -1573,6 +1965,11 @@ ALWAYS_INLINE static MVnW<T> DisplaceAddress(MVnW<T> addr, addr_t disp) {
 }
 
 template <typename T>
+ALWAYS_INLINE static MVI<T> DisplaceAddress(MVI<T> addr, addr_t disp) {
+  return MVI<T>{addr.addr + disp};
+}
+
+template <typename T>
 ALWAYS_INLINE static T Select(bool cond, T if_true, T if_false) {
   return cond ? if_true : if_false;
 }
@@ -1583,25 +1980,25 @@ ALWAYS_INLINE static T Select(bool cond, T if_true, T if_false) {
 #define UUndefined32 __remill_undefined_32
 #define UUndefined64 __remill_undefined_64
 
-
-#if !defined(REMILL_DISABLE_INT128)
+// Note. assume the environment which can uses 128bit type
+// #if !defined(REMILL_DISABLE_INT128)
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
-                                                        addr_t addr) {
-  uint128_t low_qword = ZExt(__remill_read_memory_64(runtime_manager, addr));
-  uint128_t high_qword = ZExt(__remill_read_memory_64(runtime_manager, addr + 8));
-  return UOr(UShl(high_qword, 64), low_qword);
-}
+// ALWAYS_INLINE static uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager,
+//                                                         addr_t addr) {
+//   uint128_t low_qword = ZExt(__remill_read_memory_64(runtime_manager, addr));
+//   uint128_t high_qword = ZExt(__remill_read_memory_64(runtime_manager, addr + 8));
+//   return UOr(UShl(high_qword, 64), low_qword);
+// }
 
 // TODO(pag): Assumes little-endian.
-ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
-                                                    uint128_t val) {
-  uint64_t low_qword = Trunc(val);
-  uint64_t high_qword = Trunc(UShr(val, 64));
-  __remill_write_memory_64(runtime_manager, addr, low_qword);
-  __remill_write_memory_64(runtime_manager, addr + 8, high_qword);
-}
-#endif
+// ALWAYS_INLINE static void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr,
+//                                                     uint128_t val) {
+//   uint64_t low_qword = Trunc(val);
+//   uint64_t high_qword = Trunc(UShr(val, 64));
+//   __remill_write_memory_64(runtime_manager, addr, low_qword);
+//   __remill_write_memory_64(runtime_manager, addr + 8, high_qword);
+// }
+// #endif
 
 // Issue #374: https://github.com/lifting-bits/remill/issues/374
 //

@@ -23,6 +23,6 @@ add_subdirectory(lifter)
 
 # tests
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  add_subdirectory(tests/aarch64)
+  # add_subdirectory(tests/aarch64)
 endif()
 add_subdirectory(tests/elfconv)

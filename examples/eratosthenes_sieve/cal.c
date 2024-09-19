@@ -37,7 +37,24 @@ int mhex(int num) {
   return res;
 }
 
-void easy_cal() {
+void simple_cal_1() {
+  char s[SLENGTH];
+  for (int i = 0; i < 100; i++) {
+    for (int j = i; j < 120; j += 2) {
+      s[j] = 'a';
+    }
+  }
+  int a = 10;
+  for (int i = 0; i < 5; i++) {
+    a *= 10;
+    mhex(a);
+  }
+  s[119] = 'm';
+  s[120] = '\n';
+  write_stdout(s, SLENGTH);
+}
+
+void prime_cal() {
 
   int nums[MAX_NUM];
   char s[SLENGTH];
@@ -74,6 +91,6 @@ void easy_cal() {
   }
   s[seek] = '\n';
 
-  // stdout
+  // // stdout
   write_stdout(s, SLENGTH);
 }

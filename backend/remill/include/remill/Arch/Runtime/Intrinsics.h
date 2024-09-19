@@ -30,6 +30,8 @@ extern "C" {
 
 [[gnu::used, gnu::pure]] extern uint64_t __remill_read_memory_64(RuntimeManager *, addr_t);
 
+[[gnu::used, gnu::pure]] extern uint128_t __remill_read_memory_128(RuntimeManager *, addr_t);
+
 // Memory write intrinsics.
 [[gnu::used]] extern void __remill_write_memory_8(RuntimeManager *, addr_t, uint8_t);
 
@@ -38,6 +40,8 @@ extern "C" {
 [[gnu::used]] extern void __remill_write_memory_32(RuntimeManager *, addr_t, uint32_t);
 
 [[gnu::used]] extern void __remill_write_memory_64(RuntimeManager *, addr_t, uint64_t);
+
+[[gnu::used]] extern void __remill_write_memory_128(RuntimeManager *, addr_t, uint128_t);
 
 [[gnu::used, gnu::pure]] extern float32_t __remill_read_memory_f32(RuntimeManager *, addr_t);
 

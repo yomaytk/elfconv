@@ -1416,9 +1416,8 @@ std::map<OpCode, SleighLifter::PcodeToLLVMEmitIntoBlock::BinaryOperator>
                return bldr.CreateMul(lhs, rhs);
              }},
             {OpCode::CPUI_INT_DIV,
-             [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
-               return bldr.CreateUDiv(lhs, rhs);
-             }},
+             [](llvm::Value *lhs, llvm::Value *rhs,
+                llvm::IRBuilder<> &bldr) { return bldr.CreateUDiv(lhs, rhs); }},
             {OpCode::CPUI_INT_SDIV,
              [](llvm::Value *lhs, llvm::Value *rhs, llvm::IRBuilder<> &bldr) {
                return bldr.CreateSDiv(lhs, rhs);
@@ -1615,8 +1614,7 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::B
 
   // Setup PC and NEXT_PC
   const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
-  const auto [next_pc_ref, next_pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kNextPCVariableName);
+  const auto [next_pc_ref, next_pc_ref_type] = LoadRegAddress(block, state_ptr, "DELETED_NEXT_PC");
 
 
   llvm::IRBuilder<> intoblock_builer(block);
@@ -1666,10 +1664,28 @@ SleighLifterWithState::SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken_
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                                llvm::Value *state_ptr, uint64_t __debug_insn_addr,
-                                                bool is_delayed) {
+                                                llvm::Value *state_ptr,
+                                                BBRegInfoNode *bb_reg_info_node,
+                                                uint64_t __debug_insn_addr, bool is_delayed) {
   return this->lifter->LiftIntoBlockWithSleighState(inst, block, state_ptr, is_delayed,
                                                     this->btaken, this->context_values);
+}
+
+llvm::Value *SleighLifterWithState::LoadRegValueBeforeInst(llvm::BasicBlock *block,
+                                                           llvm::Value *state_ptr,
+                                                           std::string_view reg_name,
+                                                           llvm::Instruction *instBefore,
+                                                           std::string var_name) const {
+  LOG(FATAL) << "SleighLifterWithState::LoadRegValueBeforeInst must not be called.";
+  return nullptr;
+}
+
+llvm::Instruction *
+SleighLifterWithState::StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                               std::string_view reg_name, llvm::Value *stored_value,
+                                               llvm::Instruction *instBefore) const {
+  LOG(FATAL) << "SleighLifterWithState::StoreRegValueBeforInst must not be called.";
+  return nullptr;
 }
 
 
