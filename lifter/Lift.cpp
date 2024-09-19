@@ -42,6 +42,7 @@ DEFINE_string(arch, REMILL_ARCH,
 DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
+DEFINE_string(target_arch, "", "Target Architecture for conversion");
 
 extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
   std::cout << remill::ECV_DEBUG_STREAM.str();
@@ -148,6 +149,19 @@ int main(int argc, char *argv[]) {
   /* generate LLVM bitcode file */
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
   host_arch->PrepareModule(module.get());
+
+  // Set wasm32-unknown-wasi and wasm32 data layout if necessary.
+  if (FLAGS_target_arch == "wasm32") {
+    auto wasm32_dl =
+        llvm::DataLayout("e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-n32:64-S128-ni:1:10:20");
+    module->setDataLayout(wasm32_dl.getStringRepresentation());
+    llvm::Triple wasm32_triple;
+    wasm32_triple.setArch(llvm::Triple::wasm32);
+    wasm32_triple.setVendor(llvm::Triple::UnknownVendor);
+    wasm32_triple.setOS(llvm::Triple::WASI);
+    module->setTargetTriple(wasm32_triple.str());
+  }
+
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
   printf("[\033[32mINFO\033[0m] Lift Done.\n");

@@ -58,13 +58,20 @@ lifting() {
   # ELF -> LLVM bc
   echo -e "[\033[32mINFO\033[0m] ELF Converting Start."
   elf_path=$( realpath "$1" )
+  
+  wasm32_target_arch=''
+  if [ "${TARGET}" == "wasi" ]; then
+    wasm32_target_arch='wasm32'
+  fi
+  
   cd ${BUILD_LIFTER_DIR} && \
     ./elflift \
     --arch aarch64 \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
     --dbg_fun_cfg "$2" \
-    --bitcode_path "$3" && \
+    --bitcode_path "$3" \
+    --target_arch "$wasm32_target_arch" && \
     llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
   echo -e "[\033[32mINFO\033[0m] Generate lift.bc."
 
