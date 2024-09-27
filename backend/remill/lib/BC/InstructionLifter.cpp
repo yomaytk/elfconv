@@ -156,7 +156,15 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
 
 bool EcvReg::CheckNoChangedReg() const {
   return STATE_ORDER == number || RUNTIME_ORDER == number || IGNORE_WRITE_TO_WZR_ORDER == number ||
-         IGNORE_WRITE_TO_XZR_ORDER == number;
+         IGNORE_WRITE_TO_XZR_ORDER == number || BRANCH_TAKEN_ORDER == number;
+}
+
+bool EcvReg::CheckPassedArgsRegs() const {
+  return (0 <= number && number <= 7) || SP_ORDER == number;
+}
+
+bool EcvReg::CheckPassedReturnRegs() const {
+  return (0 <= number && number <= 7) || SP_ORDER == number;
 }
 
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {

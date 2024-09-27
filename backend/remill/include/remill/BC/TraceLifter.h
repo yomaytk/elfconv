@@ -120,6 +120,7 @@ class PhiRegsBBBagNode {
   PhiRegsBBBagNode() {}
   static void Reset() {
     bb_regs_bag_map.clear();
+    bag_passed_caller_reg_map.clear();
     bag_num = 0;
     debug_bag_map.clear();
   }
@@ -127,11 +128,15 @@ class PhiRegsBBBagNode {
   static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
   static void GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb);
   static void RemoveLoop(llvm::BasicBlock *bb);
-  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+  static void
+  GetPhiRegsBags(llvm::BasicBlock *root_bb,
+                 std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> &bb_info_node_map);
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
   static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
+  // The register set which should be passed from caller function.
+  static inline EcvRegMap<EcvRegClass> bag_passed_caller_reg_map;
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag);
@@ -223,7 +228,10 @@ class VirtualRegsOpt {
       std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
           &cache_map);
 
+  void AnalyzeRegsBags();
   void OptimizeVirtualRegsUsage();
+
+  static inline std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_v_r_opt_map = {};
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
@@ -242,13 +250,16 @@ class VirtualRegsOpt {
 
   uint64_t phi_val_order;
 
+  std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
+  EcvRegMap<EcvRegClass> passed_caller_reg_map;
+
   // for debug
   uint64_t fun_vma;
   uint64_t block_num;
   std::string func_name;
   // map llvm::Value* and the corresponding CPU register.
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
-  static inline std::set<EcvReg> debug_reg_set = {};
+  std::set<EcvReg> debug_reg_set = {};
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
@@ -373,7 +384,6 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
-  std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
   std::set<llvm::Function *> no_indirect_lifted_funcs;
   std::set<llvm::Function *> lifted_funcs;
 

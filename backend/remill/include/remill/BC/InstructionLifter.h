@@ -160,6 +160,8 @@ class EcvReg {
 
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
   bool CheckNoChangedReg() const;
+  bool CheckPassedArgsRegs() const;
+  bool CheckPassedReturnRegs() const;
 
   class Hash {
    public:
