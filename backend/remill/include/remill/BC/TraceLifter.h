@@ -397,7 +397,6 @@ class TraceLifter::Impl {
   std::string inst_bytes;
   Instruction inst;
   Instruction delayed_inst;
-  std::set<uint64_t> control_flow_debug_fnvma_set;
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
   DecoderWorkList dead_inst_work_list;

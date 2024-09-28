@@ -59,11 +59,6 @@ void MainLifter::Optimize() {
   static_cast<WrapImpl *>(impl.get())->Optimize();
 }
 
-/* Set Control Flow debug list */
-void MainLifter::SetControlFlowDebugList(std::set<uint64_t> &__control_flow_debug_fnvma_set) {
-  static_cast<WrapImpl *>(impl.get())->SetControlFlowDebugList(__control_flow_debug_fnvma_set);
-}
-
 /* Declare debug function */
 void MainLifter::DeclareDebugFunction() {
   static_cast<WrapImpl *>(impl.get())->DeclareDebugFunction();
@@ -280,12 +275,6 @@ llvm::BranchInst *MainLifter::WrapImpl::CheckVirtualMahcineForInsnTest(uint64_t,
 
 void MainLifter::WrapImpl::AddTestFailedBlock() {
   elfconv_runtime_error("%s must be called by derived class.\n", __func__);
-}
-
-/* Set control flow debug list */
-void MainLifter::WrapImpl::SetControlFlowDebugList(
-    std::set<uint64_t> &__control_flow_debug_fnvma_set) {
-  control_flow_debug_fnvma_set = __control_flow_debug_fnvma_set;
 }
 
 /* Declare debug function */

@@ -294,10 +294,9 @@ InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *in
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                                BBRegInfoNode *bb_reg_info_node,
-                                                uint64_t debug_insn_addr, bool is_delayed) {
+                                                BBRegInfoNode *bb_reg_info_node, bool is_delayed) {
   return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
-                       bb_reg_info_node, debug_insn_addr, is_delayed);
+                       bb_reg_info_node, is_delayed);
 }
 
 llvm::Type *get_llvm_type(llvm::LLVMContext &context, EcvRegClass ecv_reg_class) {
@@ -346,8 +345,7 @@ llvm::Type *get_llvm_type(llvm::LLVMContext &context, EcvRegClass ecv_reg_class)
 // Lift a single instruction into a basic block.
 LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
                                             llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-
-                                            uint64_t debug_insn_addr, bool is_delayed) {
+                                            bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
   auto &context = func->getContext();
@@ -618,17 +616,15 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
   }
 
-  /* append debug_insn function call */
-  if (UINT64_MAX != debug_insn_addr) {
-    llvm::IRBuilder<> __debug_ir(block);
+  /* append `debug_memory_value_change` function call */
 #if defined(LIFT_MEMORY_VALUE_CHANGE)
-    auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
-    auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
-    __debug_ir.CreateCall(_debug_memory_value_change_fn,
-                          {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
-                                                 runtime_manager_ptr)});
+  llvm::IRBuilder<> __debug_ir(block);
+  auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
+  auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
+  __debug_ir.CreateCall(_debug_memory_value_change_fn,
+                        {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
+                                               runtime_manager_ptr)});
 #endif
-  }
 
   return status;
 }

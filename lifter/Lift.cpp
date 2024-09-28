@@ -85,23 +85,6 @@ int main(int argc, char *argv[]) {
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 
-#if defined(LIFT_DEBUG)
-  std::cout << "[\033[32mINFO\033[0m] DEBUG MODE ON." << std::endl;
-#endif
-
-  /* target function control flow */
-  std::set<uint64_t> control_flow_debug_fnvma_set = {0x423360};
-  if (!FLAGS_dbg_fun_cfg.empty()) {
-    for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
-      /* append the address of necesarry debug function */
-      if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length() + 4).c_str(),
-                  (FLAGS_dbg_fun_cfg + "_____").c_str(), FLAGS_dbg_fun_cfg.length() + 4) == 0) {
-        control_flow_debug_fnvma_set.insert(fn_addr);
-        break;
-      }
-    }
-  }
-  main_lifter.SetControlFlowDebugList(control_flow_debug_fnvma_set);
   /* declare debug function */
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */

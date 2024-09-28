@@ -95,7 +95,7 @@ class SleighLifterWithState final : public InstructionLifterIntf {
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-                                   uint64_t __debug_insn_addr, bool is_delayed = false) override;
+                                   bool is_delayed = false) override;
 
   virtual llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                               std::string_view reg_name,

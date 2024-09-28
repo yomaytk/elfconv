@@ -121,8 +121,6 @@ class MainLifter : public TraceLifter {
     void AddTestFailedBlock() override;
 
     /* debug helper */
-    /* Set control flow debug list */
-    void SetControlFlowDebugList(std::set<uint64_t> &__control_flow_debug_fnvma_set);
     /* Declare debug function */
     llvm::Function *DeclareDebugFunction();
     /* Set lifted function symbol name table */
@@ -154,7 +152,6 @@ class MainLifter : public TraceLifter {
 
   void Optimize();
   /* debug */
-  void SetControlFlowDebugList(std::set<uint64_t> &control_flow_debug_fnvma_set);
   void DeclareDebugFunction();
   void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
   void SetRegisterNames();

@@ -216,14 +216,12 @@ class InstructionLifterIntf : public OperandLifter {
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) = 0;
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                           BBRegInfoNode *bb_reg_info_node, uint64_t debug_insn_addr = UINT64_MAX,
-                           bool is_delayed = false);
+                           BBRegInfoNode *bb_reg_info_node, bool is_delayed = false);
 };
 
 // Wraps the process of lifting an instruction into a block. This resolves
@@ -246,7 +244,6 @@ class InstructionLifter : public InstructionLifterIntf {
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) override;
 
 

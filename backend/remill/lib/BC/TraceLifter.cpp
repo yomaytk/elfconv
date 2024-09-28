@@ -438,17 +438,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
 
-#if defined(LIFT_DEBUG)
-      (void) new llvm::StoreInst(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
-                                 LoadProgramCounterRef(block), block);
-#endif
-
       // Lift instruction
-      auto lift_status =
-          control_flow_debug_fnvma_set.contains(trace_addr)
-              ? inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node, inst_addr)
-              : inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node,
-                                                UINT64_MAX);
+      auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);
 
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
