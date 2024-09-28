@@ -2345,7 +2345,7 @@ bool isu128v2Ty(llvm::LLVMContext &context, llvm::Type *arg_type) {
 
 std::stringstream OutLLVMFunc(llvm::Function *func) {
   std::stringstream ss;
-  ss << "define " << LLVMThingToString(func->getReturnType()) << " " << func->getName().str()
+  ss << "define " << LLVMThingToString(func->getReturnType()) << " @" << func->getName().str()
      << " (";
   auto arg_iter = func->args().begin();
   for (;;) {

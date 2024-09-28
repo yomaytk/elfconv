@@ -936,7 +936,7 @@ void TraceLifter::Impl::Optimize() {
   inst.Reset();
   arch->InstanceInstAArch64(inst);
 
-  // Optimization of the usage of the LLVM IR virtual registers for the CPU registers instead of the memory usage.
+  // Opt: AnalyzeRegsBags.
   int opt_cnt = 1;
   for (auto lifted_func : no_indirect_lifted_funcs) {
     std::cout << "\r["
@@ -951,6 +951,19 @@ void TraceLifter::Impl::Optimize() {
     opt_cnt++;
   }
   std::cout << std::endl;
+
+  // Add __remill_function_call to func_v_r_opt_map for register store selection of calling it.
+  auto __remill_func_call_fn = module->getFunction("__remill_function_call");
+  auto __remill_func_call_v_r_o = new VirtualRegsOpt(__remill_func_call_fn, this, 0xffffff);
+  for (int i = 0; i < 8; i++) {
+    __remill_func_call_v_r_o->passed_caller_reg_map.insert(
+        {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+    __remill_func_call_v_r_o->passed_caller_reg_map.insert(
+        {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+  }
+  VirtualRegsOpt::func_v_r_opt_map.insert({__remill_func_call_fn, __remill_func_call_v_r_o});
+
+  // Opt: OptimizeVirtualRegsUsage.
   int opt_cnt2 = 1;
   for (auto lifted_func : no_indirect_lifted_funcs) {
     std::cout << "\r["
@@ -1401,6 +1414,12 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
       }
     }
   }
+
+  // std::cout << "func: " << func->getName().str() << " ";
+  // for (auto [e_r, e_r_c] : bag_passed_caller_reg_map) {
+  //   std::cout << e_r.GetRegName(e_r_c) << ", ";
+  // }
+  // std::cout << std::endl;
 }
 
 void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
@@ -1522,9 +1541,9 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
 
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
-    auto phi_regs_bag = new PhiRegsBBBagNode(bb_reg_info_node->bb_load_reg_map,
-                                             std::move(bb_reg_info_node->bb_load_reg_map),
-                                             std::move(bb_reg_info_node->bb_store_reg_map), {bb});
+    auto phi_regs_bag =
+        new PhiRegsBBBagNode(bb_reg_info_node->bb_load_reg_map, bb_reg_info_node->bb_load_reg_map,
+                             std::move(bb_reg_info_node->bb_store_reg_map), {bb});
     PhiRegsBBBagNode::bb_regs_bag_map.insert({bb, phi_regs_bag});
   }
   PhiRegsBBBagNode::bag_num = PhiRegsBBBagNode::bb_regs_bag_map.size();
@@ -1848,13 +1867,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         }
         // Target: llvm::CallInst
         else if (auto call_inst = llvm::dyn_cast<llvm::CallInst>(target_inst_it)) {
+
           // Call the lifted function (includes `__remill_function_call`).
           if (lifted_func_caller_set.contains(call_inst)) {
             // Store already stored `bb_store_reg_map`
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
               if (within_store_ecv_reg.CheckNoChangedReg() ||
-                  // !func_v_r_opt_map.at(call_inst->getFunction())
-                  //      ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
+                  !func_v_r_opt_map.at(call_inst->getCalledFunction())
+                       ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
                   !within_store_ecv_reg.CheckPassedArgsRegs() ||
                   !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
@@ -1871,8 +1891,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
               if (preceding_store_ecv_reg.CheckNoChangedReg() ||
-                  // !func_v_r_opt_map.at(call_inst->getFunction())
-                  //      ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
+                  !func_v_r_opt_map.at(call_inst->getCalledFunction())
+                       ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
                   !preceding_store_ecv_reg.CheckPassedArgsRegs() ||
                   target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
