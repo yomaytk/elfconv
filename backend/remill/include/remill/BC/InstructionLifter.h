@@ -159,7 +159,8 @@ class EcvReg {
   static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
 
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
-  bool CheckNoChangedReg() const;
+  bool CheckPassedArgsRegs() const;
+  bool CheckPassedReturnRegs() const;
 
   class Hash {
    public:
@@ -195,6 +196,8 @@ class BBRegInfoNode {
   // Save the args registers by semantic functions (for debug)
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_func_args_reg_map;
+  // Save the pc of semantics functions (for debug)
+  std::unordered_map<llvm::CallInst *, uint64_t> sema_func_pc_map;
 
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> post_update_regs;
 
@@ -214,14 +217,12 @@ class InstructionLifterIntf : public OperandLifter {
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) = 0;
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                           BBRegInfoNode *bb_reg_info_node, uint64_t debug_insn_addr = UINT64_MAX,
-                           bool is_delayed = false);
+                           BBRegInfoNode *bb_reg_info_node, bool is_delayed = false);
 };
 
 // Wraps the process of lifting an instruction into a block. This resolves
@@ -244,7 +245,6 @@ class InstructionLifter : public InstructionLifterIntf {
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
-                                   uint64_t debug_insn_addr = UINT64_MAX,
                                    bool is_delayed = false) override;
 
 

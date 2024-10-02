@@ -59,11 +59,6 @@ void MainLifter::Optimize() {
   static_cast<WrapImpl *>(impl.get())->Optimize();
 }
 
-/* Set Control Flow debug list */
-void MainLifter::SetControlFlowDebugList(std::set<uint64_t> &__control_flow_debug_fnvma_set) {
-  static_cast<WrapImpl *>(impl.get())->SetControlFlowDebugList(__control_flow_debug_fnvma_set);
-}
-
 /* Declare debug function */
 void MainLifter::DeclareDebugFunction() {
   static_cast<WrapImpl *>(impl.get())->DeclareDebugFunction();
@@ -282,12 +277,6 @@ void MainLifter::WrapImpl::AddTestFailedBlock() {
   elfconv_runtime_error("%s must be called by derived class.\n", __func__);
 }
 
-/* Set control flow debug list */
-void MainLifter::WrapImpl::SetControlFlowDebugList(
-    std::set<uint64_t> &__control_flow_debug_fnvma_set) {
-  control_flow_debug_fnvma_set = __control_flow_debug_fnvma_set;
-}
-
 /* Declare debug function */
 llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
 
@@ -362,11 +351,15 @@ void MainLifter::WrapImpl::SetRegisterNames() {
                              llvm::GlobalVariable::ExternalLinkage, v_reg_name_i_val,
                              "debug_" + v_reg_name_i);
   }
-
+  // ECV_NZCV
   auto ecv_nzcv_name_val = llvm::ConstantDataArray::getString(context, "ECV_NZCV", true);
   new llvm::GlobalVariable(*module, ecv_nzcv_name_val->getType(), true,
                            llvm::GlobalVariable::ExternalLinkage, ecv_nzcv_name_val,
                            "debug_ECV_NZCV");
+  // SP
+  auto ecv_sp_name_val = llvm::ConstantDataArray::getString(context, "SP", true);
+  new llvm::GlobalVariable(*module, ecv_sp_name_val->getType(), true,
+                           llvm::GlobalVariable::ExternalLinkage, ecv_sp_name_val, "debug_SP");
 }
 
 /* Set lifted function symbol name table */

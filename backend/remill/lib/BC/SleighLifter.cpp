@@ -1665,8 +1665,7 @@ SleighLifterWithState::SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken_
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
                                                 llvm::Value *state_ptr,
-                                                BBRegInfoNode *bb_reg_info_node,
-                                                uint64_t __debug_insn_addr, bool is_delayed) {
+                                                BBRegInfoNode *bb_reg_info_node, bool is_delayed) {
   return this->lifter->LiftIntoBlockWithSleighState(inst, block, state_ptr, is_delayed,
                                                     this->btaken, this->context_values);
 }

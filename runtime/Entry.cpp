@@ -2,12 +2,6 @@
 
 #include <cstdint>
 #include <cstring>
-#include <remill/BC/HelperMacro.h>
-#if defined(LIFT_DEBUG) && defined(__linux__)
-#  include <signal.h>
-#  include <utils/Util.h>
-#  include <utils/elfconv.h>
-#endif
 #include <iostream>
 #include <map>
 #include <remill/Arch/AArch64/Runtime/State.h>
@@ -20,14 +14,6 @@ State g_state = State();
 int main(int argc, char *argv[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
-
-#if defined(LIFT_DEBUG) && defined(__linux__)
-  struct sigaction segv_action = {0};
-  segv_action.sa_flags = SA_SIGINFO;
-  segv_action.sa_sigaction = segv_debug_state_machine;
-  if (sigaction(SIGSEGV, &segv_action, NULL) < 0)
-    elfconv_runtime_error("sigaction for SIGSEGV failed.\n");
-#endif
 
   /* allocate Stack */
   auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, &g_state);
