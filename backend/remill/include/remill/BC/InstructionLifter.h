@@ -159,7 +159,6 @@ class EcvReg {
   static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
 
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
-  bool CheckNoChangedReg() const;
   bool CheckPassedArgsRegs() const;
   bool CheckPassedReturnRegs() const;
 
@@ -197,6 +196,8 @@ class BBRegInfoNode {
   // Save the args registers by semantic functions (for debug)
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
       sema_func_args_reg_map;
+  // Save the pc of semantics functions (for debug)
+  std::unordered_map<llvm::CallInst *, uint64_t> sema_func_pc_map;
 
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> post_update_regs;
 

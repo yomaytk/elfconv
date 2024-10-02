@@ -120,7 +120,6 @@ class PhiRegsBBBagNode {
   PhiRegsBBBagNode() {}
   static void Reset() {
     bb_regs_bag_map.clear();
-    bag_passed_caller_reg_map.clear();
     bag_num = 0;
     debug_bag_map.clear();
   }
@@ -136,7 +135,6 @@ class PhiRegsBBBagNode {
   static inline std::size_t bag_num = 0;
   static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
   // The register set which should be passed from caller function.
-  static inline EcvRegMap<EcvRegClass> bag_passed_caller_reg_map;
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag);
@@ -250,9 +248,13 @@ class VirtualRegsOpt {
           &cache_map);
 
   void AnalyzeRegsBags();
+  static void CalPassedCallerRegForBJump();
+
   void OptimizeVirtualRegsUsage();
 
   static inline std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_v_r_opt_map = {};
+  static inline std::unordered_map<llvm::Function *, std::vector<llvm::Function *>>
+      b_jump_callees_map = {};
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
@@ -273,6 +275,9 @@ class VirtualRegsOpt {
 
   std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
   EcvRegMap<EcvRegClass> passed_caller_reg_map;
+  EcvRegMap<EcvRegClass> passed_callee_ret_reg_map;
+
+  std::set<llvm::ReturnInst *> ret_inst_set;
 
   // for debug
   uint64_t fun_vma;

@@ -154,17 +154,12 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
   return "";
 }
 
-bool EcvReg::CheckNoChangedReg() const {
-  return STATE_ORDER == number || RUNTIME_ORDER == number || IGNORE_WRITE_TO_WZR_ORDER == number ||
-         IGNORE_WRITE_TO_XZR_ORDER == number || BRANCH_TAKEN_ORDER == number;
-}
-
 bool EcvReg::CheckPassedArgsRegs() const {
   return (0 <= number && number <= 7) || SP_ORDER == number;
 }
 
 bool EcvReg::CheckPassedReturnRegs() const {
-  return (0 <= number && number <= 7) || SP_ORDER == number;
+  return (0 <= number && number <= 1) || SP_ORDER == number;
 }
 
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
@@ -242,7 +237,9 @@ BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
 void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
   // Join bb_load_reg_map
   for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
-    bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
+    if (!bb_store_reg_map.contains(_ecv_reg)) {
+      bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
+    }
   }
   // Join bb_store_reg_map
   for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
@@ -265,6 +262,10 @@ void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
   // Join sema_func_args_reg_map
   for (auto key_value : child->sema_func_args_reg_map) {
     sema_func_args_reg_map.insert(key_value);
+  }
+  // Join sema_func_pc_map
+  for (auto key_value : child->sema_func_pc_map) {
+    sema_func_pc_map.insert(key_value);
   }
 }
 
@@ -570,6 +571,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   CHECK(!bb_reg_info_node->sema_call_written_reg_map.contains(sema_inst))
       << "Unexpected to multiple lift the call instruction.";
   bb_reg_info_node->sema_call_written_reg_map.insert({sema_inst, write_regs});
+
+  bb_reg_info_node->sema_func_pc_map.insert({sema_inst, arch_inst.pc});
 
   // Update pre-post index for the target register.
   if (!arch_inst.updated_addr_reg.name.empty()) {

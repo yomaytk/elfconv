@@ -351,11 +351,15 @@ void MainLifter::WrapImpl::SetRegisterNames() {
                              llvm::GlobalVariable::ExternalLinkage, v_reg_name_i_val,
                              "debug_" + v_reg_name_i);
   }
-
+  // ECV_NZCV
   auto ecv_nzcv_name_val = llvm::ConstantDataArray::getString(context, "ECV_NZCV", true);
   new llvm::GlobalVariable(*module, ecv_nzcv_name_val->getType(), true,
                            llvm::GlobalVariable::ExternalLinkage, ecv_nzcv_name_val,
                            "debug_ECV_NZCV");
+  // SP
+  auto ecv_sp_name_val = llvm::ConstantDataArray::getString(context, "SP", true);
+  new llvm::GlobalVariable(*module, ecv_sp_name_val->getType(), true,
+                           llvm::GlobalVariable::ExternalLinkage, ecv_sp_name_val, "debug_SP");
 }
 
 /* Set lifted function symbol name table */

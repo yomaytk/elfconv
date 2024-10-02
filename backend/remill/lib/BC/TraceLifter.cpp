@@ -512,6 +512,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // sacrifice in correctness is made.
         case Instruction::kCategoryDirectJump:
           try_add_delay_slot(true, block);
+          if (!manager.isWithinFunction(trace_addr, inst.branch_taken_pc)) {
+            auto callee_def_func = get_trace_decl(inst.branch_taken_pc);
+            if (callee_def_func) {
+              if (VirtualRegsOpt::b_jump_callees_map.contains(func)) {
+                VirtualRegsOpt::b_jump_callees_map.at(func).push_back(callee_def_func);
+              } else {
+                VirtualRegsOpt::b_jump_callees_map.insert({func, {callee_def_func}});
+              }
+            }
+          }
           DirectBranchWithSaveParents(GetOrCreateBranchTakenBlock(), block);
           break;
 
@@ -681,12 +691,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           } while (false);
           break;
 
-        case Instruction::kCategoryFunctionReturn:
+        case Instruction::kCategoryFunctionReturn: {
           try_add_delay_slot(true, block);
           AddTerminatingTailCall(
               block, intrinsics->function_return, *intrinsics, trace_addr,
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
-          break;
+          auto ret_inst = llvm::dyn_cast<llvm::ReturnInst>(block->getTerminator());
+          CHECK(ret_inst) << "ret_inst must be ReturnInst. inst: " << LLVMThingToString(ret_inst);
+          virtual_regs_opt->ret_inst_set.insert(ret_inst);
+
+        } break;
 
         case Instruction::kCategoryConditionalFunctionReturn: {
           CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
@@ -850,7 +864,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       // Add StoreInst for the every semantics functions.
       auto &inst_lifter = inst.GetLifter();
-
       for (auto &bb : *func) {
         auto inst = &*bb.begin();
         auto t_bb_reg_info_node = virtual_regs_opt->bb_reg_info_node_map.at(&bb);
@@ -858,6 +871,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto call_inst = llvm::dyn_cast<llvm::CallInst>(inst);
           inst = inst->getNextNode();
           if (t_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
+#if defined(OPT_REAL_REGS_DEBUG)
+            auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
+            auto sema_pc = t_bb_reg_info_node->sema_func_pc_map.at(call_inst);
+            llvm::CallInst::Create(
+                debug_llvmir_u64_fn,
+                {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), sema_pc)}, "", call_inst);
+#endif
             auto &write_regs = t_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
             auto call_next_inst = call_inst->getNextNode();
             if (write_regs.size() == 1) {
@@ -903,6 +923,23 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           }
         }
       }
+
+      // Add passed_caller_reg_map and passed_callee_ret_reg_map.
+      for (int i = 0; i < 8; i++) {
+        virtual_regs_opt->passed_caller_reg_map.insert(
+            {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+        virtual_regs_opt->passed_caller_reg_map.insert(
+            {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+        virtual_regs_opt->passed_callee_ret_reg_map.insert(
+            {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+        virtual_regs_opt->passed_callee_ret_reg_map.insert(
+            {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+      }
+      virtual_regs_opt->passed_caller_reg_map.insert(
+          {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+      virtual_regs_opt->passed_callee_ret_reg_map.insert(
+          {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+
     } else {
       no_indirect_lifted_funcs.insert(func);
     }
@@ -952,7 +989,12 @@ void TraceLifter::Impl::Optimize() {
     __remill_func_call_v_r_o->passed_caller_reg_map.insert(
         {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
   }
+  __remill_func_call_v_r_o->passed_caller_reg_map.insert(
+      {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
   VirtualRegsOpt::func_v_r_opt_map.insert({__remill_func_call_fn, __remill_func_call_v_r_o});
+
+  // re-calculate passed_caller_reg_map considering direct jump function.
+  VirtualRegsOpt::CalPassedCallerRegForBJump();
 
   // Opt: OptimizeVirtualRegsUsage.
   int opt_cnt2 = 1;
@@ -1381,6 +1423,7 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
 
   // Calculate bag_passed_caller_reg_map.
   auto func = root_bb->getParent();
+  auto t_fun_v_r_o = VirtualRegsOpt::func_v_r_opt_map.at(func);
   for (auto &bb : *func) {
     if (&bb == root_bb) {
       continue;
@@ -1394,23 +1437,42 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
         already_load_flag |= p_bag->bag_req_reg_map.contains(e_r);
       }
       if (!already_load_flag) {
-        if (!bag_passed_caller_reg_map.contains(e_r)) {
-          bag_passed_caller_reg_map.insert({e_r, n_e_r_c});
-        } else {
-          auto e_r_c = t_bag->bag_passed_caller_reg_map.at(e_r);
-          if (GetRegClassSize(e_r_c) < GetRegClassSize(n_e_r_c)) {
-            bag_passed_caller_reg_map.insert_or_assign(e_r, n_e_r_c);
-          }
-        }
+        t_fun_v_r_o->passed_caller_reg_map.insert({e_r, n_e_r_c});
+      }
+    }
+    t_fun_v_r_o->passed_caller_reg_map.insert(
+        {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+  }
+
+  // Calculate passed_callee_ret_reg_map.
+  auto &ret_set = t_fun_v_r_o->ret_inst_set;
+  if (!ret_set.empty()) {
+    auto ret_inst_bg_bag = bb_regs_bag_map.at((*ret_set.begin())->getParent());
+    for (auto [e_r, e_r_c] : ret_inst_bg_bag->bag_preceding_store_reg_map) {
+      bool is_ret_reg = true;
+      for (auto iter = ret_set.begin(); iter != ret_set.end(); iter++) {
+        auto t_bag = bb_regs_bag_map.at((*iter)->getParent());
+        is_ret_reg &= t_bag->bag_preceding_store_reg_map.contains(e_r);
+      }
+      if (is_ret_reg) {
+        t_fun_v_r_o->passed_callee_ret_reg_map.insert({e_r, e_r_c});
       }
     }
   }
 
-  // std::cout << "func: " << func->getName().str() << " ";
-  // for (auto [e_r, e_r_c] : bag_passed_caller_reg_map) {
-  //   std::cout << e_r.GetRegName(e_r_c) << ", ";
+  // if (func->getName().starts_with("_IO_file_xsputn")) {
+  //   std::cout << func->getName().str() << std::endl;
+  //   for (auto [e_r, e_r_c] : bag_passed_caller_reg_map) {
+  //     std::cout << e_r.GetRegName(e_r_c) << ", ";
+  //   }
+  //   std::cout << std::endl;
   // }
-  // std::cout << std::endl;
+
+  // (FIXME)
+  if (func->getName().starts_with("_IO_do_write")) {
+    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 1), EcvRegClass::RegX});
+    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 3), EcvRegClass::RegX});
+  }
 }
 
 void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
@@ -1447,6 +1509,46 @@ void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
   }
   ECV_LOG_NL();
   ECV_LOG_NL();
+}
+
+void VirtualRegsOpt::CalPassedCallerRegForBJump() {
+  std::stack<llvm::Function *> func_stack;
+  std::set<llvm::Function *> finished;
+  for (auto [caller, _] : b_jump_callees_map) {
+    func_stack.push(caller);
+  }
+  while (!func_stack.empty()) {
+    auto t_fun = func_stack.top();
+    func_stack.pop();
+    if (finished.contains(t_fun)) {
+      continue;
+    }
+    if (b_jump_callees_map.contains(t_fun)) {
+      bool callee_fin = true;
+      for (auto callee : b_jump_callees_map.at(t_fun)) {
+        callee_fin &= finished.contains(callee);
+      }
+      if (callee_fin) {
+        auto t_fun_v_r_o = func_v_r_opt_map.at(t_fun);
+        for (auto callee : b_jump_callees_map.at(t_fun)) {
+          auto callee_v_r_o = func_v_r_opt_map.at(callee);
+          for (auto [e_r, e_r_c] : callee_v_r_o->passed_caller_reg_map) {
+            t_fun_v_r_o->passed_caller_reg_map.insert({e_r, e_r_c});
+          }
+        }
+        finished.insert(t_fun);
+      } else {
+        func_stack.push(t_fun);
+        for (auto callee : b_jump_callees_map.at(t_fun)) {
+          if (!finished.contains(callee)) {
+            func_stack.push(callee);
+          }
+        }
+      }
+    } else {
+      finished.insert(t_fun);
+    }
+  }
 }
 
 void VirtualRegsOpt::AnalyzeRegsBags() {
@@ -1555,7 +1657,6 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
   // Calculate the registers which needs to get on the phi nodes for every basic block.
   PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock(), bb_reg_info_node_map);
   bb_regs_bag_map = PhiRegsBBBagNode::bb_regs_bag_map;
-  passed_caller_reg_map = PhiRegsBBBagNode::bag_passed_caller_reg_map;
 
   // Reset static data of PhiRegsBBBagNode.
   PhiRegsBBBagNode::Reset();
@@ -1705,11 +1806,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     debug_reg_set.insert({EcvReg(RegKind::General, i)});
     // debug_reg_set.insert({EcvReg(RegKind::Vector, i)});
   }
-  // debug_reg_set.insert({EcvReg(RegKind::General, 3)});
-  // debug_reg_set.insert({EcvReg(RegKind::General, 1)});
-  // debug_reg_set.insert({EcvReg(RegKind::General, 21)});
-  // debug_reg_set.insert({EcvReg(RegKind::General, 24)});
-  // debug_reg_set.insert({EcvReg(RegKind::Special, ECV_NZCV_ORDER)});
+  debug_reg_set.insert({EcvReg(RegKind::Special, SP_ORDER)});
 #endif
 
   // Add the phi nodes to the every basic block.
@@ -1863,9 +1960,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           if (lifted_func_caller_set.contains(call_inst)) {
             // Store already stored `bb_store_reg_map`
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-              if (within_store_ecv_reg.CheckNoChangedReg() ||
-                  !func_v_r_opt_map.at(call_inst->getCalledFunction())
-                       ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
+              if (
+                  // !func_v_r_opt_map.at(call_inst->getCalledFunction())
+                  //        ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
                   !within_store_ecv_reg.CheckPassedArgsRegs() ||
                   !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
@@ -1881,9 +1978,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Store `preceding_store_map`
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
-              if (preceding_store_ecv_reg.CheckNoChangedReg() ||
-                  !func_v_r_opt_map.at(call_inst->getCalledFunction())
-                       ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
+              if (
+                  // !func_v_r_opt_map.at(call_inst->getCalledFunction())
+                  //        ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
                   !preceding_store_ecv_reg.CheckPassedArgsRegs() ||
                   target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
@@ -1899,7 +1996,10 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto call_next_inst = call_inst->getNextNode();
             // Load `preceding_store_map` + `load_map`
             for (auto [req_ecv_reg, tuple_set] : ascend_reg_inst_map) {
-              if (req_ecv_reg.CheckNoChangedReg() || !req_ecv_reg.CheckPassedReturnRegs()) {
+              if (!req_ecv_reg.CheckPassedReturnRegs()
+                  // || !func_v_r_opt_map.at(call_inst->getParent()->getParent())
+                  //      ->passed_callee_ret_reg_map.contains(req_ecv_reg)
+              ) {
                 continue;
               }
               auto [req_r_c, userd_val, order] = tuple_set;
@@ -2068,10 +2168,11 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               value_reg_map.insert({req_load, {req_ecv_reg, req_r_c}});
             }
             target_inst_it = call_next_inst;
-            DEBUG_PC_AND_REGISTERS(call_next_inst, ascend_reg_inst_map, 0xffff'ff);
+            DEBUG_PC_AND_REGISTERS(call_next_inst, ascend_reg_inst_map, 0xdeadbeef);
           }
           // Call the general semantic functions.
           else {
+            auto call_next_inst = call_inst->getNextNode();
             if (target_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
               auto &sema_func_write_regs =
                   target_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
@@ -2087,12 +2188,12 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                 value_reg_map.insert(
                     {call_inst, {sema_func_write_regs[0].first, sema_func_write_regs[0].second}});
               }
+              DEBUG_PC_AND_REGISTERS(call_next_inst, ascend_reg_inst_map,
+                                     Sema_func_vma_map.contains(call_inst)
+                                         ? Sema_func_vma_map.at(call_inst)
+                                         : 0xffff'ffff);
             }
-            target_inst_it = call_inst->getNextNode();
-            DEBUG_PC_AND_REGISTERS(call_inst->getNextNode(), ascend_reg_inst_map,
-                                   Sema_func_vma_map.contains(call_inst)
-                                       ? Sema_func_vma_map.at(call_inst)
-                                       : 0xffff'ff);
+            target_inst_it = call_next_inst;
           }
         }
         // Target: llvm::StoreInst
@@ -2140,7 +2241,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                            << ECV_DEBUG_STREAM.str();
           ret_inst = __ret_inst;
           for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-            if (within_store_ecv_reg.CheckNoChangedReg() ||
+            if (
+                // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
+                //        ->passed_callee_ret_reg_map.contains(within_store_ecv_reg) ||
                 !within_store_ecv_reg.CheckPassedReturnRegs() ||
                 !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
               continue;
@@ -2156,7 +2259,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           // Store `preceding_store_map`
           for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                target_phi_regs_bag->bag_preceding_store_reg_map) {
-            if (preceding_store_ecv_reg.CheckNoChangedReg() ||
+            if (
+                // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
+                //        ->passed_callee_ret_reg_map.contains(preceding_store_ecv_reg) ||
                 !preceding_store_ecv_reg.CheckPassedReturnRegs() ||
                 target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
               continue;
@@ -2271,7 +2376,7 @@ void VirtualRegsOpt::InsertDebugVmaAndRegisters(
 
     for (auto debug_ecv_reg : debug_reg_set) {
       if (ascend_reg_inst_map.contains(debug_ecv_reg)) {
-        llvm::GlobalVariable *reg_name_gvar;
+        llvm::GlobalVariable *reg_name_gvar = NULL;
         if (RegKind::General == debug_ecv_reg.reg_kind) {
           reg_name_gvar =
               impl->module->getGlobalVariable("debug_X" + to_string(debug_ecv_reg.number));
@@ -2279,9 +2384,11 @@ void VirtualRegsOpt::InsertDebugVmaAndRegisters(
           reg_name_gvar =
               impl->module->getGlobalVariable("debug_V" + to_string(debug_ecv_reg.number));
         } else {
-          // (FIXME)
-          CHECK(ECV_NZCV_ORDER == debug_ecv_reg.number);
-          reg_name_gvar = impl->module->getGlobalVariable("debug_ECV_NZCV");
+          if (ECV_NZCV_ORDER == debug_ecv_reg.number) {
+            reg_name_gvar = impl->module->getGlobalVariable("debug_ECV_NZCV");
+          } else if (SP_ORDER == debug_ecv_reg.number) {
+            reg_name_gvar = impl->module->getGlobalVariable("debug_SP");
+          }
         }
         args.push_back(reg_name_gvar);
         args.push_back(GetRegValueFromCacheMap(debug_ecv_reg,
