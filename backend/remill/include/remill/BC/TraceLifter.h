@@ -108,11 +108,11 @@ class TraceManager {
 class PhiRegsBBBagNode {
  public:
   PhiRegsBBBagNode(EcvRegMap<EcvRegClass> __preceding_load_reg_map,
-                   EcvRegMap<EcvRegClass> &&__succeeding_load_reg_map,
+                   EcvRegMap<EcvRegClass> __succeeding_load_reg_map,
                    EcvRegMap<EcvRegClass> &&__within_store_reg_map,
                    std::set<llvm::BasicBlock *> &&__in_bbs)
-      : bag_preceding_load_reg_map(std::move(__preceding_load_reg_map)),
-        bag_succeeding_load_reg_map(std::move(__succeeding_load_reg_map)),
+      : bag_preceding_load_reg_map(__preceding_load_reg_map),
+        bag_succeeding_load_reg_map(__succeeding_load_reg_map),
         bag_preceding_store_reg_map(std::move(__within_store_reg_map)),
         in_bbs(std::move(__in_bbs)),
         converted_bag(nullptr) {}
@@ -127,11 +127,14 @@ class PhiRegsBBBagNode {
   static void GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb);
   static void GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb);
   static void RemoveLoop(llvm::BasicBlock *bb);
-  static void GetPhiRegsBags(llvm::BasicBlock *root_bb);
+  static void
+  GetPhiRegsBags(llvm::BasicBlock *root_bb,
+                 std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> &bb_info_node_map);
 
   static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
   static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
+  // The register set which should be passed from caller function.
 
   PhiRegsBBBagNode *GetTrueBag();
   void MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag);
@@ -196,16 +199,37 @@ class VirtualRegsOpt {
         relay_bb_cache({}),
         phi_val_order(0),
         fun_vma(__fun_vma) {
-    for (auto &arg : func->args()) {
-      if (arg.getName() == "state") {
-        arg_state_val = &arg;
-      } else if (arg.getName() == "runtime_manager") {
-        arg_runtime_val = &arg;
+    arg_state_val = NULL;
+    arg_runtime_val = NULL;
+    // only declared function.
+    if (func->getName().str() == "__remill_function_call") {
+      auto args = func->args().begin();
+      for (size_t i = 0; i < func->arg_size(); i++) {
+        if (0 == i) {
+          CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
+          arg_state_val = &args[i];
+        } else if (2 == i) {
+          CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
+          arg_runtime_val = &args[i];
+        }
       }
     }
-    CHECK(arg_state_val) << "[Bug] state arg is empty at the initialization of VirtualRegsOpt.";
+    // lifted function.
+    else {
+      for (auto &arg : func->args()) {
+        if (arg.getName() == "state") {
+          arg_state_val = &arg;
+        } else if (arg.getName() == "runtime_manager") {
+          arg_runtime_val = &arg;
+        }
+      }
+    }
+    CHECK(arg_state_val)
+        << "[Bug] state arg is empty at the initialization of VirtualRegsOpt. target func: "
+        << func->getName().str();
     CHECK(arg_runtime_val)
-        << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt.";
+        << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt. target func: "
+        << func->getName().str();
   }
   VirtualRegsOpt() {}
   ~VirtualRegsOpt() {}
@@ -223,7 +247,14 @@ class VirtualRegsOpt {
       std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
           &cache_map);
 
+  void AnalyzeRegsBags();
+  static void CalPassedCallerRegForBJump();
+
   void OptimizeVirtualRegsUsage();
+
+  static inline std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_v_r_opt_map = {};
+  static inline std::unordered_map<llvm::Function *, std::vector<llvm::Function *>>
+      b_jump_callees_map = {};
 
   llvm::Function *func;
   TraceLifter::Impl *impl;
@@ -242,13 +273,19 @@ class VirtualRegsOpt {
 
   uint64_t phi_val_order;
 
+  std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
+  EcvRegMap<EcvRegClass> passed_caller_reg_map;
+  EcvRegMap<EcvRegClass> passed_callee_ret_reg_map;
+
+  std::set<llvm::ReturnInst *> ret_inst_set;
+
   // for debug
   uint64_t fun_vma;
   uint64_t block_num;
   std::string func_name;
   // map llvm::Value* and the corresponding CPU register.
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
-  static inline std::set<EcvReg> debug_reg_set = {};
+  std::set<EcvReg> debug_reg_set = {};
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
@@ -365,7 +402,6 @@ class TraceLifter::Impl {
   std::string inst_bytes;
   Instruction inst;
   Instruction delayed_inst;
-  std::set<uint64_t> control_flow_debug_fnvma_set;
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
   DecoderWorkList dead_inst_work_list;
@@ -373,7 +409,6 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
-  std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_virtual_regs_opt_map;
   std::set<llvm::Function *> no_indirect_lifted_funcs;
   std::set<llvm::Function *> lifted_funcs;
 

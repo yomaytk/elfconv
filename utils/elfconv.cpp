@@ -97,12 +97,3 @@ extern "C" void debug_insn() {
 extern "C" void debug_reach() {
   std::cout << "Reach!" << std::endl;
 }
-
-#if defined(LIFT_DEBUG) && defined(__linux__)
-extern "C" void segv_debug_state_machine(int sig, siginfo_t *info, void *ctx) {
-  std::cout << "[ERROR] Segmantation Fault." << std::endl;
-  std::cout << "signo: " << info->si_signo << " code: " << info->si_code << std::endl;
-  debug_state_machine();
-  exit(0);
-}
-#endif
