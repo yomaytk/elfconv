@@ -1,3 +1,7 @@
 [submodule "examples/mnist-neural-network-plain-c"]
 	path = examples/mnist-neural-network-plain-c
 	url = https://github.com/AndrewCarterUK/mnist-neural-network-plain-c
+[submodule "runtime/syscalls/lkl-linux"]
+	shallow = true
+	path = runtime/syscalls/lkl-linux
+	url = https://github.com/yomaytk/lkl-linux
