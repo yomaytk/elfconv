@@ -8,7 +8,7 @@
 	"settings": {
 		"terminal.integrated.shell.linux": "/bin/bash",
 	},
-
+  "appPort": ["8080:8080"],
   "workspaceMount": "source=${localWorkspaceFolder},target=/root/elfconv,type=bind,consistency=cached",
   "workspaceFolder": "/root/elfconv"
 
