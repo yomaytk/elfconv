@@ -112,9 +112,12 @@ main() {
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
       $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
       $WASMCC $WASMCCFLAGS -c lift.ll -o lift.wasm.o
-      $WASMCC $WASMCCFLAGS -o exe.wasm.html -sALLOW_MEMORY_GROWTH lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o \
+      $WASMCC $WASMCCFLAGS -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+                              lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o \
                               VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
       echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
+      cp exe.js ${ROOT_DIR}/examples/browser
+      cp exe.wasm ${ROOT_DIR}/examples/browser
       # delete obj
       cd "${BUILD_LIFTER_DIR}" && rm *.o
       return 0
