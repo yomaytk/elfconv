@@ -1,0 +1,29 @@
+<!-- requires ./exe.js ./exe.wasm -->
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.17.0/css/xterm.css" />
+  </head>
+  <body>
+    <div id="terminal"></div>
+    <script type="module">
+      import 'https://cdn.jsdelivr.net/npm/xterm@4.17.0/lib/xterm.min.js';
+      import 'https://cdn.jsdelivr.net/npm/xterm-pty@0.9.4/index.js';
+      import initEmscripten from './exe.js';
+
+      var xterm = new Terminal();
+      xterm.open(document.getElementById('terminal'));
+  
+      // Create master/slave objects
+      const { master, slave } = openpty();
+    
+      // Connect the master object to xterm.js
+      xterm.loadAddon(master);
+
+      await initEmscripten({
+        pty: slave
+      });
+    </script>
+  </body>
+</html>
