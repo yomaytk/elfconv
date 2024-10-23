@@ -117,3 +117,5 @@ examples/tests
 # release
 SHA*
 elfconv-v*
+
+!examples/browser/exe.html
