@@ -41,6 +41,12 @@ int main() {
 
   double t1 = second();
 
+  printf("t1: %f\n", t1);
+
+  double tt1 = second();
+
+  printf("tt1: %f\n", tt1);
+
   int *nums = (int *) malloc(MAX_NUM * sizeof(int));
   char s[100];
 
@@ -74,8 +80,9 @@ int main() {
   s[seek] = '\n';
 
   double t2 = second();
+  printf("t2: %f\n", t2);
 
   // // stdout
   printf("max prime: %s", s);
-  printf("time: %f\n", t2 - t1);
+  printf("time: %f\n", t2 - tt1);
 }
