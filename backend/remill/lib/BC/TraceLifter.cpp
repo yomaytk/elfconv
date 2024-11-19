@@ -887,8 +887,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                   &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
                   virtual_regs_opt->CastFromInst(
                       store_ecv_reg, call_inst,
-                      virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst,
-                      call_inst),
+                      virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst),
                   call_next_inst);
             } else if (write_regs.size() > 1) {
               for (uint32_t i = 0; i < write_regs.size(); i++) {
@@ -915,8 +914,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                     &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
                     virtual_regs_opt->CastFromInst(
                         store_ecv_reg, from_extracted_inst,
-                        virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst,
-                        from_extracted_inst),
+                        virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst),
                     call_next_inst);
               }
             }
@@ -1632,6 +1630,7 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
   DebugStreamReset();
   ECV_LOG_NL("target_func: ", func->getName().str());
 
+
   // Initialize the Graph of PhiRegsBBBagNode.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
     auto phi_regs_bag =
@@ -1666,16 +1665,15 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
 }
 
 llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst,
-                                          llvm::Type *to_inst_ty, llvm::Instruction *inst_at_before,
-                                          llvm::Value *to_inst) {
+                                          llvm::Type *to_inst_ty,
+                                          llvm::Instruction *inst_at_before) {
   auto &context = func->getContext();
   auto twine_null = llvm::Twine::createNull();
 
   llvm::Value *t_from_inst;
 
   if (from_inst->getType() == to_inst_ty) {
-    CHECK(to_inst) << "[Bug] to_inst must not be NULL when from_inst_ty == to_inst_ty.";
-    return to_inst;
+    return from_inst;
   } else if (from_inst->getType() == llvm::Type::getVoidTy(context)) {
     auto store_from_inst = llvm::dyn_cast<llvm::StoreInst>(from_inst);
     CHECK(store_from_inst)
@@ -1773,20 +1771,20 @@ llvm::Value *VirtualRegsOpt::GetRegValueFromCacheMap(
         llvm::dyn_cast<llvm::ArrayType>(from_value->getType())) {
       auto from_extracted_inst = llvm::ExtractValueInst::Create(
           from_value, {from_order}, llvm::Twine::createNull(), inst_at_before);
-      res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before,
-                               from_extracted_inst);
+      res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before);
       // for debug
-      value_reg_map.insert({from_extracted_inst,
-                            {target_ecv_reg, GetRegZFromLLVMType(from_extracted_inst->getType())}});
+      value_reg_map.insert(
+          {from_extracted_inst,
+           {target_ecv_reg, GetRegClassFromLLVMType(from_extracted_inst->getType())}});
     } else if (isu128v2Ty(impl->context, from_value->getType())) {
       auto from_extracted_inst = llvm::ExtractElementInst::Create(
           from_value, llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), from_order), "",
           inst_at_before);
-      res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before,
-                               from_extracted_inst);
+      res_value = CastFromInst(target_ecv_reg, from_extracted_inst, to_type, inst_at_before);
       // for debug
-      value_reg_map.insert({from_extracted_inst,
-                            {target_ecv_reg, GetRegZFromLLVMType(from_extracted_inst->getType())}});
+      value_reg_map.insert(
+          {from_extracted_inst,
+           {target_ecv_reg, GetRegClassFromLLVMType(from_extracted_inst->getType())}});
     } else {
       res_value = CastFromInst(target_ecv_reg, from_value, to_type, inst_at_before);
     }
@@ -1849,8 +1847,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         auto no_casted_reg_derived_inst = reg_derived_added_inst_map.at(target_ecv_reg);
         reg_derived_inst = CastFromInst(
             target_ecv_reg, no_casted_reg_derived_inst, GetLLVMTypeFromRegZ(target_ecv_reg_class),
-            llvm::dyn_cast<llvm::Instruction>(no_casted_reg_derived_inst)->getNextNode(),
-            no_casted_reg_derived_inst);
+            llvm::dyn_cast<llvm::Instruction>(no_casted_reg_derived_inst)->getNextNode());
 
         // Update cache.
         if (no_casted_reg_derived_inst != reg_derived_inst) {
@@ -1951,7 +1948,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
           // for debug
           value_reg_map.insert(
-              {new_ecv_reg_inst, {target_ecv_reg, GetRegZFromLLVMType(load_inst->getType())}});
+              {new_ecv_reg_inst, {target_ecv_reg, GetRegClassFromLLVMType(load_inst->getType())}});
         }
         // Target: llvm::CallInst
         else if (auto call_inst = llvm::dyn_cast<llvm::CallInst>(target_inst_it)) {
@@ -2002,68 +1999,68 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               ) {
                 continue;
               }
-              auto [req_r_c, userd_val, order] = tuple_set;
-              auto req_load = llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
-                  target_bb, state_ptr, req_ecv_reg.GetRegName(req_r_c), call_next_inst));
+              auto [_, user_refd_val, order] = tuple_set;
+              // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
+              auto req_wide_load =
+                  llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
+                      target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
               // Replace with new loaded register.
               std::set<llvm::User *> fin_users;
-              auto user = userd_val->user_begin();
-              while (userd_val->user_end() != user) {
-                if (fin_users.contains(*user)) {
+              std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
+              auto user = user_refd_val->user_begin();
+              // run every user instruction of the user_refd_val and replace the user reffered value with the req_wide_load.
+              while (user_refd_val->user_end() != user) {
+                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
+                if (fin_users.contains(*user) || (user_inst->getParent() == target_bb &&
+                                                  user_inst->comesBefore(req_wide_load))) {
                   user++;
                   continue;
                 }
-                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
-                if (user_inst->getParent() != target_bb) {
-                  CHECK(0 == order);
-                  user_inst->replaceUsesOfWith(userd_val, req_load);
-                  fin_users.insert(*user);
-                  user = userd_val->user_begin();
-                  continue;
-                } else if (req_load->comesBefore(user_inst)) {
+                if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
                   // user_inst is ExtractValueInst.
-                  if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
-                    if (extrv_user->getIndices()[0] == order) {
-                      CHECK(req_load->getType() == extrv_user->getType())
-                          << "req_load: " << LLVMThingToString(req_load)
-                          << ", userd_val: " << LLVMThingToString(extrv_user) << "\n";
-                      extrv_user->replaceAllUsesWith(req_load);
-                      // extr_user->eraseFromParent();
-                    } else {
-                      user++;
-                      continue;
-                    }
-                  } else if (auto extre_user =
-                                 llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
-                    auto extre_order =
-                        llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
-                            ->getZExtValue();
-                    if (extre_order == order) {
-                      CHECK(req_load->getType() == extre_user->getType())
-                          << "req_load: " << LLVMThingToString(req_load)
-                          << ", userd_val: " << LLVMThingToString(extre_user) << "\n";
-                      extre_user->replaceAllUsesWith(req_load);
-                      // extre_user->eraseFromParent();
-                    } else {
-                      user++;
-                      continue;
-                    }
-                  } else {
-                    CHECK(order == 0);
-                    user_inst->replaceUsesOfWith(userd_val, req_load);
+                  if (extrv_user->getIndices()[0] == order) {
+                    CHECK(req_wide_load->getType() == extrv_user->getType());
+                    extrv_user->replaceAllUsesWith(req_wide_load);
+                    fin_users.insert(user_inst);
+                    user = user_refd_val->user_begin();
+                    // extr_user->eraseFromParent();
+                    continue;
                   }
-                  fin_users.insert(*user);
-                  user = userd_val->user_begin();
-                  continue;
+                } else if (auto extre_user = llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
+                  // user_inst is ExtractElementInst.
+                  if (llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
+                          ->getZExtValue() == order) {
+                    CHECK(req_wide_load->getType() == extre_user->getType());
+                    extre_user->replaceAllUsesWith(req_wide_load);
+                    fin_users.insert(user_inst);
+                    user = user_refd_val->user_begin();
+                    // extre_user->eraseFromParent();
+                    continue;
+                  }
+                } else {
+                  auto user_refd_val_type = user_refd_val->getType();
+                  llvm::Value *req_load_val;
+                  if (new_casted_valmap.contains(user_refd_val_type)) {
+                    req_load_val = new_casted_valmap.at(user_refd_val_type);
+                  } else {
+                    req_load_val = CastFromInst(req_ecv_reg, req_wide_load, user_refd_val_type,
+                                                call_next_inst);
+                    new_casted_valmap.insert({user_refd_val_type, req_load_val});
+                    value_reg_map.insert(
+                        {req_load_val, {req_ecv_reg, GetRegClassFromLLVMType(user_refd_val_type)}});
+                  }
+                  user_inst->replaceUsesOfWith(user_refd_val, req_load_val);
+                  fin_users.insert(user_inst);
                 }
+                // increment user iterator
                 user++;
               }
+              auto req_wide_load_r_c = GetRegClassFromLLVMType(req_wide_load->getType());
               // Update cache.
-              ascend_reg_inst_map.insert_or_assign(req_ecv_reg,
-                                                   std::make_tuple(req_r_c, req_load, 0));
-              CHECK(GetLLVMTypeFromRegZ(req_r_c) == req_load->getType());
+              ascend_reg_inst_map.insert_or_assign(
+                  req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0));
               // for debug
-              value_reg_map.insert({req_load, {req_ecv_reg, req_r_c}});
+              value_reg_map.insert({req_wide_load, {req_ecv_reg, req_wide_load_r_c}});
             }
             target_inst_it = call_next_inst;
           }
@@ -2104,68 +2101,68 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               if (0 != req_ecv_reg.number) {
                 continue;
               }
-              auto [req_r_c, userd_val, order] = tuple_set;
-              auto req_load = llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
-                  target_bb, state_ptr, req_ecv_reg.GetRegName(req_r_c), call_next_inst));
+              auto [_, user_refd_val, order] = tuple_set;
+              // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
+              auto req_wide_load =
+                  llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
+                      target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
               // Replace with new loaded register.
               std::set<llvm::User *> fin_users;
-              auto user = userd_val->user_begin();
-              while (userd_val->user_end() != user) {
-                if (fin_users.contains(*user)) {
+              std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
+              auto user = user_refd_val->user_begin();
+              // run every user instruction of the user_refd_val and replace the user reffered value with the req_wide_load.
+              while (user_refd_val->user_end() != user) {
+                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
+                if (fin_users.contains(*user) || (user_inst->getParent() == target_bb &&
+                                                  user_inst->comesBefore(req_wide_load))) {
                   user++;
                   continue;
                 }
-                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
-                if (user_inst->getParent() != target_bb) {
-                  CHECK(0 == order);
-                  user_inst->replaceUsesOfWith(userd_val, req_load);
-                  fin_users.insert(*user);
-                  user = userd_val->user_begin();
-                  continue;
-                } else if (req_load->comesBefore(user_inst)) {
+                if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
                   // user_inst is ExtractValueInst.
-                  if (auto extr_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
-                    if (extr_user->getIndices()[0] == order) {
-                      CHECK(req_load->getType() == extr_user->getType())
-                          << "req_load: " << LLVMThingToString(req_load)
-                          << ", userd_val: " << LLVMThingToString(extr_user) << "\n";
-                      extr_user->replaceAllUsesWith(req_load);
-                      // extr_user->eraseFromParent();
-                    } else {
-                      user++;
-                      continue;
-                    }
-                  } else if (auto extre_user =
-                                 llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
-                    auto extre_order =
-                        llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
-                            ->getZExtValue();
-                    if (extre_order == order) {
-                      CHECK(req_load->getType() == extre_user->getType())
-                          << "req_load: " << LLVMThingToString(req_load)
-                          << ", userd_val: " << LLVMThingToString(extre_user) << "\n";
-                      extre_user->replaceAllUsesWith(req_load);
-                      // extre_user->eraseFromParent();
-                    } else {
-                      user++;
-                      continue;
-                    }
-                  } else {
-                    CHECK(order == 0);
-                    user_inst->replaceUsesOfWith(userd_val, req_load);
+                  if (extrv_user->getIndices()[0] == order) {
+                    CHECK(req_wide_load->getType() == extrv_user->getType());
+                    extrv_user->replaceAllUsesWith(req_wide_load);
+                    fin_users.insert(user_inst);
+                    user = user_refd_val->user_begin();
+                    // extr_user->eraseFromParent();
+                    continue;
                   }
-                  fin_users.insert(*user);
-                  user = userd_val->user_begin();
-                  continue;
+                } else if (auto extre_user = llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
+                  // user_inst is ExtractElementInst.
+                  if (llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
+                          ->getZExtValue() == order) {
+                    CHECK(req_wide_load->getType() == extre_user->getType());
+                    extre_user->replaceAllUsesWith(req_wide_load);
+                    fin_users.insert(user_inst);
+                    user = user_refd_val->user_begin();
+                    // extre_user->eraseFromParent();
+                    continue;
+                  }
+                } else {
+                  auto user_refd_val_type = user_refd_val->getType();
+                  llvm::Value *req_load_val;
+                  if (new_casted_valmap.contains(user_refd_val_type)) {
+                    req_load_val = new_casted_valmap.at(user_refd_val_type);
+                  } else {
+                    req_load_val = CastFromInst(req_ecv_reg, req_wide_load, user_refd_val_type,
+                                                call_next_inst);
+                    new_casted_valmap.insert({user_refd_val_type, req_load_val});
+                    value_reg_map.insert(
+                        {req_load_val, {req_ecv_reg, GetRegClassFromLLVMType(user_refd_val_type)}});
+                  }
+                  user_inst->replaceUsesOfWith(user_refd_val, req_load_val);
+                  fin_users.insert(user_inst);
                 }
+                // increment user iterator
                 user++;
               }
+              auto req_wide_load_r_c = GetRegClassFromLLVMType(req_wide_load->getType());
               // Update cache.
-              ascend_reg_inst_map.insert_or_assign(req_ecv_reg,
-                                                   std::make_tuple(req_r_c, req_load, 0));
-              CHECK(GetLLVMTypeFromRegZ(req_r_c) == req_load->getType());
+              ascend_reg_inst_map.insert_or_assign(
+                  req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0));
               // for debug
-              value_reg_map.insert({req_load, {req_ecv_reg, req_r_c}});
+              value_reg_map.insert({req_wide_load, {req_ecv_reg, req_wide_load_r_c}});
             }
             target_inst_it = call_next_inst;
             DEBUG_PC_AND_REGISTERS(call_next_inst, ascend_reg_inst_map, 0xdeadbeef);
@@ -2460,7 +2457,7 @@ llvm::Type *VirtualRegsOpt::GetWholeLLVMTypeFromRegZ(EcvReg ecv_reg) {
   }
 }
 
-EcvRegClass VirtualRegsOpt::GetRegZFromLLVMType(llvm::Type *value_type) {
+EcvRegClass VirtualRegsOpt::GetRegClassFromLLVMType(llvm::Type *value_type) {
   auto &context = func->getContext();
   if (llvm::Type::getInt32Ty(context) == value_type) {
     return EcvRegClass::RegW;
@@ -2535,15 +2532,15 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
           llvm::dyn_cast<llvm::ArrayType>(from_inst->getType())) {
         auto from_extracted_inst = llvm::ExtractValueInst::Create(
             from_inst, {from_order}, llvm::Twine::createNull(), target_terminator);
-        auto from_extracted_inst_reg_class = GetRegZFromLLVMType(from_extracted_inst->getType());
+        auto from_extracted_inst_reg_class =
+            GetRegClassFromLLVMType(from_extracted_inst->getType());
         // Update cache.
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
         target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
             target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
         req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
-                                 GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator,
-                                 from_extracted_inst);
+                                 GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator);
         // for debug
         value_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
@@ -2551,15 +2548,15 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         auto from_extracted_inst = llvm::ExtractElementInst::Create(
             from_inst, llvm::ConstantInt::get(llvm::Type::getInt64Ty(impl->context), from_order),
             "", target_terminator);
-        auto from_extracted_inst_reg_class = GetRegZFromLLVMType(from_extracted_inst->getType());
+        auto from_extracted_inst_reg_class =
+            GetRegClassFromLLVMType(from_extracted_inst->getType());
         // Update cache.
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
         target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
             target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
         req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
-                                 GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator,
-                                 from_extracted_inst);
+                                 GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator);
         // for debug
         value_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
@@ -2611,7 +2608,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
     CHECK(reg_phi->getNumIncomingValues() == bb_parents.at(target_bb).size());
     // Cast to the req_ecv_reg_class if necessary.
     req_value = CastFromInst(target_ecv_reg, reg_phi, GetLLVMTypeFromRegZ(req_ecv_reg_class),
-                             target_terminator, reg_phi);
+                             target_terminator);
     // for debug
     value_reg_map.insert({reg_phi, {target_ecv_reg, phi_ecv_reg_class}});
     value_reg_map.insert({req_value, {target_ecv_reg, req_ecv_reg_class}});
@@ -2701,7 +2698,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
           }
           // for debug
           value_reg_map.insert(
-              {load_value, {need_ecv_reg, GetRegZFromLLVMType(load_value->getType())}});
+              {load_value, {need_ecv_reg, GetRegClassFromLLVMType(load_value->getType())}});
           value_reg_map.insert({req_value, {need_ecv_reg, need_ecv_reg_class}});
         }
       }
@@ -2719,7 +2716,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
           target_bb, state_ptr, target_ecv_reg.GetRegName(load_e_r_c), target_terminator,
           VAR_NAME(target_ecv_reg, load_e_r_c));
       req_value = CastFromInst(target_ecv_reg, load_value, GetLLVMTypeFromRegZ(req_ecv_reg_class),
-                               target_terminator, load_value);
+                               target_terminator);
       // Update cache.
       target_bb_reg_info_node->reg_latest_inst_map.insert(
           {target_ecv_reg, {load_e_r_c, load_value, 0}});

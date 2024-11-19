@@ -236,11 +236,11 @@ class VirtualRegsOpt {
 
   llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
   llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
-  EcvRegClass GetRegZFromLLVMType(llvm::Type *value_type);
+  EcvRegClass GetRegClassFromLLVMType(llvm::Type *value_type);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
                                           std::pair<EcvReg, EcvRegClass> ecv_reg_info);
   llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
-                            llvm::Instruction *inst_at_before, llvm::Value *to_inst = nullptr);
+                            llvm::Instruction *inst_at_before);
 
   llvm::Value *GetRegValueFromCacheMap(
       EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,

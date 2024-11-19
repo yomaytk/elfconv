@@ -108,6 +108,10 @@ void RuntimeManager::SVCWasiCall(void) {
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
       break;
+    case AARCH64_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
+      state_gpr.x0.dword = unlinkat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
+                                    state_gpr.x2.dword);
+      break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       state_gpr.x0.qword = -1;
@@ -158,6 +162,9 @@ void RuntimeManager::SVCWasiCall(void) {
       state_gpr.x0.qword = -1;
       EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
       errno = _ECV_EACCESS;
+      break;
+    case AARCH64_SYS_FSYNC: /* fsync (unsigned int fd) */
+      state_gpr.x0.dword = fsync(state_gpr.x0.dword);
       break;
     case AARCH64_SYS_EXIT: /* exit (int error_code) */ exit(state_gpr.x0.dword); break;
     case AARCH64_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */

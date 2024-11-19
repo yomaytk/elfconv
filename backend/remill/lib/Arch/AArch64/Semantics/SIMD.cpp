@@ -97,17 +97,15 @@ DEF_SEM_U64(FMOV_VectorToUInt64, VIu64v2 src) {
   return val;
 }
 
-// DEF_SEM(FMOV_UInt64ToVector, VI128 dst, R64 src) {
-//   auto val = Read(src);
-//   VIu64v2 tmpv = {};
-//   tmpv = UInsertV64(tmpv, 0, UExtractV64(UReadVI64(dst), 0));
-//   tmpv = UInsertV64(tmpv, 1, val);
-//   UWriteV64(dst, tmpv);
-// }
+DEF_SEM_F64(FMOV_UInt64ToVector, R64 src) {
+  auto val = Read(src);
+  auto float_valp = (float64_t *) (&val);
+  return *float_valp;
+}
 }  // namespace
 
 DEF_ISEL(FMOV_64VX_FLOAT2INT) = FMOV_VectorToUInt64;
-// DEF_ISEL(FMOV_V64I_FLOAT2INT) = FMOV_UInt64ToVector
+DEF_ISEL(FMOV_V64I_FLOAT2INT) = FMOV_UInt64ToVector;
 
 namespace {
 
@@ -122,10 +120,7 @@ namespace {
     return vec; \
   }  // namespace
 
-MAKE_DUP(8)
-MAKE_DUP(16)
-MAKE_DUP(32)
-MAKE_DUP(64)
+MAKE_DUP(8) MAKE_DUP(16) MAKE_DUP(32) MAKE_DUP(64)
 
 #undef MAKE_DUP
 

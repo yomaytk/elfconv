@@ -12,6 +12,7 @@
 #include <string>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/uio.h>
@@ -33,6 +34,8 @@
 
 #define _ECV_EACCESS 13
 #define _ECV_ENOSYS 38
+
+typedef uint64_t _ecv_long;
 
 /*
   for ioctl syscall
@@ -129,6 +132,18 @@ void RuntimeManager::SVCNativeCall(void) {
         default: break;
       }
     }
+    case AARCH64_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
+      state_gpr.x0.dword = mkdirat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
+                                   state_gpr.x2.dword);
+      break;
+    case AARCH64_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
+      state_gpr.x0.dword = unlinkat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
+                                    state_gpr.x2.dword);
+      break;
+    case AARCH64_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
+      state_gpr.x0.dword = statfs((char *) TranslateVMA(state_gpr.x0.qword),
+                                  (struct statfs *) TranslateVMA(state_gpr.x1.qword));
+      break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       state_gpr.x0.qword = -1;
@@ -136,13 +151,21 @@ void RuntimeManager::SVCNativeCall(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
+    {
+      char *filepath = (char *) TranslateVMA(state_gpr.x1.qword);
       state_gpr.x0.dword =
-          openat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword), state_gpr.x2.dword);
-      if (-1 == state_gpr.x0.dword)
+          openat(state_gpr.x0.dword, filepath, state_gpr.x2.dword, state_gpr.x3.dword);
+      if (-1 == state_gpr.x0.dword) {
         perror("openat error!");
+      }
       break;
+    }
     case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
       state_gpr.x0.dword = close(state_gpr.x0.dword);
+      break;
+    case AARCH64_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
+      state_gpr.x0.dword =
+          lseek(state_gpr.x0.dword, (_ecv_long) state_gpr.x1.qword, state_gpr.x2.dword);
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
       state_gpr.x0.qword = read(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
@@ -176,6 +199,9 @@ void RuntimeManager::SVCNativeCall(void) {
       state_gpr.x0.qword = -1;
       EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
       errno = _ECV_EACCESS;
+      break;
+    case AARCH64_SYS_FSYNC: /* fsync (unsigned int fd) */
+      state_gpr.x0.dword = fsync(state_gpr.x0.dword);
       break;
     case AARCH64_SYS_EXIT: /* exit (int error_code) */ exit(state_gpr.x0.dword); break;
     case AARCH64_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
@@ -230,6 +256,10 @@ void RuntimeManager::SVCNativeCall(void) {
       memcpy(TranslateVMA(state_gpr.x0.qword), &_utsname, sizeof(utsname));
       state_gpr.x0.dword = ret;
     } break;
+    case AARCH64_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
+      state_gpr.x0.dword = gettimeofday((struct timeval *) TranslateVMA(state_gpr.x0.qword),
+                                        (struct timezone *) 0); /* FIXME (second argument) */
+      break;
     case AARCH64_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       state_gpr.x0.dword =
           getrusage(state_gpr.x0.dword, (struct rusage *) TranslateVMA(state_gpr.x1.qword));
