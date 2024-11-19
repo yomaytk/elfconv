@@ -159,6 +159,7 @@ class EcvReg {
   static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
 
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
+  std::string GetWideRegName() const;
   bool CheckPassedArgsRegs() const;
   bool CheckPassedReturnRegs() const;
 

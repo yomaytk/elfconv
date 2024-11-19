@@ -4456,7 +4456,10 @@ bool TryDecodeCSEL_64_CONDSEL(const InstData &data, Instruction &inst) {
 
 // FCSEL  <Sd>, <Sn>, <Sm>, <cond>
 bool TryDecodeFCSEL_S_FLOATSEL(const InstData &data, Instruction &inst) {
-  return false;
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  DecodeConditionalRegSelect(data, inst, kRegS, 3);
+  AddEcvNZCVOperand(inst, kActionRead);
+  return true;
 }
 
 // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
