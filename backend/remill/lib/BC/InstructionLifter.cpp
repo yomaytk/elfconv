@@ -110,6 +110,45 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
   std::terminate();
 }
 
+std::string EcvReg::GetWideRegName() const {
+  if (number <= 31) {
+    std::string reg_name;
+    switch (reg_kind) {
+      case RegKind::General: reg_name = "X"; break;
+      case RegKind::Vector: reg_name = "V"; break;
+      case RegKind::Special:
+      default: LOG(FATAL) << "[Bug]: number must be 31 or less at GetWideRegName."; break;
+    }
+    reg_name += std::to_string(number);
+    return reg_name;
+  } else if (SP_ORDER == number) {
+    return "SP";
+  } else if (PC_ORDER == number) {
+    return "PC";
+  } else if (STATE_ORDER == number) {
+    return "STATE";
+  } else if (RUNTIME_ORDER == number) {
+    return "RUNTIME";
+  } else if (BRANCH_TAKEN_ORDER == number) {
+    return "BRANCH_TAKEN";
+  } else if (ECV_NZCV_ORDER == number) {
+    return "ECV_NZCV";
+  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_WZR";
+  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+    return "IGNORE_WRITE_TO_XZR";
+  } else if (MONITOR_ORDER == number) {
+    return "MONITOR";
+  } else if (WZR_ORDER == number) {
+    return "WZR";
+  } else if (XZR_ORDER == number) {
+    return "XZR";
+  }
+
+  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWideRegName.";
+  return "";
+}
+
 std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
   static std::unordered_map<EcvRegClass, std::string> EcvRegClassRegNameMap = {
       {EcvRegClass::RegW, "W"},     {EcvRegClass::RegX, "X"},     {EcvRegClass::RegB, "B"},

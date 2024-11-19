@@ -1,0 +1,196 @@
+#
+# Copyright (C) 2003-2004 EMC Corporation
+#
+# fs_mark: Benchmark synchronous/async file creation
+#
+# Written by Ric Wheeler <ric@emc.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+FS_MARK
+==============
+
+The fs_mark program is meant to give a low level bashing to file
+systems. The write pattern that we concentrate on is heavily
+synchronous IO across mutiple directories, drives, etc.
+
+SAMPLE RUN
+
+A typical run of the program would look like this:
+
+[root@c001n01 tmp]# ./fs_mark -d /mnt/support1/test_bulk -s 10240 -n 1000
+
+#  ./fs_mark  -d  /mnt/support1/test_bulk  -s  10240  -n  1000
+#       Version Version 3.1, 1 thread(s) starting at Mon Sep 26 18:44:33 2005
+#       Sync method: INBAND FSYNC: fsync() per file in write loop.
+#       Directories:  no subdirectories used
+#       File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#       Files info: size 10240 bytes, written with an IO size of 16384 bytes per write
+
+#       All system call times are reported in microseconds.
+
+FSUse%        Count         Size  Files/sec
+     3         1000        10240       44.6
+
+Or like this (using the verbose output flag):
+
+[root@c001n01 tmp]# ./fs_mark -d /mnt/support1/test_bulk -s 10240 -n 1000 -v
+
+#  ./fs_mark  -d  /mnt/support1/test_bulk  -s  10240  -n  1000  -v
+#       Version Version 3.1, 1 thread(s) starting at Mon Sep 26 18:44:59 2005
+#       Sync method: INBAND FSYNC: fsync() per file in write loop.
+#       Directories:  no subdirectories used
+#       File names: 40 bytes long, (16 initial bytes of time stamp with 24 random bytes at end of name)
+#       Files info: size 10240 bytes, written with an IO size of 16384 bytes per write
+
+#       All system call times are reported in microseconds.
+
+FSUse%        Count         Size  Files/sec        CREAT (Min/Avg/Max)        WRITE (Min/Avg/Max)        FSYNC (Min/Avg/Max)         SYNC (Min/Avg/Max)      CLOSE (Min/Avg/Max)       UNLINK (Min/Avg/Max)
+     3         1000        10240       43.5       24      111    17113       23       48     2937    14281    22811   219942        0        0        0      1        2       21       34       50     1180
+
+Note that the output shows:
+      Full: How full the file system is on the first directory specified.
+      Count:   How many files have been written so far
+      Size:    Size of files written
+      Files/sec: The rate that files are written to disk.
+      Min/Avg/Max: time spent in the creat/write/fsync/close and unlink system calls.
+
+In this run, we are writing using 4 threads to the specified target directory.
+
+To measure the performance of a file system from empty all the way to
+100 used, add the "-F" flag. Note that this test can take days to run
+depending on the size of the disk.
+
+In addition to the output, fs_mark writes the output into  a separate
+log file that is intended to be easy to parse for graphing. 
+
+
+A sample gnuplot script is attached for reference.
+
+Command line arguments:
+
+Basic flags: -F, -L, -l, -v, -w
+
+  "-F" loops the test until the entire file system is filled.  Note that
+  files are not deleted in this test (-k is set automatically).
+
+  "-L count" loops the test "count" times.
+
+  "-l logfile_name" sets the name of the logfile.
+
+  "-v" adds logging for each system call to record the minimum,
+  average and maximum time spent.
+
+  "-w buff_size" controls the size of individual write system calls in
+  bytes.
+
+Thread control: -t 
+
+  "-t number" sets the number of threads used by the program. The
+  threads are evenly divided between the specified subdirectories. Note that
+  the program always uses one thread for each directory specified on the
+  command line.
+
+DIRECTORY ARGUMENTS: -d, -D, -N, -M
+
+  The "-d" argument allows you to specify one or more directories to run
+  the test against.  One thread is created for each of these root directories.
+  Note that "-d" can appear multiple times.
+
+  The "-D num" flag allows you to specify how many subdirectories you
+  want to use under each of the above root directories.  Invoking
+  fs_mark with "-D 256" would create 256 directories under specified
+  directory. Only one thread is used to write to all of the subdirectories.
+
+  The multiple directory scheme helps measure the performance impact of
+  using one large directory or many smaller directories. 
+
+  There are several ways of laying out the files in the
+  multi-subdirectory tests.
+
+  The "-N num" policy chooses to allocate "num" files per
+  subdirectory.  The program uses a simple round robin policy when -N
+  is specified.
+
+  If -N is not set, the program lingers in each directory for 180
+  seconds before moving onto the next subdirectory.  There is
+  currently no parameter to set this linger time.
+
+  The default behavior of "-D" is to use the timed based hash with a
+  lingering of 3 minutes per subdirectory.
+
+File specific arguments: -k, -r, -p, -n, -s, -S
+
+  "-k" tells the test retain all created files.
+
+  "-n num" specifies the number of files to be tested.
+
+  "-p num" sets the length in bytes of filenames in a directory. By default, the
+  files have sequential (time based) names.
+
+  "-r num" sets the number of random bytes at the end of the file name.
+  To have purely random names, use "-p X -r X".
+
+  "-s num" specifies the size(s) of the files to be tested.
+
+
+Sync Methods:
+  "-S number" selects a sync method.
+
+  "-S 0" issues no sync() or fsync() calls at all.  This should always
+  be the fastest (if least safe!) way to run the program.
+
+  "-S 1" issues an fsync() system call in the main file writing loop
+  before closing the file. This is a common way to insure data
+  integrity.
+
+  "-S 2" writes all of the files in a loop without any fsync()
+  calls. After this main loop terminates, one single system sync()
+  call is issued followed by one fsync() call on the first file
+  created per specified directory.  
+
+  The reasoning here is that the system level sync flushed the data
+  back to disk and that the fsync() per directory insures that at
+  least one write barrier operation flushed the volatile disk cache
+  (this is a file system implementation specific behavior). 
+
+  "-S 3" writes all of the files in a loop without any fsync()
+  calls. After this main loop terminates, the code iterates
+  over the files in reverse order and opens each file, fsync()'s each
+  file and closes each file.
+
+  The reasoning here is that the most recent file is most likely to do
+  a full fsync and trigger a journal flush, leaving the rest of the
+  loop to do little work.
+
+  "-S 4" writes all of the files in a loop without any fsync()
+  calls. After this main loop terminates, one system sync() call is
+  issued to flush the cache. Out of paranoia, the code then iterates
+  over the files in reverse order as above (opens each file, fsync()'s each
+  file and closes each file).
+
+  "-S 5" writes all of the files in a loop without any fsync()
+  calls. After this main loop terminates, the code iterates
+  over the files in order and opens each file, fsync()'s each
+  file and closes each file.
+
+  "-S 6" writes all of the files in a loop without any fsync()
+  calls. After this main loop terminates, one system sync() call is
+  issued to flush the cache. Out of paranoia, the code then iterates
+  over the files in order as above (opens each file, fsync()'s each
+  file and closes each file).
+
+

@@ -38,12 +38,13 @@ DEF_SEM_U64(CSEL64, R64 src1, R64 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
-// FCSEL  <Dd>, <Dn>, <Dm>, <cond>
+// FCSEL  <Sd>, <Sn>, <Sm>, <cond>
 template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_F32(FCSEL32, RF32 src1, RF32 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
 }
 
+// FCSEL  <Dd>, <Dn>, <Dm>, <cond>
 template <uint64_t (*check_cond)(uint64_t ecv_nzcv)>
 DEF_SEM_F64(FCSEL64, RF64 src1, RF64 src2, R64 ecv_nzcv_src) {
   return check_cond(Read(ecv_nzcv_src)) ? Read(src1) : Read(src2);
@@ -72,6 +73,7 @@ DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL32)  // CSEL  <Wd>, <Wn>, <Wm>, <cond>
 DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL64)  // CSEL  <Xd>, <Xn>, <Xm>, <cond>
 
 DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL64)  // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
+DEF_COND_ISEL(FCSEL_S_FLOATSEL, FCSEL64)  // FCSEL  <Sd>, <Sn>, <Sm>, <cond>
 
 namespace {
 
