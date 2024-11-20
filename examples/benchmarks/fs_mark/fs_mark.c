@@ -27,10 +27,10 @@
 char *fs_mark_version = "3.3";
 
 #include <sys/types.h>
-#include <sys/wait.h>
+// #include <sys/wait.h>
 #include <sys/stat.h>
 // #include <sys/vfs.h>
-#include <sys/statfs.h>
+// #include <sys/statfs.h>
 #include <sys/time.h>
 
 #include <ctype.h>
@@ -42,7 +42,6 @@ char *fs_mark_version = "3.3";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/statfs.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
@@ -99,7 +98,7 @@ void usage(void)
 /*
  * Run through the specified arguments and make sure that they make sense.
  */
-void process_args(int argc, char **argv, char **envp)
+void process_args(int argc, char **argv)
 {
 	int ret;
 
@@ -521,23 +520,25 @@ void setup(pid_t pid)
  */
 int get_df_full(char *dir_name)
 {
-	struct statfs fs_buf;
-	float df_used, used_blocks;
-	int df_percent_used;
+	// struct statfs fs_buf;
+	// float df_used, used_blocks;
+	// int df_percent_used;
 
-	if (statfs(dir_name, &fs_buf) == -1) {
-		fprintf(stderr, "fs_mark: statfs failed on %s %s\n", dir_name,
-			strerror(errno));
-		cleanup_exit();
-	}
+	// if (statfs(dir_name, &fs_buf) == -1) {
+	// 	fprintf(stderr, "fs_mark: statfs failed on %s %s\n", dir_name,
+	// 		strerror(errno));
+	// 	cleanup_exit();
+	// }
 
-	used_blocks = (float)(fs_buf.f_blocks - fs_buf.f_bavail);
+	// used_blocks = (float)(fs_buf.f_blocks - fs_buf.f_bavail);
 
-	df_used = (used_blocks / fs_buf.f_blocks);
+	// df_used = (used_blocks / fs_buf.f_blocks);
 
-	df_percent_used = (int)(100 * df_used);
+	// df_percent_used = (int)(100 * df_used);
 
-	return (df_percent_used);
+	// return (df_percent_used);
+
+  return -1;
 }
 
 /*
@@ -545,19 +546,20 @@ int get_df_full(char *dir_name)
  */
 unsigned long long get_bytes_free(char *dir_name)
 {
-	struct statfs fs_buf;
-	unsigned long long bytes_free;
+	// struct statfs fs_buf;
+	// unsigned long long bytes_free;
 
-	if (statfs(dir_name, &fs_buf) == -1) {
-		fprintf(stderr, "fs_mark: statfs failed on %s %s\n", dir_name,
-			strerror(errno));
-		cleanup_exit();
-	}
+	// if (statfs(dir_name, &fs_buf) == -1) {
+	// 	fprintf(stderr, "fs_mark: statfs failed on %s %s\n", dir_name,
+	// 		strerror(errno));
+	// 	cleanup_exit();
+	// }
 
-	bytes_free = (unsigned long long)fs_buf.f_bavail;
-	bytes_free = bytes_free * fs_buf.f_bsize;
+	// bytes_free = (unsigned long long)fs_buf.f_bavail;
+	// bytes_free = bytes_free * fs_buf.f_bsize;
 
-	return (bytes_free);
+	// return (bytes_free);
+  return -1;
 }
 
 /*
@@ -618,23 +620,23 @@ void write_file(int fd,
  */
 static void check_space(pid_t my_pid)
 {
-	char *my_dir_name;
-	unsigned long long bytes_per_loop;
+	// char *my_dir_name;
+	// unsigned long long bytes_per_loop;
 
-	my_dir_name = find_dir_name(my_pid);
+	// my_dir_name = find_dir_name(my_pid);
 
-	/*
-	 * No use in running this if the file system is already full.
-	 * Compute free bytes and compare to many bytes needed for this iteration.
-	 */
-	bytes_per_loop = (unsigned long long)file_size *num_files;
-	if (get_bytes_free(my_dir_name) < bytes_per_loop) {
-		fprintf(stdout,
-			"Insufficient free space in %s to create %d new files, exiting\n",
-			my_dir_name, num_files);
-		do_fill_fs = 0;	/* Setting this signals the main loop to exit */
-		cleanup_exit();
-	}
+	// /*
+	//  * No use in running this if the file system is already full.
+	//  * Compute free bytes and compare to many bytes needed for this iteration.
+	//  */
+	// bytes_per_loop = (unsigned long long)file_size *num_files;
+	// if (get_bytes_free(my_dir_name) < bytes_per_loop) {
+	// 	fprintf(stdout,
+	// 		"Insufficient free space in %s to create %d new files, exiting\n",
+	// 		my_dir_name, num_files);
+	// 	do_fill_fs = 0;	/* Setting this signals the main loop to exit */
+	// 	cleanup_exit();
+	// }
 
 	return;
 }
@@ -774,7 +776,7 @@ void do_run(pid_t my_pid)
 
 	if (sync_method & FSYNC_SYNC_SYSCALL) {
 		start(0);
-		sync();
+		// sync();
 		delta = stop(0, 0);
 
 		/*
@@ -1158,75 +1160,75 @@ void single_threads() {
   // exit(0);
 }
 
-void fork_threads(void)
-{
-	int i, active_kids = 0;
+// void fork_threads(void)
+// {
+// 	int i, active_kids = 0;
 
-	/*
-	 * Clear out any pending writes before the fork so we don't get duplication
-	 */
-	fflush(stdout);
-	fflush(log_file_fp);
+// 	/*
+// 	 * Clear out any pending writes before the fork so we don't get duplication
+// 	 */
+// 	fflush(stdout);
+// 	fflush(log_file_fp);
 
-	/*
-	 * Fork one thread for each of the specified children
-	 */
+// 	/*
+// 	 * Fork one thread for each of the specified children
+// 	 */
 
-	for (i = 0; i < num_threads; i++) {
-		if ((child_tasks[i].child_pid = fork()) == -1) {
-			fprintf(stderr, "fs_mark: fork failed: %s\n",
-				strerror(errno));
-			cleanup_exit();
-		}
-		if (child_tasks[i].child_pid == 0) {
+// 	for (i = 0; i < num_threads; i++) {
+// 		if ((child_tasks[i].child_pid = fork()) == -1) {
+// 			fprintf(stderr, "fs_mark: fork failed: %s\n",
+// 				strerror(errno));
+// 			cleanup_exit();
+// 		}
+// 		if (child_tasks[i].child_pid == 0) {
 
-			/*
-			 * Child thread: Set my real pid in the array and
-			 * then do work.
-			 */
-			child_tasks[i].child_pid = getpid();
-			thread_work(child_tasks[i].child_pid);
+// 			/*
+// 			 * Child thread: Set my real pid in the array and
+// 			 * then do work.
+// 			 */
+// 			child_tasks[i].child_pid = getpid();
+// 			thread_work(child_tasks[i].child_pid);
 
-			/*
-			 * My work is done, exit to let parent thread reap my state
-			 */
-			exit(0);
-		}
-		active_kids++;
-	}
+// 			/*
+// 			 * My work is done, exit to let parent thread reap my state
+// 			 */
+// 			exit(0);
+// 		}
+// 		active_kids++;
+// 	}
 
-	/*
-	 * Parent thread: Wait for each of the child threads to exit
-	 */
-	while (active_kids) {
-		int status;
-		pid_t child_pid;
+// 	/*
+// 	 * Parent thread: Wait for each of the child threads to exit
+// 	 */
+// 	while (active_kids) {
+// 		int status;
+// 		pid_t child_pid;
 
-		/*
-		 * Wait until child exits. Note that we need to loop on interrupts (this 
-		 * happens in gdb, etc).
-		 */
-		child_pid = wait(&status);
-		if (child_pid == -1) {
-			if (errno == EINTR)
-				continue;
-			fprintf(stderr, "fs_mark: wait failed: %s\n",
-				strerror(errno));
-			exit(0);
-		}
+// 		/*
+// 		 * Wait until child exits. Note that we need to loop on interrupts (this 
+// 		 * happens in gdb, etc).
+// 		 */
+// 		child_pid = wait(&status);
+// 		if (child_pid == -1) {
+// 			if (errno == EINTR)
+// 				continue;
+// 			fprintf(stderr, "fs_mark: wait failed: %s\n",
+// 				strerror(errno));
+// 			exit(0);
+// 		}
 
-		/*
-		 * Check that this was the clean exit of one of our threads
-		 */
-		for (i = 0; i < num_threads; i++) {
-			if (child_tasks[i].child_pid == child_pid) {
-				active_kids--;
-				break;
-			}
-		}
-	}
-	return;
-}
+// 		/*
+// 		 * Check that this was the clean exit of one of our threads
+// 		 */
+// 		for (i = 0; i < num_threads; i++) {
+// 			if (child_tasks[i].child_pid == child_pid) {
+// 				active_kids--;
+// 				break;
+// 			}
+// 		}
+// 	}
+// 	return;
+// }
 
 /*
  * Print some test information and basic parameters to help user understand the rather complex options.
@@ -1337,10 +1339,10 @@ void print_iteration_stats(FILE * log_fp, fs_mark_stat_t * iteration_stats,
 }
 
 static int interrupted = 0;
-static void handle_sigint(int sig, siginfo_t *siginfo, void *context)
-{
-	interrupted = 1;
-}
+// static void handle_sigint(int sig, siginfo_t *siginfo, void *context)
+// {
+// 	interrupted = 1;
+// }
 
 /*
  * This does the reverse sort because we want to do the percentiles to show how
@@ -1358,16 +1360,16 @@ static int cmp(const void *p1, const void *p2)
 	return 0;
 }
 
-int main(int argc, char **argv, char **envp)
+int main(int argc, char **argv)
 {
 	unsigned int files_written = 0;
 	unsigned int loops_done = 0;
 	unsigned long long *files_per_sec;
 	unsigned long long files_per_sec_sum = 0;
 	unsigned nr_iters = 0;
-	struct sigaction act;
+	// struct sigaction act;
 
-	process_args(argc, argv, envp);
+	process_args(argc, argv);
 
   double start_time = second();
   printf("start_time: %f\n", start_time);
@@ -1383,14 +1385,14 @@ int main(int argc, char **argv, char **envp)
 		cleanup_exit();
 	}
 
-	memset(&act, 0, sizeof(act));
-	act.sa_sigaction = &handle_sigint;
-	act.sa_flags = SA_SIGINFO;
+	// memset(&act, 0, sizeof(act));
+	// act.sa_sigaction = &handle_sigint;
+	// act.sa_flags = SA_SIGINFO;
 
-	if (sigaction(SIGINT, &act, NULL) < 0) {
-		perror("sigaction");
-		cleanup_exit();
-	}
+	// if (sigaction(SIGINT, &act, NULL) < 0) {
+	// 	perror("sigaction");
+	// 	cleanup_exit();
+	// }
 
 	/*
 	 * Print some information about this test run

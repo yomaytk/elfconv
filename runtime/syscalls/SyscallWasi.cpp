@@ -108,9 +108,18 @@ void RuntimeManager::SVCWasiCall(void) {
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
       break;
+    case AARCH64_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
+      state_gpr.x0.dword = mkdirat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
+                                   state_gpr.x2.dword);
+      break;
     case AARCH64_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
       state_gpr.x0.dword = unlinkat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
                                     state_gpr.x2.dword);
+      break;
+    case AARCH64_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
+      EMPTY_SYSCALL(AARCH64_SYS_IOCTL)
+      state_gpr.x0.qword = -1;
+      errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
@@ -119,8 +128,9 @@ void RuntimeManager::SVCWasiCall(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-      if (-100 == state_gpr.x0.dword)
+      if (-100 == state_gpr.x0.dword) {
         state_gpr.x0.qword = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
+      }
       state_gpr.x2.dword = O_RDWR;
       state_gpr.x0.dword =
           openat(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword), state_gpr.x2.dword);
@@ -129,6 +139,10 @@ void RuntimeManager::SVCWasiCall(void) {
       break;
     case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
       state_gpr.x0.dword = close(state_gpr.x0.dword);
+      break;
+    case AARCH64_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
+      state_gpr.x0.dword =
+          lseek(state_gpr.x0.dword, (_ecv_long) state_gpr.x1.qword, state_gpr.x2.dword);
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
       state_gpr.x0.qword = read(state_gpr.x0.dword, (char *) TranslateVMA(state_gpr.x1.qword),
@@ -237,6 +251,10 @@ void RuntimeManager::SVCWasiCall(void) {
       memcpy(TranslateVMA(state_gpr.x0.qword), &new_utsname, sizeof(new_utsname));
       state_gpr.x0.dword = 0;
     } break;
+    case AARCH64_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
+      state_gpr.x0.dword = gettimeofday((struct timeval *) TranslateVMA(state_gpr.x0.qword),
+                                        (struct timezone *) 0); /* FIXME (second argument) */
+      break;
     case AARCH64_SYS_GETPID: /* getpid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETPPID: /* getppid () */ state_gpr.x0.dword = 42; break;
     case AARCH64_SYS_GETTUID: /* getuid () */ state_gpr.x0.dword = 42; break;
