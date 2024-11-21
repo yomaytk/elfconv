@@ -48,7 +48,7 @@ $ docker run -it --name elfconv-container elfconv-image
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
 ~/elfconv/bin# TARGET=wasi ./elfconv.sh /path/to/ELF # e.g. ../examples/eratosthenes_sieve/a.out
-~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
+~/elfconv/bin# wasmtime exe.wasm # wasmtime is preinstalled
 ```
 ## Source code build
 ### 1. Dev Container
