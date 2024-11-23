@@ -8,7 +8,7 @@ setting() {
   UTILS_DIR=${ROOT_DIR}/utils
   BUILD_DIR=${ROOT_DIR}/build
   BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
-  OPTFLAGS="-O0"
+  OPTFLAGS="-O3"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDKCC=${WASI_SDK_PATH}/bin/clang++

@@ -125,7 +125,7 @@ main() {
           ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
-      echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_ao3.wasm)"
+      echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_o3.wasm)"
       return 0
     ;;
   esac  
