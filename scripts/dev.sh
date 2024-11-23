@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LLVM_VERSION=18
+LLVM_VERSION=16
 ROOT_DIR=${HOME}/workspace/compiler/elfconv
 
 setting() {
