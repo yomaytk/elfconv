@@ -969,7 +969,7 @@ void TraceLifter::Impl::Optimize() {
   int opt_cnt = 1;
   for (auto lifted_func : no_indirect_lifted_funcs) {
     std::cout << "\r["
-              << "\033[1;32m"
+              << "\033[32m"
               << "INFO"
               << "\033[0m"
               << "]"
@@ -1001,7 +1001,7 @@ void TraceLifter::Impl::Optimize() {
   int opt_cnt2 = 1;
   for (auto lifted_func : no_indirect_lifted_funcs) {
     std::cout << "\r["
-              << "\033[1;32m"
+              << "\033[32m"
               << "INFO"
               << "\033[0m"
               << "]"
