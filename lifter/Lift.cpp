@@ -134,7 +134,7 @@ int main(int argc, char *argv[]) {
   host_arch->PrepareModule(module.get());
 
   // Set wasm32-unknown-wasi and wasm32 data layout if necessary.
-  if (FLAGS_target_arch == "wasm32") {
+  if (FLAGS_target_arch == "wasi32") {
     auto wasm32_dl =
         llvm::DataLayout("e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-n32:64-S128-ni:1:10:20");
     module->setDataLayout(wasm32_dl.getStringRepresentation());
@@ -147,6 +147,5 @@ int main(int argc, char *argv[]) {
 
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
-  printf("[\033[32mINFO\033[0m] Lift Done.\n");
   return 0;
 }

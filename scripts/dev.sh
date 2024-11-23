@@ -27,6 +27,8 @@ setting() {
   ELFCONV_DEBUG_MACROS=
   WASMCC=$EMCC
   WASMCCFLAGS=$EMCCFLAGS
+  WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
+  HOST_CPU=$(uname -p)
 
   if [ -n "$DEBUG" ]; then
     ELFCONV_DEBUG_MACROS="-DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
@@ -56,12 +58,12 @@ aarch64_test() {
 lifting() {
 
   # ELF -> LLVM bc
-  echo -e "[\033[32mINFO\033[0m] ELF Converting Start."
+  echo -e "[\033[32mINFO\033[0m] ELF -> LLVM bitcode..."
   elf_path=$( realpath "$1" )
   
-  wasm32_target_arch=''
-  if [ "${TARGET}" == "wasi" ]; then
-    wasm32_target_arch='wasm32'
+  wasi32_target_arch=''
+  if [ "${TARGET}" == "Wasi" ]; then
+    wasi32_target_arch='wasi32'
   fi
   
   cd ${BUILD_LIFTER_DIR} && \
@@ -71,9 +73,9 @@ lifting() {
     --target_elf "$elf_path" \
     --dbg_fun_cfg "$2" \
     --bitcode_path "$3" \
-    --target_arch "$wasm32_target_arch" && \
+    --target_arch "$wasi32_target_arch" && \
     llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
-  echo -e "[\033[32mINFO\033[0m] Generate lift.bc."
+  echo -e "[\033[32mINFO\033[0m] lift.bc was generated."
 
 }
 
@@ -95,51 +97,35 @@ main() {
 
   # LLVM bc -> target file
   case "${TARGET}" in
-    native)
-      cd ${BUILD_LIFTER_DIR} && \
-      ${CXX} ${CLANGFLAGS} -o exe.aarch64 lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/syscalls/SyscallNative.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
-      echo -e "[\033[32mINFO\033[0m] Generate native binary."
+    Native)
+      echo -e "[\033[32mINFO\033[0m] Compiling to Native binary (for $HOST_CPU)... "
+      ${CXX} ${CLANGFLAGS} -o "exe.${HOST_CPU}" lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/syscalls/SyscallNative.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
+      echo -e " [\033[32mINFO\033[0m] exe.${HOST_CPU} was generated."
       return 0
     ;;
-    browser)
+    Browser)
       ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
-      cd "${BUILD_LIFTER_DIR}" && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.wasm.o -c ${RUNTIME_DIR}/Entry.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Runtime.wasm.o -c ${RUNTIME_DIR}/Runtime.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.wasm.o -c ${RUNTIME_DIR}/Memory.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.wasm.o -c ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.wasm.o -c ${RUNTIME_DIR}/VmIntrinsics.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
-      $WASMCC $WASMCCFLAGS -c lift.ll -o lift.wasm.o
-      $WASMCC $WASMCCFLAGS -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o \
-                              VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
-      echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
+      echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
+      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+                              lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp \
+                              ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
+      echo -e "[\033[32mINFO\033[0m] exe.wasm and exe.js were generated."
       cp exe.js ${ROOT_DIR}/examples/browser
       cp exe.wasm ${ROOT_DIR}/examples/browser
-      # delete obj
-      cd "${BUILD_LIFTER_DIR}" && rm *.o
       return 0
     ;;
-    wasi)
+    Wasi)
       ELFCONV_MACROS="-DELFC_WASI_ENV=1"
       WASMCC=$WASISDK_CXX
       WASMCCFLAGS=$WASISDKFLAGS
       ELFCONV_MACROS="${ELFCONV_MACROS} -fno-exceptions"
-      cd "${BUILD_LIFTER_DIR}" && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Entry.wasm.o -c ${RUNTIME_DIR}/Entry.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Runtime.wasm.o -c ${RUNTIME_DIR}/Runtime.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Memory.wasm.o -c ${RUNTIME_DIR}/Memory.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Syscall.wasm.o -c ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o VmIntrinsics.wasm.o -c ${RUNTIME_DIR}/VmIntrinsics.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o Util.wasm.o -c ${UTILS_DIR}/Util.cpp && \
-      $WASMCC $WASMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o elfconv.wasm.o -c ${UTILS_DIR}/elfconv.cpp && \
-      $WASMCC -O3 -c lift.ll -o lift.wasm.o
-      $WASMCC -O3  $WASISDK_LINKFLAGS -o exe.wasm lift.wasm.o Entry.wasm.o Runtime.wasm.o Memory.wasm.o Syscall.wasm.o VmIntrinsics.wasm.o Util.wasm.o elfconv.wasm.o
-      echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
-      # delete obj
-      cd "${BUILD_LIFTER_DIR}" && rm *.o
+      cd ${BUILD_DIR}
+      echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
+      $WASMCC -O3 $WASMCCFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.wasm ${BUILD_LIFTER_DIR}/lift.ll ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp \
+          ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp
+      echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
+      $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
+      echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_ao3.wasm)"
       return 0
     ;;
   esac  

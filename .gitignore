@@ -119,3 +119,4 @@ SHA*
 elfconv-v*
 
 !examples/browser/exe.html
+!bin/exe.html
