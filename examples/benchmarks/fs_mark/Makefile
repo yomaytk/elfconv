@@ -19,15 +19,11 @@ CFLAGS += -Wall -D_FILE_OFFSET_BITS=64
 
 all: fs_mark 
 
-fs_mark.o: fs_mark.c fs_mark.h
-
-fs_mark: fs_mark.o lib_timing.o
-	$(CC) $(CFLAGS) -static -o fs_mark.aarch64 fs_mark.o lib_timing.o $(LDFLAGS)
+fs_mark: fs_mark.c lib_timing.c
+	$(CC) $(CFLAGS) -static -o fs_mark fs_mark.c lib_timing.c $(LDFLAGS)
 
 fs_mark_wasm: fs_mark.c lib_timing.c
-	$(EMCC) -O3 -c fs_mark.c -o fs_mark.wasm.o
-	$(EMCC) -O3 -c lib_timing.c -o lib_timing.wasm.o
-	$(EMCC) -O3 -static -o fs_mark.html fs_mark.wasm.o lib_timing.wasm.o
+	$(EMCC) -O3 -static -o fs_mark.html fs_mark.wasm.c lib_timing.wasm.c
 
 test: fs_mark
 	./fs_mark -d ${DIR1} -d ${DIR2} -s 51200 -n 4096
