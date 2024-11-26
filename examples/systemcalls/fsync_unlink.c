@@ -31,14 +31,14 @@ int main() {
 
   printf("Data written and synchronized to disk.\n");
 
-  // // ファイルをクローズ
-  // close(fd);
+  // ファイルをクローズ
+  close(fd);
 
-  // // ファイルを削除
-  // if (unlink(filename) < 0) {
-  //     perror("unlink");
-  //     return EXIT_FAILURE;
-  // }
+  // ファイルを削除
+  if (unlink(filename) < 0) {
+    perror("unlink");
+    return EXIT_FAILURE;
+  }
 
   printf("File '%s' has been deleted.\n", filename);
 

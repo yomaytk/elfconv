@@ -5,6 +5,7 @@
 /*
     syscall number table
 */
+#define AARCH64_SYS_DUP 23
 #define AARCH64_SYS_IOCTL 29
 #define AARCH64_SYS_MKDIRAT 34
 #define AARCH64_SYS_UNLINKAT 35
