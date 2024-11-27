@@ -1545,7 +1545,7 @@ bool TryDecodeSTR_H_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // STR  <St>, [<Xn|SP>, #<simm>]!
 bool TryDecodeSTR_S_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionRead, kRegB, kUseAsValue, data.Rt);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
   AddPreIndexMemOp(inst, kActionWrite, 32, data.Rn, offset);
   return true;
@@ -1554,7 +1554,7 @@ bool TryDecodeSTR_S_LDST_IMMPRE(const InstData &data, Instruction &inst) {
 // STR  <Dt>, [<Xn|SP>, #<simm>]!
 bool TryDecodeSTR_D_LDST_IMMPRE(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
-  AddRegOperand(inst, kActionRead, kRegB, kUseAsValue, data.Rt);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rt);
   uint64_t offset = static_cast<uint64_t>(data.imm9.simm9);
   AddPreIndexMemOp(inst, kActionWrite, 64, data.Rn, offset);
   return true;

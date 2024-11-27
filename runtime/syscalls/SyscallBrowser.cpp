@@ -106,6 +106,8 @@ void RuntimeManager::SVCBrowserCall(void) {
          g_state.gpr.pc.qword);
 #endif
   switch (state_gpr.x8.qword) {
+    case AARCH64_SYS_DUP: /* dup (unsigned int fildes)*/
+      state_gpr.x0.dword = dup(state_gpr.x0.dword);
     case AARCH64_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = state_gpr.x0.dword;
