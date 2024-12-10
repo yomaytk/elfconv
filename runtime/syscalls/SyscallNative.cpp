@@ -146,6 +146,12 @@ void RuntimeManager::SVCNativeCall(void) {
       state_gpr.x0.dword = statfs((char *) TranslateVMA(state_gpr.x0.qword),
                                   (struct statfs *) TranslateVMA(state_gpr.x1.qword));
       break;
+    case AARCH64_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
+      state_gpr.x0.dword = truncate((char *) TranslateVMA(state_gpr.x0.qword), (_ecv_long) state_gpr.x1.qword);
+      break;
+    case AARCH64_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
+      state_gpr.x0.dword = ftruncate(state_gpr.x0.qword, (_ecv_long) state_gpr.x1.qword);
+      break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       state_gpr.x0.qword = -1;
