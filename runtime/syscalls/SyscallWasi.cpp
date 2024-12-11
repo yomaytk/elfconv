@@ -140,6 +140,12 @@ void RuntimeManager::SVCWasiCall(void) {
       state_gpr.x0.qword = -1;
       errno = _ECV_EACCESS;
       break;
+    case AARCH64_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
+      state_gpr.x0.dword = truncate((char *) TranslateVMA(state_gpr.x0.qword), (_ecv_long) state_gpr.x1.qword);
+      break;
+    case AARCH64_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
+      state_gpr.x0.dword = ftruncate(state_gpr.x0.qword, (_ecv_long) state_gpr.x1.qword);
+      break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       state_gpr.x0.qword = -1;
@@ -276,7 +282,7 @@ void RuntimeManager::SVCWasiCall(void) {
       struct __ecv_utsname {
         char sysname[65];
         char nodename[65];
-        char relase[65];
+        char release[65];
         char version[65];
         char machine[65];
       } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
