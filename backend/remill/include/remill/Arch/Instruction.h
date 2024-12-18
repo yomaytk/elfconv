@@ -69,7 +69,6 @@ class Operand {
   } type;
 
   enum Action { kActionInvalid, kActionRead, kActionWrite } action;
-  enum Usage { kValue, kAddress, kEmpty };
 
   // Size of this operand, in bits.
   uint64_t size;
@@ -82,7 +81,6 @@ class Operand {
 
     std::string name;
     uint64_t size;  // In bits.
-    Usage usage;
     uint8_t number;
   } reg;
 
@@ -193,8 +191,8 @@ class Instruction {
   uint64_t next_pc;
 
   // The update reg by the Post or Pre index operation.
-  Operand::Register updated_addr_reg;
-  uint64_t updated_post_offset;
+  Operand prepost_updated_reg_op;
+  Operand prepost_new_addr_op;
 
   // Program counter of the delayed instruction for taken/not-taken paths.
   uint64_t delayed_pc;

@@ -156,6 +156,10 @@ void swpl_word(uint32_t *ws, uint32_t wt, uint32_t *mem_ptr) {
 void swpl_doubleword(uint64_t *xs, uint64_t xt, uint64_t *mem_ptr) {
   asm __volatile__("SWP %x0, %x1, [%2]" : "=r"(*xs) : "r"(xt), "r"(mem_ptr) : "memory");
 }
+// LDR <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+void ldr_byte(uint8x8_t *bt, uint8x8_t *mem_xn, uint64_t xm_off) {
+  asm __volatile__("LDR %b0, [%1, %2]" : "=w"(*bt) : "r"(mem_xn), "r"(xm_off) : "memory");
+}
 // LDADD  <Ws>, <Wt>, [<Xn|SP>]
 void ldadd_word(uint32_t *ws, uint32_t wt, uint32_t *mem_ptr) {
   asm __volatile__("LDADD %w0, %w1, [%2]" : "=r"(*ws) : "r"(wt), "r"(mem_ptr) : "memory");

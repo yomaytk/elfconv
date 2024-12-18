@@ -105,6 +105,20 @@ typedef struct {
   ALWAYS_INLINE __attribute__((flatten)) static uint8_t name( \
       State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
 
+#define DEF_SEM_U16(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint16_t name(__VA_ARGS__)
+
+#define DEF_SEM_U16_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint16_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U16_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint16_t name(RuntimeManager *runtime_manager, \
+                                                              ##__VA_ARGS__)
+
+#define DEF_SEM_U16_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint16_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
 #define DEF_SEM_U64(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(__VA_ARGS__)
 

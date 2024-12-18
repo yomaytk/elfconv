@@ -16,7 +16,11 @@
 
 #include "InstructionLifter.h"
 
+#include "remill/Arch/Instruction.h"
 #include "remill/BC/HelperMacro.h"
+#include "remill/BC/InstructionLifter.h"
+
+#include <cstdint>
 
 namespace remill {
 namespace {
@@ -414,12 +418,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->unsupported_instruction;
     arch_inst.operands.clear();
     status = kLiftedUnsupportedInstruction;
-#if defined(WARNING_OUTPUT)
-    printf(
-        "[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
-        arch_inst.pc, arch_inst.function.c_str());
+    printf("[Bug] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
+           arch_inst.pc, arch_inst.function.c_str());
     return status;
-#endif
   }
 
   // If this instruction appears within a delay slot, then we're going to assume
@@ -497,50 +498,48 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
   std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
 
+  // treats the every arguments for the semantics function.
   for (auto &op : arch_inst.operands) {
-    // update bb_reg_info_node
-    Operand::Register *target_reg = &op.reg;
-    EcvReg ecv_reg;
-    EcvRegClass ecv_reg_class = EcvRegClass::RegNULL;
+    Operand::Register *t_reg;
 
-    bool reg_need = !op.reg.name.empty() && "PC" != op.reg.name;
-    bool shift_reg_need = !op.shift_reg.reg.name.empty() && "PC" != op.shift_reg.reg.name;
-    bool base_reg_need = !op.addr.base_reg.name.empty() && "PC" != op.addr.base_reg.name;
+    bool is_reg = !op.reg.name.empty();
+    bool is_shift_reg = !op.shift_reg.reg.name.empty();
+    bool is_base_reg = !op.addr.base_reg.name.empty();
 
-    if ((reg_need && base_reg_need) || (reg_need && shift_reg_need) ||
-        (base_reg_need && shift_reg_need)) {
-      LOG(FATAL)
-          << "[Bug] Must implement the pattern that both reg_need and base_reg_need are true.";
-    } else if (base_reg_need) {
-      target_reg = &op.addr.base_reg;
-    } else if (shift_reg_need) {
-      target_reg = &op.shift_reg.reg;
+    if (uint64_t(is_reg) + uint64_t(is_shift_reg) + uint64_t(is_base_reg) > 1) {
+      LOG(FATAL) << "[Bug] vailid operand regisrter set is invalid.";
     }
 
-    if (!target_reg->name.empty()) {
-      auto e_r_info = EcvReg::GetRegInfo(target_reg->name);
-      ecv_reg = e_r_info.first;
-      ecv_reg_class = e_r_info.second;
-      if (Operand::Action::kActionRead == op.action) {
-        // skip the case where the load register is `XZR` or `WZR`.
-        if (31 != target_reg->number || "SP" == target_reg->name) {
-          load_reg_map.insert({ecv_reg, ecv_reg_class});
+    if (is_reg) {
+      t_reg = &op.reg;
+    } else if (is_shift_reg) {
+      t_reg = &op.shift_reg.reg;
+    } else if (is_base_reg) {
+      t_reg = &op.addr.base_reg;
+    } else {
+      t_reg = NULL;
+    }
+
+    auto [e_r, e_r_c] =
+        t_reg ? EcvReg::GetRegInfo(t_reg->name) : std::make_pair(EcvReg(), EcvRegClass::RegNULL);
+
+    if (t_reg) {
+      if (Operand::Action::kActionWrite == op.action) {
+        if (!t_reg->name.starts_with("IGNORE_WRITE_TO")) {
+          // skip the case where the store register is `XZR` or `WZR`.
+          store_reg_map.insert({e_r, e_r_c});
+        }
+        write_regs.push_back({e_r, e_r_c});
+        continue;
+      } else if (Operand::Action::kActionRead == op.action) {
+        if (is_base_reg) {
+          CHECK(op.addr.index_reg.name.empty())
+              << "[Bug] addr.index_reg must not be added to operands list.";
+        }
+        if (31 != t_reg->number || "SP" == t_reg->name) {
+          load_reg_map.insert({e_r, e_r_c});
         } else {
-          ecv_reg_class = EcvRegClass::RegNULL;
-        }
-      } else if (Operand::Action::kActionWrite == op.action) {
-        // write to register.
-        if (Operand::Usage::kValue == target_reg->usage) {
-          if (!target_reg->name.starts_with("IGNORE_WRITE_TO")) {
-            // skip the case where the store register is `XZR` or `WZR`.
-            store_reg_map.insert({ecv_reg, ecv_reg_class});
-          }
-          write_regs.push_back({ecv_reg, ecv_reg_class});
-          continue;
-        }
-        // write to memory.
-        else {
-          load_reg_map.insert({ecv_reg, ecv_reg_class});
+          e_r_c = EcvRegClass::RegNULL;
         }
       } else {
         LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
@@ -568,12 +567,12 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                 << ", address: " << arch_inst.pc;
     args.push_back(operand);
 
-    sema_func_args_regs.push_back({ecv_reg, ecv_reg_class});
+    sema_func_args_regs.push_back({e_r, e_r_c});
 
     // insert the instruction which explains the latest specified register with kActinoRead.
     if (llvm::dyn_cast<llvm::LoadInst>(operand)) {
-      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-          ecv_reg, std::make_tuple(ecv_reg_class, operand, 0));
+      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(e_r,
+                                                             std::make_tuple(e_r_c, operand, 0));
     }
   }
 
@@ -614,25 +613,25 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   bb_reg_info_node->sema_func_pc_map.insert({sema_inst, arch_inst.pc});
 
   // Update pre-post index for the target register.
-  if (!arch_inst.updated_addr_reg.name.empty()) {
+  // (reason. If we update in the semantics function, we should increase the num of return variables and that will occur the returning through memory.)
+  if (!arch_inst.prepost_updated_reg_op.reg.name.empty()) {
     const auto [update_reg_ptr_reg, _] =
-        LoadRegAddress(block, state_ptr, arch_inst.updated_addr_reg.name);
+        LoadRegAddress(block, state_ptr, arch_inst.prepost_updated_reg_op.reg.name);
     auto [updated_ecv_reg, updated_ecv_reg_class] =
-        EcvReg::GetRegInfo(arch_inst.updated_addr_reg.name);
-    // args[args.size() - 1] shows the new address (ref. AddPreIndexMemOp or AddPostIndexMemOp at AArch64/Arch.cpp).
-    auto updated_addr_value = args[args.size() - 1];
-    if (arch_inst.updated_post_offset > 0) {
-      updated_addr_value =
-          ir.CreateAdd(updated_addr_value, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context),
-                                                                  arch_inst.updated_post_offset));
-      bb_reg_info_node->post_update_regs.insert(
-          {updated_addr_value, {updated_ecv_reg, updated_ecv_reg_class}});
-    }
-    ir.CreateStore(updated_addr_value, update_reg_ptr_reg, false);
+        EcvReg::GetRegInfo(arch_inst.prepost_updated_reg_op.reg.name);
+    auto new_addr_val =
+        LiftAddressOperand(arch_inst, block, state_ptr, NULL, arch_inst.prepost_new_addr_op);
+    ir.CreateStore(new_addr_val, update_reg_ptr_reg, false);
     // Update cache.
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, updated_addr_value, 0));
+        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, new_addr_val, 0));
+    // add index_reg (addr.index_reg is not treated in the operands list.)
+    if (auto index_reg_name = arch_inst.prepost_new_addr_op.addr.index_reg.name;
+        !index_reg_name.empty()) {
+      auto [id_e_r, id_e_r_c] = EcvReg::GetRegInfo(index_reg_name);
+      load_reg_map.insert({id_e_r, id_e_r_c});
+    }
   }
 
   // End an atomic block.
@@ -985,7 +984,8 @@ static llvm::Value *ConvertToIntendedType(Instruction &inst, Operand &op, llvm::
     CHECK(data_layout.getTypeAllocSizeInBits(val_type) ==
           data_layout.getTypeAllocSizeInBits(intended_type))
         << "must be equal. intended_type: " << LLVMThingToString(intended_type)
-        << ", val_type: " << LLVMThingToString(val_type);
+        << ", val_type: " << LLVMThingToString(val_type) << " at address: 0x" << std::hex << inst.pc
+        << " " << inst.function;
 
     return new llvm::BitCastInst(val, intended_type, val->getName(), block);
   }

@@ -15,6 +15,12 @@
  */
 
 // Disable the "loop not unrolled warnings"
+#include "remill/Arch/AArch64/Runtime/Types.h"
+#include "remill/Arch/Runtime/Definitions.h"
+#include "remill/Arch/Runtime/Types.h"
+
+#include <algorithm>
+#include <type_traits>
 #pragma clang diagnostic ignored "-Wpass-failed"
 
 namespace {
@@ -1074,3 +1080,100 @@ DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) =
     FMULID_V32<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) =
     FMULID_V64<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+
+// USHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+namespace {
+#define MAKE_USHLL(s_elem_size, d_elem_type) \
+  template <typename D, typename S> \
+  DEF_SEM_T(USHLL_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = UReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
+      res[i] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  } \
+\
+  template <typename D, typename S> \
+  DEF_SEM_T(USHLL2_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = UReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = GetVectorElemsNum(srcv) / 2; i < GetVectorElemsNum(srcv); \
+                           i++) { \
+      res[i - GetVectorElemsNum(srcv) / 2] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  }
+
+MAKE_USHLL(8, uint16_t);
+MAKE_USHLL(16, uint32_t);
+MAKE_USHLL(32, uint64_t);
+
+#undef MAKE_USHLL
+
+}  // namespace
+
+DEF_ISEL(USHLL_ASIMDSHF_L_8H8B) = USHLL_8<VIu16v8, VIu8v8>;
+DEF_ISEL(USHLL_ASIMDSHF_L_4S4H) = USHLL_16<VIu32v4, VIu16v4>;
+DEF_ISEL(USHLL_ASIMDSHF_L_2D2S) = USHLL_32<VIu64v2, VIu32v2>;
+
+DEF_ISEL(USHLL_ASIMDSHF_L_8H16B) = USHLL2_8<VIu16v8, VIu8v16>;
+DEF_ISEL(USHLL_ASIMDSHF_L_4S8H) = USHLL2_16<VIu32v4, VIu16v8>;
+DEF_ISEL(USHLL_ASIMDSHF_L_2D4S) = USHLL2_32<VIu64v2, VIu32v4>;
+
+// SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
+namespace {
+#define MAKE_SCVTF_VECTOR(elem_size) \
+  template <typename S, typename D> \
+  DEF_SEM_T(SCVTF_Vector##elem_size, S src) { \
+    auto srcv = SReadVI##elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
+      res[i] = CheckedCast<int##elem_size##_t, float##elem_size##_t>(srcv[i]); \
+    } \
+    return res; \
+  }
+
+MAKE_SCVTF_VECTOR(32);
+MAKE_SCVTF_VECTOR(64);
+
+#undef MAKE_SCVTF_VECTOR
+
+}  // namespace
+
+DEF_ISEL(SCVTF_ASIMDMISC_R_2S) = SCVTF_Vector32<VIi32v2, VIf32v2>;
+DEF_ISEL(SCVTF_ASIMDMISC_R_4S) = SCVTF_Vector32<VIi32v4, VIf32v4>;
+DEF_ISEL(SCVTF_ASIMDMISC_R_2D) = SCVTF_Vector64<VIi64v2, VIf64v2>;
+
+// REV32  <Vd>.<T>, <Vn>.<T>
+namespace {
+template <typename S>
+DEF_SEM_T(REV32_VectorB, S src) {
+  auto srcv = UReadVI8(src);
+  S res{};
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i += 4) {
+    res[i] = srcv[i + 3];
+    res[i + 1] = srcv[i + 2];
+    res[i + 2] = srcv[i + 1];
+    res[i + 3] = srcv[i];
+  }
+  return res;
+}
+
+template <typename S>
+DEF_SEM_T(REV32_VectorH, S src) {
+  auto srcv = UReadVI16(src);
+  S res{};
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i += 2) {
+    res[i] = srcv[i + 1];
+    res[i + 1] = srcv[i];
+  }
+  return res;
+}
+}  // namespace
+
+DEF_ISEL(REV32_ASIMDMISC_R_8B) = REV32_VectorB<VIu8v8>;
+DEF_ISEL(REV32_ASIMDMISC_R_16B) = REV32_VectorB<VIu8v16>;
+
+DEF_ISEL(REV32_ASIMDMISC_R_4H) = REV32_VectorH<VIu16v4>;
+DEF_ISEL(REV32_ASIMDMISC_R_8H) = REV32_VectorH<VIu16v8>;
