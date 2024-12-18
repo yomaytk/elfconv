@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include <arm_neon.h>
 
 // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
 void fmsub_float(float *sd, float sn, float sm, float sa) {
@@ -25,4 +25,12 @@ void adc_doubleword(uint64_t _r1, uint64_t _r2, uint64_t *xd, uint64_t xn, uint6
 // UMSUBL <Xd>, <Wn>, <Wm>, <Xa>
 void umsubl(uint64_t *xd, uint32_t wn, uint32_t wm, uint64_t xa) {
   asm __volatile__("UMSUBL %x0, %w1, %w2, %x3" : "=r"(*xd) : "r"(wn), "r"(wm), "r"(xa));
+}
+// FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+void fsub_vector(float32x4_t *qtd, float32x4_t qtn, float32x4_t qtm) {
+  asm __volatile__("FSUB %0.4S, %1.4S, %2.4S" : "+w"(*qtd) : "w"(qtn), "w"(qtm));
+}
+// FDIV  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)
+void fdiv_vector(float32x4_t *qtd, float32x4_t qtn, float32x4_t qtm) {
+  asm __volatile__("FDIV %0.4S, %1.4S, %2.4S" : "+w"(*qtd) : "w"(qtn), "w"(qtm));
 }

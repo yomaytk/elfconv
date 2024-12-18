@@ -126,13 +126,13 @@ DEF_SEM_VOID_RUN(StoreUpdateIndex, S src, D dst_mem) {
   MWriteTrunc(dst_mem, Read(src));
 }
 
-// DEF_SEM_VOID_RUN(StoreUpdateIndex_S8, R8 src, MVI8 dst_mem) {
-//   SWriteMVI8(dst_mem, Read(src));
-// }
+DEF_SEM_VOID_RUN(StoreUpdateIndex_S8, R8 src, MVI8 dst_mem) {
+  UWriteMVI8(dst_mem, Read(src));
+}
 
-// DEF_SEM_VOID_RUN(StoreUpdateIndex_S16, R16 src, MVI16 dst_mem) {
-//   SWriteMVI16(dst_mem, Read(src));
-// }
+DEF_SEM_VOID_RUN(StoreUpdateIndex_S16, R16 src, MVI16 dst_mem) {
+  UWriteMVI16(dst_mem, Read(src));
+}
 
 DEF_SEM_VOID_RUN(StoreUpdateIndex_F32, RF32 src, MVI32 dst_mem) {
   FWriteMVI32(dst_mem, Read(src));
@@ -206,11 +206,11 @@ DEF_ISEL(STR_32_LDST_IMMPOST) = StoreUpdateIndex<R32, M32W>;  // STR  <Wt>, [<Xn
 DEF_ISEL(STR_64_LDST_IMMPRE) = StoreUpdateIndex<R64, M64W>;  // STR  <Xt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(STR_64_LDST_IMMPOST) = StoreUpdateIndex<R64, M64W>;  // STR  <Xt>, [<Xn|SP>], #<simm>
 
-// DEF_ISEL(STR_B_LDST_IMMPRE) = StoreUpdateIndex_S8;  // STR  <Bt>, [<Xn|SP>, #<simm>]!
-// DEF_ISEL(STR_B_LDST_IMMPOST) = StoreUpdateIndex_S8;  // STR  <Bt>, [<Xn|SP>], #<simm>
+DEF_ISEL(STR_B_LDST_IMMPRE) = StoreUpdateIndex_S8;  // STR  <Bt>, [<Xn|SP>, #<simm>]!
+DEF_ISEL(STR_B_LDST_IMMPOST) = StoreUpdateIndex_S8;  // STR  <Bt>, [<Xn|SP>], #<simm>
 
-// DEF_ISEL(STR_H_LDST_IMMPRE) = StoreUpdateIndex_S16;  // STR  <Ht>, [<Xn|SP>, #<simm>]!
-// DEF_ISEL(STR_H_LDST_IMMPOST) = StoreUpdateIndex_S16;  // STR  <Ht>, [<Xn|SP>], #<simm>
+DEF_ISEL(STR_H_LDST_IMMPRE) = StoreUpdateIndex_S16;  // STR  <Ht>, [<Xn|SP>, #<simm>]!
+DEF_ISEL(STR_H_LDST_IMMPOST) = StoreUpdateIndex_S16;  // STR  <Ht>, [<Xn|SP>], #<simm>
 
 DEF_ISEL(STR_S_LDST_IMMPRE) = StoreUpdateIndex_F32;  // STR  <St>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(STR_S_LDST_IMMPOST) = StoreUpdateIndex_F32;  // STR  <St>, [<Xn|SP>], #<simm>
@@ -656,13 +656,13 @@ DEF_ISEL(ADR_ONLY_PCRELADDR) = Load<I64>;  // ADR  <Xd>, <label>
 
 namespace {
 
-// DEF_SEM_U8_RUN(LDR_B, MVI8 src) {
-//   return UReadMVI8(src)[0];
-// }
+DEF_SEM_U8_RUN(LDR_B, MVI8 src) {
+  return UReadMVI8(src)[0];
+}
 
-// DEF_SEM_U16_RUN(LDR_H, MVI16 src) {
-//   return UReadMVI16(src)[0];
-// }
+DEF_SEM_U16_RUN(LDR_H, MVI16 src) {
+  return UReadMVI16(src)[0];
+}
 
 DEF_SEM_F32_RUN(LDR_S, MVI32 src_mem) {
   return FReadMVI32(src_mem)[0];
@@ -698,9 +698,9 @@ DEF_SEM_U128V1_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
   return UReadMVI128(src_mem);
 }
 
-// DEF_SEM(LDR_B_FromOffset, VI128 dst, MVI8 src, ADDR offset) {
-//   UWriteVI8(dst, UReadVI8(DisplaceAddress(src, Read(offset))));
-// }
+DEF_SEM_U8_RUN(LDR_B_FromOffset, MVI8 src, ADDR offset) {
+  return UReadMVI8(DisplaceAddress(src, Read(offset)))[0];
+}
 
 // DEF_SEM(LDR_H_FromOffset, VI128 dst, MVI16 src, ADDR offset) {
 //   UWriteVI16(dst, UReadVI16(DisplaceAddress(src, Read(offset))));
@@ -720,14 +720,14 @@ DEF_SEM_U128V1_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
 
 }  // namespace
 
-// DEF_ISEL(LDR_B_LDST_POS) = LDR_B;  // LDR  <Bt>, [<Xn|SP>{, #<pimm>}]
-// DEF_ISEL(LDR_H_LDST_POS) = LDR_H;  // LDR  <Ht>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDR_B_LDST_POS) = LDR_B;  // LDR  <Bt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDR_H_LDST_POS) = LDR_H;  // LDR  <Ht>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDR_S_LDST_POS) = LDR_S;  // LDR  <St>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDR_D_LDST_POS) = LDR_D;  // LDR  <Dt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDR_Q_LDST_POS) = LDR_Q;  // LDR  <Qt>, [<Xn|SP>{, #<pimm>}]
 
-// DEF_ISEL(LDUR_B_LDST_UNSCALED) = LDR_B;  // LDUR  <Bt>, [<Xn|SP>{, #<simm>}]
-// DEF_ISEL(LDUR_H_LDST_UNSCALED) = LDR_H;  // LDUR  <Ht>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDUR_B_LDST_UNSCALED) = LDR_B;  // LDUR  <Bt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDUR_H_LDST_UNSCALED) = LDR_H;  // LDUR  <Ht>, [<Xn|SP>{, #<simm>}]
 DEF_ISEL(LDUR_S_LDST_UNSCALED) = LDR_S;  // LDUR  <St>, [<Xn|SP>{, #<simm>}]
 DEF_ISEL(LDUR_D_LDST_UNSCALED) = LDR_D;  // LDUR  <Dt>, [<Xn|SP>{, #<simm>}]
 DEF_ISEL(LDUR_Q_LDST_UNSCALED) = LDR_Q;  // LDUR  <Qt>, [<Xn|SP>{, #<simm>}]
@@ -748,10 +748,10 @@ DEF_ISEL(LDR_S_LDST_IMMPOST) = LDR_S_UpdateIndex;  // LDR  <St>, [<Xn|SP>], #<si
 DEF_ISEL(LDR_D_LDST_IMMPOST) = LDR_D_UpdateIndex;  // LDR  <Dt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_Q_LDST_IMMPOST) = LDR_Q_UpdateIndex;  // LDR  <Qt>, [<Xn|SP>], #<simm>
 
-// DEF_ISEL(LDR_B_LDST_REGOFF) =
-//     LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
-// DEF_ISEL(LDR_BL_LDST_REGOFF) =
-//     LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+DEF_ISEL(LDR_B_LDST_REGOFF) =
+    LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+DEF_ISEL(LDR_BL_LDST_REGOFF) =
+    LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 // DEF_ISEL(LDR_H_LDST_REGOFF) =
 //     LDR_H_FromOffset;  // LDR  <Ht>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 DEF_ISEL(LDR_S_LDST_REGOFF) =
@@ -1104,7 +1104,8 @@ namespace {
 #define MAKE_ST1_UNIT(elem_size, elem_num) \
   DEF_SEM_VOID_RUN(ST1_UNIT_VI##elem_size, VIu##elem_size##v##elem_num src, I32 index, \
                    M##elem_size##W dst_mem) { \
-    uint##elem_size##_t elem = UExtractVI##elem_size(UReadVI##elem_size(src), Read(index)); \
+    auto srcv = UReadVI##elem_size(src); \
+    uint##elem_size##_t elem = srcv[Read(index)]; \
     MWriteTrunc(dst_mem, elem); \
 \
   }  // namespace
@@ -1851,7 +1852,7 @@ namespace {
   }  // namespace
 
 MAKE_CNT(64, 8)
-MAKE_CNT(128, 8)
+MAKE_CNT(128, 16)
 
 #undef MAKE_CNT
 

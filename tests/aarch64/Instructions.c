@@ -23,7 +23,7 @@ void test_fmsub_float() {
   float sa = 5.25;
   fmsub_float(&sd, sn, sm, sa);
   assert(-31.5 == sd);
-  printf("FMSUB  <Sd>, <Sn>, <Sm>, <Sa>   done.\n");
+  printf("ok FMSUB  <Sd>, <Sn>, <Sm>, <Sa>\n");
 }
 // FMSUB  <Dd>, <Dn>, <Dm>, <Da> (Note. have a mergin of error compared to normal compilation)
 void test_fmsub_double() {
@@ -33,7 +33,7 @@ void test_fmsub_double() {
   double da = 5.25;
   fmsub_double(&dd, dn, dm, da);
   assert(-31.5 == dd);
-  printf("FMSUB  <Dd>, <Dn>, <Dm>, <Da>   done.\n");
+  printf("ok FMSUB  <Dd>, <Dn>, <Dm>, <Da>\n");
 }
 // ADC  <Wd>, <Wn>, <Wm>
 void test_adc_word() {
@@ -57,7 +57,7 @@ void test_adc_word() {
     adc_word(_r1, _r2, &wd, wn, wm);
     assert(135 == wd);
   }
-  printf("ADC  <Wd>, <Wn>, <Wm>   done.\n");
+  printf("ok ADC  <Wd>, <Wn>, <Wm>\n");
 }
 // ADC  <Xd>, <Xn>, <Xm>
 void test_adc_doubleword() {
@@ -81,7 +81,7 @@ void test_adc_doubleword() {
     adc_doubleword(_r1, _r2, &xd, xn, xm);
     assert(135 == xd);
   }
-  printf("ADC  <Xd>, <Xn>, <Xm>   done.\n");
+  printf("ok ADC  <Xd>, <Xn>, <Xm>\n");
 }
 // UMSUBL <Xd>, <Wn>, <Wm>, <Xa>
 void test_umsubl() {
@@ -91,7 +91,47 @@ void test_umsubl() {
   uint64_t xa = 200;
   umsubl(&xd, wn, wm, xa);
   assert(44 == xd);
-  printf("UMSUBL <Xd>, <Wn>, <Wm>, <Xa>   done.\n");
+  printf("ok UMSUBL <Xd>, <Wn>, <Wm>, <Xa>\n");
+}
+// FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+void test_fsub_vector() {
+  float32x4_t qtd = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  float32x4_t qtn = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  qtn = vsetq_lane_f32(1.25, qtn, 0);
+  qtn = vsetq_lane_f32(2.5, qtn, 1);
+  qtn = vsetq_lane_f32(4.5, qtn, 2);
+  qtn = vsetq_lane_f32(1.5, qtn, 3);
+  float32x4_t qtm = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  qtm = vsetq_lane_f32(1, qtm, 0);
+  qtm = vsetq_lane_f32(2, qtm, 1);
+  qtm = vsetq_lane_f32(3, qtm, 2);
+  qtm = vsetq_lane_f32(4, qtm, 3);
+  fsub_vector(&qtd, qtn, qtm);
+  assert(0.25 == vgetq_lane_f32(qtd, 0));
+  assert(0.5 == vgetq_lane_f32(qtd, 1));
+  assert(1.5 == vgetq_lane_f32(qtd, 2));
+  assert(-2.5 == vgetq_lane_f32(qtd, 3));
+  printf("ok FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>\n");
+}
+// FDIV  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)
+void test_fdiv_vector() {
+  float32x4_t qtd = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  float32x4_t qtn = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  qtn = vsetq_lane_f32(2.4, qtn, 0);
+  qtn = vsetq_lane_f32(2, qtn, 1);
+  qtn = vsetq_lane_f32(17.5, qtn, 2);
+  qtn = vsetq_lane_f32(-4, qtn, 3);
+  float32x4_t qtm = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  qtm = vsetq_lane_f32(1.2, qtm, 0);
+  qtm = vsetq_lane_f32(0.5, qtm, 1);
+  qtm = vsetq_lane_f32(3.5, qtm, 2);
+  qtm = vsetq_lane_f32(8, qtm, 3);
+  fdiv_vector(&qtd, qtn, qtm);
+  assert(2 == vgetq_lane_f32(qtd, 0));
+  assert(4 == vgetq_lane_f32(qtd, 1));
+  assert(5 == vgetq_lane_f32(qtd, 2));
+  assert(-0.5 == vgetq_lane_f32(qtd, 3));
+  printf("ok FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)\n");
 }
 /*
   CONVVERT.c
@@ -102,7 +142,7 @@ void test_ucvtf_float() {
   uint32_t n32 = 43;
   ucvtf_float(&sd, n32);
   assert(43 == sd);
-  printf("UCVTF  <V><d>, <V><n> (<V> = S)   done.\n");
+  printf("ok UCVTF  <V><d>, <V><n> (<V> = S)\n");
 }
 // UCVTF  <V><d>, <V><n> (<V> = D)
 void test_ucvtf_double() {
@@ -110,7 +150,7 @@ void test_ucvtf_double() {
   uint64_t n64 = 43;
   ucvtf_double(&dd, n64);
   assert(43 == dd);
-  printf("UCVTF  <V><d>, <V><n> (<V> = D)   done.\n");
+  printf("ok UCVTF  <V><d>, <V><n> (<V> = D)\n");
 }
 // SCVTF  <V><d>, <V><n> (<V> = S)
 void test_scvtf_float() {
@@ -118,7 +158,7 @@ void test_scvtf_float() {
   int n32 = -43;
   scvtf_float(&sd, n32);
   assert(-43 == sd);
-  printf("SCVTF  <V><d>, <V><n> (<V> = S)   done.\n");
+  printf("ok SCVTF  <V><d>, <V><n> (<V> = S)\n");
 }
 // SCVTF  <V><d>, <V><n> (<V> = D)
 void test_scvtf_double() {
@@ -126,7 +166,7 @@ void test_scvtf_double() {
   long n64 = -43;
   scvtf_double(&dd, n64);
   assert(-43 == dd);
-  printf("SCVTF  <V><d>, <V><n> (<V> = D)   done.\n");
+  printf("ok SCVTF  <V><d>, <V><n> (<V> = D)\n");
 }
 // FRINTA  <Dd>, <Dn>
 void test_frinta_doubleword() {
@@ -134,7 +174,7 @@ void test_frinta_doubleword() {
   double dd = 0;
   frinta_doubleword(dn, &dd);
   assert(43 == dd);
-  printf("FRINTA  <Dd>, <Dn>   done.\n");
+  printf("ok FRINTA  <Dd>, <Dn>\n");
 }
 // FCVTAS  <Xd>, <Dn>
 void test_fcvtas_doubleword() {
@@ -142,7 +182,7 @@ void test_fcvtas_doubleword() {
   long xd = 0;
   fcvtas_doubleword(dn, &xd);
   assert(43 == xd);
-  printf("FCVTAS  <Xd>, <Dn>   done.\n");
+  printf("ok FCVTAS  <Xd>, <Dn>\n");
 }
 
 /*
@@ -156,7 +196,7 @@ void test_st1_simd_d_index() {
   uint64x2_t qt1 = vcombine_u64(vcreate_u64(*((uint64_t *) &a1)), vcreate_u64(*((uint64_t *) &a2)));
   st1_simd_d_index(qt1, &res_f64);
   assert(12.3f == res_f64);
-  printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>]   done.\n");
+  printf("ok ST1  { <Vt>.D }[<index>], [<Xn|SP>]\n");
 }
 // ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8
 void test_st1_simd_d_index_postimm() {
@@ -168,7 +208,7 @@ void test_st1_simd_d_index_postimm() {
   st1_simd_d_index_postimm(qt1, &mem_ptr_reg);
   assert(12.3f == res_f64);
   assert(&res_f64 + 1 == mem_ptr_reg);
-  printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8   done.\n");
+  printf("ok ST1  { <Vt>.D }[<index>], [<Xn|SP>], #8\n");
 }
 // ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
 void test_st1_simd_d_index_postreg() {
@@ -180,7 +220,7 @@ void test_st1_simd_d_index_postreg() {
   st1_simd_d_index_postreg(qt1, &mem_ptr_reg, 16);
   assert(12.3f == res_f64);
   assert(&res_f64 + 2 == mem_ptr_reg);
-  printf("ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>   done.\n");
+  printf("ok ST1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>\n");
 }
 // STR <Bt>, [<Xn|SP>], #<simm>
 void test_str_simd_b_simmpost() {
@@ -190,7 +230,7 @@ void test_str_simd_b_simmpost() {
   str_simd_b_simmpost(bt, &res_ptr);
   assert(42 == res_u8[0]);
   assert(res_u8 + 1 == res_ptr);
-  printf("STR <Bt>, [<Xn|SP>], #<simm>   done.\n");
+  printf("ok STR <Bt>, [<Xn|SP>], #<simm>\n");
 }
 // STR <Ht>, [<Xn|SP>], #<simm>
 void test_str_simd_h_simmpost() {
@@ -200,7 +240,7 @@ void test_str_simd_h_simmpost() {
   str_simd_h_simmpost(ht, &res_ptr);
   assert(42 == res_u16[0]);
   assert(res_u16 + 1 == res_ptr);
-  printf("STR <Ht>, [<Xn|SP>], #<simm>   done.\n");
+  printf("ok STR <Ht>, [<Xn|SP>], #<simm>\n");
 }
 // STR <St>, [<Xn|SP>], #<simm>
 void test_str_simd_s_simmpost() {
@@ -222,7 +262,7 @@ void test_str_simd_s_simmpost() {
     str_simd_s_simmpost(43, &res);
     assert(43 == res_f32[0]);
   }
-  printf("STR <St>, [<Xn|SP>], #<simm>   done.\n");
+  printf("ok STR <St>, [<Xn|SP>], #<simm>\n");
 }
 // STR <Dt>, [<Xn|SP>], #<simm>
 void test_str_simd_d_simmpost() {
@@ -244,7 +284,7 @@ void test_str_simd_d_simmpost() {
     str_simd_d_simmpost(43, &res);
     assert(43 == res_f32[0]);
   }
-  printf("STR <Dt>, [<Xn|SP>], #<simm>   done.\n");
+  printf("ok STR <Dt>, [<Xn|SP>], #<simm>\n");
 }
 // STR <Qt>, [<Xn|SP>], #<simm>
 void test_str_simd_q_simmpost() {
@@ -257,7 +297,7 @@ void test_str_simd_q_simmpost() {
   assert(1.2f == res_f64[0]);
   assert(12.3f == res_f64[1]);
   assert(res_f64 + 1 == mem_ptr_reg);
-  printf("STR <Qt>, [<Xn|SP>], #<simm>   done.\n");
+  printf("ok STR <Qt>, [<Xn|SP>], #<simm>\n");
 }
 // STR <Bt>, [<Xn|SP>, #<simm>]!
 void test_str_simd_b_simmpre() {
@@ -267,7 +307,7 @@ void test_str_simd_b_simmpre() {
   str_simd_b_simmpre(bt, &res_ptr);
   assert(42 == res_u8[1]);
   assert(res_u8 + 1 == res_ptr);
-  printf("STR <Bt>, [<Xn|SP>, #<simm>]!   done.\n");
+  printf("ok STR <Bt>, [<Xn|SP>, #<simm>]!\n");
 }
 // STR <Ht>, [<Xn|SP>, #<simm>]!
 void test_str_simd_h_simmpre() {
@@ -277,7 +317,7 @@ void test_str_simd_h_simmpre() {
   str_simd_h_simmpre(ht, &res_ptr);
   assert(42 == res_u16[1]);
   assert(res_u16 + 1 == res_ptr);
-  printf("STR <Ht>, [<Xn|SP>, #<simm>]!   done.\n");
+  printf("ok STR <Ht>, [<Xn|SP>, #<simm>]!\n");
 }
 // STR <St>, [<Xn|SP>, #<simm>]!
 void test_str_simd_s_simmpre() {
@@ -287,7 +327,7 @@ void test_str_simd_s_simmpre() {
   str_simd_s_simmpre(st, &res_ptr);
   assert(42.5f == res_f32[1]);
   assert(res_f32 + 1 == res_ptr);
-  printf("STR <St>, [<Xn|SP>, #<simm>]!   done.\n");
+  printf("ok STR <St>, [<Xn|SP>, #<simm>]!\n");
 }
 // STR <Dt>, [<Xn|SP>, #<simm>]!
 void test_str_simd_d_simmpre() {
@@ -297,7 +337,7 @@ void test_str_simd_d_simmpre() {
   str_simd_d_simmpre(dt, &res_ptr);
   assert(42.5f == res_f64[1]);
   assert(res_f64 + 1 == res_ptr);
-  printf("STR <Dt>, [<Xn|SP>, #<simm>]!   done.\n");
+  printf("ok STR <Dt>, [<Xn|SP>, #<simm>]!\n");
 }
 // STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 void test_str_simd_s_regoff() {
@@ -323,7 +363,7 @@ void test_str_simd_s_regoff() {
     assert(43.7f == res_f32[16]);
     res_f32[16] = 0;
   }
-  printf("STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]   done.\n");
+  printf("ok STR <St>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]\n");
 }
 // STR <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 void test_str_simd_d_regoff() {
@@ -349,14 +389,14 @@ void test_str_simd_d_regoff() {
     assert(43.4f == res_f64[13]);
     res_f64[13] = 0;
   }
-  printf("STR <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]   done.\n");
+  printf("ok STR <Dt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]\n");
 }
 // STLR <Xt>, [<Xn|SP>{,#0}]
 void test_stlr_x() {
   uint64_t mem_val = 0;
   stlr_x(44, &mem_val);
   assert(44 == mem_val);
-  printf("STLR <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok STLR <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!
 void test_stp_q_immpre() {
@@ -374,7 +414,7 @@ void test_stp_q_immpre() {
   assert(44.0f == res_f64[4]);
   assert(44.1f == res_f64[5]);
   assert(res_f64 + 2 == mem_ptr_reg);
-  printf("STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!   done.\n");
+  printf("ok STP <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]!\n");
 }
 // STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>
 void test_stp_q_imm_post() {
@@ -392,7 +432,7 @@ void test_stp_q_imm_post() {
   assert(123.4f == res_f64[2]);
   assert(1234.5f == res_f64[3]);
   assert(res_f64 + 2 == mem_ptr_reg);
-  printf("STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>   done.\n");
+  printf("ok STP <Qt1>, <Qt2>, [<Xn|SP>], #<imm>\n");
 }
 // MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]
 void test_mov_ins_v_v() {
@@ -404,7 +444,7 @@ void test_mov_ins_v_v() {
   uint64x2_t qt2 = vcombine_u64(vcreate_u64(*((uint64_t *) &b1)), vcreate_u64(*((uint64_t *) &b2)));
   mov_ins_v_v(&qt1, qt2);
   assert(44.4f == vgetq_lane_f64(qt1, 1));
-  printf("MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]   done.\n");
+  printf("ok MOV  <Vd>.<Ts>[<index1>], <Vn>.<Ts>[<index2>]\n");
 }
 // SWP <Ws>, <Wt>, [<Xn|SP>]
 void test_swp_word() {
@@ -414,7 +454,7 @@ void test_swp_word() {
   swp_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(12 == mem);
-  printf("SWP <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok SWP <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // SWP <Xs>, <Xt>, [<Xn|SP>]
 void test_swp_doubleword() {
@@ -424,7 +464,7 @@ void test_swp_doubleword() {
   swp_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(12 == mem);
-  printf("SWP <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok SWP <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // SWPA <Ws>, <Wt>, [<Xn|SP>]
 void test_swpa_word() {
@@ -434,7 +474,7 @@ void test_swpa_word() {
   swpa_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(12 == mem);
-  printf("SWPA <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok SWPA <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // SWPA <Xs>, <Xt>, [<Xn|SP>]
 void test_swpa_doubleword() {
@@ -444,7 +484,7 @@ void test_swpa_doubleword() {
   swpa_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(12 == mem);
-  printf("SWPA <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok SWPA <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // SWPL <Ws>, <Wt>, [<Xn|SP>]
 void test_swpl_word() {
@@ -454,7 +494,7 @@ void test_swpl_word() {
   swpl_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(12 == mem);
-  printf("SWPL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok SWPL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // SWPL <Xs>, <Xt>, [<Xn|SP>]
 void test_swpl_doubleword() {
@@ -464,7 +504,23 @@ void test_swpl_doubleword() {
   swpl_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(12 == mem);
-  printf("SWPL <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok SWPL <Xs>, <Xt>, [<Xn|SP>]\n");
+}
+// LDR <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+void test_ldr_byte() {
+  uint8x8_t qt2 = vcreate_u8(0);
+  uint8x8_t bt = vcreate_u8(0);
+  uint64_t xm_off = 3;
+  qt2 = vset_lane_u8(0b1, qt2, 1);
+  qt2 = vset_lane_u8(0b11, qt2, 2);
+  qt2 = vset_lane_u8(0b111, qt2, 3);
+  qt2 = vset_lane_u8(0b1111, qt2, 4);
+  qt2 = vset_lane_u8(0b11111, qt2, 5);
+  qt2 = vset_lane_u8(0b111111, qt2, 6);
+  qt2 = vset_lane_u8(0b1001011, qt2, 7);
+  ldr_byte(&bt, &qt2, xm_off);
+  assert(vget_lane_u8(bt, 0) == 0b111);
+  printf("ok LDR <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]\n");
 }
 // LDADD  <Ws>, <Wt>, [<Xn|SP>]
 void test_ldadd_word() {
@@ -474,7 +530,7 @@ void test_ldadd_word() {
   ldadd_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(135 == mem);
-  printf("LDADD  <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADD  <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDADD <Xs>, <Xt>, [<Xn|SP>]
 void test_ldadd_doubleword() {
@@ -484,7 +540,7 @@ void test_ldadd_doubleword() {
   ldadd_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(135 == mem);
-  printf("LDADD <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADD <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDADDA <Ws>, <Wt>, [<Xn|SP>]
 void test_ldadda_word() {
@@ -494,7 +550,7 @@ void test_ldadda_word() {
   ldadda_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(135 == mem);
-  printf("LDADDA <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDA <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDADDA <Xs>, <Xt>, [<Xn|SP>]
 void test_ldadda_doubleword() {
@@ -504,7 +560,7 @@ void test_ldadda_doubleword() {
   ldadda_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(135 == mem);
-  printf("LDADDA <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDA <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDADDL <Ws>, <Wt>, [<Xn|SP>]
 void test_ldaddl_word() {
@@ -514,7 +570,7 @@ void test_ldaddl_word() {
   ldaddl_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(135 == mem);
-  printf("LDADDL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDADDL <Xs>, <Xt>, [<Xn|SP>]
 void test_ldaddl_doubleword() {
@@ -524,7 +580,7 @@ void test_ldaddl_doubleword() {
   ldaddl_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(135 == mem);
-  printf("LDADDL <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDL <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDADDAL <Ws>, <Wt>, [<Xn|SP>]
 void test_ldaddal_word() {
@@ -534,7 +590,7 @@ void test_ldaddal_word() {
   ldaddal_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(135 == mem);
-  printf("LDADDAL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDAL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDADDAL <Xs>, <Xt>, [<Xn|SP>]
 void test_ldaddal_doubleword() {
@@ -544,7 +600,7 @@ void test_ldaddal_doubleword() {
   ldaddal_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(135 == mem);
-  printf("LDADDAL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDADDAL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDSET <Ws>, <Wt>, [<Xn|SP>]
 void test_ldset_word() {
@@ -554,7 +610,7 @@ void test_ldset_word() {
   ldset_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(127 == mem);
-  printf("LDSET <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSET <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDSET <Xs>, <Xt>, [<Xn|SP>]
 void test_ldset_doubleword() {
@@ -564,7 +620,7 @@ void test_ldset_doubleword() {
   ldset_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(127 == mem);
-  printf("LDSET <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSET <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDSETA <Ws>, <Wt>, [<Xn|SP>]
 void test_ldseta_word() {
@@ -574,7 +630,7 @@ void test_ldseta_word() {
   ldseta_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(127 == mem);
-  printf("LDSETA <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETA <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDSETA <Xs>, <Xt>, [<Xn|SP>]
 void test_ldseta_doubleword() {
@@ -584,7 +640,7 @@ void test_ldseta_doubleword() {
   ldseta_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(127 == mem);
-  printf("LDSETA <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETA <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDSETL <Ws>, <Wt>, [<Xn|SP>]
 void test_ldsetl_word() {
@@ -594,7 +650,7 @@ void test_ldsetl_word() {
   ldsetl_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(127 == mem);
-  printf("LDSETL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDSETL <Xs>, <Xt>, [<Xn|SP>]
 void test_ldsetl_doubleword() {
@@ -604,7 +660,7 @@ void test_ldsetl_doubleword() {
   ldsetl_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(127 == mem);
-  printf("LDSETL <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETL <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // LDSETAL <Ws>, <Wt>, [<Xn|SP>]
 void test_ldsetal_word() {
@@ -614,7 +670,7 @@ void test_ldsetal_word() {
   ldsetal_word(&ws, wt, &mem);
   assert(123 == ws);
   assert(127 == mem);
-  printf("LDSETAL <Ws>, <Wt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETAL <Ws>, <Wt>, [<Xn|SP>]\n");
 }
 // LDSETAL <Xs>, <Xt>, [<Xn|SP>]
 void test_ldsetal_doubleword() {
@@ -624,7 +680,7 @@ void test_ldsetal_doubleword() {
   ldsetal_doubleword(&xs, xt, &mem);
   assert(123 == xs);
   assert(127 == mem);
-  printf("LDSETAL <Xs>, <Xt>, [<Xn|SP>]   done.\n");
+  printf("ok LDSETAL <Xs>, <Xt>, [<Xn|SP>]\n");
 }
 // CAS <Ws>, <Wt>, [<Xn|SP>{,#0}]
 void test_cas_word() {
@@ -646,7 +702,7 @@ void test_cas_word() {
     assert(123 == ws);
     assert(12 == mem);
   }
-  printf("CAS <Ws>, <Wt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CAS <Ws>, <Wt>, [<Xn|SP>{,#0}]\n");
 }
 // CAS <Xs>, <Xt>, [<Xn|SP>{,#0}]
 void test_cas_doubleword() {
@@ -668,7 +724,7 @@ void test_cas_doubleword() {
     assert(123 == xs);
     assert(12 == mem);
   }
-  printf("CAS <Xs>, <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CAS <Xs>, <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // CASA <Ws>, <Wt>, [<Xn|SP>{,#0}]
 void test_casa_word() {
@@ -690,7 +746,7 @@ void test_casa_word() {
     assert(123 == ws);
     assert(12 == mem);
   }
-  printf("CASA <Ws>, <Wt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASA <Ws>, <Wt>, [<Xn|SP>{,#0}]\n");
 }
 // CASA <Xs>, <Xt>, [<Xn|SP>{,#0}]
 void test_casa_doubleword() {
@@ -712,7 +768,7 @@ void test_casa_doubleword() {
     assert(123 == xs);
     assert(12 == mem);
   }
-  printf("CASA <Xs>, <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASA <Xs>, <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // CASAL <Ws>, <Wt>, [<Xn|SP>{,#0}]
 void test_casal_word() {
@@ -734,7 +790,7 @@ void test_casal_word() {
     assert(123 == ws);
     assert(12 == mem);
   }
-  printf("CASAL <Ws>, <Wt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASAL <Ws>, <Wt>, [<Xn|SP>{,#0}]\n");
 }
 // CASAL <Xs>, <Xt>, [<Xn|SP>{,#0}]
 void test_casal_doubleword() {
@@ -756,7 +812,7 @@ void test_casal_doubleword() {
     assert(123 == xs);
     assert(12 == mem);
   }
-  printf("CASAL <Xs>, <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASAL <Xs>, <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // CASL <Ws>, <Wt>, [<Xn|SP>{,#0}]
 void test_casl_word() {
@@ -778,7 +834,7 @@ void test_casl_word() {
     assert(123 == ws);
     assert(12 == mem);
   }
-  printf("CASL <Ws>, <Wt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASL <Ws>, <Wt>, [<Xn|SP>{,#0}]\n");
 }
 // CASL <Xs>, <Xt>, [<Xn|SP>{,#0}]
 void test_casl_doubleword() {
@@ -800,7 +856,7 @@ void test_casl_doubleword() {
     assert(123 == xs);
     assert(12 == mem);
   }
-  printf("CASL <Xs>, <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok CASL <Xs>, <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // LDURSH <Xt>, [<Xn|SP>{, #<simm>}]
 void test_ldursh_doubleword() {
@@ -809,7 +865,7 @@ void test_ldursh_doubleword() {
   mem[1] = 12;
   ldursh_doubleword_preimm(&xt, mem);
   assert(12 == xt);
-  printf("LDURSH <Xt>, [<Xn|SP>{, #<simm>}]   done.\n");
+  printf("ok LDURSH <Xt>, [<Xn|SP>{, #<simm>}]\n");
 }
 // BIC <Vd>.<T>, #<imm8>{, LSL #<amount>}
 void test_bic_asimd_imm() {
@@ -824,7 +880,7 @@ void test_bic_asimd_imm() {
   assert((12 & rhs) == vget_lane_u16(qt1, 1));
   assert((123 & rhs) == vget_lane_u16(qt1, 2));
   assert((1234 & rhs) == vget_lane_u16(qt1, 3));
-  printf("BIC <Vd>.<T>, #<imm8>{, LSL #<amount>}   done.\n");
+  printf("ok BIC <Vd>.<T>, #<imm8>{, LSL #<amount>}\n");
 }
 // LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4H)
 void test_ld1r_4h() {
@@ -839,7 +895,7 @@ void test_ld1r_4h() {
   assert(16 == vget_lane_u16(qt1, 1));
   assert(16 == vget_lane_u16(qt1, 2));
   assert(16 == vget_lane_u16(qt1, 3));
-  printf("LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4H)   done.\n");
+  printf("ok LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4H)\n");
 }
 // LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4S)
 void test_ld1r_4s() {
@@ -854,7 +910,7 @@ void test_ld1r_4s() {
   assert(16 == vgetq_lane_u32(qt1, 1));
   assert(16 == vgetq_lane_u32(qt1, 2));
   assert(16 == vgetq_lane_u32(qt1, 3));
-  printf("LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4S)   done.\n");
+  printf("ok LD1R { <Vt>.<T> }, [<Xn|SP>] (T = 4S)\n");
 }
 // STXR <Ws>, <Wt>, [<Xn|SP>{,#0}]
 void test_stxr_word() {
@@ -866,7 +922,7 @@ void test_stxr_word() {
   assert(1234 == ws1);
   assert(0 == w_status);
   assert(123 == mem);
-  printf("STXR <Ws>, <Wt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok STXR <Ws>, <Wt>, [<Xn|SP>{,#0}]\n");
 }
 // STXR <Ws>, <Xt>, [<Xn|SP>{,#0}]
 void test_stxr_doubleword() {
@@ -878,7 +934,7 @@ void test_stxr_doubleword() {
   assert(1234 == xs1);
   assert(0 == w_status);
   assert(123 == mem);
-  printf("STXR <Ws>, <Xt>, [<Xn|SP>{,#0}]   done.\n");
+  printf("ok STXR <Ws>, <Xt>, [<Xn|SP>{,#0}]\n");
 }
 // DC <dc_op>, <Xt> (dc_op = zva)
 void test_dc_zva() {
@@ -887,7 +943,7 @@ void test_dc_zva() {
     mem[i] = 12;
   dc_zva(mem);
   assert(0 == mem[0]);
-  printf("DC <dc_op>, <Xt> (dc_op = zva)   done.\n");
+  printf("ok DC <dc_op>, <Xt> (dc_op = zva)\n");
 }
 // CNT  <Vd>.<T>, <Vn>.<T> (T = 8B)
 void test_cnt_vector_8b() {
@@ -909,7 +965,7 @@ void test_cnt_vector_8b() {
   assert(5 == vget_lane_u8(qt1, 5));
   assert(6 == vget_lane_u8(qt1, 6));
   assert(4 == vget_lane_u8(qt1, 7));
-  printf("CNT  <Vd>.<T>, <Vn>.<T> (T = 8B)   done.\n");
+  printf("ok CNT  <Vd>.<T>, <Vn>.<T> (T = 8B)\n");
 }
 // CNT  <Vd>.<T>, <Vn>.<T> (T = 16B)
 void test_cnt_vector_16b() {
@@ -947,7 +1003,7 @@ void test_cnt_vector_16b() {
   assert(3 == vgetq_lane_u8(qt1, 13));
   assert(2 == vgetq_lane_u8(qt1, 14));
   assert(5 == vgetq_lane_u8(qt1, 15));
-  printf("CNT  <Vd>.<T>, <Vn>.<T> (T = 16B)   done.\n");
+  printf("ok CNT  <Vd>.<T>, <Vn>.<T> (T = 16B)\n");
 }
 /* 
   COND.c
@@ -1220,7 +1276,7 @@ void test_fcsel_double() {
     fcsel_double_ls(r1, r2, &dd, dn, dm);
     assert(123.4 == dd);
   }
-  printf("FCSEL  <Dd>, <Dn>, <Dm>, <cond>   done.\n");
+  printf("ok FCSEL  <Dd>, <Dn>, <Dm>, <cond>\n");
 }
 /*
   MISC.c
@@ -1233,7 +1289,7 @@ void test_prfm_pldl1keep() {
   prfm_pldl1keep(mem);
   for (int i = 0; i < 10; i++)
     assert(i == mem[i]);
-  printf("PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}]   done.\n");
+  printf("ok PRFM  (<prfop>|#<imm5>), [<Xn|SP>{, #<pimm>}]\n");
 }
 /*
   SIMD.c
@@ -1245,7 +1301,7 @@ void test_cmge_onlyd() {
   cmge_onlyd(&qt1, qt2);
   assert(vgetq_lane_s64(qt1, 0) == UINT64_MAX);
   assert(vgetq_lane_s64(qt1, 1) == 0);
-  printf("CMGE  <V><d>, <V><n>, #0   done.\n");
+  printf("ok CMGE  <V><d>, <V><n>, #0\n");
 }
 // DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]
 void test_dup_vector() {
@@ -1254,7 +1310,7 @@ void test_dup_vector() {
   dup_vector(&qt1, qt2);
   assert(123 == vgetq_lane_u64(qt1, 0));
   assert(123 == vgetq_lane_u64(qt1, 1));
-  printf("DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]   done.\n");
+  printf("ok DUP  <Vd>.<T>, <Vn>.<Ts>[<index>]\n");
 }
 // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 void test_fmla_vector() {
@@ -1278,7 +1334,7 @@ void test_fmla_vector() {
   assert(9.3125 == vgetq_lane_f32(qt1, 1));
   assert(16.8125 == vgetq_lane_f32(qt1, 2));
   assert(26.3125 == vgetq_lane_f32(qt1, 3));
-  printf("FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>   done.\n");
+  printf("ok FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>\n");
 }
 // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 void test_fadd_vector() {
@@ -1298,7 +1354,7 @@ void test_fadd_vector() {
   assert(5.5 == vgetq_lane_f32(qt1, 1));
   assert(7.5 == vgetq_lane_f32(qt1, 2));
   assert(9.5 == vgetq_lane_f32(qt1, 3));
-  printf("FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>   done.\n");
+  printf("ok FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>\n");
 }
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 void test_fmul_vector() {
@@ -1318,7 +1374,7 @@ void test_fmul_vector() {
   assert(7.3125 == vgetq_lane_f32(qt1, 1));
   assert(13.8125 == vgetq_lane_f32(qt1, 2));
   assert(22.3125 == vgetq_lane_f32(qt1, 3));
-  printf("FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>   done.\n");
+  printf("ok FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>\n");
 }
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 void test_fmul_vector_byelem() {
@@ -1338,7 +1394,7 @@ void test_fmul_vector_byelem() {
   assert(9.5625 == vgetq_lane_f32(qt1, 1));
   assert(13.8125 == vgetq_lane_f32(qt1, 2));
   assert(18.0625 == vgetq_lane_f32(qt1, 3));
-  printf("FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]   done.\n");
+  printf("ok FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]\n");
 }
 // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 void test_cmhs_vector() {
@@ -1358,7 +1414,78 @@ void test_cmhs_vector() {
   assert(0 == vgetq_lane_u32(qt1, 1));
   assert(UINT32_MAX == vgetq_lane_u32(qt1, 2));
   assert(0 == vgetq_lane_u32(qt1, 3));
-  printf("CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>   done.\n");
+  printf("ok CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>\n");
+}
+// USHLL  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+void test_ushll_vector() {
+  uint16x4_t qtn = vcreate_u16(0b1);
+  qtn = vset_lane_u16(0b111, qtn, 1);
+  qtn = vset_lane_u16(0b100, qtn, 2);
+  qtn = vset_lane_u16(0b1100, qtn, 3);
+  uint32x4_t qtd = vcombine_u32(vcreate_u32(0), vcreate_u32(0));
+  ushll_vector(&qtd, qtn);
+  assert(0b10 == vgetq_lane_u32(qtd, 0));
+  assert(0b1110 == vgetq_lane_u32(qtd, 1));
+  assert(0b1000 == vgetq_lane_u32(qtd, 2));
+  assert(0b11000 == vgetq_lane_u32(qtd, 3));
+  assert(0b111 == vget_lane_u16(qtn, 1));
+  printf("ok USHLL  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>\n");
+}
+// USHLL2  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+void test_ushll2_vector() {
+  uint16x8_t qtn = vcombine_u16(vcreate_u16(0), vcreate_u16(0));
+  qtn = vsetq_lane_u16(0b1, qtn, 1);
+  qtn = vsetq_lane_u16(0b10, qtn, 2);
+  qtn = vsetq_lane_u16(0b101, qtn, 3);
+  qtn = vsetq_lane_u16(0b1010, qtn, 4);
+  qtn = vsetq_lane_u16(0b10101, qtn, 5);
+  qtn = vsetq_lane_u16(0b101010, qtn, 6);
+  qtn = vsetq_lane_u16(0b1010101, qtn, 7);
+  uint32x4_t qtd = vcombine_u32(vcreate_u32(0), vcreate_u32(0));
+  ushll2_vector(&qtd, qtn);
+  assert(0b101000 == vgetq_lane_u32(qtd, 0));
+  assert(0b1010100 == vgetq_lane_u32(qtd, 1));
+  assert(0b10101000 == vgetq_lane_u32(qtd, 2));
+  assert(0b101010100 == vgetq_lane_u32(qtd, 3));
+  assert(0b1 == vgetq_lane_u16(qtn, 1));
+  printf("ok USHLL2  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>\n");
+}
+// SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
+void test_scvtf_vector() {
+  uint32x4_t qtn = vcombine_u32(vcreate_u32(0), vcreate_u32(0));
+  qtn = vsetq_lane_u32(0b10, qtn, 1);
+  qtn = vsetq_lane_u32(0b1010, qtn, 2);
+  qtn = vsetq_lane_u32(0b101010, qtn, 3);
+  float32x4_t qtd = vcombine_f32(vcreate_f32(0), vcreate_f32(0));
+  scvtf_vector(&qtd, qtn);
+  assert(0 == vgetq_lane_f32(qtd, 0));
+  assert(2.0 == vgetq_lane_f32(qtd, 1));
+  assert(10.0 == vgetq_lane_f32(qtd, 2));
+  assert(42.0 == vgetq_lane_f32(qtd, 3));
+  printf("ok SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)\n");
+}
+// REV32  <Vd>.<T>, <Vn>.<T>
+void test_rev32_vector() {
+  uint8x8_t qtn = vcreate_u8(0);
+  qtn = vset_lane_u8(0x01, qtn, 0);
+  qtn = vset_lane_u8(0x23, qtn, 1);
+  qtn = vset_lane_u8(0x45, qtn, 2);
+  qtn = vset_lane_u8(0x67, qtn, 3);
+  qtn = vset_lane_u8(0x89, qtn, 4);
+  qtn = vset_lane_u8(0xab, qtn, 5);
+  qtn = vset_lane_u8(0xcd, qtn, 6);
+  qtn = vset_lane_u8(0xef, qtn, 7);
+  uint8x8_t qtd = vcreate_u8(0);
+  rev32_vector(&qtd, qtn);
+  assert(0x67 == vget_lane_u8(qtd, 0));
+  assert(0x45 == vget_lane_u8(qtd, 1));
+  assert(0x23 == vget_lane_u8(qtd, 2));
+  assert(0x01 == vget_lane_u8(qtd, 3));
+  assert(0xef == vget_lane_u8(qtd, 4));
+  assert(0xcd == vget_lane_u8(qtd, 5));
+  assert(0xab == vget_lane_u8(qtd, 6));
+  assert(0x89 == vget_lane_u8(qtd, 7));
+  printf("ok REV32  <Vd>.<T>, <Vn>.<T>\n");
 }
 
 int main() {
@@ -1368,6 +1495,8 @@ int main() {
   test_adc_word();
   test_adc_doubleword();
   test_umsubl();
+  test_fsub_vector();
+  test_fdiv_vector();
   // CONVERT.c
   test_ucvtf_float();
   test_ucvtf_double();
@@ -1400,6 +1529,7 @@ int main() {
   test_swpa_doubleword();
   test_swpl_word();
   test_swpl_doubleword();
+  test_ldr_byte();
   test_ldadd_word();
   test_ldadd_doubleword();
   test_ldadda_word();
@@ -1445,6 +1575,10 @@ int main() {
   test_fmul_vector();
   test_fmul_vector_byelem();
   test_cmhs_vector();
-  printf("TEST SUCEESS.\n");
+  test_ushll_vector();
+  test_ushll2_vector();
+  test_scvtf_vector();
+  test_rev32_vector();
+  printf("TEST SUCCESS\n");
   return 0;
 }

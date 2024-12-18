@@ -1487,7 +1487,7 @@ ALWAYS_INLINE static bool BNot(bool a) {
     return ret; \
   }
 
-// e.g. UAddV32(UReadV(src1), UReadV32(src2))
+// e.g. UAddVI32(UReadV(src1), UReadV32(src2))
 #define MAKE_BROADCASTS(op, make_int_broadcast, make_float_broadcast) \
   make_int_broadcast(U##op, 8, bytes) make_int_broadcast(U##op, 16, words) \
       make_int_broadcast(U##op, 32, dwords) make_int_broadcast(U##op, 64, qwords) \

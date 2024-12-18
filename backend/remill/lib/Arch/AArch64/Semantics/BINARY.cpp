@@ -311,6 +311,13 @@ DEF_SEM_F64_STATE(FSUB_Scalar64, RF64 src1, RF64 src2) {
   return CheckedFloatBinOp(FSub64, Read(src1), Read(src2));
 }
 
+// FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+template <typename S>
+DEF_SEM_T(FSUB_Vector32, S src1, S src2) {
+  // (FIXME?) should use CheckedFloatBinOp?
+  return FSubVI32(FReadVI32(src1), FReadVI32(src2));
+}
+
 // FMUL  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FMUL_Scalar32, RF32 src1, RF32 src2) {
   return CheckedFloatBinOp(FMul32, Read(src1), Read(src2));
@@ -449,6 +456,13 @@ DEF_SEM_F64_STATE(FDIV_Scalar64, RF64 src1, RF64 src2) {
   return CheckedFloatBinOp(FDiv64, val1, val2);
 }
 
+// FDIV  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)
+template <typename S>
+DEF_SEM_T(FDIV_Vector32, S src1, S src2) {
+  // (FIXME?) should use CheckedFloatBinOp?
+  return FDivVI32(FReadVI32(src1), FReadVI32(src2));
+}
+
 template <typename S>
 uint64_t FCompare(State &state, S val1, S val2, bool signal = true) {
 
@@ -571,6 +585,9 @@ DEF_SEM_F64(FNEG_D, RF64 src) {
 DEF_ISEL(FSUB_S_FLOATDP2) = FSUB_Scalar32;  // FSUB  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FSUB_D_FLOATDP2) = FSUB_Scalar64;  // FSUB  <Dd>, <Dn>, <Dm>
 
+DEF_ISEL(FSUB_ASIMDSAME_ONLY_2SF) = FSUB_Vector32<VIf32v2>; // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FSUB_ASIMDSAME_ONLY_4SF) = FSUB_Vector32<VIf32v4>; // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
 DEF_ISEL(FADD_S_FLOATDP2) = FADD_Scalar32;  // FADD  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FADD_D_FLOATDP2) = FADD_Scalar64;  // FADD  <Dd>, <Dn>, <Dm>
 
@@ -585,6 +602,9 @@ DEF_ISEL(FMSUB_D_FLOATDP3) = FMSUB_D;  // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
 
 DEF_ISEL(FDIV_S_FLOATDP2) = FDIV_Scalar32;  // FDIV  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FDIV_D_FLOATDP2) = FDIV_Scalar64;  // FDIV  <Dd>, <Dn>, <Dm>
+
+DEF_ISEL(FDIV_ASIMDSAME_ONLY_2SF) = FDIV_Vector32<VIf32v2>; // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FDIV_ASIMDSAME_ONLY_4SF) = FDIV_Vector32<VIf32v4>; // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 DEF_ISEL(FABS_S_FLOATDP1) = FABS_S;  // FABS  <Sd>, <Sn>
 DEF_ISEL(FABS_D_FLOATDP1) = FABS_D;  // FABS  <Dd>, <Dn>
