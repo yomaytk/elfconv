@@ -18,6 +18,7 @@
 
 #include <glog/logging.h>
 #include <iostream>
+#include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <map>
@@ -43,7 +44,7 @@ namespace remill {
 #  define DEBUG_REMOVE_LOOP_GRAPH(bag)
 #endif
 
-#if defined(OPT_REAL_REGS_DEBUG)
+#if defined(OPT_FUNC_DETAIL_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
     ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
@@ -110,6 +111,10 @@ std::string TraceManager::TraceName(uint64_t addr) {
   std::stringstream ss;
   ss << "sub_" << std::hex << addr;
   return ss.str();
+}
+
+void TraceManager::SetFuncDetailDebugPCSet(std::set<uint64_t> __func_detail_debug_pc_set) {
+  func_detail_debug_pc_set = __func_detail_debug_pc_set;
 }
 
 /*
@@ -238,6 +243,23 @@ void TraceLifter::Impl::AddTestFailedBlock() {
   abort();
 }
 
+void TraceLifter::Impl::InsertDebugString(llvm::Function *lifted_func) {
+  auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
+  auto debug_string_fn = module->getFunction("debug_string");
+  auto fun_name_val =
+      llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
+  auto fun_name_gvar = new llvm::GlobalVariable(*module, fun_name_val->getType(), true,
+                                                llvm::GlobalVariable::ExternalLinkage, fun_name_val,
+                                                lifted_func->getName().str() + "debug_name");
+  llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
+}
+
+void TraceLifter::Impl::InsertDebugStateMachine(llvm::Function *lifted_func) {
+  auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
+  auto debug_state_machine_fun = module->getFunction("debug_state_machine");
+  llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
+}
+
 void TraceLifter::Impl::DirectBranchWithSaveParents(llvm::BasicBlock *dst_bb,
                                                     llvm::BasicBlock *src_bb) {
   auto &parents = virtual_regs_opt->bb_parents[dst_bb];
@@ -349,7 +371,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     lifted_funcs.insert(func);
 
     CHECK(func->isDeclaration());
-    virtual_regs_opt = new VirtualRegsOpt(func, this, trace_addr);
+    virtual_regs_opt =
+        new VirtualRegsOpt(func, this, trace_addr,
+                           manager.func_detail_debug_pc_set.contains(trace_addr) ? true : false);
     virtual_regs_opt->func_name = func->getName().str();
     VirtualRegsOpt::func_v_r_opt_map.insert({func, virtual_regs_opt});
 
@@ -874,12 +898,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto call_inst = llvm::dyn_cast<llvm::CallInst>(inst);
           inst = inst->getNextNode();
           if (t_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
-#if defined(OPT_REAL_REGS_DEBUG)
-            auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
-            auto sema_pc = t_bb_reg_info_node->sema_func_pc_map.at(call_inst);
-            llvm::CallInst::Create(
-                debug_llvmir_u64_fn,
-                {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), sema_pc)}, "", call_inst);
+#if defined(OPT_FUNC_DETAIL_DEBUG)
+            if (manager.func_detail_debug_pc_set.contains(trace_addr)) {
+              auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
+              auto sema_pc = t_bb_reg_info_node->sema_func_pc_map.at(call_inst);
+              llvm::CallInst::Create(
+                  debug_llvmir_u64_fn,
+                  {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), sema_pc)}, "",
+                  call_inst);
+            }
 #endif
             auto &write_regs = t_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
             auto call_next_inst = call_inst->getNextNode();
@@ -1013,23 +1040,18 @@ void TraceLifter::Impl::Optimize() {
   }
   std::cout << std::endl;
 
-  // Insert `debug_string` for the every function
-#if defined(OPT_CALL_FUNC_DEBUG) || defined(OPT_REAL_REGS_DEBUG)
+  // `debug_string` and `debug_state_machine`
+#if defined(OPT_FUNC_DETAIL_DEBUG)
   for (auto lifted_func : lifted_funcs) {
-    auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
-#  if defined(OPT_CALL_FUNC_DEBUG)
-    auto debug_string_fn = module->getFunction("debug_string");
-    auto fun_name_val =
-        llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
-    auto fun_name_gvar = new llvm::GlobalVariable(
-        *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage, fun_name_val,
-        lifted_func->getName().str() + "debug_name");
-    llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
-#  endif
-#  if defined(OPT_REAL_REGS_DEBUG)
-    auto debug_state_machine_fun = module->getFunction("debug_state_machine");
-    llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
-#  endif
+    if (VirtualRegsOpt::func_v_r_opt_map.at(lifted_func)->debug_mode) {
+      InsertDebugString(lifted_func);
+      InsertDebugStateMachine(lifted_func);
+    }
+  }
+  // `debug_string`
+#elif defined(OPT_CALL_FUNC_DEBUG)
+  for (auto lifted_func : lifted_funcs) {
+    InsertDebugString(lifted_func);
   }
 #endif
 }
@@ -1801,14 +1823,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
   impl->virtual_regs_opt = this;
   auto &inst_lifter = impl->inst.GetLifter();
 
-// stdout the specified registers for the every semantics function.
-#if defined(OPT_REAL_REGS_DEBUG)
-  for (size_t i = 0; i < 31; i++) {
-    debug_reg_set.insert({EcvReg(RegKind::General, i)});
-    // debug_reg_set.insert({EcvReg(RegKind::Vector, i)});
+  // stdout the specified registers for the every semantics function.
+  if (debug_mode) {
+    for (size_t i = 0; i < 31; i++) {
+      debug_reg_set.insert({EcvReg(RegKind::General, i)});
+      // debug_reg_set.insert({EcvReg(RegKind::Vector, i)});
+    }
+    debug_reg_set.insert({EcvReg(RegKind::Special, SP_ORDER)});
   }
-  debug_reg_set.insert({EcvReg(RegKind::Special, SP_ORDER)});
-#endif
 
   // Add the phi nodes to the every basic block.
   std::set<llvm::BasicBlock *> finished;
@@ -2367,7 +2389,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 void VirtualRegsOpt::InsertDebugVmaAndRegisters(
     llvm::Instruction *inst_at_before,
     EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &ascend_reg_inst_map, uint64_t pc) {
-  if (!debug_reg_set.empty()) {
+  if (debug_mode) {
     auto debug_vma_and_regiters_fun = impl->module->getFunction("debug_vma_and_registers");
 
     std::vector<llvm::Value *> args;

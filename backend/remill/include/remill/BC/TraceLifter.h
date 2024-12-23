@@ -20,6 +20,7 @@
 #include "remill/BC/Lifter.h"
 
 #include <functional>
+#include <llvm/IR/Function.h>
 #include <queue>
 #include <unordered_map>
 
@@ -96,6 +97,9 @@ class TraceManager {
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 
+  // set debug_func_pc_set.
+  virtual void SetFuncDetailDebugPCSet(std::set<uint64_t> __debug_func_pc_set);
+
   /* global array of block address various data */
   std::vector<llvm::Constant *> g_block_address_ptrs_array;
   std::vector<llvm::Constant *> g_block_address_vmas_array;
@@ -103,6 +107,9 @@ class TraceManager {
   std::vector<llvm::Constant *> g_block_address_fn_vma_array;
 
   uint64_t _io_file_xsputn_vma = 0;
+
+  // debug
+  std::set<uint64_t> func_detail_debug_pc_set;
 };
 
 class PhiRegsBBBagNode {
@@ -193,12 +200,14 @@ class TraceLifter {
 
 class VirtualRegsOpt {
  public:
-  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
+  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma,
+                 bool __debug_mode = false)
       : func(__func),
         impl(__impl),
         relay_bb_cache({}),
         phi_val_order(0),
-        fun_vma(__fun_vma) {
+        fun_vma(__fun_vma),
+        debug_mode(__debug_mode) {
     arg_state_val = NULL;
     arg_runtime_val = NULL;
     // only declared function.
@@ -286,6 +295,8 @@ class VirtualRegsOpt {
   // map llvm::Value* and the corresponding CPU register.
   std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
   std::set<EcvReg> debug_reg_set = {};
+
+  bool debug_mode;
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
@@ -380,6 +391,11 @@ class TraceLifter::Impl {
   // Save the basic block paretns on the new conditional branch
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
+
+  // Insert `debug_string` to the entry basic block of the given llvm::Function*
+  void InsertDebugString(llvm::Function *lifted_func);
+  // Insert `debug_state_machine` to the entry basic block of the given llvm::Function*
+  void InsertDebugStateMachine(llvm::Function *lifted_func);
 
   void Optimize();
 

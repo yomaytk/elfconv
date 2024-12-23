@@ -12,9 +12,9 @@ setting() {
   RUNTIME_DIR=${ROOT_DIR}/runtime
   UTILS_DIR=${ROOT_DIR}/utils
   AARCH64_TEST_DIR=${ROOT_DIR}/tests/aarch64
-  BUILD_DIR=${ROOT_DIR}/build
-  BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
-  BUILD_TESTS_AARCH64_DIR=${BUILD_DIR}/tests/aarch64
+  BUILD=${ROOT_DIR}/build
+  BUILD_LIFTER_DIR=${BUILD}/lifter
+  BUILD_TESTS_AARCH64_DIR=${BUILD}/tests/aarch64
   CXX=clang++-16
   OPTFLAGS="-O3"
   CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
@@ -56,6 +56,8 @@ aarch64_test() {
 
 lifting() {
 
+  cd ${BUILD}
+
   # ELF -> LLVM bc
   echo -e "[\033[32mINFO\033[0m] ELF -> LLVM bitcode..."
   elf_path=$( realpath "$1" )
@@ -65,15 +67,15 @@ lifting() {
     wasi32_target_arch='wasi32'
   fi
   
-  cd ${BUILD_LIFTER_DIR} && \
-    ./elflift \
-    --arch aarch64 \
-    --bc_out ./lift.bc \
-    --target_elf "$elf_path" \
-    --dbg_fun_cfg "$2" \
-    --bitcode_path "$3" \
-    --target_arch "$wasi32_target_arch" && \
-    llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
+  ${BUILD_LIFTER_DIR}/elflift \
+  --arch aarch64 \
+  --bc_out ./lift.bc \
+  --target_elf "$elf_path" \
+  --dbg_fun_cfg "$2" \
+  --bitcode_path "$3" \
+  --target_arch "$wasi32_target_arch" && \
+  llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
+  
   echo -e "[\033[32mINFO\033[0m] lift.bc was generated."
 
 }
@@ -82,6 +84,8 @@ main() {
 
   # environment variable settings
   setting
+  
+  cd ${BUILD}
 
   # aarch64 lifting test
   if [ -n "$AARCH64_TEST" ]; then
@@ -99,7 +103,7 @@ main() {
     Native)
       echo -e "[\033[32mINFO\033[0m] Compiling to Native binary (for $HOST_CPU)... "
       ${CXX} ${CLANGFLAGS} -o "exe.${HOST_CPU}" lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
-      echo -e " [\033[32mINFO\033[0m] exe.${HOST_CPU} was generated."
+      echo -e "[\033[32mINFO\033[0m] exe.${HOST_CPU} was generated."
       return 0
     ;;
     Browser)
@@ -114,9 +118,9 @@ main() {
     ;;
     Wasi)
       ELFCONV_MACROS="-DELFC_WASI_ENV=1"
-      cd ${BUILD_DIR}
+      cd ${BUILD}
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.wasm ${BUILD_LIFTER_DIR}/lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.wasm lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
       echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_o3.wasm)"

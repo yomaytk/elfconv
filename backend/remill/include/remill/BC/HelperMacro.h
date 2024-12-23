@@ -8,4 +8,4 @@
 // #define OPT_ALGO_DEBUG 1
 // #define OPT_GEN_IR_DEBUG 1
 // #define OPT_CALL_FUNC_DEBUG 1
-// #define OPT_REAL_REGS_DEBUG 1
+// #define OPT_FUNC_DETAIL_DEBUG 1

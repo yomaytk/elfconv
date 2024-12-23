@@ -92,6 +92,15 @@ int main(int argc, char *argv[]) {
   // set global register names
   main_lifter.SetRegisterNames();
 
+#if defined(OPT_FUNC_DETAIL_DEBUG)
+  // debug all functions.
+  // for (auto &[addr, _] : manager.disasm_funcs) {
+  //   manager.func_detail_debug_pc_set.insert(addr);
+  // }
+  // debug selected functions.
+  manager.SetFuncDetailDebugPCSet({0x400ec0});
+#endif
+
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str()))
