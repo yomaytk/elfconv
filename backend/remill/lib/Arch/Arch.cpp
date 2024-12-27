@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <iostream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/BasicBlock.h>
@@ -151,8 +152,8 @@ llvm::Triple Arch::BasicTriple(void) const {
 }
 
 
-auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
-                         ArchName arch_name_) -> ArchPtr {
+auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
   switch (arch_name_) {
     case kArchInvalid: LOG(FATAL) << "Unrecognized architecture."; return nullptr;
 
@@ -238,8 +239,8 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_,
   }
 }
 
-auto Arch::GetUndefinedArch(llvm::LLVMContext *context_, OSName os_name_,
-                            ArchName arch_name_) -> ArchPtr {
+auto Arch::GetUndefinedArch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
+    -> ArchPtr {
   return nullptr;
 }
 
@@ -252,8 +253,8 @@ auto Arch::Build(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_nam
   return ret;
 }
 
-auto Arch::Get(llvm::LLVMContext &context, std::string_view os,
-               std::string_view arch_name) -> ArchPtr {
+auto Arch::Get(llvm::LLVMContext &context, std::string_view os, std::string_view arch_name)
+    -> ArchPtr {
   return Arch::Build(&context, GetOSName(os), GetArchName(arch_name));
 }
 
