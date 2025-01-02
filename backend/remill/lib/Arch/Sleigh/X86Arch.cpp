@@ -65,8 +65,8 @@ class SleighX86Arch : public X86ArchBase {
     return DecodingContext();
   }
 
-  virtual void InstanceInstAArch64(Instruction &inst) const override {
-    LOG(FATAL) << "[Bug]: SleighX86Arch::InstanceInstAArch64 must not be called.";
+  virtual void InstanceMinimumInst(Instruction &inst) const override {
+    LOG(FATAL) << "[Bug]: SleighX86Arch::InstanceMinimumInst must not be called.";
   }
 
   virtual OperandLifter::OpLifterPtr

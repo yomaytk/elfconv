@@ -115,7 +115,7 @@ class AArch64Arch final : public AArch64ArchBase, DefaultContextAndLifter {
   bool ArchDecodeInstruction(uint64_t address, std::string_view instr_bytes,
                              Instruction &inst) const final;
 
-  void InstanceInstAArch64(Instruction &inst) const final;
+  void InstanceMinimumInst(Instruction &inst) const final;
 
  private:
   AArch64Arch(void) = delete;
@@ -865,7 +865,7 @@ static uint64_t VFPExpandImmToFloat64(uint64_t imm) {
   return result;
 }
 
-void AArch64Arch::InstanceInstAArch64(Instruction &inst) const {
+void AArch64Arch::InstanceMinimumInst(Instruction &inst) const {
   inst.arch = this;
   inst.arch_name = arch_name;
   inst.sub_arch_name = arch_name;  // TODO(pag): Thumb.

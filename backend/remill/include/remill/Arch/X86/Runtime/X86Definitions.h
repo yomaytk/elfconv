@@ -32,3 +32,30 @@
 #define DEF_SEM_VOID_STATE_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static void name( \
       State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_U64(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(__VA_ARGS__)
+
+#define DEF_SEM_U64_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_U64_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name(RuntimeManager *runtime_manager, \
+                                                              ##__VA_ARGS__)
+
+#define DEF_SEM_U64_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static uint64_t name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_T(name, ...) ALWAYS_INLINE __attribute__((flatten)) static auto name(__VA_ARGS__)
+
+#define DEF_SEM_T_STATE(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static auto name(State &state, ##__VA_ARGS__)
+
+#define DEF_SEM_T_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static auto name(RuntimeManager *runtime_manager, \
+                                                          ##__VA_ARGS__)
+
+#define DEF_SEM_T_STATE_RUN(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static auto name( \
+      State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)

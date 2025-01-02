@@ -765,7 +765,7 @@ class X86Arch final : public X86ArchBase, public DefaultContextAndLifter {
   bool ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                              Instruction &inst) const final;
 
-  virtual void InstanceInstAArch64(Instruction &inst) const;
+  virtual void InstanceMinimumInst(Instruction &inst) const final;
 
  private:
   X86Arch(void) = delete;
@@ -786,8 +786,13 @@ X86Arch::X86Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_nam
 
 X86Arch::~X86Arch(void) {}
 
-void X86Arch::InstanceInstAArch64(Instruction &) const {
-  CHECK(false) << "[Bug]: X86Arch::InstanceInstAArch64 must not be called.";
+void X86Arch::InstanceMinimumInst(Instruction &inst) const {
+  inst.arch = this;
+  inst.arch_name = arch_name;
+  inst.sub_arch_name = arch_name;  // TODO(pag): Thumb.
+  inst.branch_taken_arch_name = arch_name;
+  inst.category = Instruction::kCategoryInvalid;
+  inst.sema_func_arg_type = SemaFuncArgType::Empty;
 }
 
 static bool IsAVX(xed_isa_set_enum_t isa_set, xed_category_enum_t category) {

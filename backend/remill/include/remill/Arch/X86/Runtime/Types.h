@@ -39,11 +39,6 @@ static_assert(10 == sizeof(bcd80_t), "Invalid `bcd80_t` size.");
 // What's going on with `R32W`? In 64-bit code, writes to the 32-bit general
 // purpose registers actually clear the high 32-bits of the associated 64-bit
 // registers, so we want to model that behavior.
-typedef RnW<uint8_t> R8W;
-typedef RnW<uint16_t> R16W;
-typedef RnW<IF_64BIT_ELSE(uint64_t, uint32_t)> R32W;  // AMD64-ism.
-typedef RnW<uint64_t> R64W;
-
 typedef Rn<uint8_t> R8;
 typedef Rn<uint16_t> R16;
 typedef Rn<uint32_t> R32;

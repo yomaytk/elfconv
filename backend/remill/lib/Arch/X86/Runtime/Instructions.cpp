@@ -25,6 +25,7 @@
 #include "remill/Arch/X86/Runtime/State.h"
 #include "remill/Arch/X86/Runtime/Types.h"
 #include "remill/Arch/X86/Runtime/Operators.h"
+#include "remill/Arch/X86/Runtime/X86Definitions.h"
 
 // clang-format on
 
@@ -139,16 +140,15 @@ State __remill_state;
 namespace {
 
 // Takes the place of an unsupported instruction.
-DEF_SEM(HandleUnsupported) {
-  return __remill_sync_hyper_call(state, memory,
-                                  IF_64BIT_ELSE(SyncHyperCall::kAMD64EmulateInstruction,
-                                                SyncHyperCall::kX86EmulateInstruction));
+DEF_SEM_VOID_STATE_RUN(HandleUnsupported) {
+  __remill_sync_hyper_call(state, runtime_manager,
+                           IF_64BIT_ELSE(SyncHyperCall::kAMD64EmulateInstruction,
+                                         SyncHyperCall::kX86EmulateInstruction));
 }
 
 // Takes the place of an invalid instruction.
-DEF_SEM(HandleInvalidInstruction) {
+DEF_SEM_VOID_STATE(HandleInvalidInstruction) {
   HYPER_CALL = AsyncHyperCall::kInvalidInstruction;
-  return memory;
 }
 
 }  // namespace
@@ -210,7 +210,7 @@ DEF_HELPER(SquareRoot32, float32_t src_float)->float32_t {
 // #include "lib/Arch/X86/Semantics/CMOV.cpp"
 // #include "lib/Arch/X86/Semantics/COND_BR.cpp"
 // #include "lib/Arch/X86/Semantics/CONVERT.cpp"
-// #include "lib/Arch/X86/Semantics/DATAXFER.cpp"
+#include "lib/Arch/X86/Semantics/DATAXFER.cpp"
 // #include "lib/Arch/X86/Semantics/DECIMAL.cpp"
 // #include "lib/Arch/X86/Semantics/FLAGOP.cpp"
 // #include "lib/Arch/X86/Semantics/FMA.cpp"

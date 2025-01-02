@@ -175,11 +175,17 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
   DEF_ISEL(name##_32) = \
       tpl_func<X##32W, Y##32> IF_64BIT(; DEF_ISEL(name##_64) = tpl_func<X##64W, Y##64>)
 
-#define DEF_ISEL_RnW_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn(R, M, name, tpl_func)
+// One source operand instruction (destination can be omitted by register utility optimization).
+#define _DEF_ISEL_Yn(Y, name, tpl_func) \
+  DEF_ISEL(name##_8) = tpl_func<Y##8>; \
+  DEF_ISEL(name##_16) = tpl_func<Y##16>; \
+  DEF_ISEL(name##_32) = tpl_func<Y##32> IF_64BIT(; DEF_ISEL(name##_64) = tpl_func<Y##64>)
 
-#define DEF_ISEL_RnW_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn(R, R, name, tpl_func)
+#define DEF_ISEL_RnW_Mn(name, tpl_func) _DEF_ISEL_Yn(M, name, tpl_func)
 
-#define DEF_ISEL_RnW_In(name, tpl_func) _DEF_ISEL_XnW_Yn(R, I, name, tpl_func)
+#define DEF_ISEL_RnW_Rn(name, tpl_func) _DEF_ISEL_Yn(R, name, tpl_func)
+
+#define DEF_ISEL_RnW_In(name, tpl_func) _DEF_ISEL_Yn(I, name, tpl_func)
 
 #define DEF_ISEL_MnW_In(name, tpl_func) _DEF_ISEL_XnW_Yn(M, I, name, tpl_func)
 

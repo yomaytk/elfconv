@@ -21,9 +21,7 @@
 namespace {
 
 template <typename... Types>
-DEF_SEM_VOID(NOP_IMPL, Types...) {
-  return memory;
-}
+DEF_SEM_VOID(NOP_IMPL, Types...) {}
 
 }  // namespace
 

@@ -963,7 +963,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 void TraceLifter::Impl::Optimize() {
   // Prepare the optimization
   inst.Reset();
-  arch->InstanceInstAArch64(inst);
+  arch->InstanceMinimumInst(inst);
 
   // Opt: AnalyzeRegsBags.
   int opt_cnt = 1;
