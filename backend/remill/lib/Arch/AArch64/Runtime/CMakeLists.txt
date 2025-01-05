@@ -32,7 +32,7 @@ function(add_runtime_helper target_name address_bit_size little_endian)
   if(WIN32)
     set(required_cpp_standard "c++14")
   else()
-    set(required_cpp_standard "c++17")
+    set(required_cpp_standard "c++20")
   endif()
 
   add_runtime(${target_name}

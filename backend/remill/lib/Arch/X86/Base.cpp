@@ -190,13 +190,13 @@ void X86ArchBase::PopulateRegisterTable(void) const {
 
   if (64 == address_size) {
     REG(RAX, gpr.rax.qword, u64);
-    REG(RBX, gpr.rbx.qword, u64);
     REG(RCX, gpr.rcx.qword, u64);
     REG(RDX, gpr.rdx.qword, u64);
-    REG(RSI, gpr.rsi.qword, u64);
-    REG(RDI, gpr.rdi.qword, u64);
+    REG(RBX, gpr.rbx.qword, u64);
     REG(RSP, gpr.rsp.qword, u64);
     REG(RBP, gpr.rbp.qword, u64);
+    REG(RSI, gpr.rsi.qword, u64);
+    REG(RDI, gpr.rdi.qword, u64);
     REG(RIP, gpr.rip.qword, u64);
 
     REG(R8, gpr.r8.qword, u64);

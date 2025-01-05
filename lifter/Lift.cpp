@@ -27,6 +27,7 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <remill/BC/HelperMacro.h>
+#include <remill/BC/InstructionLifter.h>
 #include <remill/BC/Lifter.h>
 #include <remill/BC/Optimizer.h>
 #include <utils/Util.h>
@@ -43,6 +44,8 @@ DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
+
+ArchName TARGET_ELF_ARCH;
 
 extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
   std::cout << remill::ECV_DEBUG_STREAM.str();
@@ -73,6 +76,7 @@ int main(int argc, char *argv[]) {
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
   auto arch_name = remill::GetArchName(FLAGS_arch);
+  TARGET_ELF_ARCH = arch_name;
   auto arch =
       remill::Arch::Build(&context, os_name, arch_name);  // arch = std::unique_ptr<AArch64Arch>
   auto module = FLAGS_bitcode_path.empty()
@@ -82,6 +86,8 @@ int main(int argc, char *argv[]) {
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
   main_lifter.SetRuntimeManagerClass();
+  // Set Register operation specified to the input ELF target architecture.
+  InitEcvRegArch();
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 

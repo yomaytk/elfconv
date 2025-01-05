@@ -4,12 +4,17 @@
 #include <cstring>
 #include <iostream>
 #include <map>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
 
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
 State g_state = State();
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+State g_state = State();
+#endif
 
 int main(int argc, char *argv[]) {
 

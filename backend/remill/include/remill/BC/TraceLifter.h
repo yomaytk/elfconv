@@ -235,17 +235,17 @@ class VirtualRegsOpt {
   ~VirtualRegsOpt() {}
 
   llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
-  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
+  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg *);
   EcvRegClass GetRegClassFromLLVMType(llvm::Type *value_type);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
-                                          std::pair<EcvReg, EcvRegClass> ecv_reg_info);
-  llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
+                                          std::pair<EcvReg *, EcvRegClass> ecv_reg_info);
+  llvm::Value *CastFromInst(EcvReg *target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
                             llvm::Instruction *inst_at_before);
 
-  llvm::Value *GetRegValueFromCacheMap(
-      EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
-      std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
-          &cache_map);
+  llvm::Value *
+  GetRegValueFromCacheMap(EcvReg *target_ecv_reg, llvm::Type *to_type,
+                          llvm::Instruction *inst_at_before,
+                          EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &cache_map);
 
   void AnalyzeRegsBags();
   static void CalPassedCallerRegForBJump();
@@ -284,8 +284,8 @@ class VirtualRegsOpt {
   uint64_t block_num;
   std::string func_name;
   // map llvm::Value* and the corresponding CPU register.
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> value_reg_map;
-  std::set<EcvReg> debug_reg_set = {};
+  std::unordered_map<llvm::Value *, std::pair<EcvReg *, EcvRegClass>> value_reg_map;
+  std::set<EcvReg *> debug_reg_set = {};
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
@@ -412,7 +412,7 @@ class TraceLifter::Impl {
   std::set<llvm::Function *> no_indirect_lifted_funcs;
   std::set<llvm::Function *> lifted_funcs;
 
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg *, EcvRegClass>>>
       sema_func_args_regs_map;
 
   std::string runtime_manager_name;

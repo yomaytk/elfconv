@@ -46,14 +46,17 @@ namespace remill {
 #if defined(OPT_REAL_REGS_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg->GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
 #else
 #  define DEBUG_PC_AND_REGISTERS(...)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg->GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
 #endif
 
 std::ostringstream ECV_DEBUG_STREAM;
+
+extern std::function<EcvReg *(RegKind, uint32_t)> NewEcvReg;
+extern std::function<std::pair<EcvReg *, EcvRegClass>(const std::string &)> GetRegInfo;
 
 static void DebugStreamReset() {
   ECV_DEBUG_STREAM.str("");
@@ -887,7 +890,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               auto store_ecv_reg = write_regs[0].first;
               auto store_ecv_reg_class = write_regs[0].second;
               inst_lifter->StoreRegValueBeforeInst(
-                  &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
+                  &bb, state_ptr, store_ecv_reg->GetRegName(store_ecv_reg_class),
                   virtual_regs_opt->CastFromInst(
                       store_ecv_reg, call_inst,
                       virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst),
@@ -897,8 +900,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                 llvm::Instruction *from_extracted_inst;
                 auto store_ecv_reg = write_regs[i].first;
                 auto store_ecv_reg_class = write_regs[i].second;
-                if (store_ecv_reg.number == IGNORE_WRITE_TO_WZR_ORDER ||
-                    store_ecv_reg.number == IGNORE_WRITE_TO_XZR_ORDER) {
+                if (store_ecv_reg->number == IGNORE_WRITE_TO_WZR_ORDER ||
+                    store_ecv_reg->number == IGNORE_WRITE_TO_XZR_ORDER) {
                   continue;
                 }
                 if (llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
@@ -914,7 +917,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                              << "pc: " << Sema_func_vma_map.at(call_inst);
                 }
                 inst_lifter->StoreRegValueBeforeInst(
-                    &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
+                    &bb, state_ptr, store_ecv_reg->GetRegName(store_ecv_reg_class),
                     virtual_regs_opt->CastFromInst(
                         store_ecv_reg, from_extracted_inst,
                         virtual_regs_opt->GetWholeLLVMTypeFromRegZ(store_ecv_reg), call_next_inst),
@@ -928,18 +931,18 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // Add passed_caller_reg_map and passed_callee_ret_reg_map.
       for (int i = 0; i < 8; i++) {
         virtual_regs_opt->passed_caller_reg_map.insert(
-            {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+            {NewEcvReg(RegKind::General, i), EcvRegClass::RegX});
         virtual_regs_opt->passed_caller_reg_map.insert(
-            {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+            {NewEcvReg(RegKind::Vector, i), EcvRegClass::RegV});
         virtual_regs_opt->passed_callee_ret_reg_map.insert(
-            {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+            {NewEcvReg(RegKind::General, i), EcvRegClass::RegX});
         virtual_regs_opt->passed_callee_ret_reg_map.insert(
-            {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+            {NewEcvReg(RegKind::Vector, i), EcvRegClass::RegV});
       }
       virtual_regs_opt->passed_caller_reg_map.insert(
-          {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+          {NewEcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
       virtual_regs_opt->passed_callee_ret_reg_map.insert(
-          {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+          {NewEcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
 
     } else {
       no_indirect_lifted_funcs.insert(func);
@@ -986,12 +989,12 @@ void TraceLifter::Impl::Optimize() {
   auto __remill_func_call_v_r_o = new VirtualRegsOpt(__remill_func_call_fn, this, 0xffffff);
   for (int i = 0; i < 8; i++) {
     __remill_func_call_v_r_o->passed_caller_reg_map.insert(
-        {EcvReg(RegKind::General, i), EcvRegClass::RegX});
+        {NewEcvReg(RegKind::General, i), EcvRegClass::RegX});
     __remill_func_call_v_r_o->passed_caller_reg_map.insert(
-        {EcvReg(RegKind::Vector, i), EcvRegClass::RegV});
+        {NewEcvReg(RegKind::Vector, i), EcvRegClass::RegV});
   }
   __remill_func_call_v_r_o->passed_caller_reg_map.insert(
-      {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+      {NewEcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
   VirtualRegsOpt::func_v_r_opt_map.insert({__remill_func_call_fn, __remill_func_call_v_r_o});
 
   // re-calculate passed_caller_reg_map considering direct jump function.
@@ -1442,7 +1445,7 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
       }
     }
     t_fun_v_r_o->passed_caller_reg_map.insert(
-        {EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
+        {NewEcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX});
   }
 
   // Calculate passed_callee_ret_reg_map.
@@ -1464,15 +1467,15 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
   // if (func->getName().starts_with("_IO_file_xsputn")) {
   //   std::cout << func->getName().str() << std::endl;
   //   for (auto [e_r, e_r_c] : bag_passed_caller_reg_map) {
-  //     std::cout << e_r.GetRegName(e_r_c) << ", ";
+  //     std::cout << e_r->GetRegName(e_r_c) << ", ";
   //   }
   //   std::cout << std::endl;
   // }
 
   // (FIXME)
   if (func->getName().starts_with("_IO_do_write")) {
-    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 1), EcvRegClass::RegX});
-    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 3), EcvRegClass::RegX});
+    t_fun_v_r_o->passed_caller_reg_map.insert({NewEcvReg(RegKind::General, 1), EcvRegClass::RegX});
+    t_fun_v_r_o->passed_caller_reg_map.insert({NewEcvReg(RegKind::General, 3), EcvRegClass::RegX});
   }
 }
 
@@ -1667,7 +1670,7 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
   DebugStreamReset();
 }
 
-llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst,
+llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg *target_ecv_reg, llvm::Value *from_inst,
                                           llvm::Type *to_inst_ty,
                                           llvm::Instruction *inst_at_before) {
   auto &context = func->getContext();
@@ -1700,11 +1703,11 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
   };
 
   if (t_from_inst_size < to_inst_size) {
-    if (RegKind::General == target_ecv_reg.reg_kind) {
+    if (RegKind::General == target_ecv_reg->reg_kind) {
       type_asserct_check(to_inst_ty->isIntegerTy() && t_from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
       return new llvm::ZExtInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
-    } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
+    } else if (RegKind::Vector == target_ecv_reg->reg_kind) {
       if (t_from_inst_ty->isVectorTy() || t_from_inst_ty->isFloatingPointTy()) {
         auto mono_from =
             new llvm::BitCastInst(t_from_inst, llvm::Type::getIntNTy(context, t_from_inst_size),
@@ -1717,18 +1720,18 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
             t_from_inst, llvm::Type::getIntNTy(context, to_inst_size), twine_null, inst_at_before);
         return new llvm::BitCastInst(zext_mono_from, to_inst_ty, twine_null, inst_at_before);
       }
-    } else if (RegKind::Special == target_ecv_reg.reg_kind) {
+    } else if (RegKind::Special == target_ecv_reg->reg_kind) {
       type_asserct_check(
           /* 8 bit of the ECV_NZCV */ t_from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
       return new llvm::ZExtInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
     }
   } else if (t_from_inst_size > to_inst_size) {
-    if (RegKind::General == target_ecv_reg.reg_kind) {
+    if (RegKind::General == target_ecv_reg->reg_kind) {
       type_asserct_check(to_inst_ty->isIntegerTy() && t_from_inst_ty->isIntegerTy(),
                          "RegKind::General register should have only the integer type.");
       return new llvm::TruncInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
-    } else if (RegKind::Vector == target_ecv_reg.reg_kind) {
+    } else if (RegKind::Vector == target_ecv_reg->reg_kind) {
       if (t_from_inst_ty->isVectorTy() || t_from_inst_ty->isFloatingPointTy()) {
         auto mono_from =
             new llvm::BitCastInst(t_from_inst, llvm::Type::getIntNTy(context, t_from_inst_size),
@@ -1742,7 +1745,7 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
         return new llvm::BitCastInst(trunc_mono_from, to_inst_ty, twine_null, inst_at_before);
       }
       return new llvm::TruncInst(t_from_inst, to_inst_ty, twine_null, inst_at_before);
-    } else if (RegKind::Special == target_ecv_reg.reg_kind) {
+    } else if (RegKind::Special == target_ecv_reg->reg_kind) {
       type_asserct_check(
           t_from_inst_ty->isIntegerTy(8) && to_inst_ty->isIntegerTy(),
           "RegKind::Special register must not be used different types other than ECV_NZCV.");
@@ -1760,9 +1763,8 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
 }
 
 llvm::Value *VirtualRegsOpt::GetRegValueFromCacheMap(
-    EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
-    std::unordered_map<EcvReg, std::tuple<EcvRegClass, llvm::Value *, uint32_t>, EcvReg::Hash>
-        &cache_map) {
+    EcvReg *target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
+    EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &cache_map) {
   llvm::Value *res_value;
 
   auto [_, from_value, from_order] = cache_map.at(target_ecv_reg);
@@ -1831,9 +1833,9 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         target_bb_reg_info_node->referred_able_added_inst_reg_map;
 
     EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> ascend_reg_inst_map = {
-        {EcvReg(RegKind::Special, STATE_ORDER),
+        {NewEcvReg(RegKind::Special, STATE_ORDER),
          std::make_tuple(EcvRegClass::RegP, arg_state_val, 0)},
-        {EcvReg(RegKind::Special, RUNTIME_ORDER),
+        {NewEcvReg(RegKind::Special, RUNTIME_ORDER),
          std::make_tuple(EcvRegClass::RegP, arg_runtime_val,
                          0)}};  // %state and %runtime_manager is defined as the argument
 
@@ -1925,7 +1927,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         // Target: llvm::LoadInst
         if (auto *load_inst = llvm::dyn_cast<llvm::LoadInst>(target_inst_it)) {
           const auto &load_reg_name = load_inst->getPointerOperand()->getName().str();
-          auto [target_ecv_reg, load_ecv_reg_class] = EcvReg::GetRegInfo(load_reg_name);
+          auto [target_ecv_reg, load_ecv_reg_class] = GetRegInfo(load_reg_name);
 
           llvm::Value *new_ecv_reg_inst;
 
@@ -1963,13 +1965,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               if (
                   // !func_v_r_opt_map.at(call_inst->getCalledFunction())
                   //        ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
-                  !within_store_ecv_reg.CheckPassedArgsRegs() ||
+                  !within_store_ecv_reg->CheckPassedArgsRegs() ||
                   !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
               }
               auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
               inst_lifter->StoreRegValueBeforeInst(
-                  target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
+                  target_bb, state_ptr,
+                  within_store_ecv_reg->GetRegName(within_store_ecv_reg_class),
                   GetRegValueFromCacheMap(within_store_ecv_reg,
                                           GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), call_inst,
                                           ascend_reg_inst_map),
@@ -1981,13 +1984,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               if (
                   // !func_v_r_opt_map.at(call_inst->getCalledFunction())
                   //        ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
-                  !preceding_store_ecv_reg.CheckPassedArgsRegs() ||
+                  !preceding_store_ecv_reg->CheckPassedArgsRegs() ||
                   target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
               }
               inst_lifter->StoreRegValueBeforeInst(
                   target_bb, state_ptr,
-                  preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
+                  preceding_store_ecv_reg->GetRegName(preceding_store_ecv_reg_class),
                   GetRegValueFromCacheMap(preceding_store_ecv_reg,
                                           GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg),
                                           call_inst, ascend_reg_inst_map),
@@ -1996,7 +1999,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto call_next_inst = call_inst->getNextNode();
             // Load `preceding_store_map` + `load_map`
             for (auto [req_ecv_reg, tuple_set] : ascend_reg_inst_map) {
-              if (!req_ecv_reg.CheckPassedReturnRegs()
+              if (!req_ecv_reg->CheckPassedReturnRegs()
                   // || !func_v_r_opt_map.at(call_inst->getParent()->getParent())
                   //      ->passed_callee_ret_reg_map.contains(req_ecv_reg)
               ) {
@@ -2006,7 +2009,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
               auto req_wide_load =
                   llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
-                      target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
+                      target_bb, state_ptr, req_ecv_reg->GetWideRegName(), call_next_inst));
               // Replace with new loaded register.
               std::set<llvm::User *> fin_users;
               std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
@@ -2071,13 +2074,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           else if (call_inst->getCalledFunction()->getName().str() == "emulate_system_call") {
             // Store target: x0 ~ x5, x8
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-              if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
+              if (!(within_store_ecv_reg->number < 6 || within_store_ecv_reg->number == 8) ||
                   !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
                 continue;
               }
               auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
               inst_lifter->StoreRegValueBeforeInst(
-                  target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
+                  target_bb, state_ptr,
+                  within_store_ecv_reg->GetRegName(within_store_ecv_reg_class),
                   GetRegValueFromCacheMap(within_store_ecv_reg,
                                           GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), call_inst,
                                           ascend_reg_inst_map),
@@ -2086,13 +2090,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Store target: x0 ~ x5, x8
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
-              if (!(preceding_store_ecv_reg.number < 6 || preceding_store_ecv_reg.number == 8) ||
+              if (!(preceding_store_ecv_reg->number < 6 || preceding_store_ecv_reg->number == 8) ||
                   target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
                 continue;
               }
               inst_lifter->StoreRegValueBeforeInst(
                   target_bb, state_ptr,
-                  preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
+                  preceding_store_ecv_reg->GetRegName(preceding_store_ecv_reg_class),
                   GetRegValueFromCacheMap(preceding_store_ecv_reg,
                                           GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg),
                                           call_inst, ascend_reg_inst_map),
@@ -2101,14 +2105,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto call_next_inst = call_inst->getNextNode();
             // Load target: x0
             for (auto [req_ecv_reg, tuple_set] : ascend_reg_inst_map) {
-              if (0 != req_ecv_reg.number) {
+              if (0 != req_ecv_reg->number) {
                 continue;
               }
               auto [_, user_refd_val, order] = tuple_set;
               // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
               auto req_wide_load =
                   llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
-                      target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
+                      target_bb, state_ptr, req_ecv_reg->GetWideRegName(), call_next_inst));
               // Replace with new loaded register.
               std::set<llvm::User *> fin_users;
               std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
@@ -2200,7 +2204,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         else if (auto store_inst = llvm::dyn_cast<llvm::StoreInst>(target_inst_it)) {
           auto stored_value = store_inst->getValueOperand();
           auto stored_reg_name = store_inst->getPointerOperand()->getName().str();
-          auto [store_ecv_reg, store_ecv_reg_class] = EcvReg::GetRegInfo(stored_reg_name);
+          auto [store_ecv_reg, store_ecv_reg_class] = GetRegInfo(stored_reg_name);
           // Update cache.
           ascend_reg_inst_map.insert_or_assign(
               store_ecv_reg, std::make_tuple(store_ecv_reg_class, stored_value, 0));
@@ -2244,13 +2248,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             if (
                 // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
                 //        ->passed_callee_ret_reg_map.contains(within_store_ecv_reg) ||
-                !within_store_ecv_reg.CheckPassedReturnRegs() ||
+                !within_store_ecv_reg->CheckPassedReturnRegs() ||
                 !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
               continue;
             }
             auto within_store_ecv_reg_class = std::get<EcvRegClass>(ascend_value);
             inst_lifter->StoreRegValueBeforeInst(
-                target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
+                target_bb, state_ptr, within_store_ecv_reg->GetRegName(within_store_ecv_reg_class),
                 GetRegValueFromCacheMap(within_store_ecv_reg,
                                         GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), ret_inst,
                                         ascend_reg_inst_map),
@@ -2262,13 +2266,13 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             if (
                 // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
                 //        ->passed_callee_ret_reg_map.contains(preceding_store_ecv_reg) ||
-                !preceding_store_ecv_reg.CheckPassedReturnRegs() ||
+                !preceding_store_ecv_reg->CheckPassedReturnRegs() ||
                 target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
               continue;
             }
             inst_lifter->StoreRegValueBeforeInst(
                 target_bb, state_ptr,
-                preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
+                preceding_store_ecv_reg->GetRegName(preceding_store_ecv_reg_class),
                 GetRegValueFromCacheMap(preceding_store_ecv_reg,
                                         GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg), ret_inst,
                                         ascend_reg_inst_map),
@@ -2377,16 +2381,16 @@ void VirtualRegsOpt::InsertDebugVmaAndRegisters(
     for (auto debug_ecv_reg : debug_reg_set) {
       if (ascend_reg_inst_map.contains(debug_ecv_reg)) {
         llvm::GlobalVariable *reg_name_gvar = NULL;
-        if (RegKind::General == debug_ecv_reg.reg_kind) {
+        if (RegKind::General == debug_ecv_reg->reg_kind) {
           reg_name_gvar =
-              impl->module->getGlobalVariable("debug_X" + to_string(debug_ecv_reg.number));
-        } else if (RegKind::Vector == debug_ecv_reg.reg_kind) {
+              impl->module->getGlobalVariable("debug_X" + to_string(debug_ecv_reg->number));
+        } else if (RegKind::Vector == debug_ecv_reg->reg_kind) {
           reg_name_gvar =
-              impl->module->getGlobalVariable("debug_V" + to_string(debug_ecv_reg.number));
+              impl->module->getGlobalVariable("debug_V" + to_string(debug_ecv_reg->number));
         } else {
-          if (ECV_NZCV_ORDER == debug_ecv_reg.number) {
+          if (ECV_NZCV_ORDER == debug_ecv_reg->number) {
             reg_name_gvar = impl->module->getGlobalVariable("debug_ECV_NZCV");
-          } else if (SP_ORDER == debug_ecv_reg.number) {
+          } else if (SP_ORDER == debug_ecv_reg->number) {
             reg_name_gvar = impl->module->getGlobalVariable("debug_SP");
           }
         }
@@ -2449,11 +2453,11 @@ llvm::Type *VirtualRegsOpt::GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class) {
   return nullptr;
 }
 
-llvm::Type *VirtualRegsOpt::GetWholeLLVMTypeFromRegZ(EcvReg ecv_reg) {
+llvm::Type *VirtualRegsOpt::GetWholeLLVMTypeFromRegZ(EcvReg *ecv_reg) {
   auto &context = func->getContext();
-  auto t_reg_kind = ecv_reg.reg_kind;
+  auto t_reg_kind = ecv_reg->reg_kind;
   if (RegKind::General == t_reg_kind || RegKind::Special == t_reg_kind) {
-    CHECK(ecv_reg.number != STATE_ORDER && ecv_reg.number != RUNTIME_ORDER);
+    CHECK(ecv_reg->number != STATE_ORDER && ecv_reg->number != RUNTIME_ORDER);
     return llvm::Type::getInt64Ty(context);
   } else /* RegKind::Vector */ {
     return llvm::Type::getInt128Ty(context);
@@ -2514,7 +2518,7 @@ EcvRegClass VirtualRegsOpt::GetRegClassFromLLVMType(llvm::Type *value_type) {
 llvm::Value *
 VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
                                            llvm::BasicBlock *request_bb,
-                                           std::pair<EcvReg, EcvRegClass> ecv_reg_info) {
+                                           std::pair<EcvReg *, EcvRegClass> ecv_reg_info) {
   auto &[target_ecv_reg, req_ecv_reg_class] = ecv_reg_info;
   auto target_phi_regs_bag = bb_regs_bag_map.at(target_bb);
   auto target_bb_reg_info_node = bb_reg_info_node_map.at(target_bb);
@@ -2691,7 +2695,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
         if (!target_bb_reg_info_node->reg_latest_inst_map.contains(need_ecv_reg) &&
             !target_phi_regs_bag->bag_req_reg_map.contains(need_ecv_reg)) {
           auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
-              relay_bb, state_ptr, need_ecv_reg.GetRegName(need_ecv_reg_class), relay_terminator,
+              relay_bb, state_ptr, need_ecv_reg->GetRegName(need_ecv_reg_class), relay_terminator,
               VAR_NAME(need_ecv_reg, need_ecv_reg_class));
           // Update cache.
           relay_bb_reg_info_node->reg_latest_inst_map.insert(
@@ -2716,7 +2720,7 @@ VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb,
       // Add `load` instruction.
       auto state_ptr = NthArgument(func, kStatePointerArgNum);
       auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
-          target_bb, state_ptr, target_ecv_reg.GetRegName(load_e_r_c), target_terminator,
+          target_bb, state_ptr, target_ecv_reg->GetRegName(load_e_r_c), target_terminator,
           VAR_NAME(target_ecv_reg, load_e_r_c));
       req_value = CastFromInst(target_ecv_reg, load_value, GetLLVMTypeFromRegZ(req_ecv_reg_class),
                                target_terminator);

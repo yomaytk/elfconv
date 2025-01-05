@@ -32,48 +32,48 @@ ALWAYS_INLINE static void _Write(RuntimeManager *, Reg &reg,
   reg.IF_64BIT_ELSE(qword, dword) = val;
 }
 
-ALWAYS_INLINE static bcd80_t _ReadBCD80(Memory *memory, Mn<bcd80_t> op) {
-  bcd80_t bcd = {};
-  const auto num_digit_pairs = sizeof(bcd.digit_pairs);
+// ALWAYS_INLINE static bcd80_t _ReadBCD80(Memory *memory, Mn<bcd80_t> op) {
+//   bcd80_t bcd = {};
+//   const auto num_digit_pairs = sizeof(bcd.digit_pairs);
 
-  _Pragma("unroll") for (addr_t i = 0; i < num_digit_pairs; i++) {
-    bcd.digit_pairs[i].u8 = __remill_read_memory_8(memory, op.addr + i);
-  }
-  auto msb = __remill_read_memory_8(memory, op.addr + num_digit_pairs);
-  bcd.is_negative = msb >> 7;
+//   _Pragma("unroll") for (addr_t i = 0; i < num_digit_pairs; i++) {
+//     bcd.digit_pairs[i].u8 = __remill_read_memory_8(memory, op.addr + i);
+//   }
+//   auto msb = __remill_read_memory_8(memory, op.addr + num_digit_pairs);
+//   bcd.is_negative = msb >> 7;
 
-  return bcd;
-}
+//   return bcd;
+// }
 
-#define ReadBCD80(op) _ReadBCD80(memory, op)
+// #define ReadBCD80(op) _ReadBCD80(memory, op)
 
-ALWAYS_INLINE static Memory *_WriteBCD80(Memory *memory, MBCD80W dst, bcd80_t src) {
-  const auto num_digit_pairs = sizeof(src.digit_pairs);
+// ALWAYS_INLINE static Memory *_WriteBCD80(Memory *memory, MBCD80W dst, bcd80_t src) {
+//   const auto num_digit_pairs = sizeof(src.digit_pairs);
 
-  _Pragma("unroll") for (addr_t i = 0; i < num_digit_pairs; i++) {
-    memory = __remill_write_memory_8(memory, dst.addr + i, src.digit_pairs[i].u8);
-  }
+//   _Pragma("unroll") for (addr_t i = 0; i < num_digit_pairs; i++) {
+//     memory = __remill_write_memory_8(memory, dst.addr + i, src.digit_pairs[i].u8);
+//   }
 
-  uint8_t msb = static_cast<uint8_t>(src.is_negative << 7);
-  memory = __remill_write_memory_8(memory, dst.addr + num_digit_pairs, msb);
+//   uint8_t msb = static_cast<uint8_t>(src.is_negative << 7);
+//   memory = __remill_write_memory_8(memory, dst.addr + num_digit_pairs, msb);
 
-  return memory;
-}
+//   return memory;
+// }
 
-#define WriteBCD80(op, val) _WriteBCD80(memory, op, val)
+// #define WriteBCD80(op, val) _WriteBCD80(memory, op, val)
 
-ALWAYS_INLINE static Memory *_WriteBCD80Indefinite(Memory *memory, MBCD80W dst) {
-  const uint8_t indefinite[sizeof(bcd80_t)] = {
-      0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xc0, 0xff, 0xff,
-  };
+// ALWAYS_INLINE static Memory *_WriteBCD80Indefinite(Memory *memory, MBCD80W dst) {
+//   const uint8_t indefinite[sizeof(bcd80_t)] = {
+//       0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xc0, 0xff, 0xff,
+//   };
 
-  _Pragma("unroll") for (addr_t i = 0; i < sizeof(indefinite); i++) {
-    memory = __remill_write_memory_8(memory, dst.addr + i, indefinite[i]);
-  }
+//   _Pragma("unroll") for (addr_t i = 0; i < sizeof(indefinite); i++) {
+//     memory = __remill_write_memory_8(memory, dst.addr + i, indefinite[i]);
+//   }
 
-  return memory;
-}
+//   return memory;
+// }
 
-#define WriteBCD80Indefinite(op) _WriteBCD80Indefinite(memory, op)
+// #define WriteBCD80Indefinite(op) _WriteBCD80Indefinite(memory, op)
 
 }  // namespace

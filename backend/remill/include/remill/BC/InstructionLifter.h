@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "remill/Arch/Name.h"
+
 #include <cstdint>
+#include <functional>
 #include <glog/logging.h>
 #include <llvm/IR/Instructions.h>
 #include <memory>
@@ -85,6 +88,7 @@ class OperandLifter {
   virtual void ClearCache(void) const = 0;
 };
 
+// AArch64 special registers
 #define SP_ORDER 32
 #define PC_ORDER 33
 #define STATE_ORDER 34
@@ -96,6 +100,9 @@ class OperandLifter {
 #define MONITOR_ORDER 40
 #define WZR_ORDER 41  // Actually, not used
 #define XZR_ORDER 42  // Actually, not used
+
+// x86-64 special registers
+#define RIP_ORDER 33
 
 enum class EcvRegClass : uint32_t {
   RegW = 'W' - 'A',  // 22
@@ -122,7 +129,9 @@ enum class EcvRegClass : uint32_t {
   RegNULL = 10001
 };
 
+// (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
+
 uint64_t GetRegClassSize(EcvRegClass ecv_reg_class);
 
 enum class RegKind : uint32_t {
@@ -135,9 +144,6 @@ class EcvReg {
  public:
   RegKind reg_kind;
   uint32_t number;
-
-  EcvReg() {}
-  EcvReg(RegKind __reg_kind, uint32_t __number) : reg_kind(__reg_kind), number(__number) {}
 
   bool operator==(const EcvReg &rhs) const {
     return reg_kind == rhs.reg_kind && number == rhs.number;
@@ -155,26 +161,48 @@ class EcvReg {
     return !(*this == rhs) && !(*this < rhs);
   }
 
-  // get reg_info from general or vector registers
-  static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
+  virtual std::string GetRegName(EcvRegClass ecv_reg_class) const = 0;
+  virtual std::string GetWideRegName() const = 0;
+  virtual bool CheckPassedArgsRegs() const = 0;
+  virtual bool CheckPassedReturnRegs() const = 0;
 
+ protected:
+  EcvReg(RegKind __reg_kind, uint32_t __number) : reg_kind(__reg_kind), number(__number) {}
+};
+
+// AArch64 EcvRegister class
+class AArch64EcvReg : public EcvReg {
+ public:
   std::string GetRegName(EcvRegClass ecv_reg_class) const;
   std::string GetWideRegName() const;
   bool CheckPassedArgsRegs() const;
   bool CheckPassedReturnRegs() const;
 
-  class Hash {
-   public:
-    std::size_t operator()(const EcvReg &ecv_reg) const {
-      return std::hash<uint32_t>()(
-                 static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
-             std::hash<uint32_t>()(ecv_reg.number);
-    }
-  };  // namespace remill
+  static EcvReg *NewEcvReg(RegKind, uint32_t);
+  static std::pair<EcvReg *, EcvRegClass> GetRegInfo(const std::string &__reg_name);
+
+  AArch64EcvReg(RegKind __reg_kind, uint32_t __number) : EcvReg(__reg_kind, __number){};
 };
 
+// AMD64 EcvRegister class
+class AMD64EcvReg : public EcvReg {
+ public:
+  std::string GetRegName(EcvRegClass ecv_reg_class) const;
+  std::string GetWideRegName() const;
+  bool CheckPassedArgsRegs() const;
+  bool CheckPassedReturnRegs() const;
+
+  static EcvReg *NewEcvReg(RegKind, uint32_t);
+  static std::pair<EcvReg *, EcvRegClass> GetRegInfo(const std::string &__reg_name);
+
+  AMD64EcvReg(RegKind __reg_kind, uint32_t __number) : EcvReg(__reg_kind, __number){};
+};
+
+// Set `NewEcvReg` and `GetRegInfo` for the input target architecture.
+void InitEcvRegArch();
+
 template <typename VT>
-using EcvRegMap = std::unordered_map<EcvReg, VT, EcvReg::Hash>;
+using EcvRegMap = std::unordered_map<EcvReg *, VT>;
 
 class BBRegInfoNode {
  public:
@@ -192,19 +220,19 @@ class BBRegInfoNode {
   EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> reg_latest_inst_map;
 
   // Save the written registers by semantic functions
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg *, EcvRegClass>>>
       sema_call_written_reg_map;
   // Save the args registers by semantic functions (for debug)
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg *, EcvRegClass>>>
       sema_func_args_reg_map;
   // Save the pc of semantics functions (for debug)
   std::unordered_map<llvm::CallInst *, uint64_t> sema_func_pc_map;
 
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> post_update_regs;
+  std::unordered_map<llvm::Value *, std::pair<EcvReg *, EcvRegClass>> post_update_regs;
 
   // Map the added instructions that can be refered later on and register
   // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>>
+  std::unordered_map<llvm::Value *, std::pair<EcvReg *, EcvRegClass>>
       referred_able_added_inst_reg_map;
   // Map the register and added instructions.
   EcvRegMap<llvm::Value *> reg_derived_added_inst_map;

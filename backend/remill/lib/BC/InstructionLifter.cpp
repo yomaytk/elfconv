@@ -17,12 +17,20 @@
 #include "InstructionLifter.h"
 
 #include "remill/Arch/Instruction.h"
+#include "remill/Arch/Name.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/InstructionLifter.h"
 
 #include <cstdint>
+#include <type_traits>
+
+extern remill::ArchName TARGET_ELF_ARCH;
 
 namespace remill {
+
+std::function<EcvReg *(RegKind, uint32_t)> NewEcvReg;
+std::function<std::pair<EcvReg *, EcvRegClass>(const std::string &)> GetRegInfo;
+
 namespace {
 
 // Try to find the function that implements this semantics.
@@ -47,10 +55,18 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
+
+/*
+  AArch64 register methods.
+*/
 std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map = {};
 
+EcvReg *AArch64EcvReg::NewEcvReg(RegKind __reg_kind, uint32_t __number) {
+  return static_cast<EcvReg *>(new AArch64EcvReg(__reg_kind, __number));
+}
+
 // get EcvRegClass from the register name.
-std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) {
+std::pair<EcvReg *, EcvRegClass> AArch64EcvReg::GetRegInfo(const std::string &_reg_name) {
   auto c0 = _reg_name[0];
   auto c1 = _reg_name[1];
   // vector type register (e.g. 16B8, 4S20, 2DF30)
@@ -71,42 +87,45 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
           static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
       reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
     }
-    return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
+    return std::make_pair(new AArch64EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
   }
   // general register
   else if (std::isdigit(c1)) {
     auto res_ecv_reg_class = static_cast<EcvRegClass>(c0 - 'A');
-    return std::make_pair(
-        EcvReg((EcvRegClass::RegW == res_ecv_reg_class || EcvRegClass::RegX == res_ecv_reg_class)
-                   ? RegKind::General
-                   : RegKind::Vector,
-               static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
-        res_ecv_reg_class);
+    return std::make_pair(new AArch64EcvReg((EcvRegClass::RegW == res_ecv_reg_class ||
+                                             EcvRegClass::RegX == res_ecv_reg_class)
+                                                ? RegKind::General
+                                                : RegKind::Vector,
+                                            static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
+                          res_ecv_reg_class);
   }
   // system register
   else {
     if ("SP" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
     } else if ("PC" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
     } else if ("STATE" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
     } else if ("RUNTIME" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
     } else if ("BRANCH_TAKEN" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER),
+                            EcvRegClass::RegX);
     } else if ("ECV_NZCV" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
     } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), EcvRegClass::RegW);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER),
+                            EcvRegClass::RegW);
     } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER),
+                            EcvRegClass::RegX);
     } else if ("MONITOR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
     } else if ("WZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
     } else if ("XZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
+      return std::make_pair(new AArch64EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
     }
   }
 
@@ -114,7 +133,7 @@ std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) 
   std::terminate();
 }
 
-std::string EcvReg::GetWideRegName() const {
+std::string AArch64EcvReg::GetWideRegName() const {
   if (number <= 31) {
     std::string reg_name;
     switch (reg_kind) {
@@ -153,8 +172,9 @@ std::string EcvReg::GetWideRegName() const {
   return "";
 }
 
-std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
-  static std::unordered_map<EcvRegClass, std::string> EcvRegClassRegNameMap = {
+std::string AArch64EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
+  using EC = EcvRegClass;
+  static std::unordered_map<EcvRegClass, std::string> AArch64EcvRegClassRegNameMap = {
       {EcvRegClass::RegW, "W"},     {EcvRegClass::RegX, "X"},     {EcvRegClass::RegB, "B"},
       {EcvRegClass::RegH, "H"},     {EcvRegClass::RegS, "S"},     {EcvRegClass::RegD, "D"},
       {EcvRegClass::Reg8B, "8B"},   {EcvRegClass::Reg16B, "16B"}, {EcvRegClass::Reg4H, "4H"},
@@ -164,7 +184,7 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
       {EcvRegClass::RegQ, "Q"},     {EcvRegClass::RegV, "V"}};
   // General or Vector register.
   if (number <= 31) {
-    auto reg_name = EcvRegClassRegNameMap[ecv_reg_class];
+    auto reg_name = AArch64EcvRegClassRegNameMap[ecv_reg_class];
     reg_name += std::to_string(number);
     return reg_name;
   }
@@ -197,14 +217,82 @@ std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
   return "";
 }
 
-bool EcvReg::CheckPassedArgsRegs() const {
+bool AArch64EcvReg::CheckPassedArgsRegs() const {
   return (0 <= number && number <= 7) || SP_ORDER == number;
 }
 
-bool EcvReg::CheckPassedReturnRegs() const {
+bool AArch64EcvReg::CheckPassedReturnRegs() const {
   return (0 <= number && number <= 1) || SP_ORDER == number;
 }
 
+/*
+  x86-64 register methods.
+*/
+
+using EC = EcvRegClass;
+
+class hash1 {
+ public:
+  std::size_t operator()(const std::pair<uint32_t, EC> &key) const {
+    return std::hash<uint32_t>()(key.first) ^
+           std::hash<uint32_t>()(std::underlying_type<EC>::type(key.second) + 10000);
+  }
+};
+
+static std::unordered_map<std::pair<uint32_t, EC>, std::string, hash1> AMD64EcvRegClassRegNameMap =
+    {{{0, EC::RegX}, "RAX"},  {{1, EC::RegX}, "RCX"},  {{2, EC::RegX}, "RDX"},
+     {{3, EC::RegX}, "RBX"},  {{4, EC::RegX}, "RSP"},  {{5, EC::RegX}, "RBP"},
+     {{6, EC::RegX}, "RSI"},  {{7, EC::RegX}, "RDI"},  {{8, EC::RegX}, "R8"},
+     {{9, EC::RegX}, "R9"},   {{10, EC::RegX}, "R10"}, {{11, EC::RegX}, "R11"},
+     {{12, EC::RegX}, "R12"}, {{13, EC::RegX}, "R13"}, {{14, EC::RegX}, "R14"},
+     {{15, EC::RegX}, "R15"}};
+
+std::string AMD64EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
+  return AMD64EcvRegClassRegNameMap.at({number, ecv_reg_class});
+}
+
+std::string AMD64EcvReg::GetWideRegName() const {
+  return AMD64EcvRegClassRegNameMap.at({number, EcvRegClass::RegX});
+}
+
+bool AMD64EcvReg::CheckPassedArgsRegs() const {
+  return true;
+}
+bool AMD64EcvReg::CheckPassedReturnRegs() const {
+  return true;
+}
+
+EcvReg *AMD64EcvReg::NewEcvReg(RegKind __reg_kind, uint32_t __number) {
+  return static_cast<EcvReg *>(new AMD64EcvReg(__reg_kind, __number));
+}
+
+std::pair<EcvReg *, EcvRegClass> AMD64EcvReg::GetRegInfo(const std::string &reg_name) {
+  if ("RAX" == reg_name) {
+    return {NewEcvReg(RegKind::General, 0), EC::RegX};
+  } else if ("RDI" == reg_name) {
+    return {NewEcvReg(RegKind::General, 0), EC::RegX};
+  } else if ("RSI" == reg_name) {
+    return {NewEcvReg(RegKind::General, 6), EC::RegX};
+  } else if ("RIP" == reg_name) {
+    return {NewEcvReg(RegKind::Special, RIP_ORDER), EC::RegX};
+  } else if ("RDX" == reg_name) {
+    return {NewEcvReg(RegKind::General, 2), EC::RegX};
+  } else {
+    LOG(FATAL) << "Unsupported x86-64 register: " << reg_name;
+  }
+}
+
+void InitEcvRegArch() {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    NewEcvReg = AArch64EcvReg::NewEcvReg;
+    GetRegInfo = AArch64EcvReg::GetRegInfo;
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    NewEcvReg = AMD64EcvReg::NewEcvReg;
+    GetRegInfo = AMD64EcvReg::GetRegInfo;
+  }
+}
+
+// (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
 std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
   switch (ecv_reg_class) {
     case EcvRegClass::RegW: return "RegW"; break;
@@ -266,10 +354,10 @@ BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
                              llvm::Value *runtime_val) {
   for (auto &arg : func->args()) {
     if (arg.getName().str() == "state") {
-      reg_latest_inst_map.insert({EcvReg(RegKind::Special, STATE_ORDER),
+      reg_latest_inst_map.insert({NewEcvReg(RegKind::Special, STATE_ORDER),
                                   std::make_tuple(EcvRegClass::RegP, state_val, 0)});
     } else if (arg.getName().str() == "runtime_manager") {
-      reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
+      reg_latest_inst_map.insert({NewEcvReg(RegKind::Special, RUNTIME_ORDER),
                                   std::make_tuple(EcvRegClass::RegP, runtime_val, 0)});
     }
   }
@@ -468,7 +556,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto &load_reg_map = bb_reg_info_node->bb_load_reg_map;
   auto &store_reg_map = bb_reg_info_node->bb_store_reg_map;
 
-  std::vector<std::pair<EcvReg, EcvRegClass>> sema_func_args_regs;
+  std::vector<std::pair<EcvReg *, EcvRegClass>> sema_func_args_regs;
 
   auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
 
@@ -496,7 +584,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
   }
 
-  std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
+  std::vector<std::pair<EcvReg *, EcvRegClass>> write_regs;
 
   // treats the every arguments for the semantics function.
   for (auto &op : arch_inst.operands) {
@@ -520,8 +608,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       t_reg = NULL;
     }
 
-    auto [e_r, e_r_c] =
-        t_reg ? EcvReg::GetRegInfo(t_reg->name) : std::make_pair(EcvReg(), EcvRegClass::RegNULL);
+    auto [e_r, e_r_c] = t_reg ? GetRegInfo(t_reg->name)
+                              : std::make_pair(NewEcvReg(RegKind(-1), -1), EcvRegClass::RegNULL);
 
     if (t_reg) {
       if (Operand::Action::kActionWrite == op.action) {
@@ -597,8 +685,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
   // Insert the instruction which explains the latest specified register.
   for (std::size_t i = 0; i < write_regs.size(); i++) {
-    if (IGNORE_WRITE_TO_WZR_ORDER == write_regs[i].first.number ||
-        IGNORE_WRITE_TO_XZR_ORDER == write_regs[i].first.number) {
+    if (IGNORE_WRITE_TO_WZR_ORDER == write_regs[i].first->number ||
+        IGNORE_WRITE_TO_XZR_ORDER == write_regs[i].first->number) {
       continue;
     }
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
@@ -618,7 +706,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     const auto [update_reg_ptr_reg, _] =
         LoadRegAddress(block, state_ptr, arch_inst.prepost_updated_reg_op.reg.name);
     auto [updated_ecv_reg, updated_ecv_reg_class] =
-        EcvReg::GetRegInfo(arch_inst.prepost_updated_reg_op.reg.name);
+        GetRegInfo(arch_inst.prepost_updated_reg_op.reg.name);
     auto new_addr_val =
         LiftAddressOperand(arch_inst, block, state_ptr, NULL, arch_inst.prepost_new_addr_op);
     ir.CreateStore(new_addr_val, update_reg_ptr_reg, false);
@@ -629,7 +717,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // add index_reg (addr.index_reg is not treated in the operands list.)
     if (auto index_reg_name = arch_inst.prepost_new_addr_op.addr.index_reg.name;
         !index_reg_name.empty()) {
-      auto [id_e_r, id_e_r_c] = EcvReg::GetRegInfo(index_reg_name);
+      auto [id_e_r, id_e_r_c] = GetRegInfo(index_reg_name);
       load_reg_map.insert({id_e_r, id_e_r_c});
     }
   }

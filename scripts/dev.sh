@@ -23,14 +23,13 @@ setting() {
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
   WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
-  ELFCONV_MACROS=
-  ELFCONV_DEBUG_MACROS=
   ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
+  RUNTIME_MACRO=''
 
   if [ -n "$DEBUG" ]; then
-    ELFCONV_DEBUG_MACROS="-DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
+    RUNTIME_MACRO="${RUNTIME_MACRO} -DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
   fi
 
 }
@@ -47,9 +46,10 @@ aarch64_test() {
   llvm-dis-${LLVM_VERSION} aarch64_test.bc -o aarch64_test.ll
   echo -e "[\033[32mINFO\033[0m] Generate aarch64_lift.ll"  
 
+  RUNTIME_MACRO="${RUNTIME_MACRO} -DELF_IS_AARCH64"
   # generate execute file (lift_test.aarch64)
-  ${CXX} "${CLANGFLAGS}" $ELFCONV_MACROS "$ELFCONV_DEBUG_MACROS" -o lift_test.aarch64 aarch64_test.ll "${AARCH64_TEST_DIR}"/Test.cpp "${AARCH64_TEST_DIR}"/TestHelper.cpp \
-  "${AARCH64_TEST_DIR}"/TestInstructions.cpp $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+  $CXX $CLANGFLAGS $RUNTIME_MACRO -o lift_test.aarch64 aarch64_test.ll ${AARCH64_TEST_DIR}/Test.cpp ${AARCH64_TEST_DIR}/TestHelper.cpp \
+  ${AARCH64_TEST_DIR}/TestInstructions.cpp $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
   echo -e "[\033[32mINFO\033[0m] Generate lift_test.aarch64"
 
 }
@@ -61,12 +61,11 @@ lifting() {
   elf_path=$( realpath "$1" )
   
   wasi32_target_arch=''
-  if [ "${TARGET}" == "Wasi" ]; then
+  if [ "$TARGET" = "-wasi32" ]; then
     wasi32_target_arch='wasi32'
   fi
   
-  cd ${BUILD_LIFTER_DIR} && \
-    ./elflift \
+    ${BUILD_LIFTER_DIR}/elflift \
     --arch aarch64 \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
@@ -83,6 +82,8 @@ main() {
   # environment variable settings
   setting
 
+  cd $BUILD_DIR
+
   # aarch64 lifting test
   if [ -n "$AARCH64_TEST" ]; then
     aarch64_test
@@ -94,29 +95,41 @@ main() {
     lifting "$1" "$2"
   fi
 
+  case "$TARGET" in
+    aarch64-*)
+      RUNTIME_MACRO="$RUNTIME_MACRO -DELF_IS_AARCH64"
+      ;;
+    amd64-*)
+      RUNTIME_MACRO="$RUNTIME_MACRO -DELF_IS_AMD64"
+      ;;
+    *)
+      echo -e "Unsupported architecture of ELF: $TARGET."
+      ;;
+  esac
+
   # LLVM bc -> target file
-  case "${TARGET}" in
-    Native)
+  case "$TARGET" in
+    *-native)
       echo -e "[\033[32mINFO\033[0m] Compiling to Native binary (for $HOST_CPU)... "
-      ${CXX} ${CLANGFLAGS} -o "exe.${HOST_CPU}" lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [\033[32mINFO\033[0m] exe.${HOST_CPU} was generated."
       return 0
     ;;
-    Browser)
-      ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
+    *-wasm)
+      RUNTIME_MACRO="-DELFC_BROWSER_ENV=1"
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
-      $EMCC $EMCCFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
                               lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm and exe.js were generated."
       cp exe.js ${ROOT_DIR}/examples/browser
       cp exe.wasm ${ROOT_DIR}/examples/browser
       return 0
     ;;
-    Wasi)
-      ELFCONV_MACROS="-DELFC_WASI_ENV=1"
-      cd ${BUILD_DIR}
+    *-wasi32)
+      RUNTIME_MACRO="-DELFC_WASI_ENV=1"
+      cd $BUILD_DIR
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS $ELFCONV_DEBUG_MACROS -o exe.wasm ${BUILD_LIFTER_DIR}/lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm ${BUILD_LIFTER_DIR}/lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
       echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_o3.wasm)"
