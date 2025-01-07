@@ -36,6 +36,7 @@
 #include <remill/Arch/X86/X86Base.h>
 #include <sstream>
 #include <string>
+#include <xed/xed-iform-enum.h>
 
 namespace remill {
 namespace {
@@ -469,9 +470,9 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   op.addr.scale = XED_REG_INVALID != index ? static_cast<int64_t>(scale) : 0;
   op.addr.displacement = disp;
 
-  // PC-relative memory accesses are relative to the next PC.
+  // PC-relative memory accesses are relative to the next PC (RIP).
   if (XED_REG_RIP == base_wide) {
-    op.addr.base_reg.name = "NEXT_PC";
+    op.addr.base_reg.name = "RIP";
   }
 
   // We always pass destination operands first, then sources. Memory operands
@@ -765,7 +766,7 @@ class X86Arch final : public X86ArchBase, public DefaultContextAndLifter {
   bool ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                              Instruction &inst) const final;
 
-  virtual void InstanceInstAArch64(Instruction &inst) const;
+  virtual void InstanceMinimumInst(Instruction &inst) const final;
 
  private:
   X86Arch(void) = delete;
@@ -786,8 +787,13 @@ X86Arch::X86Arch(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_nam
 
 X86Arch::~X86Arch(void) {}
 
-void X86Arch::InstanceInstAArch64(Instruction &) const {
-  CHECK(false) << "[Bug]: X86Arch::InstanceInstAArch64 must not be called.";
+void X86Arch::InstanceMinimumInst(Instruction &inst) const {
+  inst.arch = this;
+  inst.arch_name = arch_name;
+  inst.sub_arch_name = arch_name;  // TODO(pag): Thumb.
+  inst.branch_taken_arch_name = arch_name;
+  inst.category = Instruction::kCategoryInvalid;
+  inst.sema_func_arg_type = SemaFuncArgType::Empty;
 }
 
 static bool IsAVX(xed_isa_set_enum_t isa_set, xed_category_enum_t category) {
@@ -968,6 +974,18 @@ static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size
   }
 }
 
+void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
+  switch (iform) {
+    case XED_IFORM_MOV_GPRv_IMMz:
+    case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
+    case XED_IFORM_MOV_GPRv_MEMv: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
+    case XED_IFORM_XOR_GPRv_GPRv_31: inst.sema_func_arg_type = SemaFuncArgType::State; break;
+    default:
+      LOG(FATAL) << "Unsupported instruction at SetSemaFuncArgType: (" << inst.function << ")";
+  }
+}
+
 // Decode an instuction.
 bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_bytes,
                                     Instruction &inst) const {
@@ -1088,16 +1106,19 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
+  SetSemaFuncArgType(inst, iform);
+
+  // seems not to need NEXT_PC.
   // Control flow operands update the next program counter.
-  if (inst.IsControlFlow()) {
-    inst.operands.emplace_back();
-    auto &dst_ret_pc = inst.operands.back();
-    dst_ret_pc.type = Operand::kTypeRegister;
-    dst_ret_pc.action = Operand::kActionWrite;
-    dst_ret_pc.size = address_size;
-    dst_ret_pc.reg.name = "NEXT_PC";
-    dst_ret_pc.reg.size = address_size;
-  }
+  // if (inst.IsControlFlow()) {
+  //   inst.operands.emplace_back();
+  //   auto &dst_ret_pc = inst.operands.back();
+  //   dst_ret_pc.type = Operand::kTypeRegister;
+  //   dst_ret_pc.action = Operand::kActionWrite;
+  //   dst_ret_pc.size = address_size;
+  //   dst_ret_pc.reg.name = "NEXT_PC";
+  //   dst_ret_pc.reg.size = address_size;
+  // }
 
   if (inst.IsFunctionCall()) {
     DecodeFallThroughPC(inst, xedd);

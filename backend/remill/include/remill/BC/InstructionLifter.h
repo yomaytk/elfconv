@@ -16,7 +16,10 @@
 
 #pragma once
 
+#include "remill/Arch/Name.h"
+
 #include <cstdint>
+#include <functional>
 #include <glog/logging.h>
 #include <llvm/IR/Instructions.h>
 #include <memory>
@@ -85,6 +88,7 @@ class OperandLifter {
   virtual void ClearCache(void) const = 0;
 };
 
+// AArch64 special registers
 #define SP_ORDER 32
 #define PC_ORDER 33
 #define STATE_ORDER 34
@@ -97,7 +101,14 @@ class OperandLifter {
 #define WZR_ORDER 41  // Actually, not used
 #define XZR_ORDER 42  // Actually, not used
 
-enum class EcvRegClass : uint32_t {
+// x86-64 special registers
+#define RIP_ORDER 133
+#define CSBASE_ORDER 134
+#define SSBASE_ORDER 135
+#define ESBASE_ORDER 136
+#define DSBASE_ORDER 137
+
+enum class ERC : uint32_t {
   RegW = 'W' - 'A',  // 22
   RegX = 'X' - 'A',  // 23
   RegB = 'B' - 'A',  // 1
@@ -122,8 +133,10 @@ enum class EcvRegClass : uint32_t {
   RegNULL = 10001
 };
 
-std::string EcvRegClass2String(EcvRegClass ecv_reg_class);
-uint64_t GetRegClassSize(EcvRegClass ecv_reg_class);
+// (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
+std::string EcvRegClass2String(ERC ecv_reg_class);
+
+uint64_t GetRegClassSize(ERC ecv_reg_class);
 
 enum class RegKind : uint32_t {
   General,  // 0
@@ -156,9 +169,9 @@ class EcvReg {
   }
 
   // get reg_info from general or vector registers
-  static std::pair<EcvReg, EcvRegClass> GetRegInfo(const std::string &_reg_name);
+  static std::pair<EcvReg, ERC> GetRegInfo(const std::string &_reg_name);
 
-  std::string GetRegName(EcvRegClass ecv_reg_class) const;
+  std::string GetRegName(ERC ecv_reg_class) const;
   std::string GetWideRegName() const;
   bool CheckPassedArgsRegs() const;
   bool CheckPassedReturnRegs() const;
@@ -184,28 +197,26 @@ class BBRegInfoNode {
   void join_reg_info_node(BBRegInfoNode *child);
 
   // The register set which is `load`ed in this block.
-  EcvRegMap<EcvRegClass> bb_load_reg_map;
+  EcvRegMap<ERC> bb_load_reg_map;
   // The register set which is `store`d in this block.
-  EcvRegMap<EcvRegClass> bb_store_reg_map;
+  EcvRegMap<ERC> bb_store_reg_map;
 
   // llvm::Value ptr which explains the latest register.
-  EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> reg_latest_inst_map;
+  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> reg_latest_inst_map;
 
   // Save the written registers by semantic functions
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>>
       sema_call_written_reg_map;
   // Save the args registers by semantic functions (for debug)
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, EcvRegClass>>>
-      sema_func_args_reg_map;
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>> sema_func_args_reg_map;
   // Save the pc of semantics functions (for debug)
   std::unordered_map<llvm::CallInst *, uint64_t> sema_func_pc_map;
 
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>> post_update_regs;
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> post_update_regs;
 
   // Map the added instructions that can be refered later on and register
   // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, EcvRegClass>>
-      referred_able_added_inst_reg_map;
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> referred_able_added_inst_reg_map;
   // Map the register and added instructions.
   EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
 };

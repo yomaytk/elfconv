@@ -1,16 +1,26 @@
+#include "Memory.h"
 #include "Runtime.h"
 
 #include <cassert>
 #include <cstdarg>
 #include <iomanip>
 #include <iostream>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <sstream>
 #include <unordered_map>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
+
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
+#  define PCREG CPUState.gpr.pc.qword
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+#  define PCREG CPUState.gpr.rip.qword
+#else
+#  define PCREG 0
+#endif
 
 #define UNDEFINED_INTRINSICS(intrinsics) \
   printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
@@ -110,8 +120,7 @@ void __remill_function_return(State &state, addr_t fn_ret_vma, RuntimeManager *r
 
 void __remill_missing_block(State &, addr_t, RuntimeManager *runtime_manager) {
   std::cout << std::hex << std::setw(16) << std::setfill('0')
-            << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << g_state.gpr.pc.qword
-            << std::endl;
+            << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << PCREG << std::endl;
 }
 
 void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *runtime_manager) {}
@@ -140,7 +149,7 @@ void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: "
         "0x%08x\n",
-        fn_vma, state.gpr.pc.dword);
+        fn_vma, PCREG);
   }
 }
 
@@ -156,7 +165,7 @@ void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager)
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: "
         "0x%08x\n",
-        fn_vma, state.gpr.pc.dword);
+        fn_vma, PCREG);
   }
 }
 
@@ -209,7 +218,7 @@ extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t 
 // pop the callee symbol from the call stack for debug
 extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t fn_vma) {
   if (runtime_manager->call_stacks.empty()) {
-    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", g_state.gpr.pc.qword);
+    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", PCREG);
   } else {
     auto last_call_vma = runtime_manager->call_stacks.back();
     auto func_name = runtime_manager->addr_fn_symbol_map[last_call_vma];

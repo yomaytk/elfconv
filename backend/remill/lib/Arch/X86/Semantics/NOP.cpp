@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include "remill/Arch/X86/Runtime/X86Definitions.h"
+
 namespace {
 
 template <typename... Types>
-DEF_SEM(NOP_IMPL, Types...) {
-  return memory;
-}
+DEF_SEM_VOID(NOP_IMPL, Types...) {}
 
 }  // namespace
 

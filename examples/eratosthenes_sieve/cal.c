@@ -1,6 +1,7 @@
 #define SLENGTH 10000
 #define MAX_NUM 10000
 
+#if defined(__aarch64__)
 void write_stdout(char *str, unsigned long length) {
   __asm__ volatile("mov x2, x1;"  // x2 = length
                    "mov x1, x0;"  // x1 = str
@@ -11,6 +12,18 @@ void write_stdout(char *str, unsigned long length) {
                    : "r"(str), "r"(length)
                    : "x0", "x1", "x2", "x8");
 }
+#elif defined(__x86_64__)
+void write_stdout(char *str, unsigned long length) {
+  __asm__ volatile("movq %0, %%rsi;"  // rsi = str (pointer to buffer)
+                   "movq %1, %%rdx;"  // rdx = length
+                   "movq $1, %%rdi;"  // rdi = STDOUT (file descriptor)
+                   "movq $1, %%rax;"  // rax = syscall number for write
+                   "syscall;"  // make syscall
+                   :
+                   : "r"(str), "r"(length)
+                   : "rax", "rdi", "rsi", "rdx");
+}
+#endif
 
 int digit_num(int num) {
   int res = 0;
@@ -36,23 +49,6 @@ int mhex(int num) {
   }
   return res;
 }
-
-// void simple_cal_1() {
-//   char s[SLENGTH];
-//   for (int i = 0; i < 100; i++) {
-//     for (int j = i; j < 120; j += 2) {
-//       s[j] = 'a';
-//     }
-//   }
-//   int a = 10;
-//   for (int i = 0; i < 5; i++) {
-//     a *= 10;
-//     mhex(a);
-//   }
-//   s[119] = 'm';
-//   s[120] = '\n';
-//   write_stdout(s, SLENGTH);
-// }
 
 void prime_cal() {
 

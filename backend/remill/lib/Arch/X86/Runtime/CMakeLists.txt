@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.6)
 project(x86_runtime)
 
 set(X86RUNTIME_SOURCEFILES
-  # Instructions.cpp
+  Instructions.cpp
   BasicBlock.cpp
 
   "${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp"
@@ -32,7 +32,7 @@ function(add_runtime_helper target_name address_bit_size enable_avx enable_avx51
   if(WIN32)
     set(required_cpp_standard "c++14")
   else()
-    set(required_cpp_standard "c++11")
+    set(required_cpp_standard "c++20")
   endif()
 
   if (address_bit_size EQUAL 32)

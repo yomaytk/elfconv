@@ -17,12 +17,17 @@
 #include "InstructionLifter.h"
 
 #include "remill/Arch/Instruction.h"
+#include "remill/Arch/Name.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/InstructionLifter.h"
 
 #include <cstdint>
+#include <type_traits>
+
+extern remill::ArchName TARGET_ELF_ARCH;
 
 namespace remill {
+
 namespace {
 
 // Try to find the function that implements this semantics.
@@ -47,153 +52,255 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
+
+/*
+  AArch64 register methods.
+*/
 std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map = {};
 
-// get EcvRegClass from the register name.
-std::pair<EcvReg, EcvRegClass> EcvReg::GetRegInfo(const std::string &_reg_name) {
-  auto c0 = _reg_name[0];
-  auto c1 = _reg_name[1];
-  // vector type register (e.g. 16B8, 4S20, 2DF30)
-  if (std::isdigit(c0)) {
-    EcvRegClass res_ecv_reg_class;
-    uint32_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
-    auto corr_val = c0 - '0';
-    uint32_t reg_num;
-    if ('F' == _reg_name[reg_kind_str_off + 1]) /* e.g. 4SF, 2DF */ {
-      // float vector
-      res_ecv_reg_class =
-          static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] + 'F' - 'A' + corr_val);
-      reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
+// get ERC from the register name.
+std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    auto c0 = _reg_name[0];
+    auto c1 = _reg_name[1];
+    // vector type register (e.g. 16B8, 4S20, 2DF30)
+    if (std::isdigit(c0)) {
+      ERC res_ecv_reg_class;
+      uint32_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
+      auto corr_val = c0 - '0';
+      uint32_t reg_num;
+      if ('F' == _reg_name[reg_kind_str_off + 1]) /* e.g. 4SF, 2DF */ {
+        // float vector
+        res_ecv_reg_class =
+            static_cast<ERC>('V' + _reg_name[reg_kind_str_off] + 'F' - 'A' + corr_val);
+        reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
+      }
+      // integer vector
+      else {
+        res_ecv_reg_class = static_cast<ERC>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
+        reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
+      }
+      return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
     }
-    // integer vector
+    // general register
+    else if (std::isdigit(c1)) {
+      auto res_ecv_reg_class = static_cast<ERC>(c0 - 'A');
+      return std::make_pair(
+          EcvReg((ERC::RegW == res_ecv_reg_class || ERC::RegX == res_ecv_reg_class)
+                     ? RegKind::General
+                     : RegKind::Vector,
+                 static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
+          res_ecv_reg_class);
+    }
+    // system register
     else {
-      res_ecv_reg_class =
-          static_cast<EcvRegClass>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
-      reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
+      if ("SP" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), ERC::RegX);
+      } else if ("PC" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), ERC::RegX);
+      } else if ("STATE" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP);
+      } else if ("RUNTIME" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), ERC::RegP);
+      } else if ("BRANCH_TAKEN" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), ERC::RegX);
+      } else if ("ECV_NZCV" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), ERC::RegX);
+      } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), ERC::RegW);
+      } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), ERC::RegX);
+      } else if ("MONITOR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), ERC::RegX);
+      } else if ("WZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), ERC::RegW);
+      } else if ("XZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), ERC::RegX);
+      }
     }
-    return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
-  }
-  // general register
-  else if (std::isdigit(c1)) {
-    auto res_ecv_reg_class = static_cast<EcvRegClass>(c0 - 'A');
-    return std::make_pair(
-        EcvReg((EcvRegClass::RegW == res_ecv_reg_class || EcvRegClass::RegX == res_ecv_reg_class)
-                   ? RegKind::General
-                   : RegKind::Vector,
-               static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
-        res_ecv_reg_class);
-  }
-  // system register
-  else {
-    if ("SP" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), EcvRegClass::RegX);
-    } else if ("PC" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), EcvRegClass::RegX);
-    } else if ("STATE" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), EcvRegClass::RegP);
-    } else if ("RUNTIME" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), EcvRegClass::RegP);
-    } else if ("BRANCH_TAKEN" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), EcvRegClass::RegX);
-    } else if ("ECV_NZCV" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), EcvRegClass::RegX);
-    } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), EcvRegClass::RegW);
-    } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), EcvRegClass::RegX);
-    } else if ("MONITOR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), EcvRegClass::RegX);
-    } else if ("WZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), EcvRegClass::RegW);
-    } else if ("XZR" == _reg_name) {
-      return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), EcvRegClass::RegX);
-    }
-  }
 
-  LOG(FATAL) << "Unexpected register name at GetRegInfo. reg_name: " << _reg_name;
+    LOG(FATAL) << "Unexpected register name at GetRegInfo. reg_name: " << _reg_name;
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if ("RAX" == _reg_name) {
+      return {EcvReg(RegKind::General, 0), ERC::RegX};
+    } else if ("RDI" == _reg_name) {
+      return {EcvReg(RegKind::General, 7), ERC::RegX};
+    } else if ("RSI" == _reg_name) {
+      return {EcvReg(RegKind::General, 6), ERC::RegX};
+    } else if ("RIP" == _reg_name) {
+      return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
+    } else if ("RDX" == _reg_name) {
+      return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("STATE" == _reg_name) {
+      return {EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP};
+    } else if ("RUNTIME" == _reg_name) {
+      return {EcvReg(RegKind::Special, RUNTIME_ORDER), ERC::RegP};
+    } else if ("CSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, CSBASE_ORDER), ERC::RegX};
+    } else if ("SSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, SSBASE_ORDER), ERC::RegX};
+    } else if ("ESBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, ESBASE_ORDER), ERC::RegX};
+    } else if ("DSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
+    }
+  }
   std::terminate();
 }
 
-std::string EcvReg::GetWideRegName() const {
-  if (number <= 31) {
-    std::string reg_name;
-    switch (reg_kind) {
-      case RegKind::General: reg_name = "X"; break;
-      case RegKind::Vector: reg_name = "V"; break;
-      case RegKind::Special:
-      default: LOG(FATAL) << "[Bug]: number must be 31 or less at GetWideRegName."; break;
-    }
-    reg_name += std::to_string(number);
-    return reg_name;
-  } else if (SP_ORDER == number) {
-    return "SP";
-  } else if (PC_ORDER == number) {
-    return "PC";
-  } else if (STATE_ORDER == number) {
-    return "STATE";
-  } else if (RUNTIME_ORDER == number) {
-    return "RUNTIME";
-  } else if (BRANCH_TAKEN_ORDER == number) {
-    return "BRANCH_TAKEN";
-  } else if (ECV_NZCV_ORDER == number) {
-    return "ECV_NZCV";
-  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_WZR";
-  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_XZR";
-  } else if (MONITOR_ORDER == number) {
-    return "MONITOR";
-  } else if (WZR_ORDER == number) {
-    return "WZR";
-  } else if (XZR_ORDER == number) {
-    return "XZR";
+/*
+  static map between `ERC` and `register name`
+*/
+class amd64_er_hash1 {
+ public:
+  std::size_t operator()(const std::pair<uint32_t, ERC> &key) const {
+    return std::hash<uint32_t>()(key.first) ^
+           std::hash<uint32_t>()(std::underlying_type<ERC>::type(key.second) + 10000);
   }
+};
 
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWideRegName.";
-  return "";
+static std::unordered_map<ERC, std::string> AArch64EcvRegClassRegNameMap = {
+    {ERC::RegW, "W"},   {ERC::RegX, "X"},     {ERC::RegB, "B"},   {ERC::RegH, "H"},
+    {ERC::RegS, "S"},   {ERC::RegD, "D"},     {ERC::Reg8B, "8B"}, {ERC::Reg16B, "16B"},
+    {ERC::Reg4H, "4H"}, {ERC::Reg8H, "8H"},   {ERC::Reg2S, "2S"}, {ERC::Reg2SF, "2SF"},
+    {ERC::Reg4S, "4S"}, {ERC::Reg4SF, "4SF"}, {ERC::Reg1D, "1D"}, {ERC::Reg1DF, "1DF"},
+    {ERC::Reg2D, "2D"}, {ERC::Reg2DF, "2DF"}, {ERC::RegQ, "Q"},   {ERC::RegV, "V"}};
+
+static std::unordered_map<std::pair<uint32_t, ERC>, std::string, amd64_er_hash1>
+    AMD64EcvRegClassRegNameMap = {
+        {{0, ERC::RegX}, "RAX"},  {{1, ERC::RegX}, "RCX"},  {{2, ERC::RegX}, "RDX"},
+        {{3, ERC::RegX}, "RBX"},  {{4, ERC::RegX}, "RSP"},  {{5, ERC::RegX}, "RBP"},
+        {{6, ERC::RegX}, "RSI"},  {{7, ERC::RegX}, "RDI"},  {{8, ERC::RegX}, "R8"},
+        {{9, ERC::RegX}, "R9"},   {{10, ERC::RegX}, "R10"}, {{11, ERC::RegX}, "R11"},
+        {{12, ERC::RegX}, "R12"}, {{13, ERC::RegX}, "R13"}, {{14, ERC::RegX}, "R14"},
+        {{15, ERC::RegX}, "R15"}};
+
+std::string EcvReg::GetWideRegName() const {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    if (number <= 31) {
+      std::string reg_name;
+      switch (reg_kind) {
+        case RegKind::General: reg_name = "X"; break;
+        case RegKind::Vector: reg_name = "V"; break;
+        case RegKind::Special:
+        default: LOG(FATAL) << "[Bug]: number must be 31 or less at GetWideRegName."; break;
+      }
+      reg_name += std::to_string(number);
+      return reg_name;
+    } else if (SP_ORDER == number) {
+      return "SP";
+    } else if (PC_ORDER == number) {
+      return "PC";
+    } else if (STATE_ORDER == number) {
+      return "STATE";
+    } else if (RUNTIME_ORDER == number) {
+      return "RUNTIME";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (ECV_NZCV_ORDER == number) {
+      return "ECV_NZCV";
+    } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_WZR";
+    } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_XZR";
+    } else if (MONITOR_ORDER == number) {
+      return "MONITOR";
+    } else if (WZR_ORDER == number) {
+      return "WZR";
+    } else if (XZR_ORDER == number) {
+      return "XZR";
+    } else {
+      LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWideRegName.";
+    }
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if (0 == number) {
+      return "RAX";
+    } else if (2 == number) {
+      return "RDX";
+    } else if (6 == number) {
+      return "RSI";
+    } else if (7 == number) {
+      return "RDI";
+    } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
+      return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+    }
+  }
+  std::terminate();
 }
 
-std::string EcvReg::GetRegName(EcvRegClass ecv_reg_class) const {
-  static std::unordered_map<EcvRegClass, std::string> EcvRegClassRegNameMap = {
-      {EcvRegClass::RegW, "W"},     {EcvRegClass::RegX, "X"},     {EcvRegClass::RegB, "B"},
-      {EcvRegClass::RegH, "H"},     {EcvRegClass::RegS, "S"},     {EcvRegClass::RegD, "D"},
-      {EcvRegClass::Reg8B, "8B"},   {EcvRegClass::Reg16B, "16B"}, {EcvRegClass::Reg4H, "4H"},
-      {EcvRegClass::Reg8H, "8H"},   {EcvRegClass::Reg2S, "2S"},   {EcvRegClass::Reg2SF, "2SF"},
-      {EcvRegClass::Reg4S, "4S"},   {EcvRegClass::Reg4SF, "4SF"}, {EcvRegClass::Reg1D, "1D"},
-      {EcvRegClass::Reg1DF, "1DF"}, {EcvRegClass::Reg2D, "2D"},   {EcvRegClass::Reg2DF, "2DF"},
-      {EcvRegClass::RegQ, "Q"},     {EcvRegClass::RegV, "V"}};
-  // General or Vector register.
-  if (number <= 31) {
-    auto reg_name = EcvRegClassRegNameMap[ecv_reg_class];
-    reg_name += std::to_string(number);
-    return reg_name;
-  }
-  // RegKind::Special register.
-  else if (SP_ORDER == number) {
-    return "SP";
-  } else if (PC_ORDER == number) {
-    return "PC";
-  } else if (STATE_ORDER == number) {
-    return "STATE";
-  } else if (RUNTIME_ORDER == number) {
-    return "RUNTIME";
-  } else if (BRANCH_TAKEN_ORDER == number) {
-    return "BRANCH_TAKEN";
-  } else if (ECV_NZCV_ORDER == number) {
-    return "ECV_NZCV";
-  } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_WZR";
-  } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
-    return "IGNORE_WRITE_TO_XZR";
-  } else if (MONITOR_ORDER == number) {
-    return "MONITOR";
-  } else if (WZR_ORDER == number) {
-    return "WZR";
-  } else if (XZR_ORDER == number) {
-    return "XZR";
-  }
+std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    // General or Vector register.
+    if (number <= 31) {
+      auto reg_name = AArch64EcvRegClassRegNameMap[ecv_reg_class];
+      reg_name += std::to_string(number);
+      return reg_name;
+    }
+    // RegKind::Special register.
+    else if (SP_ORDER == number) {
+      return "SP";
+    } else if (PC_ORDER == number) {
+      return "PC";
+    } else if (STATE_ORDER == number) {
+      return "STATE";
+    } else if (RUNTIME_ORDER == number) {
+      return "RUNTIME";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (ECV_NZCV_ORDER == number) {
+      return "ECV_NZCV";
+    } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_WZR";
+    } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_XZR";
+    } else if (MONITOR_ORDER == number) {
+      return "MONITOR";
+    } else if (WZR_ORDER == number) {
+      return "WZR";
+    } else if (XZR_ORDER == number) {
+      return "XZR";
+    }
 
-  LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
+    LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if (0 == number) {
+      return "RAX";
+    } else if (2 == number) {
+      return "RDX";
+    } else if (6 == number) {
+      return "RSI";
+    } else if (7 == number) {
+      return "RDI";
+    } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
+      return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+    }
+  }
   return "";
 }
 
@@ -205,60 +312,60 @@ bool EcvReg::CheckPassedReturnRegs() const {
   return (0 <= number && number <= 1) || SP_ORDER == number;
 }
 
-std::string EcvRegClass2String(EcvRegClass ecv_reg_class) {
+std::string EcvRegClass2String(ERC ecv_reg_class) {
   switch (ecv_reg_class) {
-    case EcvRegClass::RegW: return "RegW"; break;
-    case EcvRegClass::RegX: return "RegX"; break;
-    case EcvRegClass::RegB: return "RegB"; break;
-    case EcvRegClass::RegH: return "RegH"; break;
-    case EcvRegClass::RegS: return "RegS"; break;
-    case EcvRegClass::RegD: return "RegD"; break;
-    case EcvRegClass::RegQ: return "RegQ"; break;
-    case EcvRegClass::RegV: return "RegV"; break;
-    case EcvRegClass::Reg8B: return "Reg8B"; break;
-    case EcvRegClass::Reg16B: return "Reg16B"; break;
-    case EcvRegClass::Reg4H: return "Reg4H"; break;
-    case EcvRegClass::Reg8H: return "Reg8H"; break;
-    case EcvRegClass::Reg2S: return "Reg2S"; break;
-    case EcvRegClass::Reg2SF: return "Reg2SF"; break;
-    case EcvRegClass::Reg4S: return "Reg4S"; break;
-    case EcvRegClass::Reg4SF: return "Reg4SF"; break;
-    case EcvRegClass::Reg1D: return "Reg1D"; break;
-    case EcvRegClass::Reg1DF: return "Reg1DF"; break;
-    case EcvRegClass::Reg2D: return "Reg2D"; break;
-    case EcvRegClass::Reg2DF: return "Reg2DF"; break;
-    case EcvRegClass::RegP: return "RegP"; break;
-    case EcvRegClass::RegNULL: return "RegNULL"; break;
+    case ERC::RegW: return "RegW"; break;
+    case ERC::RegX: return "RegX"; break;
+    case ERC::RegB: return "RegB"; break;
+    case ERC::RegH: return "RegH"; break;
+    case ERC::RegS: return "RegS"; break;
+    case ERC::RegD: return "RegD"; break;
+    case ERC::RegQ: return "RegQ"; break;
+    case ERC::RegV: return "RegV"; break;
+    case ERC::Reg8B: return "Reg8B"; break;
+    case ERC::Reg16B: return "Reg16B"; break;
+    case ERC::Reg4H: return "Reg4H"; break;
+    case ERC::Reg8H: return "Reg8H"; break;
+    case ERC::Reg2S: return "Reg2S"; break;
+    case ERC::Reg2SF: return "Reg2SF"; break;
+    case ERC::Reg4S: return "Reg4S"; break;
+    case ERC::Reg4SF: return "Reg4SF"; break;
+    case ERC::Reg1D: return "Reg1D"; break;
+    case ERC::Reg1DF: return "Reg1DF"; break;
+    case ERC::Reg2D: return "Reg2D"; break;
+    case ERC::Reg2DF: return "Reg2DF"; break;
+    case ERC::RegP: return "RegP"; break;
+    case ERC::RegNULL: return "RegNULL"; break;
     default: break;
   }
 }
 
-uint64_t GetRegClassSize(EcvRegClass ecv_reg_class) {
+uint64_t GetRegClassSize(ERC ecv_reg_class) {
   switch (ecv_reg_class) {
-    case EcvRegClass::RegB: return 8;
-    case EcvRegClass::RegH: return 16;
-    case EcvRegClass::RegW:
-    case EcvRegClass::RegS: return 32;
-    case EcvRegClass::RegX:
-    case EcvRegClass::RegP:
-    case EcvRegClass::RegD:
-    case EcvRegClass::Reg8B:
-    case EcvRegClass::Reg4H:
-    case EcvRegClass::Reg2S:
-    case EcvRegClass::Reg2SF:
-    case EcvRegClass::Reg1D:
-    case EcvRegClass::Reg1DF: return 64;
-    case EcvRegClass::RegQ:
-    case EcvRegClass::RegV:
-    case EcvRegClass::Reg16B:
-    case EcvRegClass::Reg8H:
-    case EcvRegClass::Reg4S:
-    case EcvRegClass::Reg4SF:
-    case EcvRegClass::Reg2D:
-    case EcvRegClass::Reg2DF: return 128;
+    case ERC::RegB: return 8;
+    case ERC::RegH: return 16;
+    case ERC::RegW:
+    case ERC::RegS: return 32;
+    case ERC::RegX:
+    case ERC::RegP:
+    case ERC::RegD:
+    case ERC::Reg8B:
+    case ERC::Reg4H:
+    case ERC::Reg2S:
+    case ERC::Reg2SF:
+    case ERC::Reg1D:
+    case ERC::Reg1DF: return 64;
+    case ERC::RegQ:
+    case ERC::RegV:
+    case ERC::Reg16B:
+    case ERC::Reg8H:
+    case ERC::Reg4S:
+    case ERC::Reg4SF:
+    case ERC::Reg2D:
+    case ERC::Reg2DF: return 128;
     default:
       LOG(FATAL) << "Unexpected reg class: "
-                 << static_cast<std::underlying_type<EcvRegClass>::type>(ecv_reg_class);
+                 << static_cast<std::underlying_type<ERC>::type>(ecv_reg_class);
   }
 }
 
@@ -266,11 +373,11 @@ BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
                              llvm::Value *runtime_val) {
   for (auto &arg : func->args()) {
     if (arg.getName().str() == "state") {
-      reg_latest_inst_map.insert({EcvReg(RegKind::Special, STATE_ORDER),
-                                  std::make_tuple(EcvRegClass::RegP, state_val, 0)});
+      reg_latest_inst_map.insert(
+          {EcvReg(RegKind::Special, STATE_ORDER), std::make_tuple(ERC::RegP, state_val, 0)});
     } else if (arg.getName().str() == "runtime_manager") {
-      reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
-                                  std::make_tuple(EcvRegClass::RegP, runtime_val, 0)});
+      reg_latest_inst_map.insert(
+          {EcvReg(RegKind::Special, RUNTIME_ORDER), std::make_tuple(ERC::RegP, runtime_val, 0)});
     }
   }
   CHECK(reg_latest_inst_map.size() == 2)
@@ -293,8 +400,8 @@ void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
     if (!reg_latest_inst_map.contains(_ecv_reg)) {
       reg_latest_inst_map.insert({_ecv_reg, reg_inst_value});
     } else if (child->bb_store_reg_map.contains(_ecv_reg) ||
-               GetRegClassSize(std::get<EcvRegClass>(reg_latest_inst_map.at(_ecv_reg))) <=
-                   GetRegClassSize(std::get<EcvRegClass>(reg_inst_value))) {
+               GetRegClassSize(std::get<ERC>(reg_latest_inst_map.at(_ecv_reg))) <=
+                   GetRegClassSize(std::get<ERC>(reg_inst_value))) {
       reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
     }
   }
@@ -343,46 +450,34 @@ LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBl
                        bb_reg_info_node, is_delayed);
 }
 
-llvm::Type *get_llvm_type(llvm::LLVMContext &context, EcvRegClass ecv_reg_class) {
+llvm::Type *get_llvm_type(llvm::LLVMContext &context, ERC ecv_reg_class) {
   switch (ecv_reg_class) {
-    case EcvRegClass::RegW: return llvm::Type::getInt32Ty(context);
-    case EcvRegClass::RegX: return llvm::Type::getInt64Ty(context);
-    case EcvRegClass::RegB: return llvm::Type::getInt8Ty(context);
-    case EcvRegClass::RegH: return llvm::Type::getInt16Ty(context);
-    case EcvRegClass::RegS: return llvm::Type::getFloatTy(context);
-    case EcvRegClass::RegD: return llvm::Type::getDoubleTy(context);
-    case EcvRegClass::RegQ: return llvm::Type::getInt128Ty(context);
-    case EcvRegClass::RegV:
-      return llvm::VectorType::get(llvm::Type::getInt128Ty(context), 1, false);
-    case EcvRegClass::Reg8B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false);
-    case EcvRegClass::Reg16B:
-      return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false);
-    case EcvRegClass::Reg4H:
-      return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false);
-    case EcvRegClass::Reg8H:
-      return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false);
-    case EcvRegClass::Reg2S:
-      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false);
-    case EcvRegClass::Reg2SF:
-      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false);
-    case EcvRegClass::Reg4S:
-      return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false);
-    case EcvRegClass::Reg4SF:
-      return llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false);
-    case EcvRegClass::Reg1D:
-      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false);
-    case EcvRegClass::Reg1DF:
-      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false);
-    case EcvRegClass::Reg2D:
-      return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false);
-    case EcvRegClass::Reg2DF:
-      return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false);
-    case EcvRegClass::RegP: return llvm::Type::getInt64PtrTy(context);
+    case ERC::RegW: return llvm::Type::getInt32Ty(context);
+    case ERC::RegX: return llvm::Type::getInt64Ty(context);
+    case ERC::RegB: return llvm::Type::getInt8Ty(context);
+    case ERC::RegH: return llvm::Type::getInt16Ty(context);
+    case ERC::RegS: return llvm::Type::getFloatTy(context);
+    case ERC::RegD: return llvm::Type::getDoubleTy(context);
+    case ERC::RegQ: return llvm::Type::getInt128Ty(context);
+    case ERC::RegV: return llvm::VectorType::get(llvm::Type::getInt128Ty(context), 1, false);
+    case ERC::Reg8B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false);
+    case ERC::Reg16B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false);
+    case ERC::Reg4H: return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false);
+    case ERC::Reg8H: return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false);
+    case ERC::Reg2S: return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false);
+    case ERC::Reg2SF: return llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false);
+    case ERC::Reg4S: return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false);
+    case ERC::Reg4SF: return llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false);
+    case ERC::Reg1D: return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false);
+    case ERC::Reg1DF: return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false);
+    case ERC::Reg2D: return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false);
+    case ERC::Reg2DF: return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false);
+    case ERC::RegP: return llvm::Type::getInt64PtrTy(context);
     default: break;
   }
 
   LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualRegsOpt::get_llvm_type. ecv_reg_class: "
-             << std::underlying_type<EcvRegClass>::type(ecv_reg_class) << "\n";
+             << std::underlying_type<ERC>::type(ecv_reg_class) << "\n";
   return nullptr;
 }
 
@@ -468,7 +563,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto &load_reg_map = bb_reg_info_node->bb_load_reg_map;
   auto &store_reg_map = bb_reg_info_node->bb_store_reg_map;
 
-  std::vector<std::pair<EcvReg, EcvRegClass>> sema_func_args_regs;
+  std::vector<std::pair<EcvReg, ERC>> sema_func_args_regs;
 
   auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
 
@@ -496,7 +591,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
   }
 
-  std::vector<std::pair<EcvReg, EcvRegClass>> write_regs;
+  std::vector<std::pair<EcvReg, ERC>> write_regs;
 
   // treats the every arguments for the semantics function.
   for (auto &op : arch_inst.operands) {
@@ -520,8 +615,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       t_reg = NULL;
     }
 
-    auto [e_r, e_r_c] =
-        t_reg ? EcvReg::GetRegInfo(t_reg->name) : std::make_pair(EcvReg(), EcvRegClass::RegNULL);
+    auto [e_r, e_r_c] = t_reg ? EcvReg::GetRegInfo(t_reg->name)
+                              : std::make_pair(EcvReg(RegKind(-1), -1), ERC::RegNULL);
 
     if (t_reg) {
       if (Operand::Action::kActionWrite == op.action) {
@@ -539,7 +634,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         if (31 != t_reg->number || "SP" == t_reg->name) {
           load_reg_map.insert({e_r, e_r_c});
         } else {
-          e_r_c = EcvRegClass::RegNULL;
+          e_r_c = ERC::RegNULL;
         }
       } else {
         LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";

@@ -634,7 +634,7 @@ using paths_t = std::vector<std::filesystem::path>;
 
 const paths_t &DefaultSemanticsSearchPaths() {
   static const paths_t paths = {
-      // REMILL_BUILD_SEMANTICS_DIR_X86,
+      REMILL_BUILD_SEMANTICS_DIR_X86,
       // REMILL_BUILD_SEMANTICS_DIR_AARCH32,
       REMILL_BUILD_SEMANTICS_DIR_AARCH64,
       // REMILL_BUILD_SEMANTICS_DIR_SPARC32,

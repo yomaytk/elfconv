@@ -32,7 +32,7 @@ function(add_runtime_helper target_name little_endian)
   if(WIN32)
     set(required_cpp_standard "c++14")
   else()
-    set(required_cpp_standard "c++17")
+    set(required_cpp_standard "c++20")
   endif()
 
   # necessary to build code as 32-bit
