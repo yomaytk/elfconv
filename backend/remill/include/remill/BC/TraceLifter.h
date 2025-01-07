@@ -107,10 +107,9 @@ class TraceManager {
 
 class PhiRegsBBBagNode {
  public:
-  PhiRegsBBBagNode(EcvRegMap<EcvRegClass> __preceding_load_reg_map,
-                   EcvRegMap<EcvRegClass> __succeeding_load_reg_map,
-                   EcvRegMap<EcvRegClass> &&__within_store_reg_map,
-                   std::set<llvm::BasicBlock *> &&__in_bbs)
+  PhiRegsBBBagNode(EcvRegMap<ERC> __preceding_load_reg_map,
+                   EcvRegMap<ERC> __succeeding_load_reg_map,
+                   EcvRegMap<ERC> &&__within_store_reg_map, std::set<llvm::BasicBlock *> &&__in_bbs)
       : bag_preceding_load_reg_map(__preceding_load_reg_map),
         bag_succeeding_load_reg_map(__succeeding_load_reg_map),
         bag_preceding_store_reg_map(std::move(__within_store_reg_map)),
@@ -143,14 +142,14 @@ class PhiRegsBBBagNode {
   static void DebugGraphStruct(PhiRegsBBBagNode *target_bag);
 
   // The regsiter set which may be loaded on the way to the basic blocks of this bag node (include the own block).
-  EcvRegMap<EcvRegClass> bag_preceding_load_reg_map;
+  EcvRegMap<ERC> bag_preceding_load_reg_map;
   // The register set which may be loaded on the succeeding block (includes the own block).
-  EcvRegMap<EcvRegClass> bag_succeeding_load_reg_map;
+  EcvRegMap<ERC> bag_succeeding_load_reg_map;
 
   // The register set which is stored in the way to the bag node (includes the own block) (required).
-  EcvRegMap<EcvRegClass> bag_preceding_store_reg_map;
+  EcvRegMap<ERC> bag_preceding_store_reg_map;
   // bag_preceding_store_reg_map + (bag_preceding_load_reg_map & bag_succeeding_load_reg_map)
-  EcvRegMap<EcvRegClass> bag_req_reg_map;
+  EcvRegMap<ERC> bag_req_reg_map;
 
   // The basic block set which is included in this bag.
   std::set<llvm::BasicBlock *> in_bbs;
@@ -193,59 +192,20 @@ class TraceLifter {
 
 class VirtualRegsOpt {
  public:
-  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma)
-      : func(__func),
-        impl(__impl),
-        relay_bb_cache({}),
-        phi_val_order(0),
-        fun_vma(__fun_vma) {
-    arg_state_val = NULL;
-    arg_runtime_val = NULL;
-    // only declared function.
-    if (func->getName().str() == "__remill_function_call") {
-      auto args = func->args().begin();
-      for (size_t i = 0; i < func->arg_size(); i++) {
-        if (0 == i) {
-          CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
-          arg_state_val = &args[i];
-        } else if (2 == i) {
-          CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
-          arg_runtime_val = &args[i];
-        }
-      }
-    }
-    // lifted function.
-    else {
-      for (auto &arg : func->args()) {
-        if (arg.getName() == "state") {
-          arg_state_val = &arg;
-        } else if (arg.getName() == "runtime_manager") {
-          arg_runtime_val = &arg;
-        }
-      }
-    }
-    CHECK(arg_state_val)
-        << "[Bug] state arg is empty at the initialization of VirtualRegsOpt. target func: "
-        << func->getName().str();
-    CHECK(arg_runtime_val)
-        << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt. target func: "
-        << func->getName().str();
-  }
-  VirtualRegsOpt() {}
-  ~VirtualRegsOpt() {}
+  VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma);
 
-  llvm::Type *GetLLVMTypeFromRegZ(EcvRegClass ecv_reg_class);
-  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg *);
-  EcvRegClass GetRegClassFromLLVMType(llvm::Type *value_type);
+  llvm::Type *GetLLVMTypeFromRegZ(ERC ecv_reg_class);
+  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
+  ERC GetRegClassFromLLVMType(llvm::Type *value_type);
   llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
-                                          std::pair<EcvReg *, EcvRegClass> ecv_reg_info);
-  llvm::Value *CastFromInst(EcvReg *target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
+                                          std::pair<EcvReg, ERC> ecv_reg_info);
+  llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
                             llvm::Instruction *inst_at_before);
 
   llvm::Value *
-  GetRegValueFromCacheMap(EcvReg *target_ecv_reg, llvm::Type *to_type,
+  GetRegValueFromCacheMap(EcvReg target_ecv_reg, llvm::Type *to_type,
                           llvm::Instruction *inst_at_before,
-                          EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &cache_map);
+                          EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &cache_map);
 
   void AnalyzeRegsBags();
   static void CalPassedCallerRegForBJump();
@@ -274,8 +234,8 @@ class VirtualRegsOpt {
   uint64_t phi_val_order;
 
   std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
-  EcvRegMap<EcvRegClass> passed_caller_reg_map;
-  EcvRegMap<EcvRegClass> passed_callee_ret_reg_map;
+  EcvRegMap<ERC> passed_caller_reg_map;
+  EcvRegMap<ERC> passed_callee_ret_reg_map;
 
   std::set<llvm::ReturnInst *> ret_inst_set;
 
@@ -284,13 +244,12 @@ class VirtualRegsOpt {
   uint64_t block_num;
   std::string func_name;
   // map llvm::Value* and the corresponding CPU register.
-  std::unordered_map<llvm::Value *, std::pair<EcvReg *, EcvRegClass>> value_reg_map;
-  std::set<EcvReg *> debug_reg_set = {};
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> value_reg_map;
+  std::set<EcvReg> debug_reg_set = {};
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
-      EcvRegMap<std::tuple<EcvRegClass, llvm::Value *, uint32_t>> &ascend_reg_inst_map,
-      uint64_t pc);
+      EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &ascend_reg_inst_map, uint64_t pc);
 };
 
 class TraceLifter::Impl {
@@ -412,8 +371,7 @@ class TraceLifter::Impl {
   std::set<llvm::Function *> no_indirect_lifted_funcs;
   std::set<llvm::Function *> lifted_funcs;
 
-  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg *, EcvRegClass>>>
-      sema_func_args_regs_map;
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>> sema_func_args_regs_map;
 
   std::string runtime_manager_name;
 
