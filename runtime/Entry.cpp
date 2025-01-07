@@ -7,21 +7,20 @@
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
-
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
-State g_state = State();
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
-State g_state = State();
 #endif
+
+State CPUState = State();
 
 int main(int argc, char *argv[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
 
   /* allocate Stack */
-  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, &g_state);
+  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, CPUState);
   /* allocate Heap */
   auto mapped_heap = MappedMemory::VMAHeapEntryInit();
   /* allocate every sections */
@@ -36,13 +35,15 @@ int main(int argc, char *argv[]) {
         static_cast<size_t>(__g_data_sec_size_array[i]), __g_data_sec_bytes_ptr_array[i],
         __g_data_sec_bytes_ptr_array[i] + __g_data_sec_size_array[i], false));
   }
+#if defined(ELF_IS_AARCH64)
   /* set program counter */
-  g_state.gpr.pc = {.qword = __g_entry_pc};
+  CPUState.gpr.pc = {.qword = __g_entry_pc};
   /* set system register (FIXME) */
-  g_state.sr.tpidr_el0 = {.qword = 0};
-  g_state.sr.midr_el1 = {.qword = 0xf0510};
-  g_state.sr.ctr_el0 = {.qword = 0x80038003};
-  g_state.sr.dczid_el0 = {.qword = 0x4};
+  CPUState.sr.tpidr_el0 = {.qword = 0};
+  CPUState.sr.midr_el1 = {.qword = 0xf0510};
+  CPUState.sr.ctr_el0 = {.qword = 0x80038003};
+  CPUState.sr.dczid_el0 = {.qword = 0x4};
+#endif
   /* set RuntimeManager */
   auto runtime_manager = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
   runtime_manager->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
@@ -68,7 +69,7 @@ int main(int argc, char *argv[]) {
     runtime_manager->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
   }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
-  __g_entry_func(&g_state, __g_entry_pc, runtime_manager);
+  __g_entry_func(&CPUState, __g_entry_pc, runtime_manager);
 
   delete (runtime_manager);
 

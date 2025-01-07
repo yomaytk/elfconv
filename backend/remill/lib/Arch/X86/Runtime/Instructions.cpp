@@ -201,7 +201,7 @@ DEF_HELPER(SquareRoot32, float32_t src_float)->float32_t {
 }  // namespace
 
 // clang-format off
-// #include "lib/Arch/X86/Semantics/FLAGS.cpp"
+#include "lib/Arch/X86/Semantics/FLAGS.cpp"
 
 // #include "lib/Arch/X86/Semantics/AVX.cpp"
 // #include "lib/Arch/X86/Semantics/BINARY.cpp"
@@ -216,8 +216,8 @@ DEF_HELPER(SquareRoot32, float32_t src_float)->float32_t {
 // #include "lib/Arch/X86/Semantics/FMA.cpp"
 // #include "lib/Arch/X86/Semantics/INTERRUPT.cpp"
 // #include "lib/Arch/X86/Semantics/IO.cpp"
-// #include "lib/Arch/X86/Semantics/LOGICAL.cpp"
-// #include "lib/Arch/X86/Semantics/MISC.cpp"
+#include "lib/Arch/X86/Semantics/LOGICAL.cpp"
+#include "lib/Arch/X86/Semantics/MISC.cpp"
 // #include "lib/Arch/X86/Semantics/MMX.cpp"
 #include "lib/Arch/X86/Semantics/NOP.cpp"
 // #include "lib/Arch/X86/Semantics/POP.cpp"
@@ -229,7 +229,7 @@ DEF_HELPER(SquareRoot32, float32_t src_float)->float32_t {
 // #include "lib/Arch/X86/Semantics/SHIFT.cpp"
 // #include "lib/Arch/X86/Semantics/SSE.cpp"
 // #include "lib/Arch/X86/Semantics/STRINGOP.cpp"
-// #include "lib/Arch/X86/Semantics/SYSCALL.cpp"
+#include "lib/Arch/X86/Semantics/SYSCALL.cpp"
 // #include "lib/Arch/X86/Semantics/SYSTEM.cpp"
 // #include "lib/Arch/X86/Semantics/UNCOND_BR.cpp"
 // #include "lib/Arch/X86/Semantics/X87.cpp"

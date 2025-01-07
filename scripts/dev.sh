@@ -61,12 +61,12 @@ lifting() {
   elf_path=$( realpath "$1" )
   
   wasi32_target_arch=''
-  if [ "$TARGET" = "-wasi32" ]; then
+  if [ "$TARGET" = "*-wasi32" ]; then
     wasi32_target_arch='wasi32'
   fi
   
     ${BUILD_LIFTER_DIR}/elflift \
-    --arch aarch64 \
+    --arch amd64 \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
     --dbg_fun_cfg "$2" \
@@ -92,6 +92,7 @@ main() {
 
   # ELF -> LLVM bc
   if [ -z "$NOT_LIFTED" ]; then
+    arch_name=${TARGET%%-*}
     lifting "$1" "$2"
   fi
 

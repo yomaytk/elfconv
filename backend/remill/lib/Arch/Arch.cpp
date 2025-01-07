@@ -434,7 +434,8 @@ namespace {
 static bool BlockHasSpecialVars(llvm::Function *basic_block) {
   return FindVarInFunction(basic_block, kStateVariableName, true).first &&
          FindVarInFunction(basic_block, kRuntimeVariableName, true).first &&
-         FindVarInFunction(basic_block, kPCVariableName, true).first &&
+         (FindVarInFunction(basic_block, kPCVariableName, true).first ||
+          FindVarInFunction(basic_block, kRIPVariableName, true).first) &&
          FindVarInFunction(basic_block, kBranchTakenVariableName, true).first;
 }
 

@@ -509,11 +509,8 @@ void X86ArchBase::FinishLiftedFunctionInitialization(llvm::Module *module,
   const auto entry_block = &bb_func->getEntryBlock();
   llvm::IRBuilder<> ir(entry_block);
 
-  const auto pc_arg = NthArgument(bb_func, kPCArgNum);
   const auto state_ptr_arg = NthArgument(bb_func, kStatePointerArgNum);
-  ir.CreateStore(pc_arg, ir.CreateAlloca(addr, nullptr, "NEXT_PC"));
-
-  (void) this->RegisterByName("PC")->AddressOf(state_ptr_arg, ir);
+  (void) this->RegisterByName(kRIPVariableName)->AddressOf(state_ptr_arg, ir);
 
   if (64 == address_size) {
     ir.CreateStore(zero_addr_val, ir.CreateAlloca(addr, nullptr, "CSBASE"));

@@ -21,7 +21,7 @@ extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manage
   __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 
-DEF_SEM_VOID_STATE_RUN(Breakpoint, I32 imm) {
+DEF_SEM_VOID_STATE_RUN(BREAKPOINT, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
   __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
 }
@@ -106,7 +106,7 @@ DEF_SEM_VOID_RUN(DataMemoryBarrier) {
 }  // namespace
 
 DEF_ISEL(SVC_EX_EXCEPTION) = emulate_system_call;  // SVC  #<imm>
-DEF_ISEL(BRK_EX_EXCEPTION) = Breakpoint;  // BRK  #<imm>
+DEF_ISEL(BRK_EX_EXCEPTION) = BREAKPOINT;  // BRK  #<imm>
 
 DEF_ISEL(MRS_RS_SYSTEM_FPSR) =
     DoMRS_RS_SYSTEM_FPSR;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)

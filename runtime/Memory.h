@@ -2,12 +2,17 @@
 
 #include <cstring>
 #include <map>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Types.h>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+#endif
 
 const addr_t STACK_START_VMA = 0x0fff'ff00'0000'0000; /* 65535 TiB FIXME! */
 const size_t STACK_SIZE = 1 * 1024 * 1024; /* 4 MiB */
@@ -19,7 +24,7 @@ typedef uint64_t _ecv_reg64_t;
 
 extern "C" {
 /* State machine which represents all CPU registers */
-extern State g_state;
+extern State CPUState;
 /* Lifted entry function address */
 extern const LiftedFunc __g_entry_func;
 /* entry point of the original ELF */
@@ -80,7 +85,7 @@ class MappedMemory {
   }
 
   static MappedMemory *VMAStackEntryInit(int argc, char *argv[],
-                                         State *state /* start stack pointer */);
+                                         State &state /* start stack pointer */);
   static MappedMemory *VMAHeapEntryInit();
   void DebugEmulatedMemory();
 

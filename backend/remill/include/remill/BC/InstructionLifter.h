@@ -102,7 +102,11 @@ class OperandLifter {
 #define XZR_ORDER 42  // Actually, not used
 
 // x86-64 special registers
-#define RIP_ORDER 33
+#define RIP_ORDER 133
+#define CSBASE_ORDER 134
+#define SSBASE_ORDER 135
+#define ESBASE_ORDER 136
+#define DSBASE_ORDER 137
 
 enum class ERC : uint32_t {
   RegW = 'W' - 'A',  // 22

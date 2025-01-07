@@ -131,6 +131,18 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
     } else if ("RDX" == _reg_name) {
       return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("STATE" == _reg_name) {
+      return {EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP};
+    } else if ("RUNTIME" == _reg_name) {
+      return {EcvReg(RegKind::Special, RUNTIME_ORDER), ERC::RegP};
+    } else if ("CSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, CSBASE_ORDER), ERC::RegX};
+    } else if ("SSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, SSBASE_ORDER), ERC::RegX};
+    } else if ("ESBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, ESBASE_ORDER), ERC::RegX};
+    } else if ("DSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
     } else {
       LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
     }
@@ -212,7 +224,17 @@ std::string EcvReg::GetWideRegName() const {
     } else if (7 == number) {
       return "RDI";
     } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
       return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -264,7 +286,17 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
     } else if (7 == number) {
       return "RDI";
     } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
       return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }

@@ -30,6 +30,8 @@
 #include <set>
 #include <sstream>
 
+extern remill::ArchName TARGET_ELF_ARCH;
+
 namespace remill {
 
 
@@ -2104,9 +2106,19 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           else if (call_inst->getCalledFunction()->getName().str() == "emulate_system_call") {
             // Store target: x0 ~ x5, x8
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-              if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
-                  !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
-                continue;
+              if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+                if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
+                    !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
+                  continue;
+                }
+              } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+                if (!(within_store_ecv_reg.number == 2 || within_store_ecv_reg.number == 6 ||
+                      within_store_ecv_reg.number == 7 || within_store_ecv_reg.number == 8 ||
+                      within_store_ecv_reg.number == 9 || within_store_ecv_reg.number == 10 ||
+                      within_store_ecv_reg.number == 0) ||
+                    !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
+                  continue;
+                }
               }
               auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
               inst_lifter->StoreRegValueBeforeInst(
@@ -2119,9 +2131,19 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Store target: x0 ~ x5, x8
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                  target_phi_regs_bag->bag_preceding_store_reg_map) {
-              if (!(preceding_store_ecv_reg.number < 6 || preceding_store_ecv_reg.number == 8) ||
-                  target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
-                continue;
+              if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+                if (!(preceding_store_ecv_reg.number < 6 || preceding_store_ecv_reg.number == 8) ||
+                    target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
+                  continue;
+                }
+              } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+                if (!(preceding_store_ecv_reg.number == 2 || preceding_store_ecv_reg.number == 6 ||
+                      preceding_store_ecv_reg.number == 7 || preceding_store_ecv_reg.number == 8 ||
+                      preceding_store_ecv_reg.number == 9 || preceding_store_ecv_reg.number == 10 ||
+                      preceding_store_ecv_reg.number == 0) ||
+                    target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
+                  continue;
+                }
               }
               inst_lifter->StoreRegValueBeforeInst(
                   target_bb, state_ptr,

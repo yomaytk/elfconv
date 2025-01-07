@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "remill/BC/Util.h"
 #if defined(__linux__)
 #  include <signal.h>
 #  include <utils/Util.h>
