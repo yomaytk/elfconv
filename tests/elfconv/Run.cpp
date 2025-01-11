@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include <gtest/internal/gtest-port.h>
-#include <iostream>
 #include <stdlib.h>
 #include <string>
 #include <utils/Util.h>
@@ -110,7 +109,7 @@ std::string exec_wasm(WASI_RUNTIME wasi_runtime) {
 
 void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNTIME wasi_runtime) {
   // binary lifting
-  binary_lifting(("../../../examples/" + std::string(program) + "/a.out").c_str());
+  binary_lifting(("../../../examples/" + std::string(program) + "/a.aarch64").c_str());
   // generate wasm
   gen_wasm_for_wasi_runtimes();
   // execute wasm
