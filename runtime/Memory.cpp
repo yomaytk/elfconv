@@ -6,9 +6,9 @@
 #include <utils/elfconv.h>
 
 #if defined(ELF_IS_AARCH64)
-#  define SPREG state.gpr.pc.qword
+#  define SPREG state.gpr.sp.qword
 #elif defined(ELF_IS_AMD64)
-#  define SPREG state.gpr.rip.qword
+#  define SPREG state.gpr.rsp.qword
 #endif
 
 /*
@@ -46,7 +46,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
       _ecv_reg64_t _ecv_a_val;
     } _ecv_a_un;
   } _ecv_auxv64[] = {
-#if defined(ELFC_WASI_ENV)
+#if defined(TARGET_IS_WASI)
     {3 /* AT_PHDR */, phdr},
     {4 /* AT_PHENT */, __g_e_phent},
     {5 /* AT_PHNUM */, __g_e_phnum},

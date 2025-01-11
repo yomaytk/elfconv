@@ -16,13 +16,13 @@ setting() {
   EMCXX=emcc
   EMAR=emar
   EMCCFLAGS="${OPTFLAGS} -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR}"
-  EMCC_ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
+  EMCC_ELFCONV_MACROS="-DTARGET_IS_BROWSER=1"
   
   # wasi-sdk
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
   WASISDKAR=${WASI_SDK_PATH}/bin/ar
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR} -fno-exceptions"
-  WASI_ELFCONV_MACROS="-DELFC_WASI_ENV=1"
+  WASI_ELFCONV_MACROS="-DTARGET_IS_WASI=1"
 
 }
 

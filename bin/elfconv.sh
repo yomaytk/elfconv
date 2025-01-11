@@ -14,7 +14,7 @@ setting() {
   WASISDKCC=${WASI_SDK_PATH}/bin/clang++
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
   WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
-  ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
+  ELFCONV_MACROS="-DTARGET_IS_BROWSER=1"
   ELFPATH=$( realpath "$1" )
 
 }
@@ -51,7 +51,7 @@ main() {
   case "$TARGET" in
     Browser)
       # We use https://github.com/mame/xterm-pty for the console on the browser.
-      ELFCONV_MACROS="-DELFC_BROWSER_ENV=1"
+      ELFCONV_MACROS="-DTARGET_IS_BROWSER=1"
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
       cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
         $EMCC $EMCCFLAGS $ELFCONV_MACROS -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
@@ -61,7 +61,7 @@ main() {
     ;;
     Wasi)
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
-      ELFCONV_MACROS="-DELFC_WASI_ENV=1"
+      ELFCONV_MACROS="-DTARGET_IS_WASI=1"
       cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
       $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS -o exe.wasm lift.bc ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp \
           ${UTILS_DIR}/elfconv.cpp ${UTILS_DIR}/Util.cpp
