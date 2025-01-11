@@ -66,17 +66,20 @@ lifting() {
   fi
   
     ${BUILD_LIFTER_DIR}/elflift \
-    --arch amd64 \
+    --arch "$2" \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
-    --dbg_fun_cfg "$2" \
-    --bitcode_path "$3" \
+    --dbg_fun_cfg "$3" \
+    --bitcode_path "$4" \
     --target_arch "$wasi32_target_arch" && \
     llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
   echo -e "[\033[32mINFO\033[0m] lift.bc was generated."
 
 }
 
+# $1: path to ELF
+# $2: (optional) debug target function name
+# $3: (optional) path to can be linked LLVM bitcode of semantics functions
 main() {
 
   # environment variable settings
@@ -93,7 +96,7 @@ main() {
   # ELF -> LLVM bc
   if [ -z "$NOT_LIFTED" ]; then
     arch_name=${TARGET%%-*}
-    lifting "$1" "$2"
+    lifting "$1" "$arch_name" "$2" "$3"
   fi
 
   case "$TARGET" in
@@ -117,7 +120,7 @@ main() {
       return 0
     ;;
     *-wasm)
-      RUNTIME_MACRO="-DELFC_BROWSER_ENV=1"
+      RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
                               lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
@@ -127,10 +130,10 @@ main() {
       return 0
     ;;
     *-wasi32)
-      RUNTIME_MACRO="-DELFC_WASI_ENV=1"
+      RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
       cd $BUILD_DIR
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm ${BUILD_LIFTER_DIR}/lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
       echo -e "[\033[32mINFO\033[0m] Universal compile optimization was done. (exe_o3.wasm)"

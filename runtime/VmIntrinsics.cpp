@@ -98,9 +98,9 @@ void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
 */
 void __remill_syscall_tranpoline_call(State &state, RuntimeManager *runtime_manager) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
-#if defined(ELFC_WASI_ENV)
+#if defined(TARGET_IS_WASI)
   runtime_manager->SVCWasiCall();
-#elif defined(ELFC_BROWSER_ENV)
+#elif defined(TARGET_IS_BROWSER)
   runtime_manager->SVCBrowserCall();
 #else
   runtime_manager->SVCNativeCall();
