@@ -1,5 +1,6 @@
 #include "Memory.h"
 
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <utils/Util.h>
@@ -115,27 +116,76 @@ void MappedMemory::DebugEmulatedMemory() {
             << (addr_t) upper_bytes << ", bytes_on_heap" << (bytes_on_heap ? "true" : "false")
             << std::endl;
 }
-
-void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
-  /* search in every mapped memory */
-  if (vma_addr >= stack_memory->vma)
-    return reinterpret_cast<void *>(stack_memory->bytes + (vma_addr - stack_memory->vma));
-  if (vma_addr >= heap_memory->vma)
-    return reinterpret_cast<void *>(heap_memory->bytes + (vma_addr - heap_memory->vma));
-  for (auto &memory : mapped_memorys) {
-    if (memory->vma <= vma_addr && vma_addr < memory->vma_end)
-      return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
+uint8_t RuntimeManager::get(uint64_t vma_addr) {
+  if (vma_addr >= stack_memory->vma) {
+    if (stack_memory->other_memory) {
+      return stack_memory->other_memory->get(vma_addr - stack_memory->vma);
+    } else {
+      return stack_memory->bytes[vma_addr - stack_memory->vma];
+    }
   }
-  debug_state_machine();
-  /* not exist sections which includes the vma_addr. */
-  elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
-                        vma_addr, g_state.gpr.pc.qword);
-}
+  if (vma_addr >= heap_memory->vma) {
+    if (heap_memory->other_memory) {
+      return heap_memory->other_memory->get(vma_addr - heap_memory->vma);
+    } else {
+      return heap_memory->bytes[vma_addr - heap_memory->vma];
+    }
+  };
+  for (auto &memory : mapped_memorys) {
+    if (memory->vma <= vma_addr && vma_addr < memory->vma_end) {
+      if (memory->other_memory) {
+        return memory->other_memory->get(vma_addr - memory->vma);
+      } else {
+        return memory->bytes[vma_addr - memory->vma];
+      }
+    };
+  }
+};
+void RuntimeManager::set(uint64_t vma_addr, uint8_t y) {
+  if (vma_addr >= stack_memory->vma) {
+    if (stack_memory->other_memory) {
+      stack_memory->other_memory->set(vma_addr - stack_memory->vma, y);
+    } else {
+      stack_memory->bytes[vma_addr - stack_memory->vma] = y;
+    }
+  }
+  if (vma_addr >= heap_memory->vma) {
+    if (heap_memory->other_memory) {
+      heap_memory->other_memory->set(vma_addr - heap_memory->vma,y);
+    } else {
+      heap_memory->bytes[vma_addr - heap_memory->vma] = y;
+    }
+  };
+  for (auto &memory : mapped_memorys) {
+    if (memory->vma <= vma_addr && vma_addr < memory->vma_end) {
+      if (memory->other_memory) {
+        memory->other_memory->set(vma_addr - memory->vma,y);
+      } else {
+        memory->bytes[vma_addr - memory->vma] = y;
+      }
+    };
+  }
+};
+// void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
+//   /* search in every mapped memory */
+//   if (vma_addr >= stack_memory->vma)
+//     return reinterpret_cast<void *>(stack_memory->bytes + (vma_addr - stack_memory->vma));
+//   if (vma_addr >= heap_memory->vma)
+//     return reinterpret_cast<void *>(heap_memory->bytes + (vma_addr - heap_memory->vma));
+//   for (auto &memory : mapped_memorys) {
+//     if (memory->vma <= vma_addr && vma_addr < memory->vma_end)
+//       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
+//   }
+//   debug_state_machine();
+//   /* not exist sections which includes the vma_addr. */
+//   elfconv_runtime_error("[ERROR] The accessed memory is not mapped. vma_addr: 0x%llx, PC: 0x%llx",
+//                         vma_addr, g_state.gpr.pc.qword);
+// }
 
-/* Wrapper of RuntimeManager::TranslateVMA */
-void *_ecv_translate_ptr(addr_t vma_addr) {
-  return g_run_mgr->TranslateVMA(vma_addr);
-}
+// /* Wrapper of RuntimeManager::TranslateVMA */
+// void *_ecv_translate_ptr(addr_t vma_addr) {
+//   return g_run_mgr->TranslateVMA(vma_addr);
+// }
 
 extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma) {
   if (g_run_mgr->addr_block_addrs_map.count(fun_vma) == 1) {
@@ -211,7 +261,9 @@ extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
 }
 
 extern "C" void temp_patch_f_flags(uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
-  *pma = 0xfbad2a84;
+  uint64_t x = 0xfbad2a84;
+  g_run_mgr->write(f_flags_vma,&x);
+  // uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
+  // *pma = ;
   return;
 }

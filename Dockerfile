@@ -1,3 +1,5 @@
+
+
 # Choose your LLVM version (16+)
 ARG LLVM_VERSION=16
 ARG UBUNTU_VERSION=22.04
@@ -64,8 +66,20 @@ RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:
 RUN git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global user.name "github-actions[bot]"
 
 WORKDIR ${ROOT_DIR}
-COPY ./ ./
+COPY ./scripts/build.sh ./scripts/build.sh
+COPY ./backend ./backend
+COPY ./bin ./bin
+COPY ./lifter ./lifter
+COPY ./tests ./tests
+COPY ./utils ./utils
+COPY ./.git ./.git
+COPY ./CMakeLists.txt ./CMakeLists.txt
 RUN ./scripts/build.sh
+COPY ./runtime ./runtime
+COPY ./scripts/dev.sh ./scripts/dev.sh
+COPY ./release ./release
+RUN ./release/prepare.sh
+COPY ./examples ./examples
 RUN make -C  ~/elfconv/examples/eratosthenes_sieve
 RUN make -C  ~/elfconv/examples/hello
 ENTRYPOINT ["/bin/bash", "--login", "-c"]

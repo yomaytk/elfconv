@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+WASI_SDK_PATH=/root/wasi-sdk-21.0
+
 setting() {
 
   RELEASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -58,22 +60,22 @@ main() {
   
   # set elfconv-runtime archive (libelfconvbrowser.a)
   mkdir -p lib
-  cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
-    # shellcheck disable=SC2086
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $EMAR rcs libelfconvbrowser.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
-    if mv libelfconvbrowser.a ${RELEASE_DIR}/lib; then
-      echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
-    else
-      echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
-      exit 1
-    fi
-		rm *.o
+  # cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
+  #   # shellcheck disable=SC2086
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
+  #   $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
+  #   $EMAR rcs libelfconvbrowser.a Entry.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
+  #   if mv libelfconvbrowser.a ${RELEASE_DIR}/lib; then
+  #     echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
+  #   else
+  #     echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
+  #     exit 1
+  #   fi
+	# 	rm *.o
 
   # set elfconv-runtime archive (libelfconvwasi.a)
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }

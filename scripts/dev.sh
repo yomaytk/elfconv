@@ -75,6 +75,8 @@ main() {
   # environment variable settings
   setting
 
+
+
   # aarch64 lifting test
   if [ -n "$AARCH64_TEST" ]; then
     aarch64_test

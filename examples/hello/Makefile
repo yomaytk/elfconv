@@ -12,3 +12,4 @@ hello: hello.c
 
 clean:
 	rm a.out
+
