@@ -25,25 +25,22 @@ const uint64_t HEAP_UNIT_SIZE = 1 * 1024 * 1024 * 1024; /* 1 GiB */
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
-<<<<<<< HEAD
 class MappedMemory;
 class RuntimeManager;
 
-/* own implementation of syscall emulation */
-extern void __svc_native_call();
-extern void __svc_browser_call();
-extern void __svc_wasi_call();
-/* translate the address of the original ELF to the actual address of mapped space */
-// extern void *_ecv_translate_ptr(addr_t vma_addr);
-extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);
+// /* own implementation of syscall emulation */
+// extern void __svc_native_call();
+// extern void __svc_browser_call();
+// extern void __svc_wasi_call();
+// /* translate the address of the original ELF to the actual address of mapped space */
+// // extern void *_ecv_translate_ptr(addr_t vma_addr);
+// extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma);
 
 // /* get mapped memory address of vma */
 // template <typename T>
 // T *getMemoryAddr(addr_t vma_addr) {
 //   return reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
 // }
-=======
->>>>>>> main
 
 extern "C" {
 /* State machine which represents all CPU registers */
@@ -160,7 +157,6 @@ class MappedMemory {
   bool bytes_on_heap;  // whether or not bytes is allocated on the heap memory
   uint64_t heap_cur; /* for Heap */
 };
-<<<<<<< HEAD
 
 class RuntimeManager : public XMemory {
  public:
@@ -198,6 +194,4 @@ class RuntimeManager : public XMemory {
   void set(uint64_t x, uint8_t y) override;
 };
 
-extern RuntimeManager *g_run_mgr;
-=======
->>>>>>> main
+// extern RuntimeManager *g_run_mgr;

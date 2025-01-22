@@ -11,7 +11,7 @@ void *RuntimeManager::TranslateVMA(addr_t vma_addr) {
   if (vma_addr >= heap_memory->vma)
     return reinterpret_cast<void *>(heap_memory->bytes + (vma_addr - heap_memory->vma));
   for (auto &memory : mapped_memorys) {
-    if (memory->vma <= vma_addr && vma_addr < memory->vma_end)
+    if (memory->vma <= vma_addr && vma_addr < memory->vma_end && memory->bytes)
       return reinterpret_cast<void *>(memory->bytes + (vma_addr - memory->vma));
   }
   /* not exist sections which includes the vma_addr. */
