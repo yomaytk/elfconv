@@ -16,9 +16,18 @@
 
 #include "InstructionLifter.h"
 
+#include "remill/Arch/Instruction.h"
+#include "remill/Arch/Name.h"
 #include "remill/BC/HelperMacro.h"
+#include "remill/BC/InstructionLifter.h"
+
+#include <cstdint>
+#include <type_traits>
+
+extern remill::ArchName TARGET_ELF_ARCH;
 
 namespace remill {
+
 namespace {
 
 // Try to find the function that implements this semantics.
@@ -43,12 +52,379 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 
 }  // namespace
 
+
+/*
+  AArch64 register methods.
+*/
+std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map = {};
+
+// get ERC from the register name.
+std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    auto c0 = _reg_name[0];
+    auto c1 = _reg_name[1];
+    // vector type register (e.g. 16B8, 4S20, 2DF30)
+    if (std::isdigit(c0)) {
+      ERC res_ecv_reg_class;
+      uint32_t reg_kind_str_off = std::isdigit(c1) ? 2 : 1;
+      auto corr_val = c0 - '0';
+      uint32_t reg_num;
+      if ('F' == _reg_name[reg_kind_str_off + 1]) /* e.g. 4SF, 2DF */ {
+        // float vector
+        res_ecv_reg_class =
+            static_cast<ERC>('V' + _reg_name[reg_kind_str_off] + 'F' - 'A' + corr_val);
+        reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 2)));
+      }
+      // integer vector
+      else {
+        res_ecv_reg_class = static_cast<ERC>('V' + _reg_name[reg_kind_str_off] - 'A' + corr_val);
+        reg_num = static_cast<uint32_t>(std::stoi(_reg_name.substr(reg_kind_str_off + 1)));
+      }
+      return std::make_pair(EcvReg(RegKind::Vector, reg_num), res_ecv_reg_class);
+    }
+    // general register
+    else if (std::isdigit(c1)) {
+      auto res_ecv_reg_class = static_cast<ERC>(c0 - 'A');
+      return std::make_pair(
+          EcvReg((ERC::RegW == res_ecv_reg_class || ERC::RegX == res_ecv_reg_class)
+                     ? RegKind::General
+                     : RegKind::Vector,
+                 static_cast<uint32_t>(std::stoi(_reg_name.substr(1)))),
+          res_ecv_reg_class);
+    }
+    // system register
+    else {
+      if ("SP" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, SP_ORDER), ERC::RegX);
+      } else if ("PC" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, PC_ORDER), ERC::RegX);
+      } else if ("STATE" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP);
+      } else if ("RUNTIME" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, RUNTIME_ORDER), ERC::RegP);
+      } else if ("BRANCH_TAKEN" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), ERC::RegX);
+      } else if ("ECV_NZCV" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, ECV_NZCV_ORDER), ERC::RegX);
+      } else if ("IGNORE_WRITE_TO_WZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_WZR_ORDER), ERC::RegW);
+      } else if ("IGNORE_WRITE_TO_XZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, IGNORE_WRITE_TO_XZR_ORDER), ERC::RegX);
+      } else if ("MONITOR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, MONITOR_ORDER), ERC::RegX);
+      } else if ("WZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), ERC::RegW);
+      } else if ("XZR" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), ERC::RegX);
+      }
+    }
+
+    LOG(FATAL) << "Unexpected register name at GetRegInfo. reg_name: " << _reg_name;
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if ("RAX" == _reg_name) {
+      return {EcvReg(RegKind::General, 0), ERC::RegX};
+    } else if ("RDI" == _reg_name) {
+      return {EcvReg(RegKind::General, 7), ERC::RegX};
+    } else if ("RSI" == _reg_name) {
+      return {EcvReg(RegKind::General, 6), ERC::RegX};
+    } else if ("RIP" == _reg_name) {
+      return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
+    } else if ("RDX" == _reg_name) {
+      return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("STATE" == _reg_name) {
+      return {EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP};
+    } else if ("RUNTIME" == _reg_name) {
+      return {EcvReg(RegKind::Special, RUNTIME_ORDER), ERC::RegP};
+    } else if ("CSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, CSBASE_ORDER), ERC::RegX};
+    } else if ("SSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, SSBASE_ORDER), ERC::RegX};
+    } else if ("ESBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, ESBASE_ORDER), ERC::RegX};
+    } else if ("DSBASE" == _reg_name) {
+      return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
+    }
+  }
+  std::terminate();
+}
+
+/*
+  static map between `ERC` and `register name`
+*/
+class amd64_er_hash1 {
+ public:
+  std::size_t operator()(const std::pair<uint32_t, ERC> &key) const {
+    return std::hash<uint32_t>()(key.first) ^
+           std::hash<uint32_t>()(std::underlying_type<ERC>::type(key.second) + 10000);
+  }
+};
+
+static std::unordered_map<ERC, std::string> AArch64EcvRegClassRegNameMap = {
+    {ERC::RegW, "W"},   {ERC::RegX, "X"},     {ERC::RegB, "B"},   {ERC::RegH, "H"},
+    {ERC::RegS, "S"},   {ERC::RegD, "D"},     {ERC::Reg8B, "8B"}, {ERC::Reg16B, "16B"},
+    {ERC::Reg4H, "4H"}, {ERC::Reg8H, "8H"},   {ERC::Reg2S, "2S"}, {ERC::Reg2SF, "2SF"},
+    {ERC::Reg4S, "4S"}, {ERC::Reg4SF, "4SF"}, {ERC::Reg1D, "1D"}, {ERC::Reg1DF, "1DF"},
+    {ERC::Reg2D, "2D"}, {ERC::Reg2DF, "2DF"}, {ERC::RegQ, "Q"},   {ERC::RegV, "V"}};
+
+static std::unordered_map<std::pair<uint32_t, ERC>, std::string, amd64_er_hash1>
+    AMD64EcvRegClassRegNameMap = {
+        {{0, ERC::RegX}, "RAX"},  {{1, ERC::RegX}, "RCX"},  {{2, ERC::RegX}, "RDX"},
+        {{3, ERC::RegX}, "RBX"},  {{4, ERC::RegX}, "RSP"},  {{5, ERC::RegX}, "RBP"},
+        {{6, ERC::RegX}, "RSI"},  {{7, ERC::RegX}, "RDI"},  {{8, ERC::RegX}, "R8"},
+        {{9, ERC::RegX}, "R9"},   {{10, ERC::RegX}, "R10"}, {{11, ERC::RegX}, "R11"},
+        {{12, ERC::RegX}, "R12"}, {{13, ERC::RegX}, "R13"}, {{14, ERC::RegX}, "R14"},
+        {{15, ERC::RegX}, "R15"}};
+
+std::string EcvReg::GetWideRegName() const {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    if (number <= 31) {
+      std::string reg_name;
+      switch (reg_kind) {
+        case RegKind::General: reg_name = "X"; break;
+        case RegKind::Vector: reg_name = "V"; break;
+        case RegKind::Special:
+        default: LOG(FATAL) << "[Bug]: number must be 31 or less at GetWideRegName."; break;
+      }
+      reg_name += std::to_string(number);
+      return reg_name;
+    } else if (SP_ORDER == number) {
+      return "SP";
+    } else if (PC_ORDER == number) {
+      return "PC";
+    } else if (STATE_ORDER == number) {
+      return "STATE";
+    } else if (RUNTIME_ORDER == number) {
+      return "RUNTIME";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (ECV_NZCV_ORDER == number) {
+      return "ECV_NZCV";
+    } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_WZR";
+    } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_XZR";
+    } else if (MONITOR_ORDER == number) {
+      return "MONITOR";
+    } else if (WZR_ORDER == number) {
+      return "WZR";
+    } else if (XZR_ORDER == number) {
+      return "XZR";
+    } else {
+      LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWideRegName.";
+    }
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if (0 == number) {
+      return "RAX";
+    } else if (2 == number) {
+      return "RDX";
+    } else if (6 == number) {
+      return "RSI";
+    } else if (7 == number) {
+      return "RDI";
+    } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
+      return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+    }
+  }
+  std::terminate();
+}
+
+std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
+  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+    // General or Vector register.
+    if (number <= 31) {
+      auto reg_name = AArch64EcvRegClassRegNameMap[ecv_reg_class];
+      reg_name += std::to_string(number);
+      return reg_name;
+    }
+    // RegKind::Special register.
+    else if (SP_ORDER == number) {
+      return "SP";
+    } else if (PC_ORDER == number) {
+      return "PC";
+    } else if (STATE_ORDER == number) {
+      return "STATE";
+    } else if (RUNTIME_ORDER == number) {
+      return "RUNTIME";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (ECV_NZCV_ORDER == number) {
+      return "ECV_NZCV";
+    } else if (IGNORE_WRITE_TO_WZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_WZR";
+    } else if (IGNORE_WRITE_TO_XZR_ORDER == number) {
+      return "IGNORE_WRITE_TO_XZR";
+    } else if (MONITOR_ORDER == number) {
+      return "MONITOR";
+    } else if (WZR_ORDER == number) {
+      return "WZR";
+    } else if (XZR_ORDER == number) {
+      return "XZR";
+    }
+
+    LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
+  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+    if (0 == number) {
+      return "RAX";
+    } else if (2 == number) {
+      return "RDX";
+    } else if (6 == number) {
+      return "RSI";
+    } else if (7 == number) {
+      return "RDI";
+    } else if (SP_ORDER == number) {
+      return "RSP";
+    } else if (RIP_ORDER == number) {
+      return "RIP";
+    } else if (CSBASE_ORDER == number) {
+      return "CSBASE";
+    } else if (SSBASE_ORDER == number) {
+      return "SSBASE";
+    } else if (ESBASE_ORDER == number) {
+      return "ESBASE";
+    } else if (DSBASE_ORDER == number) {
+      return "DSBASE";
+    } else {
+      LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+    }
+  }
+  return "";
+}
+
+bool EcvReg::CheckPassedArgsRegs() const {
+  return (0 <= number && number <= 7) || SP_ORDER == number;
+}
+
+bool EcvReg::CheckPassedReturnRegs() const {
+  return (0 <= number && number <= 1) || SP_ORDER == number;
+}
+
+std::string EcvRegClass2String(ERC ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case ERC::RegW: return "RegW"; break;
+    case ERC::RegX: return "RegX"; break;
+    case ERC::RegB: return "RegB"; break;
+    case ERC::RegH: return "RegH"; break;
+    case ERC::RegS: return "RegS"; break;
+    case ERC::RegD: return "RegD"; break;
+    case ERC::RegQ: return "RegQ"; break;
+    case ERC::RegV: return "RegV"; break;
+    case ERC::Reg8B: return "Reg8B"; break;
+    case ERC::Reg16B: return "Reg16B"; break;
+    case ERC::Reg4H: return "Reg4H"; break;
+    case ERC::Reg8H: return "Reg8H"; break;
+    case ERC::Reg2S: return "Reg2S"; break;
+    case ERC::Reg2SF: return "Reg2SF"; break;
+    case ERC::Reg4S: return "Reg4S"; break;
+    case ERC::Reg4SF: return "Reg4SF"; break;
+    case ERC::Reg1D: return "Reg1D"; break;
+    case ERC::Reg1DF: return "Reg1DF"; break;
+    case ERC::Reg2D: return "Reg2D"; break;
+    case ERC::Reg2DF: return "Reg2DF"; break;
+    case ERC::RegP: return "RegP"; break;
+    case ERC::RegNULL: return "RegNULL"; break;
+    default: break;
+  }
+}
+
+uint64_t GetRegClassSize(ERC ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case ERC::RegB: return 8;
+    case ERC::RegH: return 16;
+    case ERC::RegW:
+    case ERC::RegS: return 32;
+    case ERC::RegX:
+    case ERC::RegP:
+    case ERC::RegD:
+    case ERC::Reg8B:
+    case ERC::Reg4H:
+    case ERC::Reg2S:
+    case ERC::Reg2SF:
+    case ERC::Reg1D:
+    case ERC::Reg1DF: return 64;
+    case ERC::RegQ:
+    case ERC::RegV:
+    case ERC::Reg16B:
+    case ERC::Reg8H:
+    case ERC::Reg4S:
+    case ERC::Reg4SF:
+    case ERC::Reg2D:
+    case ERC::Reg2DF: return 128;
+    default:
+      LOG(FATAL) << "Unexpected reg class: "
+                 << static_cast<std::underlying_type<ERC>::type>(ecv_reg_class);
+  }
+}
+
+BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
+                             llvm::Value *runtime_val) {
+  for (auto &arg : func->args()) {
+    if (arg.getName().str() == "state") {
+      reg_latest_inst_map.insert(
+          {EcvReg(RegKind::Special, STATE_ORDER), std::make_tuple(ERC::RegP, state_val, 0)});
+    } else if (arg.getName().str() == "runtime_manager") {
+      reg_latest_inst_map.insert(
+          {EcvReg(RegKind::Special, RUNTIME_ORDER), std::make_tuple(ERC::RegP, runtime_val, 0)});
+    }
+  }
+  CHECK(reg_latest_inst_map.size() == 2)
+      << "[Bug] BBRegInfoNode cannot be initialized with invalid reg_latest_inst_map.";
+}
+
+void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
+  // Join bb_load_reg_map
+  for (auto [_ecv_reg, _ecv_reg_class] : child->bb_load_reg_map) {
+    if (!bb_store_reg_map.contains(_ecv_reg)) {
+      bb_load_reg_map.insert({_ecv_reg, _ecv_reg_class});
+    }
+  }
+  // Join bb_store_reg_map
+  for (auto [_ecv_reg, _ecv_reg_class] : child->bb_store_reg_map) {
+    bb_store_reg_map.insert_or_assign(_ecv_reg, _ecv_reg_class);
+  }
+  // Join reg_latest_inst_map
+  for (auto [_ecv_reg, reg_inst_value] : child->reg_latest_inst_map) {
+    if (!reg_latest_inst_map.contains(_ecv_reg)) {
+      reg_latest_inst_map.insert({_ecv_reg, reg_inst_value});
+    } else if (child->bb_store_reg_map.contains(_ecv_reg) ||
+               GetRegClassSize(std::get<ERC>(reg_latest_inst_map.at(_ecv_reg))) <=
+                   GetRegClassSize(std::get<ERC>(reg_inst_value))) {
+      reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
+    }
+  }
+  // Join sema_call_written_reg_map
+  for (auto key_value : child->sema_call_written_reg_map) {
+    sema_call_written_reg_map.insert(key_value);
+  }
+  // Join sema_func_args_reg_map
+  for (auto key_value : child->sema_func_args_reg_map) {
+    sema_func_args_reg_map.insert(key_value);
+  }
+  // Join sema_func_pc_map
+  for (auto key_value : child->sema_func_pc_map) {
+    sema_func_pc_map.insert(key_value);
+  }
+}
+
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
       word_type(remill::NthArgument(intrinsics->async_hyper_call, remill::kPCArgNum)->getType()),
-      memory_ptr_type(
-          remill::NthArgument(intrinsics->async_hyper_call, remill::kMemoryPointerArgNum)
+      runtime_ptr_type(
+          remill::NthArgument(intrinsics->async_hyper_call, remill::kRuntimePointerArgNum)
               ->getType()),
       module(intrinsics->async_hyper_call->getParent()),
       invalid_instruction(GetInstructionFunction(module, kInvalidInstructionISelName)),
@@ -69,19 +445,52 @@ InstructionLifter::InstructionLifter(const Arch *arch_, const IntrinsicTable *in
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus InstructionLifterIntf::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                                uint64_t debug_insn_addr, bool is_delayed) {
+                                                BBRegInfoNode *bb_reg_info_node, bool is_delayed) {
   return LiftIntoBlock(inst, block, NthArgument(block->getParent(), kStatePointerArgNum),
-                       debug_insn_addr, is_delayed);
+                       bb_reg_info_node, is_delayed);
+}
+
+llvm::Type *get_llvm_type(llvm::LLVMContext &context, ERC ecv_reg_class) {
+  switch (ecv_reg_class) {
+    case ERC::RegW: return llvm::Type::getInt32Ty(context);
+    case ERC::RegX: return llvm::Type::getInt64Ty(context);
+    case ERC::RegB: return llvm::Type::getInt8Ty(context);
+    case ERC::RegH: return llvm::Type::getInt16Ty(context);
+    case ERC::RegS: return llvm::Type::getFloatTy(context);
+    case ERC::RegD: return llvm::Type::getDoubleTy(context);
+    case ERC::RegQ: return llvm::Type::getInt128Ty(context);
+    case ERC::RegV: return llvm::VectorType::get(llvm::Type::getInt128Ty(context), 1, false);
+    case ERC::Reg8B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 8, false);
+    case ERC::Reg16B: return llvm::VectorType::get(llvm::Type::getInt8Ty(context), 16, false);
+    case ERC::Reg4H: return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 4, false);
+    case ERC::Reg8H: return llvm::VectorType::get(llvm::Type::getInt16Ty(context), 8, false);
+    case ERC::Reg2S: return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 2, false);
+    case ERC::Reg2SF: return llvm::VectorType::get(llvm::Type::getFloatTy(context), 2, false);
+    case ERC::Reg4S: return llvm::VectorType::get(llvm::Type::getInt32Ty(context), 4, false);
+    case ERC::Reg4SF: return llvm::VectorType::get(llvm::Type::getFloatTy(context), 4, false);
+    case ERC::Reg1D: return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 1, false);
+    case ERC::Reg1DF: return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 1, false);
+    case ERC::Reg2D: return llvm::VectorType::get(llvm::Type::getInt64Ty(context), 2, false);
+    case ERC::Reg2DF: return llvm::VectorType::get(llvm::Type::getDoubleTy(context), 2, false);
+    case ERC::RegP: return llvm::Type::getInt64PtrTy(context);
+    default: break;
+  }
+
+  LOG(FATAL) << "[Bug] Reach the unreachable code at VirtualRegsOpt::get_llvm_type. ecv_reg_class: "
+             << std::underlying_type<ERC>::type(ecv_reg_class) << "\n";
+  return nullptr;
 }
 
 // Lift a single instruction into a basic block.
 LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicBlock *block,
-                                            llvm::Value *state_ptr, uint64_t debug_insn_addr,
+                                            llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
                                             bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
+  auto &context = func->getContext();
   llvm::Function *isel_func = nullptr;
   auto status = kLiftedInstruction;
+
 
   // Cache invalidation.
   if (func != impl->last_func) {
@@ -97,22 +506,17 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     isel_func = impl->invalid_instruction;
     arch_inst.operands.clear();
     status = kLiftedInvalidInstruction;
+    return status;
   }
 
   if (!isel_func) {
     isel_func = impl->unsupported_instruction;
     arch_inst.operands.clear();
     status = kLiftedUnsupportedInstruction;
-#if defined(WARNING_OUTPUT)
-    printf(
-        "[WARNING] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
-        arch_inst.pc, arch_inst.function.c_str());
-#endif
+    printf("[Bug] Unsupported instruction at address: 0x%08lx (SemanticsFunction), instForm: %s\n",
+           arch_inst.pc, arch_inst.function.c_str());
+    return status;
   }
-
-  llvm::IRBuilder<> ir(block);
-  const auto [mem_ptr_ref, mem_ptr_ref_type] =
-      LoadRegAddress(block, state_ptr, kMemoryVariableName);
 
   // If this instruction appears within a delay slot, then we're going to assume
   // that the prior instruction updated `PC` to the target of the CTI, and that
@@ -122,8 +526,9 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   // TODO(pag): An alternate approach may be to call some kind of `DELAY_SLOT`
   //            semantics function.
   if (is_delayed) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
+    LOG(FATAL) << "Unexpected to enter the `is_delayed`.";
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_begin, temp_args), mem_ptr_ref);
   }
 
 #if defined(LIFT_INSN_DEBUG)
@@ -144,25 +549,103 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 #endif
 
   // Begin an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_begin, temp_args), mem_ptr_ref);
   }
 
   std::vector<llvm::Value *> args;
-  args.reserve(arch_inst.operands.size() + 2);
-
-  // First two arguments to an instruction semantics function are the
-  // state pointer, and a pointer to the memory pointer.
-  args.push_back(nullptr);
-  args.push_back(state_ptr);
 
   auto isel_func_type = isel_func->getFunctionType();
-  auto arg_num = 2U;
+  uint32_t arg_num;
 
+  auto &load_reg_map = bb_reg_info_node->bb_load_reg_map;
+  auto &store_reg_map = bb_reg_info_node->bb_store_reg_map;
+
+  std::vector<std::pair<EcvReg, ERC>> sema_func_args_regs;
+
+  auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
+
+  // set the State ptr or RuntimeManager ptr to the semantics function.
+  switch (arch_inst.sema_func_arg_type) {
+    case SemaFuncArgType::Nothing: arg_num = 0; break;
+    case SemaFuncArgType::Runtime:
+      arg_num = 1;
+      args.push_back(runtime_ptr);
+      break;
+    case SemaFuncArgType::State:
+      arg_num = 1;
+      args.push_back(state_ptr);
+      break;
+    case SemaFuncArgType::StateRuntime:
+      arg_num = 2;
+      args.push_back(state_ptr);
+      args.push_back(runtime_ptr);
+      break;
+    case SemaFuncArgType::Empty:
+      LOG(FATAL) << "arch_inst.sema_func_arg_type is empty!"
+                 << " at: 0x" << std::hex << arch_inst.pc
+                 << ", inst.function: " << arch_inst.function;
+      break;
+    default: LOG(FATAL) << "arch_inst.sema_func_arg_type is invalid."; break;
+  }
+
+  std::vector<std::pair<EcvReg, ERC>> write_regs;
+
+  // treats the every arguments for the semantics function.
   for (auto &op : arch_inst.operands) {
+    Operand::Register *t_reg;
+
+    bool is_reg = !op.reg.name.empty();
+    bool is_shift_reg = !op.shift_reg.reg.name.empty();
+    bool is_base_reg = !op.addr.base_reg.name.empty();
+
+    if (uint64_t(is_reg) + uint64_t(is_shift_reg) + uint64_t(is_base_reg) > 1) {
+      LOG(FATAL) << "[Bug] vailid operand regisrter set is invalid.";
+    }
+
+    if (is_reg) {
+      t_reg = &op.reg;
+    } else if (is_shift_reg) {
+      t_reg = &op.shift_reg.reg;
+    } else if (is_base_reg) {
+      t_reg = &op.addr.base_reg;
+    } else {
+      t_reg = NULL;
+    }
+
+    auto [e_r, e_r_c] = t_reg ? EcvReg::GetRegInfo(t_reg->name)
+                              : std::make_pair(EcvReg(RegKind(-1), -1), ERC::RegNULL);
+
+    if (t_reg) {
+      if (Operand::Action::kActionWrite == op.action) {
+        if (!t_reg->name.starts_with("IGNORE_WRITE_TO")) {
+          // skip the case where the store register is `XZR` or `WZR`.
+          store_reg_map.insert({e_r, e_r_c});
+        }
+        write_regs.push_back({e_r, e_r_c});
+        continue;
+      } else if (Operand::Action::kActionRead == op.action) {
+        if (is_base_reg) {
+          CHECK(op.addr.index_reg.name.empty())
+              << "[Bug] addr.index_reg must not be added to operands list.";
+        }
+        if (31 != t_reg->number || "SP" == t_reg->name) {
+          load_reg_map.insert({e_r, e_r_c});
+        } else {
+          e_r_c = ERC::RegNULL;
+        }
+      } else {
+        LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
+      }
+    }
+
     auto num_params = isel_func_type->getNumParams();
     if (!(arg_num < num_params)) {
+      LOG(FATAL)
+          << "lifted_status: kLiftedMismatchedISEL. The args num of the semantic function should be equal to it of the lifted instruction. "
+          << arch_inst.function;
       return kLiftedMismatchedISEL;
     }
 
@@ -171,25 +654,86 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
     arg_num += 1;
     auto op_type = operand->getType();
-    CHECK_EQ(op_type, arg_type) << "Lifted operand " << op.Serialize() << " to "
+    CHECK_EQ(op_type, arg_type) << "[Bug]: Lifted operand " << op.Serialize() << " to "
                                 << arch_inst.function
                                 << " does not have the correct type. Expected "
                                 << LLVMThingToString(arg_type) << " but got "
-                                << LLVMThingToString(op_type) << ".";
-
+                                << LLVMThingToString(op_type) << ". arg_num: " << arg_num - 1
+                                << ", address: " << arch_inst.pc;
     args.push_back(operand);
+
+    sema_func_args_regs.push_back({e_r, e_r_c});
+
+    // insert the instruction which explains the latest specified register with kActinoRead.
+    if (llvm::dyn_cast<llvm::LoadInst>(operand)) {
+      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(e_r,
+                                                             std::make_tuple(e_r_c, operand, 0));
+    }
   }
 
-  // Pass in current value of the memory pointer.
-  args[0] = ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref);
+  llvm::IRBuilder<> ir(block);
 
   // Call the function that implements the instruction semantics.
-  ir.CreateStore(ir.CreateCall(isel_func, args), mem_ptr_ref);
+  auto sema_inst = ir.CreateCall(isel_func, args);
+  bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
+  Sema_func_vma_map.insert({sema_inst, arch_inst.pc});
+  if (auto struct_ty = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
+    CHECK(struct_ty->getNumElements() == write_regs.size());
+  } else if (auto array_ty = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
+    CHECK(array_ty->getNumElements() == write_regs.size());
+  } else if (auto vector_ty = llvm::dyn_cast<llvm::VectorType>(sema_inst->getType());
+             vector_ty &&
+             /* <2 x i128> */ (2 == vector_ty->getElementCount().getFixedValue() &&
+                               llvm::Type::getInt128Ty(context) == vector_ty->getElementType())) {
+    CHECK(vector_ty->getElementCount().getFixedValue() == write_regs.size());
+  } else if (!sema_inst->getType()->isVoidTy()) {
+    CHECK(write_regs.size() == 1);
+  }
+
+  // Insert the instruction which explains the latest specified register.
+  for (std::size_t i = 0; i < write_regs.size(); i++) {
+    if (IGNORE_WRITE_TO_WZR_ORDER == write_regs[i].first.number ||
+        IGNORE_WRITE_TO_XZR_ORDER == write_regs[i].first.number) {
+      continue;
+    }
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
+  }
+
+  // Update the sema_call_written_reg_map
+  CHECK(!bb_reg_info_node->sema_call_written_reg_map.contains(sema_inst))
+      << "Unexpected to multiple lift the call instruction.";
+  bb_reg_info_node->sema_call_written_reg_map.insert({sema_inst, write_regs});
+
+  bb_reg_info_node->sema_func_pc_map.insert({sema_inst, arch_inst.pc});
+
+  // Update pre-post index for the target register.
+  // (reason. If we update in the semantics function, we should increase the num of return variables and that will occur the returning through memory.)
+  if (!arch_inst.prepost_updated_reg_op.reg.name.empty()) {
+    const auto [update_reg_ptr_reg, _] =
+        LoadRegAddress(block, state_ptr, arch_inst.prepost_updated_reg_op.reg.name);
+    auto [updated_ecv_reg, updated_ecv_reg_class] =
+        EcvReg::GetRegInfo(arch_inst.prepost_updated_reg_op.reg.name);
+    auto new_addr_val =
+        LiftAddressOperand(arch_inst, block, state_ptr, NULL, arch_inst.prepost_new_addr_op);
+    ir.CreateStore(new_addr_val, update_reg_ptr_reg, false);
+    // Update cache.
+    store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
+    bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, new_addr_val, 0));
+    // add index_reg (addr.index_reg is not treated in the operands list.)
+    if (auto index_reg_name = arch_inst.prepost_new_addr_op.addr.index_reg.name;
+        !index_reg_name.empty()) {
+      auto [id_e_r, id_e_r_c] = EcvReg::GetRegInfo(index_reg_name);
+      load_reg_map.insert({id_e_r, id_e_r_c});
+    }
+  }
 
   // End an atomic block.
+  // (FIXME) In the current design, we don't consider the atomic instructions.
   if (arch_inst.is_atomic_read_modify_write) {
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
   }
 
   // Restore the true target of the delayed branch.
@@ -203,20 +747,20 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // `arch->MaxInstructionSize()`), and for normal instructions, before they
     // are lifted, we do the `PC = NEXT_PC + size`, so this is fine.
     // ir.CreateStore(next_pc, next_pc_ref);
-
-    llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
+    LOG(FATAL) << "Unexpected to enter the `is_delayed`.";
+    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
+    // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
   }
 
-  /* append debug_insn function call */
-  if (UINT64_MAX != debug_insn_addr) {
-    llvm::IRBuilder<> __debug_ir(block);
-    auto _debug_insn_fn = module->getFunction(debug_insn_name);
-    auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
-    CHECK(_debug_insn_fn && _debug_memory_value_change_fn);
-    __debug_ir.CreateCall(_debug_insn_fn);
-    __debug_ir.CreateCall(_debug_memory_value_change_fn);
-  }
+  /* append `debug_memory_value_change` function call */
+#if defined(LIFT_MEMORY_VALUE_CHANGE)
+  llvm::IRBuilder<> __debug_ir(block);
+  auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
+  auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
+  __debug_ir.CreateCall(_debug_memory_value_change_fn,
+                        {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
+                                               runtime_manager_ptr)});
+#endif
 
   return status;
 }
@@ -310,7 +854,7 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
   // TODO(pag): Eventually refactor into a higher-level issue, perhaps a
   //            a hyper call to read an unknown register, or a lifting failure,
   //            with a more elaborate status value returned.
-  LOG(ERROR) << "Could not locate variable or register " << reg_name_;
+  LOG(FATAL) << "Could not locate variable or register " << reg_name_;
 
   return {new llvm::GlobalVariable(*module, impl->word_type, false,
                                    llvm::GlobalValue::ExternalLinkage,
@@ -330,6 +874,25 @@ llvm::Value *InstructionLifter::LoadRegValue(llvm::BasicBlock *block, llvm::Valu
   auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
   CHECK_NOTNULL(ptr);
   return new llvm::LoadInst(ptr_ty, ptr, llvm::Twine::createNull(), block);
+}
+
+llvm::Value *
+InstructionLifter::LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                          std::string_view reg_name, llvm::Instruction *instBefore,
+                                          std::string var_name) const {
+  auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
+  CHECK_NOTNULL(ptr);
+  return new llvm::LoadInst(ptr_ty, ptr, var_name, instBefore);
+}
+
+// Store the value of a register (Assume that the store_value already has been casted).
+llvm::Instruction *
+InstructionLifter::StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                           std::string_view reg_name, llvm::Value *stored_value,
+                                           llvm::Instruction *instBefore) const {
+  auto [ptr, ptr_ty] = LoadRegAddress(block, state_ptr, reg_name);
+  CHECK_NOTNULL(ptr);
+  return new llvm::StoreInst(stored_value, ptr, instBefore);
 }
 
 // Return a register value, or zero.
@@ -376,7 +939,6 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
   auto reg = LoadRegValue(block, state_ptr, arch_reg.name);
   auto reg_type = reg->getType();
   auto reg_size = data_layout.getTypeSizeInBits(reg_type).getFixedValue();
-  auto word_size = impl->arch->address_size;
   auto op_type = llvm::Type::getIntNTy(context, op.size);
 
   const uint64_t zero = 0;
@@ -475,12 +1037,12 @@ llvm::Value *InstructionLifter::LiftShiftRegisterOperand(Instruction &inst, llvm
     }
   }
 
-  if (word_size > op.size) {
-    reg = ir.CreateZExt(reg, impl->word_type);
-  } else {
-    CHECK_EQ(word_size, op.size) << "Final size of operand " << op.Serialize() << " is " << op.size
-                                 << " bits, but address size is " << word_size;
-  }
+  // if (word_size > op.size) {
+  //   reg = ir.CreateZExt(reg, impl->word_type);
+  // } else {
+  //   CHECK_EQ(word_size, op.size) << "Final size of operand " << op.Serialize() << " is " << op.size
+  //                                << " bits, but address size is " << word_size;
+  // }
 
   return reg;
 }
@@ -502,18 +1064,29 @@ static llvm::Value *ConvertToIntendedType(Instruction &inst, Operand &op, llvm::
   if (val->getType() == intended_type) {
     return val;
   } else if (auto val_ptr_type = llvm::dyn_cast<llvm::PointerType>(val_type)) {
-    if (intended_type->isPointerTy()) {
+    if (intended_type->isPointerTy() || intended_type->isVectorTy()) {
       return new llvm::BitCastInst(val, intended_type, val->getName(), block);
     } else if (intended_type->isIntegerTy()) {
       return new llvm::PtrToIntInst(val, intended_type, val->getName(), block);
     }
   } else if (val_type->isFloatingPointTy()) {
-    if (intended_type->isIntegerTy()) {
+    if (intended_type->isIntegerTy() || intended_type->isVectorTy()) {
       return new llvm::BitCastInst(val, intended_type, val->getName(), block);
     }
+  } else if (val_type->isVectorTy()) {
+    const llvm::DataLayout data_layout(block->getModule());
+    auto val_type = val->getType();
+    CHECK(data_layout.getTypeAllocSizeInBits(val_type) ==
+          data_layout.getTypeAllocSizeInBits(intended_type))
+        << "must be equal. intended_type: " << LLVMThingToString(intended_type)
+        << ", val_type: " << LLVMThingToString(val_type) << " at address: 0x" << std::hex << inst.pc
+        << " " << inst.function;
+
+    return new llvm::BitCastInst(val, intended_type, val->getName(), block);
   }
 
   LOG(FATAL) << "Unable to convert value " << LLVMThingToString(val)
+             << " (val type: " << LLVMThingToString(val_type) << ") "
              << " to intended argument type " << LLVMThingToString(intended_type) << " for operand "
              << op.Serialize() << " of instruction " << inst.Serialize();
 
@@ -532,6 +1105,7 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 
   llvm::Function *func = block->getParent();
   llvm::Module *module = func->getParent();
+  auto &context = func->getContext();
   auto &arch_reg = op.reg;
 
   const auto real_arg_type = arg->getType();
@@ -546,9 +1120,18 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
     return ConvertToIntendedType(inst, op, block, val, real_arg_type);
 
   } else {
-    CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy())
-        << "Expected " << arch_reg.name << " to be an integral or float type "
-        << "for instruction at " << std::hex << inst.pc;
+    CHECK(arg_type->isIntegerTy() || arg_type->isFloatingPointTy() || arg_type->isVectorTy())
+        << "arg_type: " << LLVMThingToString(arg_type) << ", Expected " << arch_reg.name
+        << " to be an integral or float type or vector type"
+        << "for instruction at 0x" << std::hex << inst.pc;
+
+    if (31 == op.reg.number) {
+      if ("XZR" == op.reg.name) {
+        return llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0);
+      } else if ("WZR" == op.reg.name) {
+        return llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
+      }
+    }
 
     auto val = LoadRegValue(block, state_ptr, arch_reg.name);
 
@@ -581,7 +1164,8 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 
       } else if (arg_type->isFloatingPointTy()) {
         CHECK(val_type->isFloatingPointTy())
-            << "Expected " << arch_reg.name << " to be a floating point type "
+            << "Expected " << arch_reg.name
+            << " to be a floating point type (Actual: " << LLVMThingToString(val_type) << ") "
             << "for instruction at " << std::hex << inst.pc;
 
         val = new llvm::FPTruncInst(val, arg_type, llvm::Twine::createNull(), block);
@@ -595,28 +1179,19 @@ llvm::Value *InstructionLifter::LiftRegisterOperand(Instruction &inst, llvm::Bas
 // Lift an immediate operand.
 llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::BasicBlock *,
                                                      llvm::Argument *arg, Operand &arch_op) {
-  auto arg_type = arg->getType();
-  if (arch_op.size > impl->arch->address_size) {
-    CHECK(arg_type->isIntegerTy(static_cast<uint32_t>(arch_op.size)))
-        << "Argument to semantics function for instruction at " << std::hex << inst.pc
-        << " is not an integer. This may not be surprising because "
-        << "the immediate operand is " << arch_op.size << " bits, but the "
-        << "machine word size is " << impl->arch->address_size << " bits.";
+  if (arg->getType()->isIntegerTy()) {
+    return llvm::ConstantInt::get(arg->getType(), arch_op.imm.val, arch_op.imm.is_signed);
+  } else if (arg->getType()->isFloatTy()) {
+    auto float_val = *reinterpret_cast<float *>(&arch_op.imm.val);
+    return llvm::ConstantFP::get(arg->getType(), float_val);
+  } else if (arg->getType()->isDoubleTy()) {
+    auto double_val = *reinterpret_cast<double *>(&arch_op.imm.val);
+    return llvm::ConstantFP::get(arg->getType(), double_val);
+  }
 
-    CHECK(arch_op.size <= 64) << "Decode error! Immediate operands can be at most 64 bits! "
-                              << "Operand structure encodes a truncated " << arch_op.size << " bit "
-                              << "value for instruction at " << std::hex << inst.pc;
-
-    return llvm::ConstantInt::get(arg_type, arch_op.imm.val, arch_op.imm.is_signed);
-
-  } else {
-    CHECK(arg_type->isIntegerTy(impl->arch->address_size))
-        << "Bad semantics function implementation for instruction at " << std::hex << inst.pc
-        << ". Integer constants that are "
-        << "smaller than the machine word size should be represented as "
-        << "machine word sized arguments to semantics functions.";
-
-    return llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
+  else {
+    LOG(FATAL) << "Unexpected type of the Immediate. arg type: "
+               << LLVMThingToString(arg->getType());
   }
 }
 
@@ -836,7 +1411,7 @@ llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock 
         LOG(FATAL) << "Expected that a memory operand should be represented by "
                    << "machine word type. Argument type is " << LLVMThingToString(arg_type)
                    << " and word type is " << LLVMThingToString(impl->word_type)
-                   << " in instruction at " << std::hex << inst.pc;
+                   << " in instruction at 0x" << std::hex << inst.pc;
       }
 
       return LiftAddressOperand(inst, block, state_ptr, arg, arch_op);
@@ -857,8 +1432,8 @@ llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock 
 llvm::Type *InstructionLifter::GetWordType() {
   return this->impl->word_type;
 }
-llvm::Type *InstructionLifter::GetMemoryType() {
-  return this->impl->memory_ptr_type;
+llvm::Type *InstructionLifter::GetRuntimeType() {
+  return this->impl->runtime_ptr_type;
 }
 
 const IntrinsicTable *InstructionLifter::GetIntrinsicTable() {

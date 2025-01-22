@@ -23,10 +23,12 @@
 #include "remill/Arch/Runtime/Float.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/Definitions.h"
 #include "remill/Arch/Runtime/Types.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/AArch64/Runtime/Types.h"
 #include "remill/Arch/AArch64/Runtime/Operators.h"
+#include "remill/Arch/AArch64/Runtime/AArch64Definitions.h"
 
 // clang-format on
 
@@ -84,6 +86,8 @@ State __remill_state;
 #define FLAG_V state.sr.v  // Overflow.
 #define FLAG_N state.sr.n  // Negative.
 
+#define FLAG_ECV_NZCV state.ecv_nzcv  // new system register flag of nzcv
+
 #define HYPER_CALL state.hyper_call
 #define INTERRUPT_VECTOR state.hyper_call_vector
 #define HYPER_CALL_VECTOR state.hyper_call_vector
@@ -91,14 +95,13 @@ State __remill_state;
 namespace {
 
 // Takes the place of an unsupported instruction.
-DEF_SEM(HandleUnsupported) {
-  return __remill_sync_hyper_call(state, memory, SyncHyperCall::kAArch64EmulateInstruction);
+DEF_SEM_VOID_STATE_RUN(HandleUnsupported) {
+  __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64EmulateInstruction);
 }
 
 // Takes the place of an invalid instruction.
-DEF_SEM(HandleInvalidInstruction) {
+DEF_SEM_VOID_STATE(HandleInvalidInstruction) {
   HYPER_CALL = AsyncHyperCall::kInvalidInstruction;
-  return memory;
 }
 
 }  // namespace

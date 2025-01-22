@@ -5,12 +5,18 @@
 #include <cstring>
 #include <map>
 #include <memory>
-#include <remill/Arch/AArch64/Runtime/State.h>
+
 #include <remill/Arch/Runtime/Types.h>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+#endif
 
 const addr_t STACK_START_VMA = 0x0fff'ff00'0000'0000; /* 65535 TiB FIXME! */
 const size_t STACK_SIZE = 1 * 1024 * 1024; /* 4 MiB */
@@ -19,6 +25,7 @@ const uint64_t HEAP_UNIT_SIZE = 1 * 1024 * 1024 * 1024; /* 1 GiB */
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
+<<<<<<< HEAD
 class MappedMemory;
 class RuntimeManager;
 
@@ -35,10 +42,12 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t
 // T *getMemoryAddr(addr_t vma_addr) {
 //   return reinterpret_cast<T *>(_ecv_translate_ptr(vma_addr));
 // }
+=======
+>>>>>>> main
 
 extern "C" {
 /* State machine which represents all CPU registers */
-extern State g_state;
+extern State CPUState;
 /* Lifted entry function address */
 extern const LiftedFunc __g_entry_func;
 /* entry point of the original ELF */
@@ -136,7 +145,7 @@ class MappedMemory {
   }
 
   static MappedMemory *VMAStackEntryInit(int argc, char *argv[],
-                                         State *state /* start stack pointer */);
+                                         State &state /* start stack pointer */);
   static MappedMemory *VMAHeapEntryInit();
   void DebugEmulatedMemory();
 
@@ -151,6 +160,7 @@ class MappedMemory {
   bool bytes_on_heap;  // whether or not bytes is allocated on the heap memory
   uint64_t heap_cur; /* for Heap */
 };
+<<<<<<< HEAD
 
 class RuntimeManager : public XMemory {
  public:
@@ -189,3 +199,5 @@ class RuntimeManager : public XMemory {
 };
 
 extern RuntimeManager *g_run_mgr;
+=======
+>>>>>>> main

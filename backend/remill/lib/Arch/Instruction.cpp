@@ -318,6 +318,9 @@ void Instruction::Reset(void) {
   function.clear();
   bytes.clear();
   next_expr_index = 0;
+  prepost_updated_reg_op.reg.name.clear();
+  prepost_new_addr_op.addr.base_reg.name.clear();
+  prepost_new_addr_op.addr.index_reg.name.clear();
 }
 
 OperandExpression *Instruction::AllocateExpression(void) {

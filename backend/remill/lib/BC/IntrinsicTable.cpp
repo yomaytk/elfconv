@@ -88,25 +88,27 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       syscall_tranpoline_call(FindIntrinsic(module, "__remill_syscall_tranpoline_call")),
 
       // Memory access.
-      read_memory_8(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_8"))),
-      read_memory_16(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_16"))),
-      read_memory_32(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_32"))),
-      read_memory_64(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_64"))),
+      read_memory_8(FindIntrinsic(module, "__remill_read_memory_8")),
+      read_memory_16(FindIntrinsic(module, "__remill_read_memory_16")),
+      read_memory_32(FindIntrinsic(module, "__remill_read_memory_32")),
+      read_memory_64(FindIntrinsic(module, "__remill_read_memory_64")),
+      read_memory_128(FindIntrinsic(module, "__remill_read_memory_128")),
 
-      write_memory_8(FindPureIntrinsic(module, "__remill_write_memory_8")),
-      write_memory_16(FindPureIntrinsic(module, "__remill_write_memory_16")),
-      write_memory_32(FindPureIntrinsic(module, "__remill_write_memory_32")),
-      write_memory_64(FindPureIntrinsic(module, "__remill_write_memory_64")),
+      write_memory_8(FindIntrinsic(module, "__remill_write_memory_8")),
+      write_memory_16(FindIntrinsic(module, "__remill_write_memory_16")),
+      write_memory_32(FindIntrinsic(module, "__remill_write_memory_32")),
+      write_memory_64(FindIntrinsic(module, "__remill_write_memory_64")),
+      write_memory_128(FindIntrinsic(module, "__remill_write_memory_128")),
 
-      read_memory_f32(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f32"))),
-      read_memory_f64(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f64"))),
-      read_memory_f80(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f80"))),
-      read_memory_f128(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f128"))),
+      read_memory_f32(FindIntrinsic(module, "__remill_read_memory_f32")),
+      read_memory_f64(FindIntrinsic(module, "__remill_read_memory_f64")),
+      // read_memory_f80(SetMemoryReadNone(FindPureIntrinsic(module, "__remill_read_memory_f80"))),
+      read_memory_f128(FindIntrinsic(module, "__remill_read_memory_f128")),
 
-      write_memory_f32(FindPureIntrinsic(module, "__remill_write_memory_f32")),
-      write_memory_f64(FindPureIntrinsic(module, "__remill_write_memory_f64")),
-      write_memory_f80(FindPureIntrinsic(module, "__remill_write_memory_f80")),
-      write_memory_f128(FindPureIntrinsic(module, "__remill_write_memory_f128")),
+      write_memory_f32(FindIntrinsic(module, "__remill_write_memory_f32")),
+      write_memory_f64(FindIntrinsic(module, "__remill_write_memory_f64")),
+      // write_memory_f80(FindIntrinsic(module, "__remill_write_memory_f80")),
+      write_memory_f128(FindIntrinsic(module, "__remill_write_memory_f128")),
 
       // Memory barriers.
       barrier_load_load(FindPureIntrinsic(module, "__remill_barrier_load_load")),
@@ -148,8 +150,8 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
       state_ptr_type(llvm::dyn_cast<llvm::PointerType>(
           lifted_function_type->getParamType(kStatePointerArgNum))),
       pc_type(llvm::dyn_cast<llvm::IntegerType>(lifted_function_type->getParamType(kPCArgNum))),
-      mem_ptr_type(llvm::dyn_cast<llvm::PointerType>(
-          lifted_function_type->getParamType(kMemoryPointerArgNum))) {
+      runtime_ptr_type(llvm::dyn_cast<llvm::PointerType>(
+          lifted_function_type->getParamType(kRuntimePointerArgNum))) {
 
 
   // Make sure to set the correct attributes on this to make sure that

@@ -14,14 +14,21 @@
  * limitations under the License.
  */
 
-#include "Lift.h"
+#include "remill/BC/Util.h"
+#if defined(__linux__)
+#  include <signal.h>
+#  include <utils/Util.h>
+#  include <utils/elfconv.h>
+#endif
 
+#include "Lift.h"
 #include "MainLifter.h"
 #include "TraceManager.h"
 
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <remill/BC/HelperMacro.h>
+#include <remill/BC/InstructionLifter.h>
 #include <remill/BC/Lifter.h>
 #include <remill/BC/Optimizer.h>
 #include <utils/Util.h>
@@ -37,8 +44,30 @@ DEFINE_string(arch, REMILL_ARCH,
 DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
+DEFINE_string(target_arch, "", "Target Architecture for conversion");
+
+ArchName TARGET_ELF_ARCH;
+
+extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
+  std::cout << remill::ECV_DEBUG_STREAM.str();
+  std::cout << "(Custom) Segmantation Fault." << std::endl;
+  exit(EXIT_FAILURE);
+}
+
+void lift_set_sigaction() {
+#if defined(__linux__)
+  struct sigaction segv_action;
+  segv_action.sa_flags = SA_SIGINFO;
+  segv_action.sa_sigaction = debug_stream_out_sigaction;
+  if (sigaction(SIGSEGV, &segv_action, NULL) < 0) {
+    elfconv_runtime_error("sigaction for SIGSEGV failed.\n");
+  }
+#endif
+}
 
 int main(int argc, char *argv[]) {
+  // set custom signal handler for SIGSEGV.
+  lift_set_sigaction();
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
@@ -48,37 +77,25 @@ int main(int argc, char *argv[]) {
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
   auto arch_name = remill::GetArchName(FLAGS_arch);
-  auto arch = remill::Arch::Build(&context, os_name, arch_name);
+  TARGET_ELF_ARCH = arch_name;
+  auto arch =
+      remill::Arch::Build(&context, os_name, arch_name);  // arch = std::unique_ptr<AArch64Arch>
   auto module = FLAGS_bitcode_path.empty()
                     ? remill::LoadArchSemantics(arch.get())
                     : remill::LoadArchSemantics(arch.get(), {FLAGS_bitcode_path.c_str()});
 
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager);
+  main_lifter.SetRuntimeManagerClass();
 
   std::unordered_map<uint64_t, const char *> addr_fn_map;
 
-#if defined(LIFT_DEBUG)
-  std::cout << "[\033[32mINFO\033[0m] DEBUG MODE ON." << std::endl;
-#endif
-
-  /* target function control flow */
-  std::unordered_map<uint64_t, bool> control_flow_debug_list = {};
-  if (!FLAGS_dbg_fun_cfg.empty()) {
-    for (auto &[fn_addr, dasm_func] : manager.disasm_funcs) {
-      /* append the address of necesarry debug function */
-      if (strncmp(dasm_func.func_name.substr(0, FLAGS_dbg_fun_cfg.length() + 4).c_str(),
-                  (FLAGS_dbg_fun_cfg + "_____").c_str(), FLAGS_dbg_fun_cfg.length() + 4) == 0) {
-        control_flow_debug_list[fn_addr] = true;
-        break;
-      }
-    }
-    main_lifter.SetControlFlowDebugList(control_flow_debug_list);
-  }
   /* declare debug function */
   main_lifter.DeclareDebugFunction();
   /* declare helper function for lifted LLVM bitcode */
   main_lifter.DeclareHelperFunction();
+  // set global register names
+  main_lifter.SetRegisterNames();
 
   /* lift every disassembled function */
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
@@ -89,6 +106,9 @@ int main(int argc, char *argv[]) {
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
+
+  // Optimize the generated LLVM IR.
+  main_lifter.Optimize();
 
   /* set entry function of lifted function */
   if (manager.entry_func_lifted_name.empty())
@@ -117,8 +137,20 @@ int main(int argc, char *argv[]) {
   /* generate LLVM bitcode file */
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
   host_arch->PrepareModule(module.get());
+
+  // Set wasm32-unknown-wasi and wasm32 data layout if necessary.
+  if (FLAGS_target_arch == "wasi32") {
+    auto wasm32_dl =
+        llvm::DataLayout("e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-n32:64-S128-ni:1:10:20");
+    module->setDataLayout(wasm32_dl.getStringRepresentation());
+    llvm::Triple wasm32_triple;
+    wasm32_triple.setArch(llvm::Triple::wasm32);
+    wasm32_triple.setVendor(llvm::Triple::UnknownVendor);
+    wasm32_triple.setOS(llvm::Triple::WASI);
+    module->setTargetTriple(wasm32_triple.str());
+  }
+
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
-  printf("[\033[32mINFO\033[0m] Lift Done.\n");
   return 0;
 }

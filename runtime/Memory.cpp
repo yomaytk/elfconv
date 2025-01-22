@@ -6,11 +6,17 @@
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
+#if defined(ELF_IS_AARCH64)
+#  define SPREG state.gpr.sp.qword
+#elif defined(ELF_IS_AMD64)
+#  define SPREG state.gpr.rsp.qword
+#endif
+
 /*
   MappedMemory
 */
 MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
-                                              State *state /* start stack pointer */) {
+                                              State &state /* start stack pointer */) {
   _ecv_reg64_t sp;
   addr_t vma = STACK_START_VMA;
   uint64_t len = STACK_SIZE;
@@ -41,7 +47,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
       _ecv_reg64_t _ecv_a_val;
     } _ecv_a_un;
   } _ecv_auxv64[] = {
-#if defined(ELFC_WASI_ENV)
+#if defined(TARGET_IS_WASI)
     {3 /* AT_PHDR */, phdr},
     {4 /* AT_PHENT */, __g_e_phent},
     {5 /* AT_PHNUM */, __g_e_phnum},
@@ -85,7 +91,7 @@ MappedMemory *MappedMemory::VMAStackEntryInit(int argc, char *argv[],
   sp -= sizeof(_ecv_reg64_t);
   auto argc64 = (_ecv_reg64_t) argc;
   memcpy(bytes + (sp - vma), &argc64, sizeof(_ecv_reg64_t));
-  state->gpr.sp.qword = sp;
+  SPREG = sp;
   return new MappedMemory(MemoryAreaType::STACK, "Stack", vma, vma + len, len, bytes, bytes + len,
                           true);
 }
@@ -187,83 +193,83 @@ void RuntimeManager::set(uint64_t vma_addr, uint8_t y) {
 //   return g_run_mgr->TranslateVMA(vma_addr);
 // }
 
-extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma) {
-  if (g_run_mgr->addr_block_addrs_map.count(fun_vma) == 1) {
-    auto vma_bb_map = g_run_mgr->addr_block_addrs_map[fun_vma];
-    if (vma_bb_map.count(bb_vma) == 1) {
-      return vma_bb_map[bb_vma];
-    } else {
-      if (g_run_mgr->addr_fn_map.count(fun_vma) == 1)
-        return vma_bb_map[UINT64_MAX];
-      else
-        elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n",
-                              bb_vma, __func__);
-    }
-  } else {
-    elfconv_runtime_error(
-        "[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
-        __func__);
-  }
-}
+// extern "C" uint64_t *__g_get_indirectbr_block_address(uint64_t fun_vma, uint64_t bb_vma) {
+//   if (g_run_mgr->addr_block_addrs_map.count(fun_vma) == 1) {
+//     auto vma_bb_map = g_run_mgr->addr_block_addrs_map[fun_vma];
+//     if (vma_bb_map.count(bb_vma) == 1) {
+//       return vma_bb_map[bb_vma];
+//     } else {
+//       if (g_run_mgr->addr_fn_map.count(fun_vma) == 1)
+//         return vma_bb_map[UINT64_MAX];
+//       else
+//         elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n",
+//                               bb_vma, __func__);
+//     }
+//   } else {
+//     elfconv_runtime_error(
+//         "[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
+//         __func__);
+//   }
+// }
 
-extern "C" void debug_call_stack_push(uint64_t fn_vma) {
-  if (auto func_name = g_run_mgr->addr_fn_symbol_map[fn_vma]; func_name) {
-    if (strncmp(func_name, "fn_plt", 6) == 0) {
-      return;
-    }
-    g_run_mgr->call_stacks.push_back(fn_vma);
-    std::string tab_space;
-    for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
-      if (i & 0b1)
-        tab_space += "\033[34m";
-      else
-        tab_space += "\033[31m";
-      tab_space += "|";
-    }
-    tab_space += "\033[0m";
-    char entry_func_log[100];
-    snprintf(entry_func_log, 100, "start : %s\n", func_name);
-    printf("%s", tab_space.c_str());
-    printf("%s", entry_func_log);
-  } else {
-    elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", fn_vma);
-  }
-}
+// extern "C" void debug_call_stack_push(uint64_t fn_vma) {
+//   if (auto func_name = g_run_mgr->addr_fn_symbol_map[fn_vma]; func_name) {
+//     if (strncmp(func_name, "fn_plt", 6) == 0) {
+//       return;
+//     }
+//     g_run_mgr->call_stacks.push_back(fn_vma);
+//     std::string tab_space;
+//     for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
+//       if (i & 0b1)
+//         tab_space += "\033[34m";
+//       else
+//         tab_space += "\033[31m";
+//       tab_space += "|";
+//     }
+//     tab_space += "\033[0m";
+//     char entry_func_log[100];
+//     snprintf(entry_func_log, 100, "start : %s\n", func_name);
+//     printf("%s", tab_space.c_str());
+//     printf("%s", entry_func_log);
+//   } else {
+//     elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", fn_vma);
+//   }
+// }
 
-extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
-  if (g_run_mgr->call_stacks.empty()) {
-    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", g_state.gpr.pc.qword);
-  } else {
-    auto last_call_vma = g_run_mgr->call_stacks.back();
-    auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
-    if (strncmp(func_name, "fn_plt", 6) != 0) {
-      if (fn_vma != last_call_vma)
-        elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
-                              last_call_vma, g_run_mgr->addr_fn_symbol_map[fn_vma],
-                              g_run_mgr->addr_fn_symbol_map[last_call_vma]);
-      g_run_mgr->call_stacks.pop_back();
-      return;
-      std::string tab_space;
-      for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
-        if (i & 0b1)
-          tab_space += "\033[34m";
-        else
-          tab_space += "\033[31m";
-        tab_space += "|";
-      }
-      tab_space += "\033[0m";
-      char return_func_log[100];
-      snprintf(return_func_log, 100, "end   : %s\n", func_name);
-      printf("%s", tab_space.c_str());
-      printf("%s", return_func_log);
-    }
-  }
-}
+// extern "C" void debug_call_stack_pop(uint64_t fn_vma) {
+//   if (g_run_mgr->call_stacks.empty()) {
+//     elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", g_state.gpr.pc.qword);
+//   } else {
+//     auto last_call_vma = g_run_mgr->call_stacks.back();
+//     auto func_name = g_run_mgr->addr_fn_symbol_map[last_call_vma];
+//     if (strncmp(func_name, "fn_plt", 6) != 0) {
+//       if (fn_vma != last_call_vma)
+//         elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
+//                               last_call_vma, g_run_mgr->addr_fn_symbol_map[fn_vma],
+//                               g_run_mgr->addr_fn_symbol_map[last_call_vma]);
+//       g_run_mgr->call_stacks.pop_back();
+//       return;
+//       std::string tab_space;
+//       for (int i = 0; i < g_run_mgr->call_stacks.size(); i++) {
+//         if (i & 0b1)
+//           tab_space += "\033[34m";
+//         else
+//           tab_space += "\033[31m";
+//         tab_space += "|";
+//       }
+//       tab_space += "\033[0m";
+//       char return_func_log[100];
+//       snprintf(return_func_log, 100, "end   : %s\n", func_name);
+//       printf("%s", tab_space.c_str());
+//       printf("%s", return_func_log);
+//     }
+//   }
+// }
 
-extern "C" void temp_patch_f_flags(uint64_t f_flags_vma) {
-  uint64_t x = 0xfbad2a84;
-  g_run_mgr->write(f_flags_vma,&x);
-  // uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
-  // *pma = ;
-  return;
-}
+// extern "C" void temp_patch_f_flags(uint64_t f_flags_vma) {
+//   uint64_t x = 0xfbad2a84;
+//   g_run_mgr->write(f_flags_vma,&x);
+//   // uint64_t *pma = (uint64_t *) _ecv_translate_ptr(f_flags_vma);
+//   // *pma = ;
+//   return;
+// }

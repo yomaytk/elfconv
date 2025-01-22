@@ -1,5 +1,4 @@
 #include "SysTable.h"
-#include "runtime/Memory.h"
 
 #include <algorithm>
 #include <alloca.h>
@@ -8,9 +7,12 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+<<<<<<< HEAD
 #include <map>
 #include <memory>
 #include <remill/Arch/AArch64/Runtime/State.h>
+=======
+>>>>>>> main
 #include <remill/BC/HelperMacro.h>
 #include <stdlib.h>
 #include <string>
@@ -56,6 +58,14 @@ struct Fdmap : XMemory {
 #else
 #  define EMPTY_SYSCALL(sysnum) ;
 #  define NOP_SYSCALL(sysnum) ;
+#endif
+
+#if defined(__wasm32__)
+typedef uint32_t _ecv_long;
+#elif defined(__wasm64__)
+typedef uint64_t _ecv_long;
+#else
+typedef uint32_t _ecv_long;
 #endif
 
 /*
@@ -110,6 +120,14 @@ struct _ecv_statx {
 #define _ECV_AT_EMPTY_PATH 0x1000
 #define _ECV_STATX_BASIC_STATS 0x000007ffU
 
+// macros specified to Linux
+#define LINUX_AD_FDCWD -100
+#define LINUX_O_CREAT 64
+#define LINUX_O_WRONLY 1
+#define LINUX_O_RDWR 2
+
+#define ERROR_CODE -1
+
 /*
   syscall emulate function
   
@@ -117,63 +135,104 @@ struct _ecv_statx {
   arch: arm64, syscall NR: x8, return: x0, arg0: x0, arg1: x1, arg2: x2, arg3: x3, arg4: x4, arg5: x5
   ref: https://blog.xhyeax.com/2022/04/28/arm64-syscall-table/
 */
-void __svc_wasi_call(void) {
+void RuntimeManager::SVCWasiCall(void) {
 
-  auto &state_gpr = g_state.gpr;
   errno = 0;
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
-  printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", g_state.gpr.x8.dword,
-         g_state.gpr.pc.qword);
+  printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  switch (state_gpr.x8.qword) {
+  switch (SYSNUMREG) {
+    case AARCH64_SYS_DUP: /* dup (unsinged int fildes)*/
+      EMPTY_SYSCALL(AARCH64_SYS_DUP)
+      X0_Q = -1;
+      errno = _ECV_EACCESS;
+      break;
     case AARCH64_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
       EMPTY_SYSCALL(AARCH64_SYS_IOCTL)
-      state_gpr.x0.qword = -1;
+      X0_Q = -1;
       errno = _ECV_EACCESS;
+      break;
+    case AARCH64_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
+      if (LINUX_AD_FDCWD == X0_D) {
+        X0_Q = AT_FDCWD;
+      }
+      X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      break;
+    case AARCH64_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
+      if (LINUX_AD_FDCWD == X0_D) {
+        X0_Q = AT_FDCWD;
+      }
+      X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      break;
+    case AARCH64_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
+      EMPTY_SYSCALL(AARCH64_SYS_IOCTL)
+      X0_Q = -1;
+      errno = _ECV_EACCESS;
+      break;
+    case AARCH64_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
+      X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
+      break;
+    case AARCH64_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
+      X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
     case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
-      state_gpr.x0.qword = -1;
+      X0_Q = -1;
       EMPTY_SYSCALL(AARCH64_SYS_FACCESSAT);
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
-      if (-100 == state_gpr.x0.dword)
-        state_gpr.x0.qword = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
-      auto old = state_gpr.x2.dword;
-      state_gpr.x2.dword = O_RDWR;
-      if (old & 0x100)
-        state_gpr.x2.dword |= O_CREAT;
-      // uint8_t x1[state_gpr.x2.dword];
-      // g_run_mgr->read(state_gpr.x1.qword, &x1[0], state_gpr.x2.dword);
-      state_gpr.x0.dword = openat(state_gpr.x0.dword, g_run_mgr->cstr(state_gpr.x1.qword).c_str(),
-                                  state_gpr.x2.dword);
-      if (-1 == state_gpr.x0.dword)
+      // if (-100 == X0_D)
+      //   X0_Q = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
+      // auto old = X2_D;
+      // X2_D = O_RDWR;
+      // if (old & 0x100)
+      //   X2_D |= O_CREAT;
+            if (LINUX_AD_FDCWD == X0_D) {
+        X0_Q = AT_FDCWD;
+      }
+      if (LINUX_O_CREAT == (X2_D & LINUX_O_CREAT)) {
+        X2_D &= ~LINUX_O_CREAT;
+        X2_D |= O_CREAT;
+      }
+      if (LINUX_O_RDWR == (X2_D & LINUX_O_RDWR)) {
+        X2_D &= ~LINUX_O_RDWR;
+        X2_D |= O_RDWR;
+      }
+      if (LINUX_O_WRONLY == (X2_D & LINUX_O_WRONLY)) {
+        X2_D &= ~LINUX_O_WRONLY;
+        X2_D |= O_WRONLY;
+      }
+      // uint8_t x1[X2_D];
+      // g_run_mgr->read(X1_Q, &x1[0], X2_D);
+      X0_D = openat(X0_D, g_run_mgr->cstr(X1_Q).c_str(),
+                                  X2_D);
+      if (-1 == X0_D)
         perror("openat error!");
     } break;
     case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
-      state_gpr.x0.dword = close(state_gpr.x0.dword);
+      X0_D = close(X0_D);
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
     {
-      uint8_t buf[state_gpr.x2.qword];
-      state_gpr.x0.qword = read(state_gpr.x0.dword, buf, static_cast<size_t>(state_gpr.x2.qword));
-      g_run_mgr->write(state_gpr.x1.qword, &buf[0], state_gpr.x2.qword);
+      uint8_t buf[X2_Q];
+      X0_Q = read(X0_D, buf, static_cast<size_t>(X2_Q));
+      g_run_mgr->write(X1_Q, &buf[0], X2_Q);
     } break;
     case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
     {
-      uint8_t buf[state_gpr.x2.qword];
-      g_run_mgr->read(state_gpr.x1.qword, &buf[0], state_gpr.x2.qword);
-      state_gpr.x0.qword = write(state_gpr.x0.dword, buf, static_cast<size_t>(state_gpr.x2.qword));
+      uint8_t buf[X2_Q];
+      g_run_mgr->read(X1_Q, &buf[0], X2_Q);
+      X0_Q = write(X0_D, buf, static_cast<size_t>(X2_Q));
     } break;
     case AARCH64_SYS_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
-      unsigned long fd = state_gpr.x0.qword;
-      unsigned long vlen = state_gpr.x2.qword;
-      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(state_gpr.x1.qword));
+      unsigned long fd = X0_Q;
+      unsigned long vlen = X2_Q;
+      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
-      g_run_mgr->read(state_gpr.x1.qword, cache_vec, vlen);
+      g_run_mgr->read(X1_Q, cache_vec, vlen);
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
         uint8_t *x = (uint8_t *) alloca(cache_vec[i].iov_len);
@@ -181,16 +240,16 @@ void __svc_wasi_call(void) {
         cache_vec[i].iov_base = x;
         // cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
-      state_gpr.x0.qword = writev(fd, cache_vec, vlen);
+      X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
     case AARCH64_SYS_READV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
-      unsigned long fd = state_gpr.x0.qword;
-      unsigned long vlen = state_gpr.x2.qword;
-      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(state_gpr.x1.qword));
+      unsigned long fd = X0_Q;
+      unsigned long vlen = X2_Q;
+      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
-      g_run_mgr->read(state_gpr.x1.qword, cache_vec, vlen);
+      g_run_mgr->read(X1_Q, cache_vec, vlen);
       uint64_t roots[vlen];
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
@@ -200,7 +259,7 @@ void __svc_wasi_call(void) {
         cache_vec[i].iov_base = x;
         // cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
-      state_gpr.x0.qword = readv(fd, cache_vec, vlen);
+      X0_Q = readv(fd, cache_vec, vlen);
       for (unsigned long i = 0; i < vlen; i++) {
         auto b = (uint64_t) cache_vec[i].iov_base;
         g_run_mgr->write((uint64_t) roots[i], &b, cache_vec[i].iov_len);
@@ -209,40 +268,44 @@ void __svc_wasi_call(void) {
     } break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
     {
+            if (LINUX_AD_FDCWD == X0_D) {
+        X0_Q = AT_FDCWD;
+      }
       uint8_t buf[state_gpr.x3.dword];
-      state_gpr.x0.qword =
-          readlinkat(state_gpr.x0.dword, g_run_mgr->cstr(state_gpr.x1.qword).c_str(), (char *) buf,
+      X0_Q =
+          readlinkat(X0_D, g_run_mgr->cstr(X1_Q).c_str(), (char *) buf,
                      state_gpr.x3.dword);
-      g_run_mgr->write(state_gpr.x2.qword, buf, state_gpr.x3.dword);
+      g_run_mgr->write(X2_Q, buf, state_gpr.x3.dword);
     } break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
-      state_gpr.x0.qword = -1;
+      X0_Q = -1;
       EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_EXIT: /* exit (int error_code) */ exit(state_gpr.x0.dword); break;
+    case AARCH64_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case AARCH64_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case AARCH64_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
-      exit(state_gpr.x0.dword);
+      exit(X0_D);
       break;
     case AARCH64_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = 42;
-      g_run_mgr->write(state_gpr.x0.qword, &tid);
-      state_gpr.x0.qword = tid;
+      g_run_mgr->write(X0_Q, &tid);
+      X0_Q = tid;
     } break;
     case AARCH64_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
       /* TODO */
-      if ((state_gpr.x1.dword & 0x7F) == 0) {
+      if ((X1_D & 0x7F) == 0) {
         /* FUTEX_WAIT */
-        state_gpr.x0.qword = 0;
+        X0_Q = 0;
       } else {
-        elfconv_runtime_error("Unknown futex op 0x%08u\n", state_gpr.x1.dword);
+        elfconv_runtime_error("Unknown futex op 0x%08u\n", X1_D);
       }
       NOP_SYSCALL(AARCH64_SYS_FUTEX);
       break;
     case AARCH64_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
-      state_gpr.x0.qword = 0;
+      X0_Q = 0;
       NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
       errno = _ECV_EACCESS;
       break;
@@ -250,68 +313,77 @@ void __svc_wasi_call(void) {
     {
       struct _ecv__clockid {
         uint32_t id;
-      } which_clock;
-      which_clock.id = state_gpr.x0.dword;
+      } which_clock = {.id = X0_D};
       struct timespec emu_tp;
       int clock_time = clock_gettime((clockid_t) &which_clock, &emu_tp);
-      // memcpy(_ecv_translate_ptr(state_gpr.x1.qword), &emu_tp, sizeof(timespec));
-      g_run_mgr->write(state_gpr.x1.qword, &emu_tp);
-      state_gpr.x0.qword = (_ecv_reg64_t) clock_time;
+      // memcpy(_ecv_translate_ptr(X1_Q), &emu_tp, sizeof(timespec));
+            struct {
+        uint64_t tv_sec; /* time_t */
+        uint64_t tv_nsec; /* long (assume that the from target architecture is 64bit) */
+      } tp = {
+          .tv_sec = (uint64_t) emu_tp.tv_sec,
+          .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
+      };
+      g_run_mgr->write(X1_Q, &tp);
+      X0_Q = (_ecv_reg64_t) clock_time;
     } break;
     case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
       EMPTY_SYSCALL(AARCH64_SYS_TGKILL);
-      state_gpr.x0.qword = -1;
+      X0_Q = -1;
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
       /* TODO */
-      state_gpr.x0.qword = 0;
+      X0_Q = 0;
       EMPTY_SYSCALL(AARCH64_SYS_RT_SIGPROCMASK);
       break;
     case AARCH64_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
-      state_gpr.x0.qword = -1;
+      X0_Q = -1;
       errno = _ECV_EACCESS;
       EMPTY_SYSCALL(AARCH64_SYS_RT_SIGACTION)
       break;
     case AARCH64_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
-      struct __my_utsname {
+      struct __ecv_utsname {
         char sysname[65];
         char nodename[65];
-        char relase[65];
+        char release[65];
         char version[65];
         char machine[65];
       } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
                        "#0~elfconv", "aarch64"};
-      // memcpy(_ecv_translate_ptr(state_gpr.x0.qword), &new_utsname, sizeof(new_utsname));
-      g_run_mgr->write(state_gpr.x0.qword, &new_utsname);
-      state_gpr.x0.dword = 0;
+      // memcpy(_ecv_translate_ptr(X0_Q), &new_utsname, sizeof(new_utsname));
+      g_run_mgr->write(X0_Q, &new_utsname);
+      X0_D = 0;
     } break;
-    case AARCH64_SYS_GETPID: /* getpid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETPPID: /* getppid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETTUID: /* getuid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETEUID: /* geteuid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETGID: /* getgid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETEGID: /* getegid () */ state_gpr.x0.dword = 42; break;
-    case AARCH64_SYS_GETTID: /* getttid () */ state_gpr.x0.dword = 42; break;
+    case AARCH64_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
+      X0_D = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
+                          (struct timezone *) 0); /* FIXME (second argument) */
+      break;
+    case AARCH64_SYS_GETPID: /* getpid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETPPID: /* getppid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETTUID: /* getuid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETEUID: /* geteuid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETGID: /* getgid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETEGID: /* getegid () */ X0_D = 42; break;
+    case AARCH64_SYS_GETTID: /* getttid () */ X0_D = 42; break;
     case AARCH64_SYS_BRK: /* brk (unsigned long brk) */
     {
-      auto heap_memory = g_run_mgr->heap_memory;
-      if (state_gpr.x0.qword == 0) {
+      auto __heap_memory = heap_memory;
+      if (X0_Q == 0) {
         /* init program break (FIXME) */
-        state_gpr.x0.qword = heap_memory->heap_cur;
-      } else if (heap_memory->vma <= state_gpr.x0.qword &&
-                 state_gpr.x0.qword < heap_memory->vma + heap_memory->len) {
+        X0_Q = __heap_memory->heap_cur;
+      } else if (__heap_memory->vma <= X0_Q && X0_Q < __heap_memory->vma + __heap_memory->len) {
         /* change program break */
-        heap_memory->heap_cur = state_gpr.x0.qword;
+        __heap_memory->heap_cur = X0_Q;
       } else {
-        elfconv_runtime_error("Unsupported brk(0x%016llx).\n", state_gpr.x0.qword);
+        elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
     } break;
     case AARCH64_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
       /* TODO */ {
-        auto vma_addr = state_gpr.x0.qword;
+        auto vma_addr = X0_Q;
         auto it = std::find_if(g_run_mgr->mapped_memorys.begin(), g_run_mgr->mapped_memorys.end(),
                                [=](MappedMemory *memory) {
                                  return memory->vma <= vma_addr && vma_addr < memory->vma_end;
@@ -326,7 +398,7 @@ void __svc_wasi_call(void) {
           swap(*it, g_run_mgr->mapped_memorys.back());
           g_run_mgr->mapped_memorys.pop_back();
         }
-        state_gpr.x0.qword = 0;
+        X0_Q = 0;
         EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
       }
       break;
@@ -334,28 +406,28 @@ void __svc_wasi_call(void) {
       /* FIXME */
       {
         auto heap_memory = g_run_mgr->heap_memory;
-        if (state_gpr.x0.qword == 0) {
-          if (state_gpr.x4.dword != -1)
-            elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", state_gpr.x4.dword);
+        if (X0_Q == 0) {
+          if (X4_D != -1)
+            elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
           if (state_gpr.x5.dword != 0)
-            elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", state_gpr.x5.qword);
-          state_gpr.x0.qword = heap_memory->heap_cur;
-          heap_memory->heap_cur += state_gpr.x1.qword;
+            elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
+          X0_Q = heap_memory->heap_cur;
+          heap_memory->heap_cur += X1_Q;
         } else {
-          if (state_gpr.x4.dword == -1) {
-            if (state_gpr.x1.qword <= 1 << 24) {
-              auto bytes = reinterpret_cast<uint8_t *>(malloc(state_gpr.x1.dword));
-              auto size = state_gpr.x1.dword;
+          if (X4_D == -1) {
+            if (X1_Q <= 1 << 24) {
+              auto bytes = reinterpret_cast<uint8_t *>(malloc(X1_D));
+              auto size = X1_D;
               auto upper_bytes = bytes + size;
-              auto s = state_gpr.x0.qword;
+              auto s = X0_Q;
               auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE,
                                            size, bytes, upper_bytes, true);
               g_run_mgr->mapped_memorys.push_back(heap);
             } else {
               uint8_t *bytes = nullptr;
-              auto size = state_gpr.x1.qword;
+              auto size = X1_Q;
               auto upper_bytes = bytes + size;
-              auto s = state_gpr.x0.qword;
+              auto s = X0_Q;
               auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE,
                                            size, bytes, upper_bytes, true);
               heap->other_memory =
@@ -364,15 +436,15 @@ void __svc_wasi_call(void) {
             }
             // return heap;
           } else {
-            // elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", state_gpr.x0.qword);
+            // elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
             uint8_t *bytes = nullptr;
-            auto size = state_gpr.x1.qword;
+            auto size = X1_Q;
             auto upper_bytes = bytes + size;
-            auto s = state_gpr.x0.qword;
+            auto s = X0_Q;
             auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE, size,
                                          bytes, upper_bytes, true);
             heap->other_memory =
-                std::shared_ptr<XMemory>(new Fdmap(state_gpr.x4.dword, state_gpr.x5.qword));
+                std::shared_ptr<XMemory>(new Fdmap(X4_D, X5_Q));
             g_run_mgr->mapped_memorys.push_back(heap);
           }
         }
@@ -380,22 +452,22 @@ void __svc_wasi_call(void) {
       NOP_SYSCALL(AARCH64_SYS_MMAP);
       break;
     case AARCH64_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
-      state_gpr.x0.qword = 0;
+      X0_Q = 0;
       NOP_SYSCALL(AARCH64_SYS_MPROTECT);
       break;
     case AARCH64_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
-      state_gpr.x0.qword = 0;
+      X0_Q = 0;
       NOP_SYSCALL(AARCH64_SYS_PRLIMIT64);
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      // memset(_ecv_translate_ptr(state_gpr.x0.qword), 1, static_cast<size_t>(state_gpr.x1.qword));
-      state_gpr.x0.qword = state_gpr.x1.qword;
+      // memset(_ecv_translate_ptr(X0_Q), 1, static_cast<size_t>(X1_Q));
+      X0_Q = X1_Q;
     } break;
     case AARCH64_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
-      int dfd = state_gpr.x0.dword;
-      _ecv_reg_t flags = state_gpr.x2.dword;
+      int dfd = X0_D;
+      _ecv_reg_t flags = X2_D;
       if ((flags & _ECV_AT_EMPTY_PATH) == 0)
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
       struct stat _stat;
@@ -415,21 +487,20 @@ void __svc_wasi_call(void) {
         _statx.stx_ino = _stat.st_ino;
         _statx.stx_size = _stat.st_size;
         _statx.stx_blocks = _stat.st_blocks;
-        // memcpy(_ecv_translate_ptr(state_gpr.x4.qword), &_statx, sizeof(_statx));
-        g_run_mgr->write(state_gpr.x4.qword, &_statx);
-        state_gpr.x0.qword = 0;
+        // memcpy(_ecv_translate_ptr(X4_Q), &_statx, sizeof(_statx));
+        g_run_mgr->write(X4_Q, &_statx);
+        X0_Q = 0;
       } else {
-        state_gpr.x0.qword = -1;
+        X0_Q = -1;
       }
     } break;
     case AARCH64_SYS_RSEQ:
       /* TODO */
-      state_gpr.x0.qword = 0;
+      X0_Q = 0;
       NOP_SYSCALL(AARCH64_SYS_RSEQ);
       break;
     default:
-      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", state_gpr.x8.qword,
-                            state_gpr.pc.qword);
+      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);
       break;
   }
 }

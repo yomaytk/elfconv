@@ -9,19 +9,6 @@ using ::testing::Test;
 using ::testing::TestInfo;
 using ::testing::UnitTest;
 
-#define ECV_PATH(path) "../../../" #path
-#define CLANG_RUNTIME_CMD(ident) \
-  "clang++ -I../../../backend/remill/include -I../../../ -o " #ident ".test.aarch64.o " \
-  "-c ../../../runtime/" #ident ".cpp"
-#define CLAGN_RUNTIME_SYSCALL_CMD(ident) \
-  "clang++ -I../../../backend/remill/include -I../../../ -o " #ident ".test.aarch64.o " \
-  "-c ../../../runtime/syscalls/" #ident ".cpp"
-#define CLANG_UTILS_CMD(ident) \
-  "clang++ -I../../../backend/remill/include -I../../../ -o " #ident ".test.aarch64.o " \
-  "-c ../../../utils/" #ident ".cpp"
-#define RUNTIME_OBJS \
-  "Entry.test.aarch64.o Memory.test.aarch64.o SyscallNative.test.aarch64.o VmIntrinsics.test.aarch64.o Util.test.aarch64.o elfconv.test.aarch64.o"
-
 void compile_runtime();
 void compile_test_elf();
 void clean_up();
@@ -30,7 +17,7 @@ class TestEnvironment : public ::testing::Environment {
  public:
   ~TestEnvironment() override {}
   void TearDown() override {
-    // clean_up();
+    clean_up();
   }
 };
 
@@ -41,18 +28,6 @@ void cmd_check(int status, const char *cmd) {
         cmd, __func__);
     FAIL();
   }
-}
-
-// compile `elfconv/runtime`
-void compile_runtime() {
-  std::string cmds[] = {CLANG_RUNTIME_CMD(Entry),
-                        CLANG_RUNTIME_CMD(Memory),
-                        CLAGN_RUNTIME_SYSCALL_CMD(SyscallNative),
-                        CLANG_RUNTIME_CMD(VmIntrinsics),
-                        CLANG_UTILS_CMD(Util),
-                        CLANG_UTILS_CMD(elfconv)};
-  for (auto &cmd : cmds)
-    cmd_check(system(cmd.c_str()), cmd.c_str());
 }
 
 // compile ./Instructions.c
@@ -75,13 +50,14 @@ void lift(const char *elf_path) {
 }
 
 void gen_converted_test() {
-  std::string cmd = "clang++ -o converted_test.aarch64 lift.bc " RUNTIME_OBJS;
+  auto cmd =
+      std::string("clang++ -I../../../backend/remill/include -I../../../ -DELF_IS_AARCH64 ") +
+      " -o converted_test.aarch64 lift.bc ../../../runtime/Entry.cpp ../../../runtime/Memory.cpp ../../../runtime/Runtime.cpp " +
+      "../../../runtime/syscalls/SyscallNative.cpp ../../../runtime/VmIntrinsics.cpp ../../../utils/Util.cpp ../../../utils/elfconv.cpp";
   cmd_check(system(cmd.c_str()), cmd.c_str());
 }
 
 void unit_aarch64_test() {
-  // compile /runtime
-  compile_runtime();
   // compile target test program
   compile_test_elf();
   // binary lifting

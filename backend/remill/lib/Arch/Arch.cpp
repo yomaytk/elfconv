@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
+#include <iostream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/BasicBlock.h>
@@ -282,10 +283,10 @@ llvm::IntegerType *Arch::AddressType(void) const {
   return llvm::IntegerType::get(*context, address_size);
 }
 
-// The type of memory.
+// The type of runtime.
 llvm::PointerType *ArchBase::MemoryPointerType(void) const {
-  CHECK_NOTNULL(memory_type);
-  return memory_type;
+  CHECK_NOTNULL(runtime_type);
+  return runtime_type;
 }
 
 // Return the type of a lifted function.
@@ -432,9 +433,9 @@ namespace {
 // These variables must always be defined within any lifted function.
 static bool BlockHasSpecialVars(llvm::Function *basic_block) {
   return FindVarInFunction(basic_block, kStateVariableName, true).first &&
-         FindVarInFunction(basic_block, kMemoryVariableName, true).first &&
-         FindVarInFunction(basic_block, kPCVariableName, true).first &&
-         FindVarInFunction(basic_block, kNextPCVariableName, true).first &&
+         FindVarInFunction(basic_block, kRuntimeVariableName, true).first &&
+         (FindVarInFunction(basic_block, kPCVariableName, true).first ||
+          FindVarInFunction(basic_block, kRIPVariableName, true).first) &&
          FindVarInFunction(basic_block, kBranchTakenVariableName, true).first;
 }
 
@@ -686,15 +687,15 @@ llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_, llvm::Module
   auto func =
       llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, 0u, name, module);
 
-  auto memory = remill::NthArgument(func, kMemoryPointerArgNum);
+  auto runtime_manager = remill::NthArgument(func, kRuntimePointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
   auto pc = remill::NthArgument(func, kPCArgNum);
-  memory->setName("memory");
+  runtime_manager->setName("runtime_manager");
   state->setName("state");
   pc->setName("program_counter");
 
   AddNoAliasToArgument(state);
-  AddNoAliasToArgument(memory);
+  AddNoAliasToArgument(runtime_manager);
 
   return func;
 }
@@ -717,24 +718,20 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   auto module = func->getParent();
   auto &context = module->getContext();
   auto block = llvm::BasicBlock::Create(context, "", func);
-  auto u8 = llvm::Type::getInt8Ty(context);
   auto u64 = llvm::Type::getInt64Ty(context);
   auto addr = llvm::Type::getIntNTy(context, address_size);
-  auto memory = remill::NthArgument(func, kMemoryPointerArgNum);
+  auto runtime = remill::NthArgument(func, kRuntimePointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
 
   llvm::IRBuilder<> ir(block);
-  ir.CreateAlloca(u8, nullptr, "BRANCH_TAKEN");
-  ir.CreateAlloca(addr, nullptr, "RETURN_PC");
+  ir.CreateAlloca(u64, nullptr, "BRANCH_TAKEN");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
-  ir.CreateAlloca(u64, nullptr, "SWITCH_KEY");
-  ir.CreateAlloca(u64, nullptr, "INDIRECT_BR_ADDR");
 
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.
 
   ir.CreateStore(state, ir.CreateAlloca(state->getType(), nullptr, "STATE"));
-  ir.CreateStore(memory, ir.CreateAlloca(memory->getType(), nullptr, "MEMORY"));
+  ir.CreateStore(runtime, ir.CreateAlloca(runtime->getType(), nullptr, "RUNTIME"));
 
   FinishLiftedFunctionInitialization(module, func);
   CHECK(BlockHasSpecialVars(func));
@@ -828,8 +825,8 @@ void ArchBase::InitFromSemanticsModule(llvm::Module *module) const {
   this->state_type = state_type;
 
   reg_by_offset.resize(dl.getTypeAllocSize(state_type));
-  memory_type =
-      llvm::dyn_cast<llvm::PointerType>(NthArgument(basic_block, kMemoryPointerArgNum)->getType());
+  runtime_type =
+      llvm::dyn_cast<llvm::PointerType>(NthArgument(basic_block, kRuntimePointerArgNum)->getType());
   lifted_function_type = basic_block->getFunctionType();
   reg_md_id = context->getMDKindID("remill_register");
 

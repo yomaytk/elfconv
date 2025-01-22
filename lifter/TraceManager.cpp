@@ -88,6 +88,7 @@ void AArch64TraceManager::SetELFData() {
     uint8_t *bytes;
     int sec_included_cnt = 0;
     /* specify included section */
+    std::vector<uint64_t> included_sec_vmas;
     for (auto &[_, code_sec] : elf_obj.code_sections) {
       if (code_sec.vma <= func_entrys[i].entry &&
           func_entrys[i].entry < code_sec.vma + code_sec.size) {
@@ -95,11 +96,21 @@ void AArch64TraceManager::SetELFData() {
         fun_end_addr = code_sec.vma + code_sec.size;
         bytes = code_sec.bytes;
         sec_included_cnt++;
+        included_sec_vmas.push_back(code_sec.vma);
       }
     }
-    if (sec_included_cnt != 1)
+    if (sec_included_cnt > 1) {
+      printf("[ERROR LOG]: \n");
+      for (auto vma : included_sec_vmas) {
+        std::cout << std::hex << "0x" << vma << " ";
+      }
+      std::cout << std::endl;
       elfconv_runtime_error("[ERROR] \"%s\" is included in multiple sections.\n",
                             func_entrys[i].func_name.c_str());
+    } else if (sec_included_cnt == 0) {
+      elfconv_runtime_error("[ERROR] \"%s\" is not included in any section.\n",
+                            func_entrys[i].func_name.c_str());
+    }
     while (sec_addr < fun_end_addr) {
       /* assign every insn to the manager */
       auto lifted_func_name =

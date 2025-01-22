@@ -45,12 +45,14 @@
 
 #include "remill/Arch/Runtime/Intrinsics.h"
 
-Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name call) {
+void __remill_sync_hyper_call(State &state, RuntimeManager *runtime_manager,
+                              SyncHyperCall::Name call) {
 
-#if REMILL_HYPERCALL_X86
+#if false
+#  if REMILL_HYPERCALL_X86
   register uint32_t esp asm("esp") = state.gpr.rsp.dword;
   register uint32_t ebp asm("ebp") = state.gpr.rbp.dword;
-#elif REMILL_HYPERCALL_AMD64
+#  elif REMILL_HYPERCALL_AMD64
   register uint64_t rsp asm("rsp") = state.gpr.rsp.qword;
   register uint64_t rbp asm("rbp") = state.gpr.rbp.qword;
   register uint64_t r8 asm("r8") = state.gpr.r8.qword;
@@ -61,11 +63,13 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
   register uint64_t r13 asm("r13") = state.gpr.r13.qword;
   register uint64_t r14 asm("r14") = state.gpr.r14.qword;
   register uint64_t r15 asm("r15") = state.gpr.r15.qword;
+#  endif
 #endif
 
   switch (call) {
 
-#if REMILL_HYPERCALL_X86 || REMILL_HYPERCALL_AMD64
+#if false
+#  if REMILL_HYPERCALL_X86 || REMILL_HYPERCALL_AMD64
 
     case SyncHyperCall::kX86CPUID:
       asm volatile("cpuid"
@@ -131,7 +135,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
 
     case SyncHyperCall::kX86SetSegmentGS: mem = __remill_x86_set_segment_gs(mem); break;
 
-#  if REMILL_HYPERCALL_X86
+#    if REMILL_HYPERCALL_X86
 
     case SyncHyperCall::kX86SetDebugReg: mem = __remill_x86_set_debug_reg(mem); break;
 
@@ -170,7 +174,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
                      "r"(esp), "r"(ebp));
       break;
 
-#  elif REMILL_HYPERCALL_AMD64
+#    elif REMILL_HYPERCALL_AMD64
 
     case SyncHyperCall::kAMD64SetDebugReg: mem = __remill_amd64_set_debug_reg(mem); break;
 
@@ -214,6 +218,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
                      "r"(r14), "r"(r15));
       break;
 
+#    endif
 #  endif
 
 #elif REMILL_HYPERCALL_ARM
@@ -227,7 +232,7 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
 #elif REMILL_HYPERCALL_AARCH64
 
     case SyncHyperCall::kAArch64EmulateInstruction:
-      mem = __remill_aarch64_emulate_instruction(mem);
+      // mem = __remill_aarch64_emulate_instruction(mem);
       break;
 
     case SyncHyperCall::kAArch64Breakpoint: /* TODO asm volatile("BRK #0" :); */ break;
@@ -300,6 +305,4 @@ Memory *__remill_sync_hyper_call(State &state, Memory *mem, SyncHyperCall::Name 
 
     default: __builtin_unreachable(); break;
   }
-
-  return mem;
 }

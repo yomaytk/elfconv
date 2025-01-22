@@ -1,0 +1,14 @@
+
+set ytics 10
+
+set xlabel "Number of Files"
+set ylabel "Files/Second"
+
+set title "Number of 50k Files/Sec"
+
+plot \
+        'fs_log.txt' using 2:4  title "One Directory" lw 5
+
+pause -1 "Hit Return to exit"
+
+

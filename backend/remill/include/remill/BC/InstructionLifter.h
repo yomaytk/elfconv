@@ -16,9 +16,16 @@
 
 #pragma once
 
+#include "remill/Arch/Name.h"
+
 #include <cstdint>
+#include <functional>
+#include <glog/logging.h>
+#include <llvm/IR/Instructions.h>
 #include <memory>
+#include <optional>
 #include <string_view>
+#include <tuple>
 
 namespace llvm {
 class Argument;
@@ -34,6 +41,8 @@ class Type;
 }  // namespace llvm
 
 namespace remill {
+
+extern std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map;
 
 class Arch;
 class Instruction;
@@ -65,9 +74,151 @@ class OperandLifter {
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                                     std::string_view reg_name) const = 0;
 
-  virtual llvm::Type *GetMemoryType() = 0;
+  virtual llvm::Value *
+  LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr, std::string_view reg_name,
+                         llvm::Instruction *instBefore, std::string var_name = "") const = 0;
+
+  virtual llvm::Instruction *
+  StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                          std::string_view reg_name, llvm::Value *stored_value,
+                          llvm::Instruction *instBefore) const = 0;
+
+  virtual llvm::Type *GetRuntimeType() = 0;
 
   virtual void ClearCache(void) const = 0;
+};
+
+// AArch64 special registers
+#define SP_ORDER 32
+#define PC_ORDER 33
+#define STATE_ORDER 34
+#define RUNTIME_ORDER 35
+#define BRANCH_TAKEN_ORDER 36
+#define ECV_NZCV_ORDER 37
+#define IGNORE_WRITE_TO_WZR_ORDER 38
+#define IGNORE_WRITE_TO_XZR_ORDER 39
+#define MONITOR_ORDER 40
+#define WZR_ORDER 41  // Actually, not used
+#define XZR_ORDER 42  // Actually, not used
+
+// x86-64 special registers
+#define RIP_ORDER 133
+#define CSBASE_ORDER 134
+#define SSBASE_ORDER 135
+#define ESBASE_ORDER 136
+#define DSBASE_ORDER 137
+
+enum class ERC : uint32_t {
+  RegW = 'W' - 'A',  // 22
+  RegX = 'X' - 'A',  // 23
+  RegB = 'B' - 'A',  // 1
+  RegH = 'H' - 'A',  // 7
+  RegS = 'S' - 'A',  // 18
+  RegD = 'D' - 'A',  // 3
+  Reg8B = 'V' + 'B' - 'A' + 8,  // 95
+  Reg16B = 'V' + 'B' - 'A' + 1,  // 88 (not 16 for EcvReg::GetRegInfo).
+  Reg4H = 'V' + 'H' - 'A' + 4,  // 97
+  Reg8H = 'V' + 'H' - 'A' + 8,  // 101
+  Reg2S = 'V' + 'S' - 'A' + 2,  // 106
+  Reg2SF = 'V' + 'S' + 'F' - 'A' + 2,  // 176
+  Reg4S = 'V' + 'S' - 'A' + 4,  // 108
+  Reg4SF = 'V' + 'S' + 'F' - 'A' + 4,  // 178
+  Reg1D = 'V' + 'D' - 'A' + 1,  // 90
+  Reg1DF = 'V' + 'D' + 'F' - 'A' + 1,  // 160
+  Reg2D = 'V' + 'D' - 'A' + 2,  // 91
+  Reg2DF = 'V' + 'D' + 'F' - 'A' + 2,  // 161
+  RegQ = 'Q' - 'A',  // 16
+  RegV = 'V' - 'A',  // 21
+  RegP = 10000,
+  RegNULL = 10001
+};
+
+// (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
+std::string EcvRegClass2String(ERC ecv_reg_class);
+
+uint64_t GetRegClassSize(ERC ecv_reg_class);
+
+enum class RegKind : uint32_t {
+  General,  // 0
+  Vector,  // 1
+  Special,  // 2
+};
+
+class EcvReg {
+ public:
+  RegKind reg_kind;
+  uint32_t number;
+
+  EcvReg() {}
+  EcvReg(RegKind __reg_kind, uint32_t __number) : reg_kind(__reg_kind), number(__number) {}
+
+  bool operator==(const EcvReg &rhs) const {
+    return reg_kind == rhs.reg_kind && number == rhs.number;
+  }
+
+  bool operator!=(const EcvReg &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator<(const EcvReg &rhs) const {
+    return number < rhs.number;
+  }
+
+  bool operator>(const EcvReg &rhs) const {
+    return !(*this == rhs) && !(*this < rhs);
+  }
+
+  // get reg_info from general or vector registers
+  static std::pair<EcvReg, ERC> GetRegInfo(const std::string &_reg_name);
+
+  std::string GetRegName(ERC ecv_reg_class) const;
+  std::string GetWideRegName() const;
+  bool CheckPassedArgsRegs() const;
+  bool CheckPassedReturnRegs() const;
+
+  class Hash {
+   public:
+    std::size_t operator()(const EcvReg &ecv_reg) const {
+      return std::hash<uint32_t>()(
+                 static_cast<std::underlying_type<RegKind>::type>(ecv_reg.reg_kind)) ^
+             std::hash<uint32_t>()(ecv_reg.number);
+    }
+  };  // namespace remill
+};
+
+template <typename VT>
+using EcvRegMap = std::unordered_map<EcvReg, VT, EcvReg::Hash>;
+
+class BBRegInfoNode {
+ public:
+  BBRegInfoNode(llvm::Function *func, llvm::Value *state_val, llvm::Value *runtime_val);
+  ~BBRegInfoNode() {}
+
+  void join_reg_info_node(BBRegInfoNode *child);
+
+  // The register set which is `load`ed in this block.
+  EcvRegMap<ERC> bb_load_reg_map;
+  // The register set which is `store`d in this block.
+  EcvRegMap<ERC> bb_store_reg_map;
+
+  // llvm::Value ptr which explains the latest register.
+  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> reg_latest_inst_map;
+
+  // Save the written registers by semantic functions
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>>
+      sema_call_written_reg_map;
+  // Save the args registers by semantic functions (for debug)
+  std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>> sema_func_args_reg_map;
+  // Save the pc of semantics functions (for debug)
+  std::unordered_map<llvm::CallInst *, uint64_t> sema_func_pc_map;
+
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> post_update_regs;
+
+  // Map the added instructions that can be refered later on and register
+  // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> referred_able_added_inst_reg_map;
+  // Map the register and added instructions.
+  EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
 };
 
 class InstructionLifterIntf : public OperandLifter {
@@ -77,13 +228,13 @@ class InstructionLifterIntf : public OperandLifter {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
                                    bool is_delayed = false) = 0;
 
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                           uint64_t debug_insn_addr = UINT64_MAX, bool is_delayed = false);
+                           BBRegInfoNode *bb_reg_info_node, bool is_delayed = false);
 };
 
 // Wraps the process of lifting an instruction into a block. This resolves
@@ -105,7 +256,7 @@ class InstructionLifter : public InstructionLifterIntf {
   // Lift a single instruction into a basic block. `is_delayed` signifies that
   // this instruction will execute within the delay slot of another instruction.
   virtual LiftStatus LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                   llvm::Value *state_ptr, uint64_t debug_insn_addr = UINT64_MAX,
+                                   llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
                                    bool is_delayed = false) override;
 
 
@@ -118,11 +269,20 @@ class InstructionLifter : public InstructionLifterIntf {
   llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
                             std::string_view reg_name) const override final;
 
+  llvm::Value *LoadRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                      std::string_view reg_name, llvm::Instruction *instBefore,
+                                      std::string var_name = "") const override final;
+
+  // Store the value of a register (Assume that the store_value already has been casted).
+  llvm::Instruction *StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                             std::string_view reg_name, llvm::Value *stored_value,
+                                             llvm::Instruction *instBefore) const override final;
+
   // Clear out the cache of the current register values/addresses loaded.
   void ClearCache(void) const override;
 
 
-  virtual llvm::Type *GetMemoryType() override final;
+  virtual llvm::Type *GetRuntimeType() override final;
 
  protected:
   // Lift an operand to an instruction.

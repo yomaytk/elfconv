@@ -65,6 +65,10 @@ class SleighX86Arch : public X86ArchBase {
     return DecodingContext();
   }
 
+  virtual void InstanceMinimumInst(Instruction &inst) const override {
+    LOG(FATAL) << "[Bug]: SleighX86Arch::InstanceMinimumInst must not be called.";
+  }
+
   virtual OperandLifter::OpLifterPtr
   DefaultLifter(const remill::IntrinsicTable &intrinsics) const override {
     return this->decoder.GetOpLifter();

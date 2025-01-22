@@ -441,13 +441,13 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
 
   ParamPtr CreateMemoryAddress(llvm::Value *offset) {
     const auto mem_ptr_ref = this->insn_lifter_parent.LoadRegAddress(
-        this->target_block, this->state_pointer, kMemoryVariableName);
+        this->target_block, this->state_pointer, kRuntimeVariableName);
     // compute pointer into memory at offset
 
 
     return Memory::CreateMemory(mem_ptr_ref.first, offset,
                                 this->insn_lifter_parent.GetIntrinsicTable(),
-                                this->insn_lifter_parent.GetMemoryType());
+                                this->insn_lifter_parent.GetRuntimeType());
   }
 
   std::optional<ParamPtr> LiftNormalRegister(llvm::IRBuilder<> &bldr, std::string reg_name) {
@@ -1244,13 +1244,13 @@ class SleighLifter::PcodeToLLVMEmitIntoBlock {
       if (other_func_name == kSysCallName && insn.arch_name == ArchName::kArchPPC) {
         DLOG(INFO) << "Invoking syscall";
 
-        const auto mem_ptr_ref = LoadMemoryPointerRef(bldr.GetInsertBlock());
+        const auto runtime_ptr_ref = LoadRuntimePointerRef(bldr.GetInsertBlock());
 
         // Get a LLVM value for the sync hyper call enumeration.
         auto hyper_call_int = static_cast<uint32_t>(SyncHyperCall::Name::kPPCSysCall);
         auto hyper_call =
             llvm::ConstantInt::get(llvm::IntegerType::get(this->context, 32), hyper_call_int);
-        std::array<llvm::Value *, 3> args = {state_pointer, mem_ptr_ref, hyper_call};
+        std::array<llvm::Value *, 3> args = {state_pointer, runtime_ptr_ref, hyper_call};
 
         bldr.CreateCall(insn_lifter_parent.GetIntrinsicTable()->sync_hyper_call, args);
 
@@ -1553,7 +1553,7 @@ SleighLifter::LiftIntoInternalBlockWithSleighState(Instruction &inst, llvm::Modu
 
 
   exit_builder.CreateRet(
-      remill::LoadMemoryPointer(exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
+      remill::LoadRuntimePointer(exit_builder.GetInsertBlock(), *this->GetIntrinsicTable()));
 
 
   //TODO(Ian): make a safe to use sleighinstruction context that wraps a context with an arch to preform reset reinits
@@ -1614,8 +1614,7 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::B
 
   // Setup PC and NEXT_PC
   const auto [pc_ref, pc_ref_type] = LoadRegAddress(block, state_ptr, kPCVariableName);
-  const auto [next_pc_ref, next_pc_ref_type] =
-      LoadRegAddress(block, state_ptr, kNextPCVariableName);
+  const auto [next_pc_ref, next_pc_ref_type] = LoadRegAddress(block, state_ptr, "DELETED_NEXT_PC");
 
 
   llvm::IRBuilder<> intoblock_builer(block);
@@ -1639,11 +1638,11 @@ LiftStatus SleighLifter::LiftIntoBlockWithSleighState(Instruction &inst, llvm::B
 
 
   std::array<llvm::Value *, 4> args = {
-      state_ptr, remill::LoadMemoryPointer(block, *this->GetIntrinsicTable()),
+      state_ptr, remill::LoadRuntimePointer(block, *this->GetIntrinsicTable()),
       remill::LoadBranchTakenRef(block), remill::LoadNextProgramCounterRef(block)};
 
   intoblock_builer.CreateStore(intoblock_builer.CreateCall(target_func, args),
-                               remill::LoadMemoryPointerRef(block));
+                               remill::LoadRuntimePointerRef(block));
 
   //NOTE(Ian): If we made it past decoding we should be able to decode the bytes again
   DLOG(INFO) << res.first;
@@ -1665,10 +1664,27 @@ SleighLifterWithState::SleighLifterWithState(sleigh::MaybeBranchTakenVar btaken_
 // Lift a single instruction into a basic block. `is_delayed` signifies that
 // this instruction will execute within the delay slot of another instruction.
 LiftStatus SleighLifterWithState::LiftIntoBlock(Instruction &inst, llvm::BasicBlock *block,
-                                                llvm::Value *state_ptr, uint64_t __debug_insn_addr,
-                                                bool is_delayed) {
+                                                llvm::Value *state_ptr,
+                                                BBRegInfoNode *bb_reg_info_node, bool is_delayed) {
   return this->lifter->LiftIntoBlockWithSleighState(inst, block, state_ptr, is_delayed,
                                                     this->btaken, this->context_values);
+}
+
+llvm::Value *SleighLifterWithState::LoadRegValueBeforeInst(llvm::BasicBlock *block,
+                                                           llvm::Value *state_ptr,
+                                                           std::string_view reg_name,
+                                                           llvm::Instruction *instBefore,
+                                                           std::string var_name) const {
+  LOG(FATAL) << "SleighLifterWithState::LoadRegValueBeforeInst must not be called.";
+  return nullptr;
+}
+
+llvm::Instruction *
+SleighLifterWithState::StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                               std::string_view reg_name, llvm::Value *stored_value,
+                                               llvm::Instruction *instBefore) const {
+  LOG(FATAL) << "SleighLifterWithState::StoreRegValueBeforInst must not be called.";
+  return nullptr;
 }
 
 
@@ -1685,8 +1701,8 @@ llvm::Value *SleighLifterWithState::LoadRegValue(llvm::BasicBlock *block, llvm::
   return this->lifter->LoadRegValue(block, state_ptr, reg_name);
 }
 
-llvm::Type *SleighLifterWithState::GetMemoryType() {
-  return this->lifter->GetMemoryType();
+llvm::Type *SleighLifterWithState::GetRuntimeType() {
+  return this->lifter->GetRuntimeType();
 }
 
 void SleighLifterWithState::ClearCache(void) const {

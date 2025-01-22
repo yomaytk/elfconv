@@ -1,37 +1,26 @@
-#include "Memory.h"
+#include "Runtime.h"
 
 #include <cstdint>
 #include <cstring>
-#include <remill/BC/HelperMacro.h>
-#if defined(LIFT_DEBUG) && defined(__linux__)
-#  include <signal.h>
-#  include <utils/Util.h>
-#  include <utils/elfconv.h>
-#endif
 #include <iostream>
 #include <map>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+#endif
 
-State g_state = State();
-RuntimeManager *g_run_mgr;
+State CPUState = State();
 
 int main(int argc, char *argv[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
 
-#if defined(LIFT_DEBUG) && defined(__linux__)
-  struct sigaction segv_action = {0};
-  segv_action.sa_flags = SA_SIGINFO;
-  segv_action.sa_sigaction = segv_debug_state_machine;
-  if (sigaction(SIGSEGV, &segv_action, NULL) < 0)
-    elfconv_runtime_error("sigaction for SIGSEGV failed.\n");
-#endif
-
   /* allocate Stack */
-  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, &g_state);
+  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, CPUState);
   /* allocate Heap */
   auto mapped_heap = MappedMemory::VMAHeapEntryInit();
   /* allocate every sections */
@@ -46,24 +35,27 @@ int main(int argc, char *argv[]) {
         static_cast<size_t>(__g_data_sec_size_array[i]), __g_data_sec_bytes_ptr_array[i],
         __g_data_sec_bytes_ptr_array[i] + __g_data_sec_size_array[i], false));
   }
+#if defined(ELF_IS_AARCH64)
   /* set program counter */
-  g_state.gpr.pc = {.qword = __g_entry_pc};
+  CPUState.gpr.pc = {.qword = __g_entry_pc};
   /* set system register (FIXME) */
-  g_state.sr.tpidr_el0 = {.qword = 0};
-  g_state.sr.midr_el1 = {.qword = 0xf0510};
-  g_state.sr.ctr_el0 = {.qword = 0x80038003};
-  g_state.sr.dczid_el0 = {.qword = 0x4};
-  /* set global RuntimeManager */
-  g_run_mgr = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
-  g_run_mgr->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
+  CPUState.sr.tpidr_el0 = {.qword = 0};
+  CPUState.sr.midr_el1 = {.qword = 0xf0510};
+  CPUState.sr.ctr_el0 = {.qword = 0x80038003};
+  CPUState.sr.dczid_el0 = {.qword = 0x4};
+#endif
+  /* set RuntimeManager */
+  auto runtime_manager = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
+  runtime_manager->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
   /* set lifted function pointer table */
   for (int i = 0; __g_fn_vmas[i] && __g_fn_ptr_table[i]; i++) {
-    g_run_mgr->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
+    runtime_manager->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
   }
 #if defined(LIFT_CALLSTACK_DEBUG)
   /* set lifted function symbol table (for debug) */
   for (int i = 0; __g_fn_vmas_second[i] && __g_fn_symbol_table[i]; i++) {
-    g_run_mgr->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char *) __g_fn_symbol_table[i];
+    runtime_manager->addr_fn_symbol_map[__g_fn_vmas_second[i]] =
+        (const char *) __g_fn_symbol_table[i];
   }
 #endif
   /* set global block address data array */
@@ -74,12 +66,12 @@ int main(int argc, char *argv[]) {
     auto t_block_address_vmas = __g_block_address_vmas_array[i];
     for (int j = 0; j < bb_num; j++)
       vma_bb_map[t_block_address_vmas[j]] = t_block_address_ptrs[j];
-    g_run_mgr->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
+    runtime_manager->addr_block_addrs_map[__g_block_address_fn_vma_array[i]] = vma_bb_map;
   }
   /* go to the entry function (entry function is injected by lifted LLVM IR) */
-  __g_entry_func(&g_state, __g_entry_pc, nullptr);
+  __g_entry_func(&CPUState, __g_entry_pc, runtime_manager);
 
-  delete (g_run_mgr);
+  delete (runtime_manager);
 
   return 0;
 }

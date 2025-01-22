@@ -22,38 +22,44 @@
 extern "C" {
 
 // Memory read intrinsics.
-[[gnu::used, gnu::const]] extern uint8_t __remill_read_memory_8(Memory *, addr_t);
+[[gnu::used, gnu::pure]] extern uint8_t __remill_read_memory_8(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint16_t __remill_read_memory_16(Memory *, addr_t);
+[[gnu::used, gnu::pure]] extern uint16_t __remill_read_memory_16(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint32_t __remill_read_memory_32(Memory *, addr_t);
+[[gnu::used, gnu::pure]] extern uint32_t __remill_read_memory_32(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern uint64_t __remill_read_memory_64(Memory *, addr_t);
+[[gnu::used, gnu::pure]] extern uint64_t __remill_read_memory_64(RuntimeManager *, addr_t);
+
+[[gnu::used, gnu::pure]] extern uint128_t __remill_read_memory_128(RuntimeManager *, addr_t);
 
 // Memory write intrinsics.
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_8(Memory *, addr_t, uint8_t);
+[[gnu::used]] extern void __remill_write_memory_8(RuntimeManager *, addr_t, uint8_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_16(Memory *, addr_t, uint16_t);
+[[gnu::used]] extern void __remill_write_memory_16(RuntimeManager *, addr_t, uint16_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_32(Memory *, addr_t, uint32_t);
+[[gnu::used]] extern void __remill_write_memory_32(RuntimeManager *, addr_t, uint32_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_64(Memory *, addr_t, uint64_t);
+[[gnu::used]] extern void __remill_write_memory_64(RuntimeManager *, addr_t, uint64_t);
 
-[[gnu::used, gnu::const]] extern float32_t __remill_read_memory_f32(Memory *, addr_t);
+[[gnu::used]] extern void __remill_write_memory_128(RuntimeManager *, addr_t, uint128_t);
 
-[[gnu::used, gnu::const]] extern float64_t __remill_read_memory_f64(Memory *, addr_t);
+[[gnu::used, gnu::pure]] extern float32_t __remill_read_memory_f32(RuntimeManager *, addr_t);
 
-[[gnu::used]] extern Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &);
+[[gnu::used, gnu::pure]] extern float64_t __remill_read_memory_f64(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern float128_t __remill_read_memory_f128(Memory *, addr_t);
+// [[gnu::used, gnu::pure]] extern Memory *__remill_read_memory_f80(Memory *, addr_t,
+//                                                                  native_float80_t &);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_f32(Memory *, addr_t, float32_t);
+[[gnu::used, gnu::pure]] extern float128_t __remill_read_memory_f128(RuntimeManager *, addr_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_f64(Memory *, addr_t, float64_t);
+[[gnu::used]] extern void __remill_write_memory_f32(RuntimeManager *, addr_t, float32_t);
 
-[[gnu::used]] extern Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &);
+[[gnu::used]] extern void __remill_write_memory_f64(RuntimeManager *, addr_t, float64_t);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_write_memory_f128(Memory *, addr_t, float128_t);
+// [[gnu::used]] extern void __remill_write_memory_f80(RuntimeManager *, addr_t,
+//                                                     const native_float80_t &);
+
+[[gnu::used]] extern void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t);
 
 [[gnu::used, gnu::const]] extern uint8_t __remill_undefined_8(void);
 
@@ -101,20 +107,20 @@ extern "C" {
 [[gnu::used, gnu::const]] extern bool __remill_compare_neq(bool result);
 
 // Generic error.
-[[gnu::used]] extern Memory *__remill_error(State &, addr_t addr, Memory *);
+[[gnu::used]] extern void __remill_error(State &, addr_t addr, RuntimeManager *);
 
 // Control-flow intrinsics.
-[[gnu::used]] extern Memory *__remill_function_call(State &, addr_t addr, Memory *);
+[[gnu::used]] extern void __remill_function_call(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern Memory *__remill_function_return(State &, addr_t addr, Memory *);
+[[gnu::used]] extern void __remill_function_return(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern Memory *__remill_jump(State &, addr_t addr, Memory *);
+[[gnu::used]] extern void __remill_jump(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern Memory *__remill_missing_block(State &, addr_t addr, Memory *);
+[[gnu::used]] extern void __remill_missing_block(State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern Memory *__remill_async_hyper_call(State &, addr_t ret_addr, Memory *);
+[[gnu::used]] extern void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *);
 
-[[gnu::used]] extern Memory *__remill_syscall_tranpoline_call(State &state, Memory *);
+[[gnu::used]] extern void __remill_syscall_tranpoline_call(State &state, RuntimeManager *);
 
 // This intrinsic must be tagged with the `always_inline` function attribute
 // since it has an implementation we want to use in Anvill's lifted IR.
@@ -124,26 +130,26 @@ extern "C" {
 // not be inlined. Then, when the lifted functions are moved to the target
 // module, the intrinsic implementation won't be moved across and will be lost,
 // leaving calls to it in the lifted IR.
-[[gnu::used, gnu::always_inline]] extern Memory *__remill_sync_hyper_call(State &, Memory *,
-                                                                          SyncHyperCall::Name);
+[[gnu::used, gnu::always_inline]] extern void __remill_sync_hyper_call(State &, RuntimeManager *,
+                                                                       SyncHyperCall::Name);
 
 // Memory barriers types:
 //  http://g.oswego.edu/dl/jmm/cookbook.html
 //  http://preshing.com/20120913/acquire-and-release-semantics/
 //  http://preshing.com/20120710/memory-barriers-are-like-source-control-operations/
-[[gnu::used, gnu::const]] extern Memory *__remill_barrier_load_load(Memory *);
+[[gnu::used]] extern void __remill_barrier_load_load(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_barrier_load_store(Memory *);  // Load acquire.
+[[gnu::used]] extern void __remill_barrier_load_store(RuntimeManager *);  // Load acquire.
 
-[[gnu::used, gnu::const]] extern Memory *__remill_barrier_store_load(Memory *);
+[[gnu::used]] extern void __remill_barrier_store_load(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_barrier_store_store(Memory *);  // Store release.
+[[gnu::used]] extern void __remill_barrier_store_store(RuntimeManager *);  // Store release.
 
 // Atomic operations. The address/size are hints, but the granularity of the
 // access can be bigger. These have implicit StoreLoad semantics.
-[[gnu::used, gnu::const]] extern Memory *__remill_atomic_begin(Memory *);
+[[gnu::used]] extern void __remill_atomic_begin(RuntimeManager *);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_atomic_end(Memory *);
+[[gnu::used]] extern void __remill_atomic_end(RuntimeManager *);
 
 // Used to signal the begin/ending of an instruction executed within a delay
 // slot.
@@ -293,7 +299,7 @@ __remill_compare_exchange_memory_64(Memory *, addr_t addr, uint64_t &expected, u
 
 [[gnu::used, gnu::const]] extern Memory *__remill_amd64_set_control_reg_8(Memory *);
 
-[[gnu::used, gnu::const]] extern Memory *__remill_aarch64_emulate_instruction(Memory *);
+[[gnu::used]] extern void __remill_aarch64_emulate_instruction(RuntimeManager *);
 
 [[gnu::used, gnu::const]] extern Memory *__remill_aarch32_emulate_instruction(Memory *);
 

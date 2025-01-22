@@ -37,7 +37,10 @@ class MainLifter : public TraceLifter {
           debug_state_machine_vectors_name("debug_state_machine_vectors"),
           debug_llvmir_u64value_name("debug_llvmir_u64value"),
           debug_llvmir_f64value_name("debug_llvmir_f64value"),
-          debug_memory_value_name("debug_memory_value") {}
+          debug_memory_value_name("debug_memory_value"),
+          debug_reach_name("debug_reach"),
+          debug_string_name("debug_string"),
+          debug_vma_and_registers_name("debug_vma_and_registers") {}
 
     virtual ~WrapImpl() override {}
 
@@ -66,6 +69,12 @@ class MainLifter : public TraceLifter {
     std::string debug_llvmir_u64value_name;
     std::string debug_llvmir_f64value_name;
     std::string debug_memory_value_name;
+    std::string debug_reach_name;
+    std::string debug_string_name;
+    std::string debug_vma_and_registers_name;
+
+    // Set RuntimeManager class to global context
+    void SetRuntimeManagerClass();
 
     // Set entry function pointer
     llvm::GlobalVariable *SetEntryPoint(std::string &entry_func_name);
@@ -112,13 +121,13 @@ class MainLifter : public TraceLifter {
     void AddTestFailedBlock() override;
 
     /* debug helper */
-    /* Set control flow debug list */
-    void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &__control_flow_debug_list);
     /* Declare debug function */
     llvm::Function *DeclareDebugFunction();
     /* Set lifted function symbol name table */
     llvm::GlobalVariable *
     SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+    // set register name gvar
+    void SetRegisterNames();
   };
 
  public:
@@ -128,6 +137,7 @@ class MainLifter : public TraceLifter {
   /* called derived class */
   MainLifter(WrapImpl *__wrap_impl) : TraceLifter(static_cast<TraceLifter::Impl *>(__wrap_impl)) {}
 
+  void SetRuntimeManagerClass();
   void SetEntryPoint(std::string &entry_func_name);
   void SetEntryPC(uint64_t pc);
   void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
@@ -139,10 +149,12 @@ class MainLifter : public TraceLifter {
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
   virtual void DeclareHelperFunction();
+
+  void Optimize();
   /* debug */
-  void SetControlFlowDebugList(std::unordered_map<uint64_t, bool> &control_flow_debug_list);
   void DeclareDebugFunction();
   void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+  void SetRegisterNames();
 
  private:
   MainLifter(void) = delete;

@@ -1,14 +1,27 @@
 #include "Memory.h"
+#include "Runtime.h"
 
+#include <cassert>
 #include <cstdarg>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
+#include <sstream>
+#include <unordered_map>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
+
+#if defined(ELF_IS_AARCH64)
+#  include <remill/Arch/AArch64/Runtime/State.h>
+#  define PCREG CPUState.gpr.pc.qword
+#elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/X86/Runtime/State.h>
+#  define PCREG CPUState.gpr.rip.qword
+#else
+#  define PCREG 0
+#endif
 
 #define UNDEFINED_INTRINSICS(intrinsics) \
   printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
@@ -16,95 +29,97 @@
   fflush(stdout); \
   abort();
 
-uint8_t __remill_read_memory_8(Memory *, addr_t addr) {
+uint8_t __remill_read_memory_8(RuntimeManager *g_run_mgr, addr_t addr) {
   uint8_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-uint16_t __remill_read_memory_16(Memory *, addr_t addr) {
+uint16_t __remill_read_memory_16(RuntimeManager *g_run_mgr, addr_t addr) {
   uint16_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-uint32_t __remill_read_memory_32(Memory *, addr_t addr) {
+uint32_t __remill_read_memory_32(RuntimeManager *g_run_mgr, addr_t addr) {
   uint32_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-uint64_t __remill_read_memory_64(Memory *, addr_t addr) {
+uint64_t __remill_read_memory_64(RuntimeManager *g_run_mgr, addr_t addr) {
   uint64_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-float32_t __remill_read_memory_f32(Memory *, addr_t addr) {
+float32_t __remill_read_memory_f32(RuntimeManager *g_run_mgr, addr_t addr) {
   float32_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-float64_t __remill_read_memory_f64(Memory *, addr_t addr) {
+float64_t __remill_read_memory_f64(RuntimeManager *g_run_mgr, addr_t addr) {
   float64_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-float128_t __remill_read_memory_f128(Memory *, addr_t addr) {
+float128_t __remill_read_memory_f128(RuntimeManager *g_run_mgr, addr_t addr) {
   float128_t a;
   g_run_mgr->read(addr, &a);
   return a;
 }
 
-Memory *__remill_write_memory_8(Memory *memory, addr_t addr, uint8_t src) {
+Memory *__remill_write_memory_8(RuntimeManager *g_run_mgr, addr_t addr, uint8_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_16(Memory *memory, addr_t addr, uint16_t src) {
+Memory *__remill_write_memory_16(RuntimeManager *g_run_mgr, addr_t addr, uint16_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_32(Memory *memory, addr_t addr, uint32_t src) {
+Memory *__remill_write_memory_32(RuntimeManager *g_run_mgr, addr_t addr, uint32_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_64(Memory *memory, addr_t addr, uint64_t src) {
+Memory *__remill_write_memory_64(RuntimeManager *g_run_mgr, addr_t addr, uint64_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_f32(Memory *memory, addr_t addr, float32_t src) {
+Memory *__remill_write_memory_f32(RuntimeManager *g_run_mgr, addr_t addr, float32_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_f64(Memory *memory, addr_t addr, float64_t src) {
+Memory *__remill_write_memory_f64(RuntimeManager *g_run_mgr, addr_t addr, float64_t src) {
   g_run_mgr->write(addr, &src);
   return nullptr;
 }
 
-Memory *__remill_write_memory_f128(Memory *, addr_t, float128_t) {
-  return nullptr;
-}
+// void __remill_write_memory_f64(RuntimeManager *runtime_manager, addr_t addr, float64_t src) {
+//   auto dst = (float64_t *) runtime_manager->TranslateVMA(addr);
+//   *dst = src;
+// }
+
+void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
 
 /*
   tranpoline call for emulating syscall of original ELF binary.
 */
-Memory *__remill_syscall_tranpoline_call(State &state, Memory *memory) {
+void __remill_syscall_tranpoline_call(State &state, RuntimeManager *runtime_manager) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
-#if defined(ELFC_WASI_ENV)
-  __svc_wasi_call();
-#elif defined(ELFC_BROWSER_ENV)
-  __svc_browser_call();
+#if defined(TARGET_IS_WASI)
+  runtime_manager->SVCWasiCall();
+#elif defined(TARGET_IS_BROWSER)
+  runtime_manager->SVCBrowserCall();
 #else
-  __svc_native_call();
+  runtime_manager->SVCNativeCall();
 #endif
-  return nullptr;
 }
 
 /*
@@ -116,22 +131,16 @@ extern "C" void __remill_mark_as_used(void *mem) {
   asm("" ::"m"(mem));
 }
 
-Memory *__remill_function_return(State &state, addr_t fn_ret_vma, Memory *memory) {
-  return nullptr;
-}
+void __remill_function_return(State &state, addr_t fn_ret_vma, RuntimeManager *runtime_manager) {}
 
-Memory *__remill_missing_block(State &, addr_t, Memory *memory) {
+void __remill_missing_block(State &, addr_t, RuntimeManager *runtime_manager) {
   std::cout << std::hex << std::setw(16) << std::setfill('0')
-            << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << g_state.gpr.pc.qword
-            << std::endl;
-  return nullptr;
+            << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << PCREG << std::endl;
 }
 
-Memory *__remill_async_hyper_call(State &, addr_t ret_addr, Memory *memory) {
-  return nullptr;
-}
+void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *runtime_manager) {}
 
-Memory *__remill_error(State &, addr_t addr, Memory *) {
+void __remill_error(State &, addr_t addr, RuntimeManager *) {
   printf("[ERROR] Reached __remill_error.\n");
   debug_state_machine();
   fflush(stdout);
@@ -142,113 +151,352 @@ Memory *__remill_error(State &, addr_t addr, Memory *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
-Memory *__remill_function_call(State &state, addr_t fn_vma, Memory *memory) {
-  if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
-    // std::cout << "indirect: " << g_run_mgr->addr_fn_symbol_map[fn_vma] << std::endl;
-    jmp_fn(&state, fn_vma, memory);
+
+
+void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
+  static std::unordered_map<addr_t, LiftedFunc> vma_cache;
+  if (auto jmp_fn_cache = vma_cache[fn_vma]; jmp_fn_cache) {
+    jmp_fn_cache(&state, fn_vma, runtime_manager);
+  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
+    vma_cache.insert({fn_vma, jmp_fn});
+    jmp_fn(&state, fn_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: "
         "0x%08x\n",
-        fn_vma, state.gpr.pc.dword);
+        fn_vma, PCREG);
   }
-  return nullptr;
 }
 
 /* BR instruction */
-Memory *__remill_jump(State &state, addr_t fn_vma, Memory *memory) {
-  if (auto jmp_fn = g_run_mgr->addr_fn_map[fn_vma]; jmp_fn) {
-    jmp_fn(&state, fn_vma, memory);
+void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
+  static std::unordered_map<addr_t, LiftedFunc> vma_cache_2;
+  if (auto jmp_fn_cache = vma_cache_2[fn_vma]; jmp_fn_cache) {
+    jmp_fn_cache(&state, fn_vma, runtime_manager);
+  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
+    vma_cache_2.insert({fn_vma, jmp_fn});
+    jmp_fn(&state, fn_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: "
         "0x%08x\n",
-        fn_vma, state.gpr.pc.dword);
+        fn_vma, PCREG);
   }
-  return nullptr;
 }
 
-bool __remill_flag_computation_sign(bool result, ...) {
+// get the target basic block label pointer for indirectbr instruction
+extern "C" uint64_t *__g_get_indirectbr_block_address(RuntimeManager *runtime_manager,
+                                                      uint64_t fun_vma, uint64_t bb_vma) {
+  if (runtime_manager->addr_block_addrs_map.count(fun_vma) == 1) {
+    auto vma_bb_map = runtime_manager->addr_block_addrs_map[fun_vma];
+    if (vma_bb_map.count(bb_vma) == 1) {
+      return vma_bb_map[bb_vma];
+    } else {
+      if (runtime_manager->addr_fn_map.count(fun_vma) == 1)
+        return vma_bb_map[UINT64_MAX];
+      else
+        elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n",
+                              bb_vma, __func__);
+    }
+  } else {
+    elfconv_runtime_error(
+        "[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
+        __func__);
+  }
+}
+
+// push the callee symbol to the call stack for debug
+extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t fn_vma) {
+  if (auto func_name = runtime_manager->addr_fn_symbol_map[fn_vma]; func_name) {
+    if (strncmp(func_name, "fn_plt", 6) == 0) {
+      return;
+    }
+    runtime_manager->call_stacks.push_back(fn_vma);
+    std::string tab_space;
+    for (int i = 0; i < runtime_manager->call_stacks.size(); i++) {
+      if (i & 0b1)
+        tab_space += "\033[34m";
+      else
+        tab_space += "\033[31m";
+      tab_space += "|";
+    }
+    tab_space += "\033[0m";
+    char entry_func_log[100];
+    snprintf(entry_func_log, 100, "start : %s\n", func_name);
+    printf("%s", tab_space.c_str());
+    printf("%s", entry_func_log);
+  } else {
+    elfconv_runtime_error("[ERROR] unknown entry func vma: 0x%08llx\n", fn_vma);
+  }
+}
+
+// pop the callee symbol from the call stack for debug
+extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t fn_vma) {
+  if (runtime_manager->call_stacks.empty()) {
+    elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", PCREG);
+  } else {
+    auto last_call_vma = runtime_manager->call_stacks.back();
+    auto func_name = runtime_manager->addr_fn_symbol_map[last_call_vma];
+    if (strncmp(func_name, "fn_plt", 6) != 0) {
+      if (fn_vma != last_call_vma)
+        elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
+                              last_call_vma, runtime_manager->addr_fn_symbol_map[fn_vma],
+                              runtime_manager->addr_fn_symbol_map[last_call_vma]);
+      runtime_manager->call_stacks.pop_back();
+      return;
+      std::string tab_space;
+      for (int i = 0; i < runtime_manager->call_stacks.size(); i++) {
+        if (i & 0b1)
+          tab_space += "\033[34m";
+        else
+          tab_space += "\033[31m";
+        tab_space += "|";
+      }
+      tab_space += "\033[0m";
+      char return_func_log[100];
+      snprintf(return_func_log, 100, "end   : %s\n", func_name);
+      printf("%s", tab_space.c_str());
+      printf("%s", return_func_log);
+    }
+  }
+}
+
+// observe the value change of runtime memory
+extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
+  // step 1. set target vma
+  static uint64_t target_vma = 0x495060;
+  if (0 == target_vma)
+    return;
+  static uint64_t old_value = 0;
+  // step 2. set the data type of target value
+  auto target_pma = (uint64_t *) runtime_manager->TranslateVMA(target_vma);
+  auto new_value = *target_pma;
+  if (old_value != new_value) {
+    std::cout << std::hex << "target_vma: 0x" << target_vma << " target_pma: 0x" << target_pma
+              << std::endl
+              << "\told value: 0x" << old_value << std::endl
+              << "\tnew value: 0x" << new_value << std::endl;
+    old_value = new_value;
+  }
+}
+
+// observe the value of runtime memory
+extern "C" void debug_memory_value(RuntimeManager *runtime_manager) {
+  // step 1. set target vma
+  std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
+  // step 2. set the data type of target values
+  std::cout << "[Memory Debug]" << std::endl;
+  for (auto &target_vma : target_vmas) {
+    auto target_pma = (double *) runtime_manager->TranslateVMA(target_vma);
+    std::cout << "*target_pma: " << *target_pma << std::endl;
+  }
+}
+
+extern "C" void debug_string(const char *str) {
+  std::cout << str << std::endl;
+}
+
+
+extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
+
+  static std::string reg_space = " 0x                 ";
+  static std::string org_debug_str =
+      "PC:" + reg_space + "X0:" + reg_space + "X1:" + reg_space + "X2:" + reg_space +
+      "X3:" + reg_space + "X4:" + reg_space + "X5:" + reg_space + "X6:" + reg_space +
+      "X7:" + reg_space + "X8:" + reg_space + "X9:" + reg_space + "PC:" + reg_space +
+      "X10:" + reg_space + "X11:" + reg_space + "X12:" + reg_space + "X13:" + reg_space +
+      "X14:" + reg_space + "X15:" + reg_space + "X16:" + reg_space + "X17:" + reg_space +
+      "X18:" + reg_space + "X19:" + reg_space + "PC:" + reg_space + "X20:" + reg_space +
+      "X21:" + reg_space + "X22:" + reg_space + "X23:" + reg_space + "X24:" + reg_space +
+      "X25:" + reg_space + "X26:" + reg_space + "X27:" + reg_space + "X28:" + reg_space +
+      "X29:" + reg_space + "X30:" + reg_space + "SP:" + reg_space + "ECV_NZCV" + reg_space;
+
+#define __SP_INDEX 31
+#define __ECV_NZCV_INDEX 32
+
+  static uint64_t general_regs_offsets[] = {
+      /* 0 */ 3 * 2 + reg_space.length() + 3,
+      /* 1 */ 3 * 3 + reg_space.length() * 2 + 3,
+      /* 2 */ 3 * 4 + reg_space.length() * 3 + 3,
+      /* 3 */ 3 * 5 + reg_space.length() * 4 + 3,
+      /* 4 */ 3 * 6 + reg_space.length() * 5 + 3,
+      /* 5 */ 3 * 7 + reg_space.length() * 6 + 3,
+      /* 6 */ 3 * 8 + reg_space.length() * 7 + 3,
+      /* 7 */ 3 * 9 + reg_space.length() * 8 + 3,
+      /* 8 */ 3 * 10 + reg_space.length() * 9 + 3,
+      /* 9 */ 3 * 11 + reg_space.length() * 10 + 3,
+      /* 10 (skip 1 PC) */ 3 * 12 + 4 * 1 + reg_space.length() * 12 + 3,
+      /* 11 */ 3 * 12 + 4 * 2 + reg_space.length() * 13 + 3,
+      /* 12 */ 3 * 12 + 4 * 3 + reg_space.length() * 14 + 3,
+      /* 13 */ 3 * 12 + 4 * 4 + reg_space.length() * 15 + 3,
+      /* 14 */ 3 * 12 + 4 * 5 + reg_space.length() * 16 + 3,
+      /* 15 */ 3 * 12 + 4 * 6 + reg_space.length() * 17 + 3,
+      /* 16 */ 3 * 12 + 4 * 7 + reg_space.length() * 18 + 3,
+      /* 17 */ 3 * 12 + 4 * 8 + reg_space.length() * 19 + 3,
+      /* 18 */ 3 * 12 + 4 * 9 + reg_space.length() * 20 + 3,
+      /* 19 */ 3 * 12 + 4 * 10 + reg_space.length() * 21 + 3,
+      /* 20 (skip 2 PC) */ 3 * 13 + 4 * 11 + reg_space.length() * 23 + 3,
+      /* 21 */ 3 * 13 + 4 * 12 + reg_space.length() * 24 + 3,
+      /* 22 */ 3 * 13 + 4 * 13 + reg_space.length() * 25 + 3,
+      /* 23 */ 3 * 13 + 4 * 14 + reg_space.length() * 26 + 3,
+      /* 24 */ 3 * 13 + 4 * 15 + reg_space.length() * 27 + 3,
+      /* 25 */ 3 * 13 + 4 * 16 + reg_space.length() * 28 + 3,
+      /* 26 */ 3 * 13 + 4 * 17 + reg_space.length() * 29 + 3,
+      /* 27 */ 3 * 13 + 4 * 18 + reg_space.length() * 30 + 3,
+      /* 28 */ 3 * 13 + 4 * 19 + reg_space.length() * 31 + 3,
+      /* 29 */ 3 * 13 + 4 * 20 + reg_space.length() * 32 + 3,
+      /* 30 */ 3 * 13 + 4 * 21 + reg_space.length() * 33 + 3,
+      /* SP */ 3 * 13 + 4 * 22 + reg_space.length() * 34 + 3,
+      /* ECV_NZCV */ 3 * 13 + 4 * 22 + 8 + reg_space.length() * 35 + 3,
+  };
+
+  va_list args;
+  va_start(args, args_num);
+
+  if (args_num & 0b1) {
+    elfconv_runtime_error("args_num must be even number at debug_vma_and_registers. args_num: %ld",
+                          args_num);
+  }
+
+  std::string general_regs_str = org_debug_str;
+  std::stringstream vector_regs_str("");
+  std::stringstream tmp_str("");
+
+  // PC
+  tmp_str << std::hex << pc;
+  auto pc_str_len = tmp_str.str().length();
+
+  general_regs_str.replace(3 + 3 + (16 - pc_str_len), pc_str_len,
+                           tmp_str.str());  // 1 PC
+  general_regs_str.replace(general_regs_offsets[9] + reg_space.length() + 3 + (16 - pc_str_len),
+                           pc_str_len,
+                           tmp_str.str());  // 2 PC
+  general_regs_str.replace(general_regs_offsets[19] + reg_space.length() + 3 + (16 - pc_str_len),
+                           pc_str_len,
+                           tmp_str.str());  // 3 PC
+
+  tmp_str.str("");
+  tmp_str.clear(std::stringstream::goodbit);
+
+  // All regs
+  for (size_t i = 0; i < args_num; i += 2) {
+    char *reg_name = va_arg(args, char *);
+    // Vector
+    if ('V' == reg_name[0]) {
+      uint128_t reg_val = va_arg(args, uint128_t);
+      uint64_t high = static_cast<uint64_t>(reg_val >> 64);
+      uint64_t low = static_cast<uint64_t>(reg_val & 0xffff'ffff'ffff'ffff);
+      vector_regs_str << reg_name << ": 0x" << std::hex << std::setw(16) << std::setfill('0')
+                      << high << std::setw(16) << std::setfill('0') << low << " ";
+    }
+    // General or Special
+    else {
+      uint64_t reg_val = va_arg(args, uint64_t);
+      tmp_str.str("");
+      tmp_str.clear(std::stringstream::goodbit);
+      tmp_str << std::hex << reg_val;
+      auto tmp_str_len = tmp_str.str().length();
+      size_t reg_index;
+      if (reg_name[0] == 'X') {
+        reg_index = std::atoi(reg_name + 1);
+      } else if (strncmp(reg_name, "ECV_NZCV", 8) == 0) {
+        reg_index = __ECV_NZCV_INDEX;
+      } else if (strncmp(reg_name, "SP", 2) == 0) {
+        reg_index = __SP_INDEX;
+      } else {
+        if (strncmp(reg_name, "PC", 2) != 0) {
+          elfconv_runtime_error("invalid reg_name on the debug_vma_and_registers. reg_name: %s\n",
+                                reg_name);
+        }
+      }
+      general_regs_str.replace(general_regs_offsets[reg_index] + (16 - tmp_str_len), tmp_str_len,
+                               tmp_str.str());
+    }
+  }
+
+  std::cout << general_regs_str << " " << vector_regs_str.str() << std::endl;
+
+  va_end(args);
+}
+
+// temp patch for correct stdout behavior
+extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {
+  uint64_t *pma = (uint64_t *) runtime_manager->TranslateVMA(f_flags_vma);
+  *pma = 0xfbad2a84;
+  return;
+}
+
+inline bool __remill_flag_computation_sign(bool result, ...) {
   return result;
 }
-bool __remill_flag_computation_zero(bool result, ...) {
+inline bool __remill_flag_computation_zero(bool result, ...) {
   return result;
 }
-bool __remill_flag_computation_overflow(bool result, ...) {
+inline bool __remill_flag_computation_overflow(bool result, ...) {
   return result;
 }
-bool __remill_flag_computation_carry(bool result, ...) {
+inline bool __remill_flag_computation_carry(bool result, ...) {
   return result;
 }
 
-bool __remill_compare_sle(bool result) {
+inline bool __remill_compare_sle(bool result) {
   return result;
 }
-bool __remill_compare_slt(bool result) {
+inline bool __remill_compare_slt(bool result) {
   return result;
 }
-bool __remill_compare_sge(bool result) {
+inline bool __remill_compare_sge(bool result) {
   return result;
 }
-bool __remill_compare_sgt(bool result) {
+inline bool __remill_compare_sgt(bool result) {
   return result;
 }
-bool __remill_compare_ule(bool result) {
+inline bool __remill_compare_ule(bool result) {
   return result;
 }
-bool __remill_compare_ult(bool result) {
+inline bool __remill_compare_ult(bool result) {
   return result;
 }
-bool __remill_compare_ugt(bool result) {
+inline bool __remill_compare_ugt(bool result) {
   return result;
 }
-bool __remill_compare_uge(bool result) {
+inline bool __remill_compare_uge(bool result) {
   return result;
 }
-bool __remill_compare_eq(bool result) {
+inline bool __remill_compare_eq(bool result) {
   return result;
 }
-bool __remill_compare_neq(bool result) {
+inline bool __remill_compare_neq(bool result) {
   return result;
 }
 
 /* Data Memory Barrier instruction (FIXME) */
-Memory *__remill_barrier_load_load(Memory *memory) {
-  return nullptr;
-}
-Memory *__remill_barrier_load_store(Memory *memory) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_load(Memory *memory) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_store(Memory *memory) {
-  return nullptr;
-}
+void __remill_barrier_load_load(RuntimeManager *runtime_manager) {}
+void __remill_barrier_load_store(RuntimeManager *runtime_manager) {}
+void __remill_barrier_store_load(RuntimeManager *runtime_manager) {}
+void __remill_barrier_store_store(RuntimeManager *runtime_manager) {}
 
 /* atomic */
-Memory *__remill_atomic_begin(Memory *memory) {
-  return nullptr;
-}
-Memory *__remill_atomic_end(Memory *memory) {
-  return nullptr;
-}
+void __remill_atomic_begin(RuntimeManager *runtime_manager) {}
+void __remill_atomic_end(RuntimeManager *runtime_manager) {}
 
 /* FIXME */
-Memory *__remill_aarch64_emulate_instruction(Memory *memory) {
-  return nullptr;
-}
+void __remill_aarch64_emulate_instruction(RuntimeManager *runtime_manager) {}
 
 int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
   return clear_mask;
 }
 
-Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &) {
-  UNDEFINED_INTRINSICS("__remill_read_memory_f80");
-  return nullptr;
-}
-Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &) {
-  UNDEFINED_INTRINSICS("__remill_") return nullptr;
+// Memory *__remill_read_memory_f80(Memory *, addr_t, native_float80_t &) {
+//   UNDEFINED_INTRINSICS("__remill_read_memory_f80");
+//   return nullptr;
+// }
+// Memory *__remill_write_memory_f80(Memory *, addr_t, const native_float80_t &) {
+//   UNDEFINED_INTRINSICS("__remill_") return nullptr;
+// }
+
+float128_t __remill_read_memory_f128(RuntimeManager *runtime_manager, addr_t addr) {
+  UNDEFINED_INTRINSICS("__remill_read_memory_f128");
 }
 
 uint8_t __remill_undefined_8(void) {

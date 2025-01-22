@@ -326,6 +326,9 @@ class Arch {
   virtual bool NextInstructionIsDelayed(const Instruction &inst, const Instruction &next_inst,
                                         bool branch_taken_path) const;
 
+  // This method prepares the minimum Instruction to use several InstructionLifter methods for aarch64.
+  virtual void InstanceMinimumInst(Instruction &inst) const = 0;
+
   // Get the architecture related to a module.
   static remill::Arch::ArchPtr GetModuleArch(const llvm::Module &module);
 
