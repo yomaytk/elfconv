@@ -107,12 +107,11 @@ class TraceManager {
 
 class PhiRegsBBBagNode {
  public:
-  PhiRegsBBBagNode(EcvRegMap<ERC> __preceding_load_reg_map,
-                   EcvRegMap<ERC> __succeeding_load_reg_map,
-                   EcvRegMap<ERC> &&__within_store_reg_map, std::set<llvm::BasicBlock *> &&__in_bbs)
-      : bag_preceding_load_reg_map(__preceding_load_reg_map),
-        bag_succeeding_load_reg_map(__succeeding_load_reg_map),
-        bag_preceding_store_reg_map(std::move(__within_store_reg_map)),
+  PhiRegsBBBagNode(EcvRegMap<ERC> __own_ld_reg_map, EcvRegMap<ERC> __succeeding_load_reg_map,
+                   EcvRegMap<ERC> &&__own_str_reg_map, std::set<llvm::BasicBlock *> &&__in_bbs)
+      : own_ld_rmp(__own_ld_reg_map),
+        own_str_rmp(std::move(__own_str_reg_map)),
+        sucs_ld_rmp(__succeeding_load_reg_map),
         in_bbs(std::move(__in_bbs)),
         converted_bag(nullptr) {}
 
@@ -136,20 +135,30 @@ class PhiRegsBBBagNode {
   // The register set which should be passed from caller function.
 
   PhiRegsBBBagNode *GetTrueBag();
-  void MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag);
-  void MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag);
+  void MergeOwnRegs(PhiRegsBBBagNode *moved_bag);
+  void MergeFamilyBags(PhiRegsBBBagNode *merged_bag);
 
   static void DebugGraphStruct(PhiRegsBBBagNode *target_bag);
 
-  // The regsiter set which may be loaded on the way to the basic blocks of this bag node (include the own block).
-  EcvRegMap<ERC> bag_preceding_load_reg_map;
-  // The register set which may be loaded on the succeeding block (includes the own block).
-  EcvRegMap<ERC> bag_succeeding_load_reg_map;
+  // The register set which is loaded in the own bag.
+  EcvRegMap<ERC> own_ld_rmp;
+  // The register set which is stored in the own bag.
+  EcvRegMap<ERC> own_str_rmp;
 
-  // The register set which is stored in the way to the bag node (includes the own block) (required).
-  EcvRegMap<ERC> bag_preceding_store_reg_map;
-  // bag_preceding_store_reg_map + (bag_preceding_load_reg_map & bag_succeeding_load_reg_map)
-  EcvRegMap<ERC> bag_req_reg_map;
+  // The regsiter set which is loaded on the way to the basic blocks of this bag node ("not" include the own block).
+  // We "don't" use this after calculating `drvd_rmp`
+  EcvRegMap<ERC> pres_ld_rmp;
+  // The register set which is stored in the way to the bag node ("not" includes the own block).
+  // We use this to store the modified register on the preceding basic blocks before calling the lifted_function.
+  EcvRegMap<ERC> pres_str_rmp;
+
+  // The register set which is loaded on the succeeding block (includes the own block).
+  // We "don't" use this after calculating `drvd_rmp`
+  EcvRegMap<ERC> sucs_ld_rmp;
+
+  // pres_str_rmp + (pres_ld_rmp & sucs_ld_rmp)
+  // The register set which should be devived from the parents bags.
+  EcvRegMap<ERC> drvd_rmp;
 
   // The basic block set which is included in this bag.
   std::set<llvm::BasicBlock *> in_bbs;
@@ -205,7 +214,7 @@ class VirtualRegsOpt {
   llvm::Value *
   GetRegValueFromCacheMap(EcvReg target_ecv_reg, llvm::Type *to_type,
                           llvm::Instruction *inst_at_before,
-                          EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &cache_map);
+                          EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> &cache_map);
 
   void AnalyzeRegsBags();
   static void CalPassedCallerRegForBJump();
@@ -249,7 +258,7 @@ class VirtualRegsOpt {
 
   void InsertDebugVmaAndRegisters(
       llvm::Instruction *inst_at_before,
-      EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &ascend_reg_inst_map, uint64_t pc);
+      EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> &ascend_reg_inst_map, uint64_t pc);
 };
 
 class TraceLifter::Impl {

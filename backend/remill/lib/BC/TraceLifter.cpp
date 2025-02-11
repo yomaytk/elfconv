@@ -1040,33 +1040,30 @@ PhiRegsBBBagNode *PhiRegsBBBagNode::GetTrueBag() {
   return res;
 }
 
-void PhiRegsBBBagNode::MergePrecedingRegMap(PhiRegsBBBagNode *moved_bag) {
-  // Merge bag_preceding_load_reg_map
-  for (auto [pre_load_r, pre_load_r_c] : moved_bag->bag_preceding_load_reg_map) {
-    if (bag_preceding_load_reg_map.contains(pre_load_r)) {
-      if (GetRegClassSize(bag_preceding_load_reg_map.at(pre_load_r)) <
-          GetRegClassSize(pre_load_r_c)) {
-        bag_preceding_load_reg_map.insert_or_assign(pre_load_r, pre_load_r_c);
+void PhiRegsBBBagNode::MergeOwnRegs(PhiRegsBBBagNode *moved_bag) {
+  // Merge own_ld_rmp
+  for (auto [ld_er, ld_erc] : moved_bag->own_ld_rmp) {
+    if (own_ld_rmp.contains(ld_er)) {
+      if (ERCSize(own_ld_rmp.at(ld_er)) < ERCSize(ld_erc)) {
+        own_ld_rmp.insert_or_assign(ld_er, ld_erc);
       }
     } else {
-      bag_preceding_load_reg_map.insert({pre_load_r, pre_load_r_c});
+      own_ld_rmp.insert({ld_er, ld_erc});
     }
   }
-  // Merge bag_preceding_load_reg_map
-  for (auto [pre_store_r, pre_store_r_c] : moved_bag->bag_preceding_store_reg_map) {
-    if (bag_preceding_store_reg_map.contains(pre_store_r)) {
-      if (GetRegClassSize(bag_preceding_store_reg_map.at(pre_store_r)) <
-          GetRegClassSize(pre_store_r_c)) {
-        bag_preceding_store_reg_map.insert_or_assign(pre_store_r, pre_store_r_c);
+  // Merge own_str_rmp
+  for (auto [str_er, str_erc] : moved_bag->own_str_rmp) {
+    if (own_str_rmp.contains(str_er)) {
+      if (ERCSize(own_str_rmp.at(str_er)) < ERCSize(str_erc)) {
+        own_str_rmp.insert_or_assign(str_er, str_erc);
       }
     } else {
-      bag_preceding_store_reg_map.insert({pre_store_r, pre_store_r_c});
+      own_str_rmp.insert({str_er, str_erc});
     }
   }
-  // Merge bag_within_store
 }
 
-void PhiRegsBBBagNode::MergeFamilyConvertedBags(PhiRegsBBBagNode *merged_bag) {
+void PhiRegsBBBagNode::MergeFamilyBags(PhiRegsBBBagNode *merged_bag) {
   for (auto merged_par : merged_bag->parents) {
     auto true_merged_par = merged_par->GetTrueBag();
     parents.insert(true_merged_par);
@@ -1140,8 +1137,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           true_deleted_bags.insert(moved_bag);
 
           // translates moved_bag
-          target_bag->MergePrecedingRegMap(moved_bag);
-          target_bag->MergeFamilyConvertedBags(moved_bag);
+          target_bag->MergeOwnRegs(moved_bag);
+          target_bag->MergeFamilyBags(moved_bag);
           for (auto moved_bb : moved_bag->in_bbs) {
             target_bag->in_bbs.insert(moved_bb);
           }
@@ -1287,44 +1284,84 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetPrecedingVirtualRegsBags. target func: ",
              root_bb->getParent()->getName().str());
   std::queue<PhiRegsBBBagNode *> bag_queue;
-  std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_pars_num_map;
-  std::set<PhiRegsBBBagNode *> finished;
+  std::unordered_map<PhiRegsBBBagNode *, std::size_t> fin_pars_nummp;
+  std::set<PhiRegsBBBagNode *> fins;
   bag_queue.push(bb_regs_bag_map.at(root_bb));
 
   while (!bag_queue.empty()) {
-    auto target_bag = bag_queue.front();
+    auto t_bg = bag_queue.front();
     bag_queue.pop();
-    if (finished.contains(target_bag)) {
+    if (fins.contains(t_bg)) {
       continue;
     }
-    finished_pars_num_map.insert({target_bag, 0});
-    if (target_bag->parents.size() == finished_pars_num_map.at(target_bag)) {
-      // can finish the target_bag.
-      for (auto par_bag : target_bag->parents) {
-        // preceding load reg. priority: target_bag > par_bag.
-        for (auto ecv_reg_info : par_bag->bag_preceding_load_reg_map) {
-          target_bag->bag_preceding_load_reg_map.insert(ecv_reg_info);
+    fin_pars_nummp.insert({t_bg, 0});
+    if (t_bg->parents.size() == fin_pars_nummp.at(t_bg)) {
+      // can finish the t_bg.
+      for (auto par_bg : t_bg->parents) {
+
+        // preceding load reg.
+        // priority 1. pre_own_ld_rmp > pre_pres_ld_rmp.
+        // priority 2. bigger ERC > smaller ERC.
+        // target: pre_pres
+        for (auto [er1, erc1] : par_bg->pres_ld_rmp) {
+          if (t_bg->pres_ld_rmp.contains(er1)) {
+            if (ERCSize(t_bg->pres_ld_rmp.at(er1)) < ERCSize(erc1)) {
+              t_bg->pres_ld_rmp.insert({er1, erc1});
+            }
+          } else {
+            t_bg->pres_ld_rmp.insert({er1, erc1});
+          }
         }
-        // preceding store reg. priority: target_bag > par_bag.
-        for (auto ecv_reg_info : par_bag->bag_preceding_store_reg_map) {
-          target_bag->bag_preceding_store_reg_map.insert(ecv_reg_info);
+        // target: pre_own
+        for (auto [er2, erc2] : par_bg->own_ld_rmp) {
+          if (t_bg->pres_ld_rmp.contains(er2)) {
+            if (ERCSize(t_bg->pres_ld_rmp.at(er2)) < ERCSize(erc2)) {
+              t_bg->pres_ld_rmp.insert_or_assign(er2, erc2);
+            }
+          } else {
+            t_bg->pres_ld_rmp.insert({er2, erc2});
+          }
+        }
+
+        // preceding store reg.
+        // priority 1. pre_own_str_rmp > pre_pres_str_rmp.
+        // priority 2. bigger ERC > smaller ERC.
+        // target: pre_pres
+        for (auto [er3, erc3] : par_bg->pres_str_rmp) {
+          if (t_bg->pres_str_rmp.contains(er3)) {
+            if (ERCSize(t_bg->pres_str_rmp.at(er3)) < ERCSize(erc3)) {
+              t_bg->pres_str_rmp.insert_or_assign(er3, erc3);
+            }
+          } else {
+            t_bg->pres_str_rmp.insert({er3, erc3});
+          }
+        }
+        // target: pre_own
+        for (auto [er4, erc4] : par_bg->own_str_rmp) {
+          if (t_bg->pres_str_rmp.contains(er4)) {
+            if (ERCSize(t_bg->pres_str_rmp.at(er4)) < ERCSize(erc4)) {
+              t_bg->pres_str_rmp.insert_or_assign(er4, erc4);
+            }
+          } else {
+            t_bg->pres_str_rmp.insert({er4, erc4});
+          }
         }
       }
       // target_bag was finished.
-      finished.insert(target_bag);
+      fins.insert(t_bg);
       // update the finised_pars_map for all the childlen of this target_bag.
       // push all the no finished children
-      for (auto child : target_bag->children) {
-        finished_pars_num_map.insert_or_assign(child, finished_pars_num_map[child] + 1);
-        if (!finished.contains(child)) {
-          bag_queue.push(child);
+      for (auto ch : t_bg->children) {
+        fin_pars_nummp.insert_or_assign(ch, fin_pars_nummp[ch] + 1);
+        if (!fins.contains(ch)) {
+          bag_queue.push(ch);
         }
       }
     }
   }
 
-  CHECK(finished.size() == bag_num)
-      << "[Bug] bag_num: " << bag_num << ", finished_bag.size(): " << finished.size()
+  CHECK(fins.size() == bag_num)
+      << "[Bug] bag_num: " << bag_num << ", finished_bag.size(): " << fins.size()
       << ". They should be equal after PhiRegsBBagNode::GetPrecedingVirtualRegsBags."
       << ECV_DEBUG_STREAM.str();
 
@@ -1335,44 +1372,62 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
   ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetSucceedingVirtualRegsBags. target func: ",
              root_bb->getParent()->getName().str());
   std::stack<PhiRegsBBBagNode *> bag_stack;
-  std::unordered_map<PhiRegsBBBagNode *, std::size_t> finished_children_num_map;
-  std::set<PhiRegsBBBagNode *> finished;
+  std::unordered_map<PhiRegsBBBagNode *, std::size_t> fin_chn_nummp;
+  std::set<PhiRegsBBBagNode *> fins;
   bag_stack.push(bb_regs_bag_map.at(root_bb));
 
   while (!bag_stack.empty()) {
-    auto target_bag = bag_stack.top();
+    auto t_bg = bag_stack.top();
     bag_stack.pop();
-    if (finished.contains(target_bag)) {
+    if (fins.contains(t_bg)) {
       continue;
     }
-    finished_children_num_map.insert({target_bag, 0});
-    if (target_bag->children.size() == finished_children_num_map.at(target_bag)) {
-      // Can finish the target_bag.
-      for (auto child_bag : target_bag->children) {
-        // succeeding load reg. priority: target_bag > child_bag
-        for (auto ecv_reg_info : child_bag->bag_succeeding_load_reg_map) {
-          target_bag->bag_succeeding_load_reg_map.insert(ecv_reg_info);
+    fin_chn_nummp.insert({t_bg, 0});
+    if (t_bg->children.size() == fin_chn_nummp.at(t_bg)) {
+      // can finish the t_bg.
+      // succeeding load regs.
+      // priority 1. own_ld_rmp > suc_sucs_rmp
+      // priority 2. bigger ERC > smaller ERC
+      for (auto ch_bg : t_bg->children) {
+        // target: suc_sucs_rmp
+        for (auto [er1, erc1] : ch_bg->sucs_ld_rmp) {
+          if (t_bg->sucs_ld_rmp.contains(er1)) {
+            if (ERCSize(t_bg->sucs_ld_rmp.at(er1)) < ERCSize(erc1)) {
+              t_bg->sucs_ld_rmp.insert_or_assign(er1, erc1);
+            }
+          } else {
+            t_bg->sucs_ld_rmp.insert({er1, erc1});
+          }
+        }
+        // target: t_own_rmp
+        for (auto [er2, erc2] : t_bg->own_ld_rmp) {
+          if (t_bg->sucs_ld_rmp.contains(er2)) {
+            if (ERCSize(t_bg->sucs_ld_rmp.at(er2)) < ERCSize(erc2)) {
+              t_bg->sucs_ld_rmp.insert_or_assign(er2, erc2);
+            }
+          } else {
+            t_bg->sucs_ld_rmp.insert({er2, erc2});
+          }
         }
       }
-      // The target_bag was finished.
-      finished.insert(target_bag);
+      // The t_bg was finished.
+      fins.insert(t_bg);
       // Update the finised_children_map for all the parents of this target_bag.
-      for (auto parent_bag : target_bag->parents) {
-        finished_children_num_map.insert_or_assign(parent_bag,
-                                                   finished_children_num_map[parent_bag] + 1);
+      for (auto parent_bag : t_bg->parents) {
+        fin_chn_nummp.insert_or_assign(parent_bag, fin_chn_nummp[parent_bag] + 1);
       }
       continue;
     }
     // After searching all children, re-search the target_bag.
-    bag_stack.push(target_bag);
-    for (auto child_bag : target_bag->children) {
-      if (!finished.contains(child_bag)) {
+    bag_stack.push(t_bg);
+    for (auto child_bag : t_bg->children) {
+      if (!fins.contains(child_bag)) {
         bag_stack.push(child_bag);
       }
     }
   }
 
-  CHECK(finished.size() == finished_children_num_map.size() && finished.size() == bag_num)
+  CHECK(fins.size() == fin_chn_nummp.size() && fins.size() == bag_num)
       << "[Bug] Search argorithm is incorrect of PhiRegsBBBagNode::GetPhiDerivedRegsBags: Search is insufficient."
       << ECV_DEBUG_STREAM.str();
 
@@ -1382,37 +1437,39 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
 void PhiRegsBBBagNode::GetPhiRegsBags(
     llvm::BasicBlock *root_bb,
     std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> &bb_reg_info_node_map) {
+
   // Remove loop from the graph of PhiRegsBBBagNode.
   PhiRegsBBBagNode::RemoveLoop(root_bb);
+
   // Prepare the bug_succeeding_load_reg_map.
   for (auto [_, bag] : bb_regs_bag_map) {
-    if (bag->bag_succeeding_load_reg_map.empty()) {
-      bag->bag_succeeding_load_reg_map = bag->bag_preceding_load_reg_map;
+    if (bag->sucs_ld_rmp.empty()) {
+      bag->sucs_ld_rmp = bag->pres_ld_rmp;
     }
   }
+
   // Calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(root_bb);
-  // Calculate the bag_succeeding_load_reg_map for the every PhiRegsBBBagNode.
+  // Calculate the sucs_ld_rmp for the every PhiRegsBBBagNode.
   PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(root_bb);
-  // Calculate the bag_req_reg_map.
+
+  // Calculate the drvd_rmp.
   std::set<PhiRegsBBBagNode *> finished;
   for (auto [_, phi_regs_bag] : bb_regs_bag_map) {
     if (!finished.contains(phi_regs_bag)) {
-      auto &succeeding_load_reg_map = phi_regs_bag->bag_succeeding_load_reg_map;
-      auto &preceding_load_reg_map = phi_regs_bag->bag_preceding_load_reg_map;
-      auto &more_small_reg_map = succeeding_load_reg_map.size() <= preceding_load_reg_map.size()
-                                     ? succeeding_load_reg_map
-                                     : preceding_load_reg_map;
-      phi_regs_bag->bag_req_reg_map = phi_regs_bag->bag_preceding_store_reg_map;
-      for (auto &[ecv_reg, _] : more_small_reg_map) {
-        if (succeeding_load_reg_map.contains(ecv_reg) && preceding_load_reg_map.contains(ecv_reg)) {
-          auto t_ecv_r_c = succeeding_load_reg_map.at(ecv_reg);
-          if (phi_regs_bag->bag_req_reg_map.contains(ecv_reg) &&
-              GetRegClassSize(phi_regs_bag->bag_req_reg_map.at(ecv_reg)) <
-                  GetRegClassSize(t_ecv_r_c)) {
-            phi_regs_bag->bag_req_reg_map.insert_or_assign(ecv_reg, t_ecv_r_c);
+
+      auto &sucs_ld_rmp = phi_regs_bag->sucs_ld_rmp;
+      auto &pres_ld_rmp = phi_regs_bag->pres_ld_rmp;
+      auto &drvd_rmp = phi_regs_bag->drvd_rmp;
+      drvd_rmp = phi_regs_bag->pres_str_rmp;
+
+      for (auto &[ecv_reg, _] : sucs_ld_rmp) {
+        if (sucs_ld_rmp.contains(ecv_reg) && pres_ld_rmp.contains(ecv_reg)) {
+          auto t_ecv_r_c = sucs_ld_rmp.at(ecv_reg);
+          if (drvd_rmp.contains(ecv_reg) && ERCSize(drvd_rmp.at(ecv_reg)) < ERCSize(t_ecv_r_c)) {
+            drvd_rmp.insert_or_assign(ecv_reg, t_ecv_r_c);
           } else {
-            phi_regs_bag->bag_req_reg_map.insert({ecv_reg, t_ecv_r_c});
+            drvd_rmp.insert({ecv_reg, t_ecv_r_c});
           }
         }
       }
@@ -1422,7 +1479,7 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
 
   // Calculate bag_passed_caller_reg_map.
   auto func = root_bb->getParent();
-  auto t_fun_v_r_o = VirtualRegsOpt::func_v_r_opt_map.at(func);
+  auto t_fun_vro = VirtualRegsOpt::func_v_r_opt_map.at(func);
   for (auto &bb : *func) {
     if (&bb == root_bb) {
       continue;
@@ -1433,43 +1490,35 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
     for (auto [e_r, n_e_r_c] : t_bb_info_node->bb_load_reg_map) {
       bool already_load_flag = false;
       for (auto p_bag : t_bag->parents) {
-        already_load_flag |= p_bag->bag_req_reg_map.contains(e_r);
+        already_load_flag |= p_bag->drvd_rmp.contains(e_r);
       }
       if (!already_load_flag) {
-        t_fun_v_r_o->passed_caller_reg_map.insert({e_r, n_e_r_c});
+        t_fun_vro->passed_caller_reg_map.insert({e_r, n_e_r_c});
       }
     }
-    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
+    t_fun_vro->passed_caller_reg_map.insert({EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
   }
 
   // Calculate passed_callee_ret_reg_map.
-  auto &ret_set = t_fun_v_r_o->ret_inst_set;
+  auto &ret_set = t_fun_vro->ret_inst_set;
   if (!ret_set.empty()) {
     auto ret_inst_bg_bag = bb_regs_bag_map.at((*ret_set.begin())->getParent());
-    for (auto [e_r, e_r_c] : ret_inst_bg_bag->bag_preceding_store_reg_map) {
+    for (auto [e_r, e_r_c] : ret_inst_bg_bag->pres_str_rmp) {
       bool is_ret_reg = true;
       for (auto iter = ret_set.begin(); iter != ret_set.end(); iter++) {
         auto t_bag = bb_regs_bag_map.at((*iter)->getParent());
-        is_ret_reg &= t_bag->bag_preceding_store_reg_map.contains(e_r);
+        is_ret_reg &= t_bag->pres_str_rmp.contains(e_r);
       }
       if (is_ret_reg) {
-        t_fun_v_r_o->passed_callee_ret_reg_map.insert({e_r, e_r_c});
+        t_fun_vro->passed_callee_ret_reg_map.insert({e_r, e_r_c});
       }
     }
   }
 
-  // if (func->getName().starts_with("_IO_file_xsputn")) {
-  //   std::cout << func->getName().str() << std::endl;
-  //   for (auto [e_r, e_r_c] : bag_passed_caller_reg_map) {
-  //     std::cout << e_r->GetRegName(e_r_c) << ", ";
-  //   }
-  //   std::cout << std::endl;
-  // }
-
   // (FIXME)
   if (func->getName().starts_with("_IO_do_write")) {
-    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 1), ERC::RegX});
-    t_fun_v_r_o->passed_caller_reg_map.insert({EcvReg(RegKind::General, 3), ERC::RegX});
+    t_fun_vro->passed_caller_reg_map.insert({EcvReg(RegKind::General, 1), ERC::RegX});
+    t_fun_vro->passed_caller_reg_map.insert({EcvReg(RegKind::General, 3), ERC::RegX});
   }
 }
 
@@ -1527,11 +1576,11 @@ void VirtualRegsOpt::CalPassedCallerRegForBJump() {
         callee_fin &= finished.contains(callee);
       }
       if (callee_fin) {
-        auto t_fun_v_r_o = func_v_r_opt_map.at(t_fun);
+        auto t_fun_vro = func_v_r_opt_map.at(t_fun);
         for (auto callee : b_jump_callees_map.at(t_fun)) {
           auto callee_v_r_o = func_v_r_opt_map.at(callee);
           for (auto [e_r, e_r_c] : callee_v_r_o->passed_caller_reg_map) {
-            t_fun_v_r_o->passed_caller_reg_map.insert({e_r, e_r_c});
+            t_fun_vro->passed_caller_reg_map.insert({e_r, e_r_c});
           }
         }
         finished.insert(t_fun);
@@ -1798,10 +1847,10 @@ llvm::Value *VirtualRegsOpt::CastFromInst(EcvReg target_ecv_reg, llvm::Value *fr
 
 llvm::Value *VirtualRegsOpt::GetRegValueFromCacheMap(
     EcvReg target_ecv_reg, llvm::Type *to_type, llvm::Instruction *inst_at_before,
-    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &cache_map) {
+    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> &cache_map) {
   llvm::Value *res_value;
 
-  auto [_, from_value, from_order] = cache_map.at(target_ecv_reg);
+  auto [_1, from_value, from_order, _2] = cache_map.at(target_ecv_reg);
   if (to_type == from_value->getType()) {
     res_value = from_value;
   } else {
@@ -1866,18 +1915,19 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
     auto &referred_able_added_inst_reg_map =
         target_bb_reg_info_node->referred_able_added_inst_reg_map;
 
-    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> ascend_reg_inst_map = {
-        {EcvReg(RegKind::Special, STATE_ORDER), std::make_tuple(ERC::RegP, arg_state_val, 0)},
+    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> ascend_reg_inst_map = {
+        {EcvReg(RegKind::Special, STATE_ORDER),
+         std::make_tuple(ERC::RegP, arg_state_val, 0, false)},
         {EcvReg(RegKind::Special, RUNTIME_ORDER),
-         std::make_tuple(ERC::RegP, arg_runtime_val,
-                         0)}};  // %state and %runtime_manager is defined as the argument
+         std::make_tuple(ERC::RegP, arg_runtime_val, 0,
+                         false)}};  // %state and %runtime_manager is defined as the argument
 
     llvm::BranchInst *br_inst = nullptr;
     llvm::ReturnInst *ret_inst = nullptr;
 
     // Add the phi node for the every register included in the bag_phi_reg_map.
     auto inst_start_it = &*target_bb->begin();
-    for (auto &req_ecv_reg_info : target_phi_regs_bag->bag_req_reg_map) {
+    for (auto &req_ecv_reg_info : target_phi_regs_bag->drvd_rmp) {
       auto &[target_ecv_reg, target_ecv_reg_class] = req_ecv_reg_info;
       llvm::Value *reg_derived_inst;
       // This phi has been already added.
@@ -1903,7 +1953,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                                   VAR_NAME(target_ecv_reg, target_ecv_reg_class), inst_start_it);
         // Add this phi to the reg_latest_inst_map (to avoid the infinity loop when running Impl::GetValueFromTargetBBAndReg).
         reg_latest_inst_map.insert(
-            {target_ecv_reg, std::make_tuple(target_ecv_reg_class, reg_derived_phi, 0)});
+            {target_ecv_reg, std::make_tuple(target_ecv_reg_class, reg_derived_phi, 0, false)});
 
         // Get the every virtual register from all the parent bb.
         auto par_bb_it = bb_parents.at(target_bb).begin();
@@ -1937,7 +1987,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
       }
       // Add this phi to the ascend_reg_inst_map
       ascend_reg_inst_map.insert(
-          {target_ecv_reg, std::make_tuple(target_ecv_reg_class, reg_derived_inst, 0)});
+          {target_ecv_reg, std::make_tuple(target_ecv_reg_class, reg_derived_inst, 0, false)});
       CHECK(GetLLVMTypeFromRegZ(target_ecv_reg_class) == reg_derived_inst->getType());
     }
 
@@ -1953,7 +2003,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         auto &[added_ecv_reg, added_ecv_reg_class] =
             referred_able_added_inst_reg_map.at(&*target_inst_it);
         ascend_reg_inst_map.insert_or_assign(
-            added_ecv_reg, std::make_tuple(added_ecv_reg_class, target_inst_it, 0));
+            added_ecv_reg, std::make_tuple(added_ecv_reg_class, target_inst_it, 0, false));
         CHECK(target_inst_it->getType() == GetLLVMTypeFromRegZ(added_ecv_reg_class));
         target_inst_it = target_inst_it->getNextNode();
       } else {
@@ -1981,7 +2031,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             target_inst_it = llvm::dyn_cast<llvm::Instruction>(load_inst)->getNextNode();
             // Update cache.
             ascend_reg_inst_map.insert_or_assign(
-                target_ecv_reg, std::make_tuple(load_ecv_reg_class, new_ecv_reg_inst, 0));
+                target_ecv_reg, std::make_tuple(load_ecv_reg_class, new_ecv_reg_inst, 0, false));
           }
 
           // for debug
@@ -1994,121 +2044,125 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           // Call the lifted function (includes `__remill_function_call`).
           if (lifted_func_caller_set.contains(call_inst)) {
             // Store already stored `bb_store_reg_map`
+            std::set<EcvReg> strd;
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
+              auto is_str_er = std::get<bool>(ascend_value);
               if (
-                  // !func_v_r_opt_map.at(call_inst->getCalledFunction())
-                  //        ->passed_caller_reg_map.contains(within_store_ecv_reg) ||
-                  !within_store_ecv_reg.CheckPassedArgsRegs() ||
-                  !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
-                continue;
+                  // func_v_r_opt_map.at(call_inst->getCalledFunction())
+                  //        ->passed_caller_reg_map.contains(within_store_ecv_reg) &&
+                  within_store_ecv_reg.CheckPassedArgsRegs() && is_str_er) {
+                auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
+                inst_lifter->StoreRegValueBeforeInst(
+                    target_bb, state_ptr,
+                    within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
+                    GetRegValueFromCacheMap(within_store_ecv_reg,
+                                            GetWholeLLVMTypeFromRegZ(within_store_ecv_reg),
+                                            call_inst, ascend_reg_inst_map),
+                    call_inst);
+                strd.insert(within_store_ecv_reg);
               }
-              auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
-              inst_lifter->StoreRegValueBeforeInst(
-                  target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
-                  GetRegValueFromCacheMap(within_store_ecv_reg,
-                                          GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), call_inst,
-                                          ascend_reg_inst_map),
-                  call_inst);
             }
             // Store `preceding_store_map`
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
-                 target_phi_regs_bag->bag_preceding_store_reg_map) {
+                 target_phi_regs_bag->pres_str_rmp) {
               if (
                   // !func_v_r_opt_map.at(call_inst->getCalledFunction())
                   //        ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
-                  !preceding_store_ecv_reg.CheckPassedArgsRegs() ||
-                  target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
-                continue;
+                  preceding_store_ecv_reg.CheckPassedArgsRegs() &&
+                  !strd.contains(preceding_store_ecv_reg)) {
+                inst_lifter->StoreRegValueBeforeInst(
+                    target_bb, state_ptr,
+                    preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
+                    GetRegValueFromCacheMap(preceding_store_ecv_reg,
+                                            GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg),
+                                            call_inst, ascend_reg_inst_map),
+                    call_inst);
               }
-              inst_lifter->StoreRegValueBeforeInst(
-                  target_bb, state_ptr,
-                  preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
-                  GetRegValueFromCacheMap(preceding_store_ecv_reg,
-                                          GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg),
-                                          call_inst, ascend_reg_inst_map),
-                  call_inst);
             }
             auto call_next_inst = call_inst->getNextNode();
             // Load `preceding_store_map` + `load_map`
             for (auto [req_ecv_reg, tuple_set] : ascend_reg_inst_map) {
-              if (!req_ecv_reg.CheckPassedReturnRegs()
+              if (req_ecv_reg.CheckPassedReturnRegs()
                   // || !func_v_r_opt_map.at(call_inst->getParent()->getParent())
                   //      ->passed_callee_ret_reg_map.contains(req_ecv_reg)
               ) {
-                continue;
-              }
-              auto [_, user_refd_val, order] = tuple_set;
-              // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
-              auto req_wide_load =
-                  llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
-                      target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
-              // Replace with new loaded register.
-              std::set<llvm::User *> fin_users;
-              std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
-              auto user = user_refd_val->user_begin();
-              // run every user instruction of the user_refd_val and replace the user reffered value with the req_wide_load.
-              while (user_refd_val->user_end() != user) {
-                auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
-                if (fin_users.contains(*user) || (user_inst->getParent() == target_bb &&
-                                                  user_inst->comesBefore(req_wide_load))) {
-                  user++;
-                  continue;
-                }
-                if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
-                  // user_inst is ExtractValueInst.
-                  if (extrv_user->getIndices()[0] == order) {
-                    CHECK(req_wide_load->getType() == extrv_user->getType());
-                    extrv_user->replaceAllUsesWith(req_wide_load);
-                    fin_users.insert(user_inst);
-                    user = user_refd_val->user_begin();
-                    // extr_user->eraseFromParent();
+                auto [_1, user_refd_val, order, _2] = tuple_set;
+                // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
+                auto req_wide_load =
+                    llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
+                        target_bb, state_ptr, req_ecv_reg.GetWideRegName(), call_next_inst));
+                // Replace with new loaded register.
+                std::set<llvm::User *> fin_users;
+                std::unordered_map<llvm::Type *, llvm::Value *> new_casted_valmap;
+                auto user = user_refd_val->user_begin();
+                // run every user instruction of the user_refd_val and replace the user reffered value with the req_wide_load.
+                while (user_refd_val->user_end() != user) {
+                  auto user_inst = llvm::dyn_cast<llvm::Instruction>(*user);
+                  if (fin_users.contains(*user) || (user_inst->getParent() == target_bb &&
+                                                    user_inst->comesBefore(req_wide_load))) {
+                    user++;
                     continue;
                   }
-                } else if (auto extre_user = llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
-                  // user_inst is ExtractElementInst.
-                  if (llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
-                          ->getZExtValue() == order) {
-                    CHECK(req_wide_load->getType() == extre_user->getType());
-                    extre_user->replaceAllUsesWith(req_wide_load);
-                    fin_users.insert(user_inst);
-                    user = user_refd_val->user_begin();
-                    // extre_user->eraseFromParent();
-                    continue;
-                  }
-                } else {
-                  auto user_refd_val_type = user_refd_val->getType();
-                  llvm::Value *req_load_val;
-                  if (new_casted_valmap.contains(user_refd_val_type)) {
-                    req_load_val = new_casted_valmap.at(user_refd_val_type);
+                  if (auto extrv_user = llvm::dyn_cast<llvm::ExtractValueInst>(user_inst)) {
+                    // user_inst is ExtractValueInst.
+                    if (extrv_user->getIndices()[0] == order) {
+                      CHECK(req_wide_load->getType() == extrv_user->getType());
+                      extrv_user->replaceAllUsesWith(req_wide_load);
+                      fin_users.insert(user_inst);
+                      user = user_refd_val->user_begin();
+                      // extr_user->eraseFromParent();
+                      continue;
+                    }
+                  } else if (auto extre_user =
+                                 llvm::dyn_cast<llvm::ExtractElementInst>(user_inst)) {
+                    // user_inst is ExtractElementInst.
+                    if (llvm::dyn_cast<llvm::ConstantInt>(extre_user->getIndexOperand())
+                            ->getZExtValue() == order) {
+                      CHECK(req_wide_load->getType() == extre_user->getType());
+                      extre_user->replaceAllUsesWith(req_wide_load);
+                      fin_users.insert(user_inst);
+                      user = user_refd_val->user_begin();
+                      // extre_user->eraseFromParent();
+                      continue;
+                    }
                   } else {
-                    req_load_val = CastFromInst(req_ecv_reg, req_wide_load, user_refd_val_type,
-                                                call_next_inst);
-                    new_casted_valmap.insert({user_refd_val_type, req_load_val});
-                    value_reg_map.insert(
-                        {req_load_val, {req_ecv_reg, GetRegClassFromLLVMType(user_refd_val_type)}});
+                    auto user_refd_val_type = user_refd_val->getType();
+                    llvm::Value *req_load_val;
+                    if (new_casted_valmap.contains(user_refd_val_type)) {
+                      req_load_val = new_casted_valmap.at(user_refd_val_type);
+                    } else {
+                      req_load_val = CastFromInst(req_ecv_reg, req_wide_load, user_refd_val_type,
+                                                  call_next_inst);
+                      new_casted_valmap.insert({user_refd_val_type, req_load_val});
+                      value_reg_map.insert(
+                          {req_load_val,
+                           {req_ecv_reg, GetRegClassFromLLVMType(user_refd_val_type)}});
+                    }
+                    user_inst->replaceUsesOfWith(user_refd_val, req_load_val);
+                    fin_users.insert(user_inst);
                   }
-                  user_inst->replaceUsesOfWith(user_refd_val, req_load_val);
-                  fin_users.insert(user_inst);
+                  // increment user iterator
+                  user++;
                 }
-                // increment user iterator
-                user++;
+                auto req_wide_load_r_c = GetRegClassFromLLVMType(req_wide_load->getType());
+                // Update cache.
+                ascend_reg_inst_map.insert_or_assign(
+                    req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0, false));
+                // for debug
+                value_reg_map.insert({req_wide_load, {req_ecv_reg, req_wide_load_r_c}});
               }
-              auto req_wide_load_r_c = GetRegClassFromLLVMType(req_wide_load->getType());
-              // Update cache.
-              ascend_reg_inst_map.insert_or_assign(
-                  req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0));
-              // for debug
-              value_reg_map.insert({req_wide_load, {req_ecv_reg, req_wide_load_r_c}});
             }
             target_inst_it = call_next_inst;
           }
           // Call the `emulate_system_call` semantic function.
           else if (call_inst->getCalledFunction()->getName().str() == "emulate_system_call") {
             // Store target: x0 ~ x5, x8
+            std::set<EcvReg> strd2;
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
+              auto is_str_er = std::get<bool>(ascend_value);
               if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
                 if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
-                    !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
+                    !is_str_er) {
                   continue;
                 }
               } else if (kArchAMD64 == TARGET_ELF_ARCH) {
@@ -2116,7 +2170,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                       within_store_ecv_reg.number == 7 || within_store_ecv_reg.number == 8 ||
                       within_store_ecv_reg.number == 9 || within_store_ecv_reg.number == 10 ||
                       within_store_ecv_reg.number == 0) ||
-                    !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
+                    !is_str_er) {
                   continue;
                 }
               }
@@ -2127,13 +2181,14 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                                           GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), call_inst,
                                           ascend_reg_inst_map),
                   call_inst);
+              strd2.insert(within_store_ecv_reg);
             }
             // Store target: x0 ~ x5, x8
             for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
-                 target_phi_regs_bag->bag_preceding_store_reg_map) {
+                 target_phi_regs_bag->pres_str_rmp) {
               if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
                 if (!(preceding_store_ecv_reg.number < 6 || preceding_store_ecv_reg.number == 8) ||
-                    target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
+                    strd2.contains(preceding_store_ecv_reg)) {
                   continue;
                 }
               } else if (kArchAMD64 == TARGET_ELF_ARCH) {
@@ -2141,7 +2196,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
                       preceding_store_ecv_reg.number == 7 || preceding_store_ecv_reg.number == 8 ||
                       preceding_store_ecv_reg.number == 9 || preceding_store_ecv_reg.number == 10 ||
                       preceding_store_ecv_reg.number == 0) ||
-                    target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
+                    strd2.contains(preceding_store_ecv_reg)) {
                   continue;
                 }
               }
@@ -2159,7 +2214,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               if (0 != req_ecv_reg.number) {
                 continue;
               }
-              auto [_, user_refd_val, order] = tuple_set;
+              auto [_1, user_refd_val, order, _2] = tuple_set;
               // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
               auto req_wide_load =
                   llvm::dyn_cast<llvm::Instruction>(inst_lifter->LoadRegValueBeforeInst(
@@ -2218,7 +2273,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               auto req_wide_load_r_c = GetRegClassFromLLVMType(req_wide_load->getType());
               // Update cache.
               ascend_reg_inst_map.insert_or_assign(
-                  req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0));
+                  req_ecv_reg, std::make_tuple(req_wide_load_r_c, req_wide_load, 0, false));
               // for debug
               value_reg_map.insert({req_wide_load, {req_ecv_reg, req_wide_load_r_c}});
             }
@@ -2235,7 +2290,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
               for (std::size_t i = 0; i < sema_func_write_regs.size(); i++) {
                 ascend_reg_inst_map.insert_or_assign(
                     sema_func_write_regs[i].first,
-                    std::make_tuple(sema_func_write_regs[i].second, call_inst, i));
+                    std::make_tuple(sema_func_write_regs[i].second, call_inst, i, true));
               }
               // for debug
               // if the return type is struct, this key value is not used.
@@ -2258,7 +2313,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           auto [store_ecv_reg, store_ecv_reg_class] = EcvReg::GetRegInfo(stored_reg_name);
           // Update cache.
           ascend_reg_inst_map.insert_or_assign(
-              store_ecv_reg, std::make_tuple(store_ecv_reg_class, stored_value, 0));
+              store_ecv_reg, std::make_tuple(store_ecv_reg_class, stored_value, 0, true));
           CHECK(stored_value->getType() == GetLLVMTypeFromRegZ(store_ecv_reg_class));
           target_inst_it = store_inst->getNextNode();
           store_inst->eraseFromParent();
@@ -2281,7 +2336,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           if (target_bb_reg_info_node->post_update_regs.contains(binary_inst)) {
             auto [bin_e_r, bin_e_r_c] = target_bb_reg_info_node->post_update_regs.at(binary_inst);
             ascend_reg_inst_map.insert_or_assign(bin_e_r,
-                                                 std::make_tuple(bin_e_r_c, binary_inst, 0));
+                                                 std::make_tuple(bin_e_r_c, binary_inst, 0, false));
           }
           target_inst_it = target_inst_it->getNextNode();
           // for debug
@@ -2313,7 +2368,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           }
           // Store `preceding_store_map`
           for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
-               target_phi_regs_bag->bag_preceding_store_reg_map) {
+               target_phi_regs_bag->pres_str_rmp) {
             if (
                 // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
                 //        ->passed_callee_ret_reg_map.contains(preceding_store_ecv_reg) ||
@@ -2421,7 +2476,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
 
 void VirtualRegsOpt::InsertDebugVmaAndRegisters(
     llvm::Instruction *inst_at_before,
-    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> &ascend_reg_inst_map, uint64_t pc) {
+    EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> &ascend_reg_inst_map, uint64_t pc) {
   if (!debug_reg_set.empty()) {
     auto debug_vma_and_regiters_fun = impl->module->getFunction("debug_vma_and_registers");
 
@@ -2568,7 +2623,7 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
 
   // The target_bb already has the target virtual register.
   if (target_bb_reg_info_node->reg_latest_inst_map.contains(target_ecv_reg)) {
-    auto &[_, from_inst, from_order] =
+    auto &[_1, from_inst, from_order, _2] =
         target_bb_reg_info_node->reg_latest_inst_map.at(target_ecv_reg);
     if (from_inst->getType() == GetLLVMTypeFromRegZ(req_ecv_reg_class)) {
       req_value = from_inst;
@@ -2583,7 +2638,8 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
         target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-            target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
+            target_ecv_reg,
+            std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0, false));
         req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
                                  GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator);
         // for debug
@@ -2599,7 +2655,8 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
         target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
             {from_extracted_inst, {target_ecv_reg, from_extracted_inst_reg_class}});
         target_bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-            target_ecv_reg, std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0));
+            target_ecv_reg,
+            std::make_tuple(from_extracted_inst_reg_class, from_extracted_inst, 0, false));
         req_value = CastFromInst(target_ecv_reg, from_extracted_inst,
                                  GetLLVMTypeFromRegZ(req_ecv_reg_class), target_terminator);
         // for debug
@@ -2615,17 +2672,17 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
       value_reg_map.insert({req_value, {target_ecv_reg, req_ecv_reg_class}});
     }
   }
-  // The bag_req_reg_map of the target_bb includes the target register.
-  else if (target_phi_regs_bag->bag_req_reg_map.contains(target_ecv_reg)) {
+  // The drvd_rmp of the target_bb includes the target register.
+  else if (target_phi_regs_bag->drvd_rmp.contains(target_ecv_reg)) {
     auto start_inst = target_bb->begin();
-    auto phi_ecv_reg_class = target_phi_regs_bag->bag_req_reg_map.at(target_ecv_reg);
+    auto phi_ecv_reg_class = target_phi_regs_bag->drvd_rmp.at(target_ecv_reg);
     auto phi_op_type = GetLLVMTypeFromRegZ(phi_ecv_reg_class);
     auto reg_phi = llvm::PHINode::Create(phi_op_type, bb_parents.at(target_bb).size(),
                                          VAR_NAME(target_ecv_reg, phi_ecv_reg_class), &*start_inst);
     // Update phi cache.
     // must update reg_latest_inst_map before addIncoming to correspond to the loop bbs.
     target_bb_reg_info_node->reg_latest_inst_map.insert(
-        {target_ecv_reg, {phi_ecv_reg_class, reg_phi, 0}});
+        {target_ecv_reg, {phi_ecv_reg_class, reg_phi, 0, false}});
     // Get the every virtual register from all the parent bb.
     auto par_bb_it = bb_parents.at(target_bb).begin();
     std::set<llvm::BasicBlock *> _finished;
@@ -2669,10 +2726,10 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
     auto load_e_r_c = req_ecv_reg_class;
     for (std::size_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
       auto &succi_bag_req_reg_map =
-          bb_regs_bag_map.at(target_terminator->getSuccessor(i))->bag_req_reg_map;
+          bb_regs_bag_map.at(target_terminator->getSuccessor(i))->drvd_rmp;
       relay_bb_need |= !succi_bag_req_reg_map.contains(target_ecv_reg);
       if (succi_bag_req_reg_map.contains(target_ecv_reg) &&
-          GetRegClassSize(load_e_r_c) < GetRegClassSize(succi_bag_req_reg_map.at(target_ecv_reg))) {
+          ERCSize(load_e_r_c) < ERCSize(succi_bag_req_reg_map.at(target_ecv_reg))) {
         load_e_r_c = succi_bag_req_reg_map.at(target_ecv_reg);
       }
     }
@@ -2719,7 +2776,7 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
 
             // Update cache (relay_phi_inst).
             relay_bb_reg_info_node->reg_latest_inst_map.insert(
-                {request_ecv_reg, {request_ecv_reg_class, relay_phi_inst, 0}});
+                {request_ecv_reg, {request_ecv_reg_class, relay_phi_inst, 0, false}});
             // for debug
             value_reg_map.insert({relay_phi_inst, {request_ecv_reg, request_ecv_reg_class}});
           }
@@ -2729,15 +2786,15 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
 
       // load all the required registers that the target_bag doesn't require.
       auto state_ptr = NthArgument(func, kStatePointerArgNum);
-      for (auto &[need_ecv_reg, need_ecv_reg_class] : request_phi_regs_bag->bag_req_reg_map) {
+      for (auto &[need_ecv_reg, need_ecv_reg_class] : request_phi_regs_bag->drvd_rmp) {
         if (!target_bb_reg_info_node->reg_latest_inst_map.contains(need_ecv_reg) &&
-            !target_phi_regs_bag->bag_req_reg_map.contains(need_ecv_reg)) {
+            !target_phi_regs_bag->drvd_rmp.contains(need_ecv_reg)) {
           auto load_value = impl->inst.GetLifter()->LoadRegValueBeforeInst(
               relay_bb, state_ptr, need_ecv_reg.GetRegName(need_ecv_reg_class), relay_terminator,
               VAR_NAME(need_ecv_reg, need_ecv_reg_class));
           // Update cache.
           relay_bb_reg_info_node->reg_latest_inst_map.insert(
-              {need_ecv_reg, {need_ecv_reg_class, load_value, 0}});
+              {need_ecv_reg, {need_ecv_reg_class, load_value, 0, false}});
           if (target_ecv_reg == need_ecv_reg) {
             req_value = load_value;
           }
@@ -2764,7 +2821,7 @@ llvm::Value *VirtualRegsOpt::GetValueFromTargetBBAndReg(llvm::BasicBlock *target
                                target_terminator);
       // Update cache.
       target_bb_reg_info_node->reg_latest_inst_map.insert(
-          {target_ecv_reg, {load_e_r_c, load_value, 0}});
+          {target_ecv_reg, {load_e_r_c, load_value, 0, false}});
       target_bb_reg_info_node->referred_able_added_inst_reg_map.insert(
           {req_value, {target_ecv_reg, req_ecv_reg_class}});
       // for debug

@@ -136,7 +136,7 @@ enum class ERC : uint32_t {
 // (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
 std::string EcvRegClass2String(ERC ecv_reg_class);
 
-uint64_t GetRegClassSize(ERC ecv_reg_class);
+uint64_t ERCSize(ERC ecv_reg_class);
 
 enum class RegKind : uint32_t {
   General,  // 0
@@ -202,7 +202,7 @@ class BBRegInfoNode {
   EcvRegMap<ERC> bb_store_reg_map;
 
   // llvm::Value ptr which explains the latest register.
-  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> reg_latest_inst_map;
+  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> reg_latest_inst_map;
 
   // Save the written registers by semantic functions
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>>

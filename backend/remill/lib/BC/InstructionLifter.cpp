@@ -340,7 +340,7 @@ std::string EcvRegClass2String(ERC ecv_reg_class) {
   }
 }
 
-uint64_t GetRegClassSize(ERC ecv_reg_class) {
+uint64_t ERCSize(ERC ecv_reg_class) {
   switch (ecv_reg_class) {
     case ERC::RegB: return 8;
     case ERC::RegH: return 16;
@@ -374,10 +374,10 @@ BBRegInfoNode::BBRegInfoNode(llvm::Function *func, llvm::Value *state_val,
   for (auto &arg : func->args()) {
     if (arg.getName().str() == "state") {
       reg_latest_inst_map.insert(
-          {EcvReg(RegKind::Special, STATE_ORDER), std::make_tuple(ERC::RegP, state_val, 0)});
+          {EcvReg(RegKind::Special, STATE_ORDER), std::make_tuple(ERC::RegP, state_val, 0, false)});
     } else if (arg.getName().str() == "runtime_manager") {
-      reg_latest_inst_map.insert(
-          {EcvReg(RegKind::Special, RUNTIME_ORDER), std::make_tuple(ERC::RegP, runtime_val, 0)});
+      reg_latest_inst_map.insert({EcvReg(RegKind::Special, RUNTIME_ORDER),
+                                  std::make_tuple(ERC::RegP, runtime_val, 0, false)});
     }
   }
   CHECK(reg_latest_inst_map.size() == 2)
@@ -400,8 +400,8 @@ void BBRegInfoNode::join_reg_info_node(BBRegInfoNode *child) {
     if (!reg_latest_inst_map.contains(_ecv_reg)) {
       reg_latest_inst_map.insert({_ecv_reg, reg_inst_value});
     } else if (child->bb_store_reg_map.contains(_ecv_reg) ||
-               GetRegClassSize(std::get<ERC>(reg_latest_inst_map.at(_ecv_reg))) <=
-                   GetRegClassSize(std::get<ERC>(reg_inst_value))) {
+               ERCSize(std::get<ERC>(reg_latest_inst_map.at(_ecv_reg))) <=
+                   ERCSize(std::get<ERC>(reg_inst_value))) {
       reg_latest_inst_map.insert_or_assign(_ecv_reg, reg_inst_value);
     }
   }
@@ -666,8 +666,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
     // insert the instruction which explains the latest specified register with kActinoRead.
     if (llvm::dyn_cast<llvm::LoadInst>(operand)) {
-      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(e_r,
-                                                             std::make_tuple(e_r_c, operand, 0));
+      bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
+          e_r, std::make_tuple(e_r_c, operand, 0, false));
     }
   }
 
@@ -697,7 +697,8 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
       continue;
     }
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i));
+        write_regs[i].first, std::make_tuple(write_regs[i].second, sema_inst, i,
+                                             true));  // maybe 4th bool argumement is not matter.
   }
 
   // Update the sema_call_written_reg_map
@@ -720,7 +721,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
     // Update cache.
     store_reg_map.insert({updated_ecv_reg, updated_ecv_reg_class});
     bb_reg_info_node->reg_latest_inst_map.insert_or_assign(
-        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, new_addr_val, 0));
+        updated_ecv_reg, std::make_tuple(updated_ecv_reg_class, new_addr_val, 0, true));
     // add index_reg (addr.index_reg is not treated in the operands list.)
     if (auto index_reg_name = arch_inst.prepost_new_addr_op.addr.index_reg.name;
         !index_reg_name.empty()) {
