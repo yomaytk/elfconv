@@ -1344,6 +1344,12 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
                                   static_cast<uint64_t>(inst.pc + arch_addr.displacement));
   }
 
+  // x86-64 RIP addressing mode uses the next instruction RIP.
+  if ("RIP" == arch_addr.base_reg.name) {
+    return llvm::ConstantInt::get(
+        word_type, static_cast<uint64_t>(inst.pc + inst.bytes.size() + arch_addr.displacement));
+  }
+
   auto addr = LoadWordRegValOrZero(block, state_ptr, arch_addr.base_reg.name, zero);
   auto index = LoadWordRegValOrZero(block, state_ptr, arch_addr.index_reg.name, zero);
   auto scale = llvm::ConstantInt::get(word_type, static_cast<uint64_t>(arch_addr.scale), true);
