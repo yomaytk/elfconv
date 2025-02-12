@@ -30,7 +30,7 @@ elfconv/$ docker run -it --rm -p 8080:8080 --name <container-name> <image-name>
 ~/elfconv# cd bin
 ~/elfconv/bin# TARGET=Browser ./elfconv.sh /path/to/ELF # e.g. ../examples/hello/a.out
 # exe.js and exe.wasm should be generated.
-~/elfconv/bin# emrun --no_browser --port 8080 exe.wasm.html
+~/elfconv/bin# emrun --no_browser --port 8080 exe.html
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
 ```
