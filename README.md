@@ -81,17 +81,21 @@ After finishing the build, you can find the directory `elfconv/build/`, and you 
 
 You can compile the ELF binary to the WASM binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation (ELF -> LLVM bitcode by *'lifter'*) and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the WASM binary. when you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
 ```bash
+# TARGET=<elf_arch>-<target_arch> (e.g. ELF/aarch64 -> Wasi32: aarch64-wasi32)
+
 ### Native
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=Native ../scripts/dev.sh path/to/ELF # generate the Native binary (Host achitecture) under the elfconv/build/lifter
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-native ../scripts/dev.sh path/to/ELF # generate the Native binary (Host achitecture) under the elfconv/build/lifter
 ~/elfconv/build# ./exe.${HOST_CPU}
 ------------------------
-### Browser
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=Browser ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
-~/elfconv/build# emrun --no_browser --port 8080 ./lifter/exe.wasm.html # execute the generated WASM binary with emscripten
+### Browser (use xterm-pty (https://github.com/mame/xterm-pty))
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasm ../scripts/dev.sh path/to/ELF # generate the WASM binary under the elfconv/build/lifter
+~/elfconv/build# cp exe.wasm ../examples/browser
+~/elfconv/build# cp exe.js ../examples/browser
+~/elfconv/build# emrun --no_browser --port 8080 ../examples/browser/exe.html # execute the generated WASM binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=Wasi ../scripts/dev.sh path/to/ELF
-~/elfconv/build# wasmedge ./lifter/exe.wasm
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
+~/elfconv/build# wasmedge ./exe.wasm # or wasmedge ./exe_o3.wasm
 ```
 ## Acknowledgement
 elfconv uses or references some projects as follows. Great thanks to its all developers!
