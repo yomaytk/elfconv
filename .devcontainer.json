@@ -2,14 +2,14 @@
   "name": "elfconv dev environment",
   "dockerFile": "Dockerfile",
   "image": "elfconv-devcontainer",
-  "postCreateCommand": "cd /root/elfconv && ./scripts/container-entry-point.sh",
-
-	// Set *default* container specific settings.json values on container create.
-	"settings": {
-		"terminal.integrated.shell.linux": "/bin/bash",
-	},
-  "appPort": ["8080:8080"],
+  "postCreateCommand": "cd /root/elfconv && ./scripts/build.sh",
+  // Set *default* container specific settings.json values on container create.
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+  },
+  "appPort": [
+    "8080:8080"
+  ],
   "workspaceMount": "source=${localWorkspaceFolder},target=/root/elfconv,type=bind,consistency=cached",
   "workspaceFolder": "/root/elfconv"
-
 }
