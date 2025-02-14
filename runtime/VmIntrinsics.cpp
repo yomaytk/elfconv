@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdarg>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <remill/Arch/Runtime/Intrinsics.h>
@@ -28,68 +29,82 @@
   fflush(stdout); \
   abort();
 
-uint8_t __remill_read_memory_8(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint8_t *) runtime_manager->TranslateVMA(addr);
+uint8_t __remill_read_memory_8(RuntimeManager *g_run_mgr, addr_t addr) {
+  uint8_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-uint16_t __remill_read_memory_16(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint16_t *) runtime_manager->TranslateVMA(addr);
+uint16_t __remill_read_memory_16(RuntimeManager *g_run_mgr, addr_t addr) {
+  uint16_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-uint32_t __remill_read_memory_32(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint32_t *) runtime_manager->TranslateVMA(addr);
+uint32_t __remill_read_memory_32(RuntimeManager *g_run_mgr, addr_t addr) {
+  uint32_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-uint64_t __remill_read_memory_64(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint64_t *) runtime_manager->TranslateVMA(addr);
+uint64_t __remill_read_memory_64(RuntimeManager *g_run_mgr, addr_t addr) {
+  uint64_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint128_t *) runtime_manager->TranslateVMA(addr);
+float32_t __remill_read_memory_f32(RuntimeManager *g_run_mgr, addr_t addr) {
+  float32_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-float32_t __remill_read_memory_f32(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(float32_t *) runtime_manager->TranslateVMA(addr);
+float64_t __remill_read_memory_f64(RuntimeManager *g_run_mgr, addr_t addr) {
+  float64_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-float64_t __remill_read_memory_f64(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(float64_t *) runtime_manager->TranslateVMA(addr);
+float128_t __remill_read_memory_f128(RuntimeManager *g_run_mgr, addr_t addr) {
+  float128_t a;
+  g_run_mgr->read(addr, &a);
+  return a;
 }
 
-void __remill_write_memory_8(RuntimeManager *runtime_manager, addr_t addr, uint8_t src) {
-  auto dst = (uint8_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_8(RuntimeManager *g_run_mgr, addr_t addr, uint8_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_16(RuntimeManager *runtime_manager, addr_t addr, uint16_t src) {
-  auto dst = (uint16_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_16(RuntimeManager *g_run_mgr, addr_t addr, uint16_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_32(RuntimeManager *runtime_manager, addr_t addr, uint32_t src) {
-  auto dst = (uint32_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_32(RuntimeManager *g_run_mgr, addr_t addr, uint32_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_64(RuntimeManager *runtime_manager, addr_t addr, uint64_t src) {
-  auto dst = (uint64_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_64(RuntimeManager *g_run_mgr, addr_t addr, uint64_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr, uint128_t src) {
-  auto dst = (uint128_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_f32(RuntimeManager *g_run_mgr, addr_t addr, float32_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_f32(RuntimeManager *runtime_manager, addr_t addr, float32_t src) {
-  auto dst = (float32_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+Memory *__remill_write_memory_f64(RuntimeManager *g_run_mgr, addr_t addr, float64_t src) {
+  g_run_mgr->write(addr, &src);
+  return nullptr;
 }
 
-void __remill_write_memory_f64(RuntimeManager *runtime_manager, addr_t addr, float64_t src) {
-  auto dst = (float64_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
-}
+// void __remill_write_memory_f64(RuntimeManager *runtime_manager, addr_t addr, float64_t src) {
+//   auto dst = (float64_t *) runtime_manager->TranslateVMA(addr);
+//   *dst = src;
+// }
 
 void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
 

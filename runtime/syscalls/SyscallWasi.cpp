@@ -1,9 +1,18 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <alloca.h>
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+<<<<<<< HEAD
+#include <map>
+#include <memory>
+#include <remill/Arch/AArch64/Runtime/State.h>
+=======
+>>>>>>> main
 #include <remill/BC/HelperMacro.h>
 #include <stdlib.h>
 #include <string>
@@ -15,6 +24,32 @@
 #include <unistd.h>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
+
+
+struct Fdmap : XMemory {
+  int fd;
+  off_t offset;
+  Fdmap(int a, off_t offset) : fd(a), offset(offset) {}
+  Fdmap(Fdmap const &x) : fd(x.fd), offset(x.offset) {}
+  // ~Fdmap() {
+  //   close(fd);
+  // }
+  uint8_t get(uint64_t x) override {
+    auto t = lseek(fd, 0, SEEK_CUR);
+    lseek(fd, offset + x, SEEK_SET);
+    uint8_t a;
+    read(fd, &a, 1);
+    lseek(fd, t, SEEK_SET);
+    return a;
+  }
+  void set(uint64_t x, uint8_t y) override {
+    auto t = lseek(fd, 0, SEEK_CUR);
+    lseek(fd, offset + x, SEEK_SET);
+    write(fd, &y, 1);
+    lseek(fd, t, SEEK_SET);
+  };
+};
+
 
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #  sysnum "\" is empty now.\n");
@@ -147,7 +182,14 @@ void RuntimeManager::SVCWasiCall(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-      if (LINUX_AD_FDCWD == X0_D) {
+    {
+      // if (-100 == X0_D)
+      //   X0_Q = AT_FDCWD;  // AT_FDCWD on WASI: -2 (-100 on Linux)
+      // auto old = X2_D;
+      // X2_D = O_RDWR;
+      // if (old & 0x100)
+      //   X2_D |= O_CREAT;
+            if (LINUX_AD_FDCWD == X0_D) {
         X0_Q = AT_FDCWD;
       }
       if (LINUX_O_CREAT == (X2_D & LINUX_O_CREAT)) {
@@ -162,41 +204,79 @@ void RuntimeManager::SVCWasiCall(void) {
         X2_D &= ~LINUX_O_WRONLY;
         X2_D |= O_WRONLY;
       }
-      X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
-      if (ERROR_CODE == X0_D) {
+      // uint8_t x1[X2_D];
+      // g_run_mgr->read(X1_Q, &x1[0], X2_D);
+      X0_D = openat(X0_D, g_run_mgr->cstr(X1_Q).c_str(),
+                                  X2_D);
+      if (-1 == X0_D)
         perror("openat error!");
-      }
-      break;
-    case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
-    case AARCH64_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
-      X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
+    } break;
+    case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */
+      X0_D = close(X0_D);
       break;
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      X0_Q = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
-      break;
+    {
+      uint8_t buf[X2_Q];
+      X0_Q = read(X0_D, buf, static_cast<size_t>(X2_Q));
+      g_run_mgr->write(X1_Q, &buf[0], X2_Q);
+    } break;
     case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
-      X0_Q = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
-      break;
+    {
+      uint8_t buf[X2_Q];
+      g_run_mgr->read(X1_Q, &buf[0], X2_Q);
+      X0_Q = write(X0_D, buf, static_cast<size_t>(X2_Q));
+    } break;
     case AARCH64_SYS_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
-      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(X1_Q));
+      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
+      g_run_mgr->read(X1_Q, cache_vec, vlen);
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
-        cache_vec[i].iov_base = TranslateVMA(reinterpret_cast<addr_t>(tr_vec[i].iov_base));
-        cache_vec[i].iov_len = tr_vec[i].iov_len;
+        uint8_t *x = (uint8_t *) alloca(cache_vec[i].iov_len);
+        g_run_mgr->read((uint64_t) cache_vec[i].iov_base, x, cache_vec[i].iov_len);
+        cache_vec[i].iov_base = x;
+        // cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
+    case AARCH64_SYS_READV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
+    {
+      unsigned long fd = X0_Q;
+      unsigned long vlen = X2_Q;
+      // auto tr_vec = reinterpret_cast<iovec *>(_ecv_translate_ptr(X1_Q));
+      auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
+      g_run_mgr->read(X1_Q, cache_vec, vlen);
+      uint64_t roots[vlen];
+      // translate every iov_base
+      for (unsigned long i = 0; i < vlen; i++) {
+        uint8_t *x = (uint8_t *) alloca(cache_vec[i].iov_len);
+        roots[i] = (uint64_t) cache_vec[i].iov_base;
+        // g_run_mgr->read((uint64_t) cache_vec[i].iov_base, x, cache_vec[i].iov_len);
+        cache_vec[i].iov_base = x;
+        // cache_vec[i].iov_len = tr_vec[i].iov_len;
+      }
+      X0_Q = readv(fd, cache_vec, vlen);
+      for (unsigned long i = 0; i < vlen; i++) {
+        auto b = (uint64_t) cache_vec[i].iov_base;
+        g_run_mgr->write((uint64_t) roots[i], &b, cache_vec[i].iov_len);
+      }
+      free(cache_vec);
+    } break;
     case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-      if (LINUX_AD_FDCWD == X0_D) {
+    {
+            if (LINUX_AD_FDCWD == X0_D) {
         X0_Q = AT_FDCWD;
       }
-      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
-      break;
+      uint8_t buf[state_gpr.x3.dword];
+      X0_Q =
+          readlinkat(X0_D, g_run_mgr->cstr(X1_Q).c_str(), (char *) buf,
+                     state_gpr.x3.dword);
+      g_run_mgr->write(X2_Q, buf, state_gpr.x3.dword);
+    } break;
     case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
       X0_Q = -1;
@@ -211,7 +291,7 @@ void RuntimeManager::SVCWasiCall(void) {
     case AARCH64_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = 42;
-      *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
+      g_run_mgr->write(X0_Q, &tid);
       X0_Q = tid;
     } break;
     case AARCH64_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
@@ -236,14 +316,15 @@ void RuntimeManager::SVCWasiCall(void) {
       } which_clock = {.id = X0_D};
       struct timespec emu_tp;
       int clock_time = clock_gettime((clockid_t) &which_clock, &emu_tp);
-      struct {
+      // memcpy(_ecv_translate_ptr(X1_Q), &emu_tp, sizeof(timespec));
+            struct {
         uint64_t tv_sec; /* time_t */
         uint64_t tv_nsec; /* long (assume that the from target architecture is 64bit) */
       } tp = {
           .tv_sec = (uint64_t) emu_tp.tv_sec,
           .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
       };
-      memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
+      g_run_mgr->write(X1_Q, &tp);
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
     case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
@@ -272,7 +353,8 @@ void RuntimeManager::SVCWasiCall(void) {
       } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
                        "#0~elfconv", "aarch64"};
-      memcpy(TranslateVMA(X0_Q), &new_utsname, sizeof(new_utsname));
+      // memcpy(_ecv_translate_ptr(X0_Q), &new_utsname, sizeof(new_utsname));
+      g_run_mgr->write(X0_Q, &new_utsname);
       X0_D = 0;
     } break;
     case AARCH64_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
@@ -300,23 +382,71 @@ void RuntimeManager::SVCWasiCall(void) {
       }
     } break;
     case AARCH64_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
-      /* TODO */
-      X0_Q = 0;
-      EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
+      /* TODO */ {
+        auto vma_addr = X0_Q;
+        auto it = std::find_if(g_run_mgr->mapped_memorys.begin(), g_run_mgr->mapped_memorys.end(),
+                               [=](MappedMemory *memory) {
+                                 return memory->vma <= vma_addr && vma_addr < memory->vma_end;
+                               });
+
+        if (it != g_run_mgr->mapped_memorys.end()) {
+          using std::swap;
+
+          // swap the one to be removed with the last element
+          // and remove the item at the end of the container
+          // to prevent moving all items after '5' by one
+          swap(*it, g_run_mgr->mapped_memorys.back());
+          g_run_mgr->mapped_memorys.pop_back();
+        }
+        X0_Q = 0;
+        EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
+      }
       break;
     case AARCH64_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
-        auto __heap_memory = heap_memory;
-        if (X4_D != -1)
-          elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
-        if (X5_D != 0)
-          elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
+        auto heap_memory = g_run_mgr->heap_memory;
         if (X0_Q == 0) {
-          X0_Q = __heap_memory->heap_cur;
-          __heap_memory->heap_cur += X1_Q;
+          if (X4_D != -1)
+            elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
+          if (state_gpr.x5.dword != 0)
+            elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
+          X0_Q = heap_memory->heap_cur;
+          heap_memory->heap_cur += X1_Q;
         } else {
-          elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
+          if (X4_D == -1) {
+            if (X1_Q <= 1 << 24) {
+              auto bytes = reinterpret_cast<uint8_t *>(malloc(X1_D));
+              auto size = X1_D;
+              auto upper_bytes = bytes + size;
+              auto s = X0_Q;
+              auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE,
+                                           size, bytes, upper_bytes, true);
+              g_run_mgr->mapped_memorys.push_back(heap);
+            } else {
+              uint8_t *bytes = nullptr;
+              auto size = X1_Q;
+              auto upper_bytes = bytes + size;
+              auto s = X0_Q;
+              auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE,
+                                           size, bytes, upper_bytes, true);
+              heap->other_memory =
+                  std::shared_ptr<XMemory>(new MapXMemory<std::map<uint64_t, uint8_t>>({}));
+              g_run_mgr->mapped_memorys.push_back(heap);
+            }
+            // return heap;
+          } else {
+            // elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
+            uint8_t *bytes = nullptr;
+            auto size = X1_Q;
+            auto upper_bytes = bytes + size;
+            auto s = X0_Q;
+            auto heap = new MappedMemory(MemoryAreaType::OTHER, "MMap", s, s + HEAP_UNIT_SIZE, size,
+                                         bytes, upper_bytes, true);
+            heap->other_memory =
+                std::shared_ptr<XMemory>(new Fdmap(X4_D, X5_Q));
+            g_run_mgr->mapped_memorys.push_back(heap);
+          }
         }
       }
       NOP_SYSCALL(AARCH64_SYS_MMAP);
@@ -331,7 +461,7 @@ void RuntimeManager::SVCWasiCall(void) {
       break;
     case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      memset(TranslateVMA(X0_Q), 1, static_cast<size_t>(X1_Q));
+      // memset(_ecv_translate_ptr(X0_Q), 1, static_cast<size_t>(X1_Q));
       X0_Q = X1_Q;
     } break;
     case AARCH64_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
@@ -357,7 +487,8 @@ void RuntimeManager::SVCWasiCall(void) {
         _statx.stx_ino = _stat.st_ino;
         _statx.stx_size = _stat.st_size;
         _statx.stx_blocks = _stat.st_blocks;
-        memcpy(TranslateVMA(X4_Q), &_statx, sizeof(_statx));
+        // memcpy(_ecv_translate_ptr(X4_Q), &_statx, sizeof(_statx));
+        g_run_mgr->write(X4_Q, &_statx);
         X0_Q = 0;
       } else {
         X0_Q = -1;
