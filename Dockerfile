@@ -45,15 +45,15 @@ RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd ems
   git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
 
 # wasi-sdk install
-# takes long times to build wasi-sdk in arm64 because wasi-sdk doesn't release arm64 packages.
 RUN \
   if [ "$( uname -m )" = "x86_64" ]; then \
   cd /root && export WASI_OS=linux && export WASI_ARCH=x86_64 && export WASI_VERSION=24 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && \
-  ( echo "export WASI_OS=linux"; echo "export WASI_ARCH=x86_64"; echo "export WASI_VERSION=24"; echo "export WASI_VERSION_FULL=${WASI_VERSION}.0"; echo "export WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}" ) >> /root/.bash_profile && \
+  /bin/bash -c 'echo -e "export WASI_OS=linux\nexport WASI_ARCH=x86_64\nexport WASI_VERSION=24\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}" >> /root/.bash_profile' && \
   wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz; \
   elif [ "$( uname -m )" = "aarch64" ]; then \
-  cd /root && echo "export WASI_SDK_PATH=/root/wasi-sdk/build/install/opt/wasi-sdk" >> /root/.bash_profile && git clone --recursive https://github.com/WebAssembly/wasi-sdk.git; \
-  cd wasi-sdk && NINJA_FLAGS=-v make package; \
+  cd /root && export WASI_OS=linux && export WASI_ARCH=arm64 && export WASI_VERSION=24 && export WASI_VERSION_FULL=${WASI_VERSION}.0 && \
+  /bin/bash -c 'echo -e "export WASI_OS=linux\nexport WASI_ARCH=arm64\nexport WASI_VERSION=24\nexport WASI_VERSION_FULL=${WASI_VERSION}.0\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}" >> /root/.bash_profile' && \
+  wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz && tar xvf wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz; \
   fi
 
 # WASI Runtimes install
