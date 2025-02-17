@@ -980,7 +980,8 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
     case XED_IFORM_MOV_GPRv_MEMv: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
-    case XED_IFORM_XOR_GPRv_GPRv_31: inst.sema_func_arg_type = SemaFuncArgType::State; break;
+    case XED_IFORM_XOR_GPRv_GPRv_31:
+    case XED_IFORM_ADD_GPRv_IMMb: inst.sema_func_arg_type = SemaFuncArgType::State; break;
     default:
       LOG(FATAL) << "Unsupported instruction at SetSemaFuncArgType: (" << inst.function << ")";
   }

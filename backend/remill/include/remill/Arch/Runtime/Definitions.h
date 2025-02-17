@@ -212,7 +212,7 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 #define DEF_ISEL_RnW_Rn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP IMM.
-#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, I, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, I, name, tpl_func)
 
 #define _DEF_ISEL_XnW_Xn_YnW_Yn(X, Y, name, tpl_func) \
   DEF_ISEL(name##_8) = tpl_func<X##8W, X##8, Y##8W, Y##8>; \

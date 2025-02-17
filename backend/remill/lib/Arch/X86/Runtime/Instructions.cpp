@@ -204,7 +204,7 @@ DEF_HELPER(SquareRoot32, float32_t src_float)->float32_t {
 #include "lib/Arch/X86/Semantics/FLAGS.cpp"
 
 // #include "lib/Arch/X86/Semantics/AVX.cpp"
-// #include "lib/Arch/X86/Semantics/BINARY.cpp"
+#include "lib/Arch/X86/Semantics/BINARY.cpp"
 // #include "lib/Arch/X86/Semantics/BITBYTE.cpp"
 // #include "lib/Arch/X86/Semantics/CALL_RET.cpp"
 // #include "lib/Arch/X86/Semantics/CMOV.cpp"
