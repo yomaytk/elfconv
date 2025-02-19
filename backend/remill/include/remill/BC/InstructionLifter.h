@@ -93,7 +93,7 @@ class OperandLifter {
 #define PC_ORDER 33
 #define STATE_ORDER 34
 #define RUNTIME_ORDER 35
-#define BRANCH_TAKEN_ORDER 36
+
 #define ECV_NZCV_ORDER 37
 #define IGNORE_WRITE_TO_WZR_ORDER 38
 #define IGNORE_WRITE_TO_XZR_ORDER 39
@@ -101,12 +101,16 @@ class OperandLifter {
 #define WZR_ORDER 41  // Actually, not used
 #define XZR_ORDER 42  // Actually, not used
 
+// shared
+#define BRANCH_TAKEN_ORDER 36
+
 // x86-64 special registers
 #define RIP_ORDER 133
 #define CSBASE_ORDER 134
 #define SSBASE_ORDER 135
 #define ESBASE_ORDER 136
 #define DSBASE_ORDER 137
+
 
 enum class ERC : uint32_t {
   RegW = 'W' - 'A',  // 22

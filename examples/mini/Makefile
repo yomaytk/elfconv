@@ -20,5 +20,15 @@ simple_hello_world_amd64: simple_hello_world_amd64.s
 			echo "Unknown architecture"; exit 1; \
 	fi
 
+amd64_test: amd64_test.s
+	@ARCH=$$( uname -m ); \
+	if [ "$$ARCH" = "x86_64" ]; then \
+			$(CC) -nostdlib -static amd64_test.s -o amd64_test.amd64; \
+	elif [ "$$ARCH" = "aarch64" ]; then \
+			$(CC) -nostdlib -static -o amd64_test.amd64 --target=x86_64-linux-gnu --gcc-toolchain=/usr --sysroot=/usr/x86_64-linux-gnu amd64_test.s; \
+	else \
+			echo "Unknown architecture"; exit 1; \
+	fi
+
 clean:
 	rm a.out

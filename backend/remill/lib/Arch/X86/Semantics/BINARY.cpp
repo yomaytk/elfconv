@@ -208,18 +208,17 @@ DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMb, ADD);
 // IF_AVX(DEF_ISEL(VSUBSD_XMMdq_XMMdq_MEMq) = SUBSD<VV128W, VV128, MV64>;)
 // IF_AVX(DEF_ISEL(VSUBSD_XMMdq_XMMdq_XMMq) = SUBSD<VV128W, VV128, VV128>;)
 
-// namespace {
+namespace {
 
-// template <typename S1, typename S2>
-// DEF_SEM(CMP, S1 src1, S2 src2) {
-//   auto lhs = Read(src1);
-//   auto rhs = Read(src2);
-//   auto sum = USub(lhs, rhs);
-//   WriteFlagsAddSub<tag_sub>(state, lhs, rhs, sum);
-//   return memory;
-// }
+template <typename S1, typename S2>
+DEF_SEM_VOID_STATE(CMP, S1 src1, S2 src2) {
+  auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  auto sum = USub(lhs, rhs);
+  WriteFlagsAddSub<tag_sub>(state, lhs, rhs, sum);
+}
 
-// }  // namespace
+}  // namespace
 
 // DEF_ISEL(CMP_MEMb_IMMb_80r7) = CMP<M8, I8>;
 // DEF_ISEL(CMP_GPR8_IMMb_80r7) = CMP<R8, I8>;
@@ -228,7 +227,7 @@ DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMb, ADD);
 // DEF_ISEL(CMP_MEMb_IMMb_82r7) = CMP<M8, I8>;
 // DEF_ISEL(CMP_GPR8_IMMb_82r7) = CMP<R8, I8>;
 // DEF_ISEL_Mn_In(CMP_MEMv_IMMb, CMP);
-// DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
+DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 // DEF_ISEL(CMP_MEMb_GPR8) = CMP<M8, I8>;
 // DEF_ISEL(CMP_GPR8_GPR8_38) = CMP<R8, R8>;
 // DEF_ISEL_Mn_In(CMP_MEMv_GPRv, CMP);

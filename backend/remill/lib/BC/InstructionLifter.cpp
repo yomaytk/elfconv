@@ -123,6 +123,8 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
   } else if (kArchAMD64 == TARGET_ELF_ARCH) {
     if ("RAX" == _reg_name) {
       return {EcvReg(RegKind::General, 0), ERC::RegX};
+    } else if ("RBX" == _reg_name) {
+      return {EcvReg(RegKind::General, 3), ERC::RegX};
     } else if ("RDI" == _reg_name) {
       return {EcvReg(RegKind::General, 7), ERC::RegX};
     } else if ("RSI" == _reg_name) {
@@ -131,6 +133,8 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
     } else if ("RDX" == _reg_name) {
       return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("BRANCH_TAKEN" == _reg_name) {
+      return {EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), ERC::RegX};
     } else if ("STATE" == _reg_name) {
       return {EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP};
     } else if ("RUNTIME" == _reg_name) {
@@ -219,6 +223,8 @@ std::string EcvReg::GetWideRegName() const {
       return "RAX";
     } else if (2 == number) {
       return "RDX";
+    } else if (3 == number) {
+      return "RBX";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -235,6 +241,8 @@ std::string EcvReg::GetWideRegName() const {
       return "ESBASE";
     } else if (DSBASE_ORDER == number) {
       return "DSBASE";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -281,6 +289,8 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "RAX";
     } else if (2 == number) {
       return "RDX";
+    } else if (3 == number) {
+      return "RBX";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -297,6 +307,8 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "ESBASE";
     } else if (DSBASE_ORDER == number) {
       return "DSBASE";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
