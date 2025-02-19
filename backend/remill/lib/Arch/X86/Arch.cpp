@@ -479,7 +479,8 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   // are represented by their addresses, and in the instuction implementations,
   // accessed via intrinsics.
   if (xed_operand_written(xedo)) {
-    op.action = Operand::kActionWrite;
+    // if the register is used for memory storing, elfconv deal with it as kActionRead.
+    op.action = Operand::kActionRead;
     op.addr.kind = Operand::Address::kMemoryWrite;
     inst.operands.push_back(op);
   }
@@ -979,13 +980,16 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     // case XED_IFORM_CALL_NEAR_RELBRd:
     case XED_IFORM_MOV_GPRv_IMMz:
     case XED_IFORM_JMP_RELBRb:
+    case XED_IFORM_MOV_GPRv_GPRv_89:
     case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
-    case XED_IFORM_MOV_GPRv_MEMv: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_MOV_GPRv_MEMv:
+    case XED_IFORM_MOV_MEMv_IMMz: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
     case XED_IFORM_CMP_GPRv_IMMb:
     case XED_IFORM_XOR_GPRv_GPRv_31:
     case XED_IFORM_JNZ_RELBRb:
-    case XED_IFORM_ADD_GPRv_IMMb: inst.sema_func_arg_type = SemaFuncArgType::State; break;
+    case XED_IFORM_ADD_GPRv_IMMb:
+    case XED_IFORM_SUB_GPRv_IMMb: inst.sema_func_arg_type = SemaFuncArgType::State; break;
     default:
       LOG(FATAL) << "Unsupported instruction at SetSemaFuncArgType: (" << inst.function << ")";
   }

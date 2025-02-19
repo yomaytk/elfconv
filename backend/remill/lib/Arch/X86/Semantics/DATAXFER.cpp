@@ -26,8 +26,13 @@ DEF_SEM_T(MOV_R, const S src) {
 }
 
 template <typename D, typename S>
-DEF_SEM_VOID_RUN(MOV_M, D dst, const S src) {
+DEF_SEM_VOID_RUN(MOV_M_RI, D dst, const S src) {
   MWriteZExt(dst, Read(src));
+}
+
+template <typename S>
+DEF_SEM_T_RUN(MOV_RI_M, const S src) {
+  return ReadMem(src);
 }
 
 // template <typename D1, typename S1, typename D2, typename S2>
@@ -181,18 +186,18 @@ DEF_SEM_VOID_RUN(MOV_M, D dst, const S src) {
 // DEF_ISEL(MOV_GPR8_IMMb_C6r0) = MOV<R8W, I8>;
 // DEF_ISEL(MOV_MEMb_IMMb) = MOV<M8W, I8>;
 DEF_ISEL_RnW_In(MOV_GPRv_IMMz, MOV_R);
-DEF_ISEL_MnW_In(MOV_MEMv_IMMz, MOV_M);
+DEF_ISEL_MnW_In(MOV_MEMv_IMMz, MOV_M_RI);
 // DEF_ISEL(MOVBE_GPRv_MEMv_16) = MOVBE16<R16W, M16>;
 // DEF_ISEL(MOVBE_GPRv_MEMv_32) = MOVBE32<R32W, M32>;
 // IF_64BIT(DEF_ISEL(MOVBE_GPRv_MEMv_64) = MOVBE64<R64W, M64>;)
 // DEF_ISEL(MOV_GPR8_GPR8_88) = MOV<R8W, R8>;
-// DEF_ISEL(MOV_MEMb_GPR8) = MOV<M8W, R8>;
-// DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv, MOV);
-// DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_89, MOV);
+DEF_ISEL(MOV_MEMb_GPR8) = MOV_M_RI<M8W, R8>;
+DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv, MOV_M_RI);
+DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_89, MOV_R);
 // DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_8B, MOV);
 // DEF_ISEL(MOV_GPR8_MEMb) = MOV<R8W, M8>;
 // DEF_ISEL(MOV_GPR8_GPR8_8A) = MOV<R8W, R8>;
-// DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV);
+DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV_RI_M);
 // DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv_8B, MOV);
 // DEF_ISEL(MOV_AL_MEMb) = MOV<R8W, M8>;
 // DEF_ISEL_RnW_Mn(MOV_OrAX_MEMv, MOV);

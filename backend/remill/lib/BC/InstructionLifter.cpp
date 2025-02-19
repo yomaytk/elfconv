@@ -125,6 +125,10 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::General, 0), ERC::RegX};
     } else if ("RBX" == _reg_name) {
       return {EcvReg(RegKind::General, 3), ERC::RegX};
+    } else if ("RSP" == _reg_name) {
+      return {EcvReg(RegKind::General, 4), ERC::RegX};
+    } else if ("RBP" == _reg_name) {
+      return {EcvReg(RegKind::General, 5), ERC::RegX};
     } else if ("RDI" == _reg_name) {
       return {EcvReg(RegKind::General, 7), ERC::RegX};
     } else if ("RSI" == _reg_name) {
@@ -225,6 +229,10 @@ std::string EcvReg::GetWideRegName() const {
       return "RDX";
     } else if (3 == number) {
       return "RBX";
+    } else if (4 == number) {
+      return "RSP";
+    } else if (5 == number) {
+      return "RBP";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -291,6 +299,10 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "RDX";
     } else if (3 == number) {
       return "RBX";
+    } else if (4 == number) {
+      return "RSP";
+    } else if (5 == number) {
+      return "RBP";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -632,6 +644,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
     if (t_reg) {
       if (Operand::Action::kActionWrite == op.action) {
+        CHECK(Operand::Type::kTypeRegister == op.type);
         if (!t_reg->name.starts_with("IGNORE_WRITE_TO")) {
           // skip the case where the store register is `XZR` or `WZR`.
           store_reg_map.insert({e_r, e_r_c});

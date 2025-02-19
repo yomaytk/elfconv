@@ -9,6 +9,9 @@ mov_gprv_immz_error_msg:
 add_gprv_immb_error_msg:
     .string "[ERROR] ADD_GPRv_IMMb\n"
 
+mov_memv_gprv_error_msg:
+    .string "[ERROR] MOV_MEMv_GPRv\n"
+
 .section .text
 .globl _start
 _start:                  
@@ -32,11 +35,27 @@ test_add_gprv_immb:
     add rbx, 20
     cmp rbx, 30
     jne fail_add_gprv_immb
-    jmp success
+    jmp test_mov_memv_gprv
 
 fail_add_gprv_immb:
     mov rax, 1
     lea rsi, [rip + add_gprv_immb_error_msg]
+    mov rdx, 23
+    syscall
+    jmp exit
+
+test_mov_memv_gprv:
+    mov rbp, rsp
+    sub rsp, 8
+    mov qword ptr [rbp - 4], 20
+    mov rbx, qword ptr [rbp - 4]
+    cmp rbx, 20
+    jne fail_mov_memv_gprv
+    jmp success
+    
+fail_mov_memv_gprv:
+    mov rax, 1
+    lea rsi, [rip + mov_memv_gprv_error_msg]
     mov rdx, 23
     syscall
     jmp exit
