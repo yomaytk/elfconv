@@ -472,7 +472,7 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
 
   // PC-relative memory accesses are relative to the next PC (RIP).
   if (XED_REG_RIP == base_wide) {
-    op.addr.base_reg.name = "RIP";
+    op.addr.base_reg.name = "NEXT_PC";
   }
 
   // We always pass destination operands first, then sources. Memory operands
@@ -606,7 +606,7 @@ static void DecodeFallThroughPC(Instruction &inst, const xed_decoded_inst_t *xed
   not_taken_op.type = Operand::kTypeAddress;
   not_taken_op.size = pc_width;
   not_taken_op.addr.address_size = pc_width;
-  not_taken_op.addr.base_reg.name = "RIP";
+  not_taken_op.addr.base_reg.name = "NEXT_PC";
   not_taken_op.addr.base_reg.size = pc_width;
   not_taken_op.addr.displacement = 0;
   not_taken_op.addr.kind = Operand::Address::kControlFlowTarget;
@@ -636,7 +636,7 @@ static void DecodeConditionalBranch(Instruction &inst, const xed_decoded_inst_t 
   taken_op.type = Operand::kTypeAddress;
   taken_op.size = pc_width;
   taken_op.addr.address_size = pc_width;
-  taken_op.addr.base_reg.name = "RIP";
+  taken_op.addr.base_reg.name = "NEXT_PC";
   taken_op.addr.base_reg.size = pc_width;
   taken_op.addr.displacement = disp;
   taken_op.addr.kind = Operand::Address::kControlFlowTarget;
@@ -660,7 +660,7 @@ static void DecodeRelativeBranch(Instruction &inst, const xed_decoded_inst_t *xe
   taken_op.type = Operand::kTypeAddress;
   taken_op.size = pc_width;
   taken_op.addr.address_size = pc_width;
-  taken_op.addr.base_reg.name = "RIP";
+  taken_op.addr.base_reg.name = "NEXT_PC";
   taken_op.addr.base_reg.size = pc_width;
   taken_op.addr.displacement = disp;
   taken_op.addr.kind = Operand::Address::kControlFlowTarget;
@@ -977,12 +977,18 @@ static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size
 
 void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
   switch (iform) {
-    // case XED_IFORM_CALL_NEAR_RELBRd:
+    case XED_IFORM_RET_NEAR:
+    case XED_IFORM_JMP_RELBRd:
+    case XED_IFORM_NOP_MEMv_GPRv_0F1F:
     case XED_IFORM_MOV_GPRv_IMMz:
     case XED_IFORM_JMP_RELBRb:
     case XED_IFORM_MOV_GPRv_GPRv_89:
     case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
+    case XED_IFORM_MOV_MEMv_GPRv:
     case XED_IFORM_MOV_GPRv_MEMv:
+    case XED_IFORM_PUSH_GPRv_50:
+    case XED_IFORM_POP_GPRv_58:
+    // case XED_IFORM_CALL_NEAR_RELBRd:
     case XED_IFORM_MOV_MEMv_IMMz: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
     case XED_IFORM_CMP_GPRv_IMMb:
@@ -1115,6 +1121,43 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
+  // if (inst.function.starts_with("CALL")) {
+  //   Operand next_pc = {};
+  //   next_pc.type = Operand::kTypeRegister;
+  //   next_pc.action = Operand::kActionRead;
+  //   next_pc.size = address_size;
+  //   next_pc.reg.name = "NEXT_PC";
+  //   next_pc.reg.size = address_size;
+  //   inst.operands.push_back(next_pc);
+  // }
+
+  if (inst.function.starts_with("CALL")) {
+    Operand rip_op = {};
+    rip_op.type = Operand::kTypeRegister;
+    rip_op.action = Operand::kActionWrite;
+    rip_op.reg = RegOp(XED_REG_RIP);
+    rip_op.size = rip_op.reg.size;
+    inst.operands.push_back(rip_op);
+  }
+
+  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP") || inst.function.starts_with("CALL")) {
+    Operand rsp_op = {};
+    rsp_op.type = Operand::kTypeRegister;
+    rsp_op.action = Operand::kActionRead;
+    rsp_op.reg = RegOp(XED_REG_RSP);
+    rsp_op.size = rsp_op.reg.size;
+    inst.operands.push_back(rsp_op);
+  }
+
+  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP") || inst.function.starts_with("CALL")) {
+    Operand rsp_op = {};
+    rsp_op.type = Operand::kTypeRegister;
+    rsp_op.action = Operand::kActionWrite;
+    rsp_op.reg = RegOp(XED_REG_RSP);
+    rsp_op.size = rsp_op.reg.size;
+    inst.operands.push_back(rsp_op);
+  }
+
   SetSemaFuncArgType(inst, iform);
 
   // seems not to need NEXT_PC.
@@ -1135,13 +1178,13 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     // The semantics will store the return address in `RETURN_PC`. This is to
     // help synchronize program counters when lifting instructions on an ISA
     // with delay slots.
-    inst.operands.emplace_back();
-    auto &dst_ret_pc = inst.operands.back();
-    dst_ret_pc.type = Operand::kTypeRegister;
-    dst_ret_pc.action = Operand::kActionWrite;
-    dst_ret_pc.size = address_size;
-    dst_ret_pc.reg.name = "RETURN_PC";
-    dst_ret_pc.reg.size = address_size;
+    // inst.operands.emplace_back();
+    // auto &dst_ret_pc = inst.operands.back();
+    // dst_ret_pc.type = Operand::kTypeRegister;
+    // dst_ret_pc.action = Operand::kActionWrite;
+    // dst_ret_pc.size = address_size;
+    // dst_ret_pc.reg.name = "RETURN_PC";
+    // dst_ret_pc.reg.size = address_size;
   }
 
   if (UsesStopFailure(xedd)) {

@@ -110,6 +110,8 @@ class OperandLifter {
 #define SSBASE_ORDER 135
 #define ESBASE_ORDER 136
 #define DSBASE_ORDER 137
+#define RETURN_PC_ORDER 138
+#define NEXT_PC_ORDER 139
 
 
 enum class ERC : uint32_t {

@@ -16,6 +16,9 @@ mov_memv_gprv_error_msg:
 call_procedure_error_msg:
     .string "[ERROR] CALL_NEAR_RELBRd\n"
 
+push_pop_error_msg:
+    .string "[ERROR] PUSH_POP\n"
+
 .section .text
 .globl _start
 
@@ -68,13 +71,29 @@ test_mov_memv_gprv:
     mov rbx, qword ptr [rbp - 4]
     cmp rbx, 20
     jne fail_mov_memv_gprv
-    jmp test_call_procedure
+    jmp test_push_pop
     
 fail_mov_memv_gprv:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + mov_memv_gprv_error_msg]
     mov rdx, 23
+    syscall
+    jmp exit
+
+test_push_pop:
+    mov rax, 15
+    push rax
+    pop rbx
+    cmp rbx, 15
+    jne fail_push_pop
+    jmp test_call_procedure
+
+fail_push_pop:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + push_pop_error_msg]
+    mov rdx, 25
     syscall
     jmp exit
 

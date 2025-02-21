@@ -727,6 +727,8 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   ir.CreateAlloca(u64, nullptr, "BRANCH_TAKEN");
   ir.CreateAlloca(addr, nullptr, "MONITOR");
 
+  ir.CreateAlloca(u64, nullptr, "RETURN_PC");
+  ir.CreateAlloca(u64, nullptr, "NEXT_PC");
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.
 

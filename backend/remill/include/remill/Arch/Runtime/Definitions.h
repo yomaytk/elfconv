@@ -107,8 +107,8 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 
 // An instruction with a single 32- or 64-bit register destination operand.
 #define DEF_ISEL_R32or64W(name, func) \
-  IF_32BIT(DEF_ISEL(name##_32) = func<R32W>) \
-  IF_64BIT(DEF_ISEL(name##_64) = func<R64W>)
+  IF_32BIT(DEF_ISEL(name##_32) = func<R32>) \
+  IF_64BIT(DEF_ISEL(name##_64) = func<R64>)
 
 // An instruction with a single 32- or 64-bit memory destination operand.
 #define DEF_ISEL_M32or64(name, func) \

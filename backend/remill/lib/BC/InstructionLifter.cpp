@@ -151,6 +151,10 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, ESBASE_ORDER), ERC::RegX};
     } else if ("DSBASE" == _reg_name) {
       return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
+    } else if ("RETURN_PC" == _reg_name) {
+      return {EcvReg(RegKind::Special, RETURN_PC_ORDER), ERC::RegX};
+    } else if("NEXT_PC" == _reg_name) {
+      return {EcvReg(RegKind::Special, NEXT_PC_ORDER), ERC::RegX};
     } else {
       LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
     }
@@ -251,6 +255,10 @@ std::string EcvReg::GetWideRegName() const {
       return "DSBASE";
     } else if (BRANCH_TAKEN_ORDER == number) {
       return "BRANCH_TAKEN";
+    } else if (RETURN_PC_ORDER == number) {
+      return "RETURN_PC";
+    } else if (NEXT_PC_ORDER == number) {
+      return "NEXT_PC";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -321,6 +329,10 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "DSBASE";
     } else if (BRANCH_TAKEN_ORDER == number) {
       return "BRANCH_TAKEN";
+    } else if (RETURN_PC_ORDER == number) {
+      return "RETURN_PC";
+    } else if (NEXT_PC_ORDER == number) {
+      return "NEXT_PC";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -1369,8 +1381,13 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
                                   static_cast<uint64_t>(inst.pc + arch_addr.displacement));
   }
 
-  // x86-64 RIP addressing mode uses the next instruction RIP.
   if ("RIP" == arch_addr.base_reg.name) {
+    return llvm::ConstantInt::get(
+      word_type, static_cast<uint64_t>(inst.pc + arch_addr.displacement));
+  }
+    
+  // x86-64 RIP addressing mode uses the next instruction RIP.
+  if ("NEXT_PC" == arch_addr.base_reg.name) {
     return llvm::ConstantInt::get(
         word_type, static_cast<uint64_t>(inst.pc + inst.bytes.size() + arch_addr.displacement));
   }
