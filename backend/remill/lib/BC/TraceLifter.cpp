@@ -48,7 +48,7 @@ namespace remill {
 #if defined(OPT_REAL_REGS_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg->GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
 #else
 #  define DEBUG_PC_AND_REGISTERS(...)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
