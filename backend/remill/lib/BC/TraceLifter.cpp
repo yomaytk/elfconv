@@ -1154,6 +1154,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
           }
         }
 
+        target_bag->is_loop = true;
+
         // re-search this target_bag
         visited.erase(target_bag);
         bag_stack.emplace(target_bag, pre_path, visited);
@@ -1300,7 +1302,7 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
       for (auto par_bg : t_bg->parents) {
 
         // preceding load reg.
-        // priority 1. pre_own_ld_rmp > pre_pres_ld_rmp.
+        // priority 1. par_own_ld_rmp > par_pres_ld_rmp.
         // priority 2. bigger ERC > smaller ERC.
         // target: pre_pres
         for (auto [er1, erc1] : par_bg->pres_ld_rmp) {
@@ -1324,7 +1326,7 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
         }
 
         // preceding store reg.
-        // priority 1. pre_own_str_rmp > pre_pres_str_rmp.
+        // priority 1. par_own_str_rmp > par_pres_str_rmp.
         // priority 2. bigger ERC > smaller ERC.
         // target: pre_pres
         for (auto [er3, erc3] : par_bg->pres_str_rmp) {
@@ -1455,26 +1457,44 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
 
   // Calculate the drvd_rmp.
   std::set<PhiRegsBBBagNode *> finished;
-  for (auto [_, phi_regs_bag] : bb_regs_bag_map) {
-    if (!finished.contains(phi_regs_bag)) {
+  for (auto [_, t_bag] : bb_regs_bag_map) {
 
-      auto &sucs_ld_rmp = phi_regs_bag->sucs_ld_rmp;
-      auto &pres_ld_rmp = phi_regs_bag->pres_ld_rmp;
-      auto &drvd_rmp = phi_regs_bag->drvd_rmp;
-      drvd_rmp = phi_regs_bag->pres_str_rmp;
+    if (finished.contains(t_bag)) {
+      continue;
+    }
 
-      for (auto &[ecv_reg, _] : sucs_ld_rmp) {
-        if (sucs_ld_rmp.contains(ecv_reg) && pres_ld_rmp.contains(ecv_reg)) {
-          auto t_ecv_r_c = sucs_ld_rmp.at(ecv_reg);
-          if (drvd_rmp.contains(ecv_reg) && ERCSize(drvd_rmp.at(ecv_reg)) < ERCSize(t_ecv_r_c)) {
-            drvd_rmp.insert_or_assign(ecv_reg, t_ecv_r_c);
-          } else {
-            drvd_rmp.insert({ecv_reg, t_ecv_r_c});
-          }
+    auto &sucs_ld_rmp = t_bag->sucs_ld_rmp;
+    auto &pres_ld_rmp = t_bag->pres_ld_rmp;
+    auto &pres_str_rmp = t_bag->pres_str_rmp;
+    auto &drvd_rmp = t_bag->drvd_rmp;
+
+    for (auto &[er1, erc1] : pres_str_rmp) {
+      if (er1.CheckPassedArgsRegs()) {
+        drvd_rmp.insert({er1, erc1});
+      }
+    }
+
+    if (t_bag->is_loop) {
+      for (auto &[er2, erc2] : t_bag->own_ld_rmp) {
+        if (drvd_rmp.contains(er2) && ERCSize(drvd_rmp.at(er2)) < ERCSize(erc2)) {
+          drvd_rmp.insert_or_assign(er2, erc2);
+        } else {
+          drvd_rmp.insert({er2, erc2});
         }
       }
-      finished.insert(phi_regs_bag);
     }
+
+    for (auto &[er, t_erc] : sucs_ld_rmp) {
+      if (sucs_ld_rmp.contains(er) && (pres_ld_rmp.contains(er) || pres_str_rmp.contains(er))) {
+        if (drvd_rmp.contains(er) && ERCSize(drvd_rmp.at(er)) < ERCSize(t_erc)) {
+          drvd_rmp.insert_or_assign(er, t_erc);
+        } else {
+          drvd_rmp.insert({er, t_erc});
+        }
+      }
+    }
+
+    finished.insert(t_bag);
   }
 
   // Calculate bag_passed_caller_reg_map.

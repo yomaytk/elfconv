@@ -167,6 +167,8 @@ class PhiRegsBBBagNode {
   std::set<PhiRegsBBBagNode *> children;
 
   PhiRegsBBBagNode *converted_bag;
+
+  bool is_loop;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.

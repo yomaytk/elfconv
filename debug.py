@@ -96,7 +96,10 @@ def compare_call_funcs(states_a, states_b):
 def main():
     
     if len(sys.argv) < 4:
-        print("Usage: python3 app.py path/to/FA.log path/to/FB.log")
+        print("Usage: python3 app.py [options] path/to/FA.log path/to/FB.log\n")
+        print("OPTIONS:")
+        print("\t--call-stack\n\t\tCheck only the order of called functions.")
+        print("\t--all-regs\n\t\tCheck all registers against the every instruction. When you specify '--skip <num>', you can skip the register <num> for the check.")
         sys.exit(1)
 
     mode = sys.argv[1]
@@ -115,7 +118,7 @@ def main():
         global ignore_regs
         index = 4
         if len(sys.argv) > 4:
-            if sys.argv[index] == "--ignore":
+            if sys.argv[index] == "--skip":
                 while True:
                     ignore_regs[sys.argv[index]] = sys.argv[index + 1]
                     index += 2

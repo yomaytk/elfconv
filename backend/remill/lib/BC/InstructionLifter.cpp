@@ -305,7 +305,7 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
 }
 
 bool EcvReg::CheckPassedArgsRegs() const {
-  return (0 <= number && number <= 7) || SP_ORDER == number;
+  return (0 <= number && number <= 8) || SP_ORDER == number;
 }
 
 bool EcvReg::CheckPassedReturnRegs() const {
