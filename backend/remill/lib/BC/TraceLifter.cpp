@@ -2061,16 +2061,17 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
         // Target: llvm::CallInst
         else if (auto call_inst = llvm::dyn_cast<llvm::CallInst>(target_inst_it)) {
 
-          // Call the lifted function (includes `__remill_function_call`).
+          // `call_inst` is the lifted function (__remill_function_call is included).
           if (lifted_func_caller_set.contains(call_inst)) {
-            // Store already stored `bb_store_reg_map`
+            // store registes.
+            // priority: ascend_reg_inst_map > pre_str_rmp
             std::set<EcvReg> strd;
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-              auto is_str_er = std::get<bool>(ascend_value);
+              // auto is_str_er = std::get<bool>(ascend_value);
               if (
                   // func_v_r_opt_map.at(call_inst->getCalledFunction())
                   //        ->passed_caller_reg_map.contains(within_store_ecv_reg) &&
-                  within_store_ecv_reg.CheckPassedArgsRegs() && is_str_er) {
+                  within_store_ecv_reg.CheckPassedArgsRegs()) {
                 auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
                 inst_lifter->StoreRegValueBeforeInst(
                     target_bb, state_ptr,
@@ -2179,18 +2180,16 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // Store target: x0 ~ x5, x8
             std::set<EcvReg> strd2;
             for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
-              auto is_str_er = std::get<bool>(ascend_value);
+              // auto is_str_er = std::get<bool>(ascend_value);
               if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
-                if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8) ||
-                    !is_str_er) {
+                if (!(within_store_ecv_reg.number < 6 || within_store_ecv_reg.number == 8)) {
                   continue;
                 }
               } else if (kArchAMD64 == TARGET_ELF_ARCH) {
                 if (!(within_store_ecv_reg.number == 2 || within_store_ecv_reg.number == 6 ||
                       within_store_ecv_reg.number == 7 || within_store_ecv_reg.number == 8 ||
                       within_store_ecv_reg.number == 9 || within_store_ecv_reg.number == 10 ||
-                      within_store_ecv_reg.number == 0) ||
-                    !is_str_er) {
+                      within_store_ecv_reg.number == 0)) {
                   continue;
                 }
               }
@@ -2370,39 +2369,39 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
           CHECK(!ret_inst) << "Found the multiple llvm::ReturnInst at the one Basic Block."
                            << ECV_DEBUG_STREAM.str();
           ret_inst = __ret_inst;
+          std::set<EcvReg> strd;
           for (auto [within_store_ecv_reg, ascend_value] : ascend_reg_inst_map) {
+            // auto is_str_er = std::get<bool>(ascend_value);
             if (
-                // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
-                //        ->passed_callee_ret_reg_map.contains(within_store_ecv_reg) ||
-                !within_store_ecv_reg.CheckPassedReturnRegs() ||
-                !target_bb_reg_info_node->bb_store_reg_map.contains(within_store_ecv_reg)) {
-              continue;
+                // func_v_r_opt_map.at(call_inst->getCalledFunction())
+                //        ->passed_caller_reg_map.contains(within_store_ecv_reg) &&
+                within_store_ecv_reg.CheckPassedReturnRegs()) {
+              auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
+              inst_lifter->StoreRegValueBeforeInst(
+                  target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
+                  GetRegValueFromCacheMap(within_store_ecv_reg,
+                                          GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), ret_inst,
+                                          ascend_reg_inst_map),
+                  ret_inst);
+              strd.insert(within_store_ecv_reg);
             }
-            auto within_store_ecv_reg_class = std::get<ERC>(ascend_value);
-            inst_lifter->StoreRegValueBeforeInst(
-                target_bb, state_ptr, within_store_ecv_reg.GetRegName(within_store_ecv_reg_class),
-                GetRegValueFromCacheMap(within_store_ecv_reg,
-                                        GetWholeLLVMTypeFromRegZ(within_store_ecv_reg), ret_inst,
-                                        ascend_reg_inst_map),
-                ret_inst);
           }
           // Store `preceding_store_map`
           for (auto [preceding_store_ecv_reg, preceding_store_ecv_reg_class] :
                target_phi_regs_bag->pres_str_rmp) {
             if (
-                // !func_v_r_opt_map.at(ret_inst->getParent()->getParent())
-                //        ->passed_callee_ret_reg_map.contains(preceding_store_ecv_reg) ||
-                !preceding_store_ecv_reg.CheckPassedReturnRegs() ||
-                target_bb_reg_info_node->bb_store_reg_map.contains(preceding_store_ecv_reg)) {
-              continue;
+                // !func_v_r_opt_map.at(call_inst->getCalledFunction())
+                //        ->passed_caller_reg_map.contains(preceding_store_ecv_reg) ||
+                preceding_store_ecv_reg.CheckPassedArgsRegs() &&
+                !strd.contains(preceding_store_ecv_reg)) {
+              inst_lifter->StoreRegValueBeforeInst(
+                  target_bb, state_ptr,
+                  preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
+                  GetRegValueFromCacheMap(preceding_store_ecv_reg,
+                                          GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg),
+                                          ret_inst, ascend_reg_inst_map),
+                  ret_inst);
             }
-            inst_lifter->StoreRegValueBeforeInst(
-                target_bb, state_ptr,
-                preceding_store_ecv_reg.GetRegName(preceding_store_ecv_reg_class),
-                GetRegValueFromCacheMap(preceding_store_ecv_reg,
-                                        GetWholeLLVMTypeFromRegZ(preceding_store_ecv_reg), ret_inst,
-                                        ascend_reg_inst_map),
-                ret_inst);
           }
           target_inst_it = target_inst_it->getNextNode();
         }
