@@ -1308,7 +1308,7 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
         for (auto [er1, erc1] : par_bg->pres_ld_rmp) {
           if (t_bg->pres_ld_rmp.contains(er1)) {
             if (ERCSize(t_bg->pres_ld_rmp.at(er1)) < ERCSize(erc1)) {
-              t_bg->pres_ld_rmp.insert({er1, erc1});
+              t_bg->pres_ld_rmp.insert_or_assign(er1, erc1);
             }
           } else {
             t_bg->pres_ld_rmp.insert({er1, erc1});
