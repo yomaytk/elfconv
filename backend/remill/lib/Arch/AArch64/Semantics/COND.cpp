@@ -73,7 +73,7 @@ DEF_COND_ISEL(CSEL_32_CONDSEL, CSEL32)  // CSEL  <Wd>, <Wn>, <Wm>, <cond>
 DEF_COND_ISEL(CSEL_64_CONDSEL, CSEL64)  // CSEL  <Xd>, <Xn>, <Xm>, <cond>
 
 DEF_COND_ISEL(FCSEL_D_FLOATSEL, FCSEL64)  // FCSEL  <Dd>, <Dn>, <Dm>, <cond>
-DEF_COND_ISEL(FCSEL_S_FLOATSEL, FCSEL64)  // FCSEL  <Sd>, <Sn>, <Sm>, <cond>
+DEF_COND_ISEL(FCSEL_S_FLOATSEL, FCSEL32)  // FCSEL  <Sd>, <Sn>, <Sm>, <cond>
 
 namespace {
 

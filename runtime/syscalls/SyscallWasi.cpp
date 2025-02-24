@@ -88,6 +88,7 @@ struct _ecv_statx {
 // macros specified to Linux
 #define LINUX_AD_FDCWD -100
 #define LINUX_O_CREAT 64
+#define LINUX_O_RDONLY 0
 #define LINUX_O_WRONLY 1
 #define LINUX_O_RDWR 2
 
@@ -150,9 +151,9 @@ void RuntimeManager::SVCWasiCall(void) {
       if (LINUX_AD_FDCWD == X0_D) {
         X0_Q = AT_FDCWD;
       }
-      if (LINUX_O_CREAT == (X2_D & LINUX_O_CREAT)) {
-        X2_D &= ~LINUX_O_CREAT;
-        X2_D |= O_CREAT;
+      if (LINUX_O_RDONLY == (X2_D & LINUX_O_RDONLY)) {
+        X2_D &= ~LINUX_O_RDONLY;
+        X2_D |= O_RDONLY;
       }
       if (LINUX_O_RDWR == (X2_D & LINUX_O_RDWR)) {
         X2_D &= ~LINUX_O_RDWR;
@@ -161,6 +162,10 @@ void RuntimeManager::SVCWasiCall(void) {
       if (LINUX_O_WRONLY == (X2_D & LINUX_O_WRONLY)) {
         X2_D &= ~LINUX_O_WRONLY;
         X2_D |= O_WRONLY;
+      }
+      if (LINUX_O_CREAT == (X2_D & LINUX_O_CREAT)) {
+        X2_D &= ~LINUX_O_CREAT;
+        X2_D |= O_CREAT;
       }
       X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
       if (ERROR_CODE == X0_D) {
