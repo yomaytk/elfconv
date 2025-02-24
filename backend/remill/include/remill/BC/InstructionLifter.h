@@ -134,7 +134,7 @@ enum class ERC : uint32_t {
 };
 
 // (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
-std::string EcvRegClass2String(ERC ecv_reg_class);
+std::string ERC2str(ERC ecv_reg_class);
 
 uint64_t ERCSize(ERC ecv_reg_class);
 

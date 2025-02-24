@@ -312,7 +312,7 @@ bool EcvReg::CheckPassedReturnRegs() const {
   return (0 <= number && number <= 1) || SP_ORDER == number;
 }
 
-std::string EcvRegClass2String(ERC ecv_reg_class) {
+std::string ERC2str(ERC ecv_reg_class) {
   switch (ecv_reg_class) {
     case ERC::RegW: return "RegW"; break;
     case ERC::RegX: return "RegX"; break;

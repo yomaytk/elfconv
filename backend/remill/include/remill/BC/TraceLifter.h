@@ -205,17 +205,16 @@ class VirtualRegsOpt {
  public:
   VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma);
 
-  llvm::Type *GetLLVMTypeFromRegZ(ERC ecv_reg_class);
-  llvm::Type *GetWholeLLVMTypeFromRegZ(EcvReg);
-  ERC GetRegClassFromLLVMType(llvm::Type *value_type);
-  llvm::Value *GetValueFromTargetBBAndReg(llvm::BasicBlock *target_bb, llvm::BasicBlock *request_bb,
-                                          std::pair<EcvReg, ERC> ecv_reg_info);
-  llvm::Value *CastFromInst(EcvReg target_ecv_reg, llvm::Value *from_inst, llvm::Type *to_inst_ty,
+  llvm::Type *ERC2LLVMTy(ERC erc);
+  llvm::Type *ERC2WholeLLVMTy(EcvReg);
+  ERC LLVMTy2ERC(llvm::Type *value_type);
+  llvm::Value *GetDrvdValue(llvm::BasicBlock *t_bb, llvm::BasicBlock *request_bb,
+                            std::pair<EcvReg, ERC> er_info);
+  llvm::Value *CastFromInst(EcvReg t_er, llvm::Value *from_inst, llvm::Type *to_inst_ty,
                             llvm::Instruction *inst_at_before);
 
   llvm::Value *
-  GetRegValueFromCacheMap(EcvReg target_ecv_reg, llvm::Type *to_type,
-                          llvm::Instruction *inst_at_before,
+  GetRegValueFromCacheMap(EcvReg t_er, llvm::Type *to_type, llvm::Instruction *inst_at_before,
                           EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> &cache_map);
 
   void AnalyzeRegsBags();
