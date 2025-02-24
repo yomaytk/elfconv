@@ -1,0 +1,21 @@
+diff --git a/Makefile b/Makefile
+index fc60702..57dfbc8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,2 +1,2 @@
+ all:
+-	gcc mnist.c mnist_file.c neural_network.c -lm -o mnist
++	gcc -O3 -static mnist.c mnist_file.c neural_network.c -lm -o mnist
+diff --git a/mnist.c b/mnist.c
+index d6b6cf3..8b8ee61 100644
+--- a/mnist.c
++++ b/mnist.c
+@@ -6,7 +6,7 @@
+ #include "include/mnist_file.h"
+ #include "include/neural_network.h"
+ 
+-#define STEPS 1000
++#define STEPS 50
+ #define BATCH_SIZE 100
+ 
+ /**

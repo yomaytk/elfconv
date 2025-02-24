@@ -134,9 +134,9 @@ enum class ERC : uint32_t {
 };
 
 // (FIXME) This functions is for aarch64 binary but it doesn't matter becuase this is used for debugging.
-std::string EcvRegClass2String(ERC ecv_reg_class);
+std::string ERC2str(ERC ecv_reg_class);
 
-uint64_t GetRegClassSize(ERC ecv_reg_class);
+uint64_t ERCSize(ERC ecv_reg_class);
 
 enum class RegKind : uint32_t {
   General,  // 0
@@ -197,12 +197,12 @@ class BBRegInfoNode {
   void join_reg_info_node(BBRegInfoNode *child);
 
   // The register set which is `load`ed in this block.
-  EcvRegMap<ERC> bb_load_reg_map;
+  EcvRegMap<ERC> bb_ld_r_mp;
   // The register set which is `store`d in this block.
-  EcvRegMap<ERC> bb_store_reg_map;
+  EcvRegMap<ERC> bb_str_r_mp;
 
   // llvm::Value ptr which explains the latest register.
-  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t>> reg_latest_inst_map;
+  EcvRegMap<std::tuple<ERC, llvm::Value *, uint32_t, bool>> r_fresh_inst_mp;
 
   // Save the written registers by semantic functions
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>>
@@ -216,9 +216,9 @@ class BBRegInfoNode {
 
   // Map the added instructions that can be refered later on and register
   // In the current design, the target are llvm::CastInst, llvm::ExtractValueInst, llvm::PHINode.
-  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> referred_able_added_inst_reg_map;
+  std::unordered_map<llvm::Value *, std::pair<EcvReg, ERC>> refable_inst_r_mp;
   // Map the register and added instructions.
-  EcvRegMap<llvm::Value *> reg_derived_added_inst_map;
+  EcvRegMap<llvm::Value *> added_r_phi_mp;
 };
 
 class InstructionLifterIntf : public OperandLifter {
