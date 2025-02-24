@@ -22,3 +22,4 @@ hello_amd64: hello.c
 
 clean:
 	rm a.out
+
