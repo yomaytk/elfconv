@@ -206,7 +206,7 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
   DEF_ISEL(name##_32) = tpl_func<X##32W, X##32, Y##32, Z##32> IF_64BIT( \
       ; DEF_ISEL(name##_64) = tpl_func<X##64W, X##64, Y##64, Z##64>)
 
-#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, M, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, M, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP REG_b.
 #define DEF_ISEL_RnW_Rn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, name, tpl_func)
