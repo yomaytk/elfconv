@@ -22,7 +22,8 @@ template <typename T>
 DEF_SEM_U64U64_RUN(CALL, T target_pc, R64 rsp, R64 return_pc) { // @target_pc: 'NEXT_PC'-imm, @return_pc: 'NEXT_PC' , @rsp: 'RSP'
   // Push the return address onto the stack.
   addr_t next_sp = USub(Read(rsp), 8);
-  MWriteZExt(static_cast<MnW<uint64_t>>(next_sp), Read(return_pc));
+  addr_t return_pc_val = Read(return_pc);
+  MWriteZExt(WritePtr<addr_t>(next_sp), return_pc_val);
   // Set the new stack pointer and program counter.
   const auto new_pc = ZExtTo<addr_t>(Read(target_pc));
   return {new_pc, next_sp};
