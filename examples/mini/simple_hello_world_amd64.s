@@ -13,7 +13,6 @@ _start:
     syscall                  
 
     # exit syscall
-    movq $50, %rax           
-    add $10, %rax            # syscall number (60: exit)
+    movq $60, %rax           # syscall number (60: exit)
     xorq %rdi, %rdi          # first arg: exit status (0)
     syscall                  
