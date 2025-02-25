@@ -21,6 +21,8 @@ push_pop_error_msg:
 
 .section .text
 .globl _start
+.globl func1
+.type  func1, @function
 
 _start:                  
     jmp test_mov_gprv_immz
