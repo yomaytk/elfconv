@@ -28,19 +28,6 @@ DEF_SEM_U64U64_RUN(CALL, T target_pc, R64 rsp, R64 return_pc) { // @target_pc: '
   return {new_pc, next_sp};
 }
 
-// template <typename T>
-// DEF_SEM(CALL, T target_pc, IF_32BIT_ELSE(R32W, R64W) pc_dst, PC return_pc,
-//         IF_32BIT_ELSE(R32W, R64W) return_pc_dst) {
-//   addr_t next_sp = USub(REG_XSP, ADDRESS_SIZE_BYTES);
-//   const auto new_pc = ZExtTo<addr_t>(Read(target_pc));
-//   Write(WritePtr<addr_t>(next_sp _IF_32BIT(REG_SS_BASE)), Read(return_pc));
-//   Write(REG_XSP, next_sp);
-//   Write(REG_PC, new_pc);
-//   Write(pc_dst, new_pc);
-//   Write(return_pc_dst, Read(return_pc));
-//   return memory;
-// }
-// 
 // DEF_SEM(RET_IMM, I16 bytes, IF_32BIT_ELSE(R32W, R64W) pc_dst) {
 //   const auto new_pc = Read(ReadPtr<addr_t>(REG_XSP _IF_32BIT(REG_SS_BASE)));
 //   Write(REG_PC, new_pc);
@@ -56,14 +43,6 @@ DEF_SEM_U64U64_RUN(RET, R64 rsp) {
   addr_t new_sp = UAdd(old_sp, op_size);
   return {new_sp, new_pc};
 }
-
-// DEF_SEM(RET, IF_32BIT_ELSE(R32W, R64W) pc_dst) {
-//   const auto new_pc = Read(ReadPtr<addr_t>(REG_XSP _IF_32BIT(REG_SS_BASE)));
-//   Write(REG_PC, new_pc);
-//   Write(pc_dst, new_pc);
-//   Write(REG_XSP, UAdd(REG_XSP, ADDRESS_SIZE_BYTES));
-//   return memory;
-// }
 
 }  // namespace
 
