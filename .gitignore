@@ -33,6 +33,7 @@ compile_commands.json
 *.js
 *.html
 *.memo
+*.data
 
 third_party/*
 build/*
