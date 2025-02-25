@@ -34,7 +34,7 @@ ALWAYS_INLINE static void WriteFlagsAddSub(State &state, T lhs, T rhs, T res) {
 }
 
 template <typename S1, typename S2>
-DEF_SEM_T_STATE(ADD, S1 src1, S2 src2) {
+DEF_SEM_T_STATE(ADD_RI_RI, S1 src1, S2 src2) {
   auto lhs = Read(src1);
   auto rhs = Read(src2);
   auto sum = UAdd(lhs, rhs);
@@ -92,7 +92,7 @@ DEF_SEM_T_STATE_RUN(ADD_RI_M, S1 src1, S2 src2) {
 // DEF_ISEL(ADD_MEMb_IMMb_82r0) = ADD<M8W, M8, I8>;
 // DEF_ISEL(ADD_GPR8_IMMb_82r0) = ADD<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(ADD_MEMv_IMMb, ADD);
-DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMb, ADD);
+DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMb, ADD_RI_RI);
 // DEF_ISEL(ADD_MEMb_GPR8) = ADD<M8W, M8, R8>;
 // DEF_ISEL(ADD_GPR8_GPR8_00) = ADD<R8W, R8, R8>;
 // DEF_ISEL_MnW_Mn_Rn(ADD_MEMv_GPRv, ADD);
@@ -131,7 +131,7 @@ DEF_ISEL_RnW_Rn_Mn(ADD_GPRv_MEMv, ADD_RI_M);
 namespace {
 
 template <typename S1, typename S2>
-DEF_SEM_T_STATE(SUB, S1 src1, S2 src2) {
+DEF_SEM_T_STATE(SUB_RI_RI, S1 src1, S2 src2) {
   auto lhs = Read(src1);
   auto rhs = Read(src2);
   auto sum = USub(lhs, rhs);
@@ -180,7 +180,7 @@ DEF_SEM_T_STATE(SUB, S1 src1, S2 src2) {
 // DEF_ISEL(SUB_MEMb_IMMb_82r5) = SUB<M8W, M8, I8>;
 // DEF_ISEL(SUB_GPR8_IMMb_82r5) = SUB<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(SUB_MEMv_IMMb, SUB);
-DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMb, SUB);
+DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMb, SUB_RI_RI);
 // DEF_ISEL(SUB_MEMb_GPR8) = SUB<M8W, M8, I8>;
 // DEF_ISEL(SUB_GPR8_GPR8_28) = SUB<R8W, R8, R8>;
 // DEF_ISEL_MnW_Mn_Rn(SUB_MEMv_GPRv, SUB);
