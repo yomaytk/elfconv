@@ -123,6 +123,12 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
   } else if (kArchAMD64 == TARGET_ELF_ARCH) {
     if ("RAX" == _reg_name) {
       return {EcvReg(RegKind::General, 0), ERC::RegX};
+    } else if ("RBX" == _reg_name) {
+      return {EcvReg(RegKind::General, 3), ERC::RegX};
+    } else if ("RSP" == _reg_name) {
+      return {EcvReg(RegKind::General, 4), ERC::RegX};
+    } else if ("RBP" == _reg_name) {
+      return {EcvReg(RegKind::General, 5), ERC::RegX};
     } else if ("RDI" == _reg_name) {
       return {EcvReg(RegKind::General, 7), ERC::RegX};
     } else if ("RSI" == _reg_name) {
@@ -131,6 +137,8 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
     } else if ("RDX" == _reg_name) {
       return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("BRANCH_TAKEN" == _reg_name) {
+      return {EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), ERC::RegX};
     } else if ("STATE" == _reg_name) {
       return {EcvReg(RegKind::Special, STATE_ORDER), ERC::RegP};
     } else if ("RUNTIME" == _reg_name) {
@@ -143,6 +151,10 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, ESBASE_ORDER), ERC::RegX};
     } else if ("DSBASE" == _reg_name) {
       return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
+    } else if ("RETURN_PC" == _reg_name) {
+      return {EcvReg(RegKind::Special, RETURN_PC_ORDER), ERC::RegX};
+    } else if("NEXT_PC" == _reg_name) {
+      return {EcvReg(RegKind::Special, NEXT_PC_ORDER), ERC::RegX};
     } else {
       LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
     }
@@ -219,6 +231,12 @@ std::string EcvReg::GetWideRegName() const {
       return "RAX";
     } else if (2 == number) {
       return "RDX";
+    } else if (3 == number) {
+      return "RBX";
+    } else if (4 == number) {
+      return "RSP";
+    } else if (5 == number) {
+      return "RBP";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -235,6 +253,12 @@ std::string EcvReg::GetWideRegName() const {
       return "ESBASE";
     } else if (DSBASE_ORDER == number) {
       return "DSBASE";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (RETURN_PC_ORDER == number) {
+      return "RETURN_PC";
+    } else if (NEXT_PC_ORDER == number) {
+      return "NEXT_PC";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -281,6 +305,12 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "RAX";
     } else if (2 == number) {
       return "RDX";
+    } else if (3 == number) {
+      return "RBX";
+    } else if (4 == number) {
+      return "RSP";
+    } else if (5 == number) {
+      return "RBP";
     } else if (6 == number) {
       return "RSI";
     } else if (7 == number) {
@@ -297,6 +327,12 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "ESBASE";
     } else if (DSBASE_ORDER == number) {
       return "DSBASE";
+    } else if (BRANCH_TAKEN_ORDER == number) {
+      return "BRANCH_TAKEN";
+    } else if (RETURN_PC_ORDER == number) {
+      return "RETURN_PC";
+    } else if (NEXT_PC_ORDER == number) {
+      return "NEXT_PC";
     } else {
       LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
     }
@@ -620,6 +656,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
     if (t_reg) {
       if (Operand::Action::kActionWrite == op.action) {
+        CHECK(Operand::Type::kTypeRegister == op.type);
         if (!t_reg->name.starts_with("IGNORE_WRITE_TO")) {
           // skip the case where the store register is `XZR` or `WZR`.
           store_reg_map.insert({e_r, e_r_c});
@@ -1344,8 +1381,13 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
                                   static_cast<uint64_t>(inst.pc + arch_addr.displacement));
   }
 
-  // x86-64 RIP addressing mode uses the next instruction RIP.
   if ("RIP" == arch_addr.base_reg.name) {
+    return llvm::ConstantInt::get(
+      word_type, static_cast<uint64_t>(inst.pc + arch_addr.displacement));
+  }
+    
+  // x86-64 RIP addressing mode uses the next instruction RIP.
+  if ("NEXT_PC" == arch_addr.base_reg.name) {
     return llvm::ConstantInt::get(
         word_type, static_cast<uint64_t>(inst.pc + inst.bytes.size() + arch_addr.displacement));
   }

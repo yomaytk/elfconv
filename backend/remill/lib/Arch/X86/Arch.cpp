@@ -472,14 +472,15 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
 
   // PC-relative memory accesses are relative to the next PC (RIP).
   if (XED_REG_RIP == base_wide) {
-    op.addr.base_reg.name = "RIP";
+    op.addr.base_reg.name = "NEXT_PC";
   }
 
   // We always pass destination operands first, then sources. Memory operands
   // are represented by their addresses, and in the instuction implementations,
   // accessed via intrinsics.
   if (xed_operand_written(xedo)) {
-    op.action = Operand::kActionWrite;
+    // if the register is used for memory storing, elfconv deal with it as kActionRead.
+    op.action = Operand::kActionRead;
     op.addr.kind = Operand::Address::kMemoryWrite;
     inst.operands.push_back(op);
   }
@@ -976,11 +977,26 @@ static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size
 
 void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
   switch (iform) {
+    case XED_IFORM_JMP_RELBRd:
+    case XED_IFORM_NOP_MEMv_GPRv_0F1F:
     case XED_IFORM_MOV_GPRv_IMMz:
+    case XED_IFORM_JMP_RELBRb:
+    case XED_IFORM_MOV_GPRv_GPRv_89:
     case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
-    case XED_IFORM_MOV_GPRv_MEMv: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_MOV_MEMv_GPRv:
+    case XED_IFORM_MOV_GPRv_MEMv:
+    case XED_IFORM_PUSH_GPRv_50:
+    case XED_IFORM_POP_GPRv_58:
+    case XED_IFORM_RET_NEAR:
+    case XED_IFORM_CALL_NEAR_RELBRd:
+    case XED_IFORM_MOV_MEMv_IMMz: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_ADD_GPRv_MEMv:
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
-    case XED_IFORM_XOR_GPRv_GPRv_31: inst.sema_func_arg_type = SemaFuncArgType::State; break;
+    case XED_IFORM_CMP_GPRv_IMMb:
+    case XED_IFORM_XOR_GPRv_GPRv_31:
+    case XED_IFORM_JNZ_RELBRb:
+    case XED_IFORM_ADD_GPRv_IMMb:
+    case XED_IFORM_SUB_GPRv_IMMb: inst.sema_func_arg_type = SemaFuncArgType::State; break;
     default:
       LOG(FATAL) << "Unsupported instruction at SetSemaFuncArgType: (" << inst.function << ")";
   }
@@ -1106,19 +1122,52 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
-  SetSemaFuncArgType(inst, iform);
+  // Push implicit operands.
+  if (iform == XED_IFORM_CALL_NEAR_RELBRd || iform == XED_IFORM_RET_NEAR) {
+    // Push Write PC
+    Operand rip_op = {};
+    rip_op.type = Operand::kTypeRegister;
+    rip_op.action = Operand::kActionWrite;
+    rip_op.reg = RegOp(XED_REG_RIP);
+    rip_op.size = rip_op.reg.size;
+    inst.operands.push_back(rip_op);
 
-  // seems not to need NEXT_PC.
-  // Control flow operands update the next program counter.
-  // if (inst.IsControlFlow()) {
-  //   inst.operands.emplace_back();
-  //   auto &dst_ret_pc = inst.operands.back();
-  //   dst_ret_pc.type = Operand::kTypeRegister;
-  //   dst_ret_pc.action = Operand::kActionWrite;
-  //   dst_ret_pc.size = address_size;
-  //   dst_ret_pc.reg.name = "NEXT_PC";
-  //   dst_ret_pc.reg.size = address_size;
-  // }
+    // Push Read SP
+    Operand rsp_op = {};
+    rsp_op.type = Operand::kTypeRegister;
+    rsp_op.action = Operand::kActionRead;
+    rsp_op.reg = RegOp(XED_REG_RSP);
+    rsp_op.size = rsp_op.reg.size;
+    inst.operands.push_back(rsp_op);
+
+    // Push Write SP
+    Operand wsp_op = {};
+    wsp_op.type = Operand::kTypeRegister;
+    wsp_op.action = Operand::kActionWrite;
+    wsp_op.reg = RegOp(XED_REG_RSP);
+    wsp_op.size = wsp_op.reg.size;
+    inst.operands.push_back(wsp_op);
+  }
+
+  if (iform == XED_IFORM_PUSH_GPRv_50 || iform == XED_IFORM_POP_GPRv_58) {
+    // Push Read SP
+    Operand rsp_op = {};
+    rsp_op.type = Operand::kTypeRegister;
+    rsp_op.action = Operand::kActionRead;
+    rsp_op.reg = RegOp(XED_REG_RSP);
+    rsp_op.size = rsp_op.reg.size;
+    inst.operands.push_back(rsp_op);
+
+    // Push Write SP
+    Operand wsp_op = {};
+    wsp_op.type = Operand::kTypeRegister;
+    wsp_op.action = Operand::kActionWrite;
+    wsp_op.reg = RegOp(XED_REG_RSP);
+    wsp_op.size = wsp_op.reg.size;
+    inst.operands.push_back(wsp_op);
+  }
+
+  SetSemaFuncArgType(inst, iform);
 
   if (inst.IsFunctionCall()) {
     DecodeFallThroughPC(inst, xedd);
@@ -1126,13 +1175,13 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     // The semantics will store the return address in `RETURN_PC`. This is to
     // help synchronize program counters when lifting instructions on an ISA
     // with delay slots.
-    inst.operands.emplace_back();
-    auto &dst_ret_pc = inst.operands.back();
-    dst_ret_pc.type = Operand::kTypeRegister;
-    dst_ret_pc.action = Operand::kActionWrite;
-    dst_ret_pc.size = address_size;
-    dst_ret_pc.reg.name = "RETURN_PC";
-    dst_ret_pc.reg.size = address_size;
+    // inst.operands.emplace_back();
+    // auto &dst_ret_pc = inst.operands.back();
+    // dst_ret_pc.type = Operand::kTypeRegister;
+    // dst_ret_pc.action = Operand::kActionWrite;
+    // dst_ret_pc.size = address_size;
+    // dst_ret_pc.reg.name = "RETURN_PC";
+    // dst_ret_pc.reg.size = address_size;
   }
 
   if (UsesStopFailure(xedd)) {

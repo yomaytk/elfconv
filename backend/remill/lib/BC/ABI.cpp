@@ -22,6 +22,7 @@ const std::string_view kStateVariableName = "STATE";
 const std::string_view kPCVariableName = "PC";
 const std::string_view kRIPVariableName = "RIP";
 const std::string_view kReturnPCVariableName = "RETURN_PC";
+const std::string_view kNextPCVariableName = "NEXT_PC";
 const std::string_view kBranchTakenVariableName = "BRANCH_TAKEN";
 const std::string_view kRuntimeVariableName = "RUNTIME";
 const std::string_view kEcvNZCVVariableName = "ECV_NZCV";

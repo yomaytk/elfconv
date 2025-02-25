@@ -107,8 +107,8 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 
 // An instruction with a single 32- or 64-bit register destination operand.
 #define DEF_ISEL_R32or64W(name, func) \
-  IF_32BIT(DEF_ISEL(name##_32) = func<R32W>) \
-  IF_64BIT(DEF_ISEL(name##_64) = func<R64W>)
+  IF_32BIT(DEF_ISEL(name##_32) = func<R32>) \
+  IF_64BIT(DEF_ISEL(name##_64) = func<R64>)
 
 // An instruction with a single 32- or 64-bit memory destination operand.
 #define DEF_ISEL_M32or64(name, func) \
@@ -206,13 +206,13 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
   DEF_ISEL(name##_32) = tpl_func<X##32W, X##32, Y##32, Z##32> IF_64BIT( \
       ; DEF_ISEL(name##_64) = tpl_func<X##64W, X##64, Y##64, Z##64>)
 
-#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, M, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, M, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP REG_b.
 #define DEF_ISEL_RnW_Rn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP IMM.
-#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, I, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, I, name, tpl_func)
 
 #define _DEF_ISEL_XnW_Xn_YnW_Yn(X, Y, name, tpl_func) \
   DEF_ISEL(name##_8) = tpl_func<X##8W, X##8, Y##8W, Y##8>; \
