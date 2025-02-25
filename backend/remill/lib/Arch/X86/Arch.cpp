@@ -1122,33 +1122,49 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
-  if (inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
+  // Push implicit operands.
+  if (iform == XED_IFORM_CALL_NEAR_RELBRd || iform == XED_IFORM_RET_NEAR) {
+    // Push Write PC
     Operand rip_op = {};
     rip_op.type = Operand::kTypeRegister;
     rip_op.action = Operand::kActionWrite;
     rip_op.reg = RegOp(XED_REG_RIP);
     rip_op.size = rip_op.reg.size;
     inst.operands.push_back(rip_op);
-  }
 
-  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP")
-    || inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
+    // Push Read SP
     Operand rsp_op = {};
     rsp_op.type = Operand::kTypeRegister;
     rsp_op.action = Operand::kActionRead;
     rsp_op.reg = RegOp(XED_REG_RSP);
     rsp_op.size = rsp_op.reg.size;
     inst.operands.push_back(rsp_op);
+
+    // Push Write SP
+    Operand wsp_op = {};
+    wsp_op.type = Operand::kTypeRegister;
+    wsp_op.action = Operand::kActionWrite;
+    wsp_op.reg = RegOp(XED_REG_RSP);
+    wsp_op.size = wsp_op.reg.size;
+    inst.operands.push_back(wsp_op);
   }
 
-  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP")
-    || inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
+  if (iform == XED_IFORM_PUSH_GPRv_50 || iform == XED_IFORM_POP_GPRv_58) {
+    // Push Read SP
     Operand rsp_op = {};
     rsp_op.type = Operand::kTypeRegister;
-    rsp_op.action = Operand::kActionWrite;
+    rsp_op.action = Operand::kActionRead;
     rsp_op.reg = RegOp(XED_REG_RSP);
     rsp_op.size = rsp_op.reg.size;
     inst.operands.push_back(rsp_op);
+
+    // Push Write SP
+    Operand wsp_op = {};
+    wsp_op.type = Operand::kTypeRegister;
+    wsp_op.action = Operand::kActionWrite;
+    wsp_op.reg = RegOp(XED_REG_RSP);
+    wsp_op.size = wsp_op.reg.size;
+    inst.operands.push_back(wsp_op);
   }
 
   SetSemaFuncArgType(inst, iform);
