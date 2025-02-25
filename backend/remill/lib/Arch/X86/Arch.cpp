@@ -977,7 +977,6 @@ static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size
 
 void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
   switch (iform) {
-    case XED_IFORM_RET_NEAR:
     case XED_IFORM_JMP_RELBRd:
     case XED_IFORM_NOP_MEMv_GPRv_0F1F:
     case XED_IFORM_MOV_GPRv_IMMz:
@@ -988,8 +987,10 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_MOV_GPRv_MEMv:
     case XED_IFORM_PUSH_GPRv_50:
     case XED_IFORM_POP_GPRv_58:
-    // case XED_IFORM_CALL_NEAR_RELBRd:
+    case XED_IFORM_RET_NEAR:
+    case XED_IFORM_CALL_NEAR_RELBRd:
     case XED_IFORM_MOV_MEMv_IMMz: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_ADD_GPRv_MEMv:
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
     case XED_IFORM_CMP_GPRv_IMMb:
     case XED_IFORM_XOR_GPRv_GPRv_31:
@@ -1121,17 +1122,7 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
-  // if (inst.function.starts_with("CALL")) {
-  //   Operand next_pc = {};
-  //   next_pc.type = Operand::kTypeRegister;
-  //   next_pc.action = Operand::kActionRead;
-  //   next_pc.size = address_size;
-  //   next_pc.reg.name = "NEXT_PC";
-  //   next_pc.reg.size = address_size;
-  //   inst.operands.push_back(next_pc);
-  // }
-
-  if (inst.function.starts_with("CALL")) {
+  if (inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
     Operand rip_op = {};
     rip_op.type = Operand::kTypeRegister;
     rip_op.action = Operand::kActionWrite;
@@ -1140,7 +1131,8 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     inst.operands.push_back(rip_op);
   }
 
-  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP") || inst.function.starts_with("CALL")) {
+  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP")
+    || inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
     Operand rsp_op = {};
     rsp_op.type = Operand::kTypeRegister;
     rsp_op.action = Operand::kActionRead;
@@ -1149,7 +1141,8 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     inst.operands.push_back(rsp_op);
   }
 
-  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP") || inst.function.starts_with("CALL")) {
+  if (inst.function.starts_with("PUSH") || inst.function.starts_with("POP")
+    || inst.function.starts_with("CALL") || inst.function.starts_with("RET")) {
     Operand rsp_op = {};
     rsp_op.type = Operand::kTypeRegister;
     rsp_op.action = Operand::kActionWrite;
@@ -1159,18 +1152,6 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
   }
 
   SetSemaFuncArgType(inst, iform);
-
-  // seems not to need NEXT_PC.
-  // Control flow operands update the next program counter.
-  // if (inst.IsControlFlow()) {
-  //   inst.operands.emplace_back();
-  //   auto &dst_ret_pc = inst.operands.back();
-  //   dst_ret_pc.type = Operand::kTypeRegister;
-  //   dst_ret_pc.action = Operand::kActionWrite;
-  //   dst_ret_pc.size = address_size;
-  //   dst_ret_pc.reg.name = "NEXT_PC";
-  //   dst_ret_pc.reg.size = address_size;
-  // }
 
   if (inst.IsFunctionCall()) {
     DecodeFallThroughPC(inst, xedd);
