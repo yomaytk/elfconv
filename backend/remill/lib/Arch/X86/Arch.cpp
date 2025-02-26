@@ -423,6 +423,11 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   if (XED_IFORM_MOV_MEMw_SEG == iform) {
     size = 16;
   }
+  // NOTE: These instructions are not "scalable" for XED, so we need to name manually.
+  if (XED_IFORM_MOV_GPR8_MEMb == iform || XED_IFORM_MOV_MEMb_IMMb == iform) {
+    inst.function += "_";
+    inst.function += std::to_string(size);
+  }
 
   auto raw_segment_reg = xed_decoded_inst_get_seg_reg(xedd, mem_index);
   auto deduce_segment = [&](auto segment_reg) {
@@ -977,25 +982,61 @@ static void FillFusedCallPopRegOperands(Instruction &inst, unsigned address_size
 
 void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
   switch (iform) {
+    case XED_IFORM_CDQ:
+    case XED_IFORM_CDQE:
     case XED_IFORM_JMP_RELBRd:
+    case XED_IFORM_NOP_90:
     case XED_IFORM_NOP_MEMv_GPRv_0F1F:
+    case XED_IFORM_MOV_GPR8_IMMb_B0:
     case XED_IFORM_MOV_GPRv_IMMz:
+    case XED_IFORM_MOV_GPRv_IMMv:
     case XED_IFORM_JMP_RELBRb:
+    case XED_IFORM_MOV_GPR8_GPR8_88:
     case XED_IFORM_MOV_GPRv_GPRv_89:
     case XED_IFORM_LEA_GPRv_AGEN: inst.sema_func_arg_type = SemaFuncArgType::Nothing; break;
+    case XED_IFORM_MOV_MEMb_IMMb:
+    case XED_IFORM_MOV_MEMv_IMMz:
     case XED_IFORM_MOV_MEMv_GPRv:
+    case XED_IFORM_MOV_MEMb_GPR8:
     case XED_IFORM_MOV_GPRv_MEMv:
+    case XED_IFORM_MOV_GPR8_MEMb:
+    case XED_IFORM_MOVSXD_GPRv_MEMz:
     case XED_IFORM_PUSH_GPRv_50:
     case XED_IFORM_POP_GPRv_58:
     case XED_IFORM_RET_NEAR:
-    case XED_IFORM_CALL_NEAR_RELBRd:
-    case XED_IFORM_MOV_MEMv_IMMz: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_CALL_NEAR_RELBRd: inst.sema_func_arg_type = SemaFuncArgType::Runtime; break;
+    case XED_IFORM_CMP_MEMv_IMMz:
+    case XED_IFORM_CMP_MEMv_IMMb:
+    case XED_IFORM_CMP_MEMb_IMMb_80r7:
     case XED_IFORM_ADD_GPRv_MEMv:
+    case XED_IFORM_ADD_MEMb_GPR8:
+    case XED_IFORM_IMUL_GPRv_MEMv_IMMz:
+    case XED_IFORM_IMUL_GPRv_MEMv_IMMb:
+    case XED_IFORM_IDIV_MEMv:
+    case XED_IFORM_IDIV_GPRv:
+    case XED_IFORM_SHL_GPRv_IMMb_C1r4:
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
+    case XED_IFORM_CMP_GPR8_IMMb_80r7:
     case XED_IFORM_CMP_GPRv_IMMb:
+    case XED_IFORM_CMP_GPRv_GPRv_39:
+    case XED_IFORM_CMP_AL_IMMb:
+    case XED_IFORM_CMP_OrAX_IMMz:
+    case XED_IFORM_SETL_GPR8:
     case XED_IFORM_XOR_GPRv_GPRv_31:
+    case XED_IFORM_XOR_AL_IMMb:
+    case XED_IFORM_TEST_AL_IMMb:
     case XED_IFORM_JNZ_RELBRb:
+    case XED_IFORM_JNZ_RELBRd:
+    case XED_IFORM_JNL_RELBRd:
+    case XED_IFORM_JNL_RELBRb:
+    case XED_IFORM_JLE_RELBRd:
+    case XED_IFORM_IMUL_GPRv_GPRv:
     case XED_IFORM_ADD_GPRv_IMMb:
+    case XED_IFORM_ADD_GPRv_IMMz:
+    case XED_IFORM_ADD_OrAX_IMMz:
+    case XED_IFORM_SUB_GPRv_GPRv_29:
+    case XED_IFORM_SUB_AL_IMMb:
+    case XED_IFORM_SUB_GPRv_IMMz:
     case XED_IFORM_SUB_GPRv_IMMb: inst.sema_func_arg_type = SemaFuncArgType::State; break;
     default:
       LOG(FATAL) << "Unsupported instruction at SetSemaFuncArgType: (" << inst.function << ")";
@@ -1123,48 +1164,47 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
   }
 
   // Push implicit operands.
-  if (iform == XED_IFORM_CALL_NEAR_RELBRd || iform == XED_IFORM_RET_NEAR) {
-    // Push Write PC
-    Operand rip_op = {};
-    rip_op.type = Operand::kTypeRegister;
-    rip_op.action = Operand::kActionWrite;
-    rip_op.reg = RegOp(XED_REG_RIP);
-    rip_op.size = rip_op.reg.size;
-    inst.operands.push_back(rip_op);
+  auto push_operand = [&](Operand::Type type, Operand::Action action, xed_reg_enum_t reg) {
+    Operand op = {};
+    op.type = type;
+    op.action = action;
+    op.reg = RegOp(reg);
+    op.size = op.reg.size;
+    inst.operands.push_back(op);
+  };
 
-    // Push Read SP
-    Operand rsp_op = {};
-    rsp_op.type = Operand::kTypeRegister;
-    rsp_op.action = Operand::kActionRead;
-    rsp_op.reg = RegOp(XED_REG_RSP);
-    rsp_op.size = rsp_op.reg.size;
-    inst.operands.push_back(rsp_op);
-
-    // Push Write SP
-    Operand wsp_op = {};
-    wsp_op.type = Operand::kTypeRegister;
-    wsp_op.action = Operand::kActionWrite;
-    wsp_op.reg = RegOp(XED_REG_RSP);
-    wsp_op.size = wsp_op.reg.size;
-    inst.operands.push_back(wsp_op);
-  }
-
-  if (iform == XED_IFORM_PUSH_GPRv_50 || iform == XED_IFORM_POP_GPRv_58) {
-    // Push Read SP
-    Operand rsp_op = {};
-    rsp_op.type = Operand::kTypeRegister;
-    rsp_op.action = Operand::kActionRead;
-    rsp_op.reg = RegOp(XED_REG_RSP);
-    rsp_op.size = rsp_op.reg.size;
-    inst.operands.push_back(rsp_op);
-
-    // Push Write SP
-    Operand wsp_op = {};
-    wsp_op.type = Operand::kTypeRegister;
-    wsp_op.action = Operand::kActionWrite;
-    wsp_op.reg = RegOp(XED_REG_RSP);
-    wsp_op.size = wsp_op.reg.size;
-    inst.operands.push_back(wsp_op);
+  switch (iform) {
+    case XED_IFORM_CALL_NEAR_RELBRd:
+    case XED_IFORM_RET_NEAR:
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RIP);
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RSP);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RSP);
+      break;
+    case XED_IFORM_PUSH_GPRv_50:
+    case XED_IFORM_POP_GPRv_58:
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RSP);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RSP);
+      break;
+    case XED_IFORM_CDQ:
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
+    #if 64 == ADDRESS_SIZE_BITS
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
+    #else
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_EDX);
+    #endif
+      break;
+    case XED_IFORM_CDQE:
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
+      break;
+    case XED_IFORM_IDIV_MEMv:
+    case XED_IFORM_IDIV_GPRv:
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EDX);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
+      break;
+    default: break;
   }
 
   SetSemaFuncArgType(inst, iform);
