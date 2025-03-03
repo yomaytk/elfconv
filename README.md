@@ -4,7 +4,8 @@ elfconv converts an original ELF binary to the LLVM bitcode using [remill](https
 and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (for browser) or [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) (for WASI runtimes) to generate the WASM binary from the LLVM bitcode file.
 
 ## Status
-"**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Current limitations are as follows.
+> [!WARNING]
+> "**elfconv is a work in progress**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated WASM binary. Current limitations are as follows.
 - Only support of aarch64 ELF binary as an input binary
     - Furthermore, a part of aarch64 instructions are not supported. If your ELF binary's instruction is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...)
 - No support for stripped binaries
@@ -13,15 +14,15 @@ and elfconv uses [emscripten](https://github.com/emscripten-core/emscripten) (fo
 
 ## Benchmark
 Existing projects similar to elfconv include [`container2wasm`](https://github.com/container2wasm/container2wasm) and [`v86`](https://github.com/copy/v86), which port CPU emulators to Wasm, allowing arbitrary Linux applications to run in a Wasm environment as-is. 
-Below are the performance comparison results between elfconv and container2wasm for several ELF/aarch64 applications (`v86` only supports 32-bit programs, so it has not been compared yet).
+Below are the performance comparison results between elfconv and container2wasm for several ELF/aarch64 applications (v86 supports only 32-bit programs, so it has not been compared yet).
 
 | ELF/aarch64      | container2wasm      | elfconv      | times |
 |----------|----------|----------|----------|
-| eratosthenes_sieve (↓ better) | 12.98 (s)  | **2.02** (s)  | **6.49** |
+| [`eratosthenes_sieve`](https://github.com/yomaytk/elfconv/tree/main/examples/benchmarks/eratosthenes_sieve) (↓ better) | 12.98 (s)  | **2.02** (s)  | **6.49** |
 | [`LINPACK benchmark`](https://www.netlib.org/linpack/) (↑ better) | 19.3 (MFLOPS) | **164.9** (MFLOPS) | **8.54** |
 | [`fs_mark benchmark`](https://openbenchmarking.org/test/pts/fs-mark&eval=23f3bcd2e402020a107b6b06bdafebb7943ca11a) (↑ better) | 171.0 (Files/s) | **1338.0** (Files/s)| **7.82** |
 
-As shown in the table above, the AOT compilation approach of elfconv significantly outperforms CPU emulators in terms of performance. But does this mean that elfconv is superior to the aforementioned projects? Absolutely not. While container2wasm and v86 can run arbitrary Linux applications that can be executed by the CPU emulator, elfconv currently has limited support for Linux system call implementations and convertible machine code. As a result, it falls short in terms of the diversity of applications it can execute compared to these existing projects.
+As shown in the table above, the AOT compilation approach of elfconv significantly outperforms CPU emulators in terms of performance. But does this mean that elfconv is superior to the projects based on CPU emulators above? Unfortunately not. **While container2wasm and v86 can run arbitrary Linux applications that can be executed by the CPU emulator, elfconv currently has limited support for Linux system call implementations and convertible machine code.** As a result, elfconv is inferior to those projects based on CPU emulators in terms of the diversity of applications it can execute.
 
 ## Quick Start
 You can try elfconv using the docker container (amd64 and arm64) by executing the commands as follows and can execute the WASM application on the both browser and host environment (WASI runtimes).
