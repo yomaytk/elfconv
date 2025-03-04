@@ -482,7 +482,6 @@ float128_t __remill_read_memory_f128(RuntimeManager *runtime_manager, addr_t add
 }
 
 uint8_t __remill_undefined_8(void) {
-  UNDEFINED_INTRINSICS("__remill_undefined_8");
   return 0;
 }
 uint16_t __remill_undefined_16(void) {

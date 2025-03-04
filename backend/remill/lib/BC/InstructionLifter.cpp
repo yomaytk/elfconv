@@ -123,20 +123,42 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
   } else if (kArchAMD64 == TARGET_ELF_ARCH) {
     if ("RAX" == _reg_name) {
       return {EcvReg(RegKind::General, 0), ERC::RegX};
+    } else if ("EAX" == _reg_name) {
+      return {EcvReg(RegKind::General, 0), ERC::RegW};
+    } else if ("AX" == _reg_name) {
+      return {EcvReg(RegKind::General, 0), ERC::RegH};
+    } else if ("AL" == _reg_name) {
+      return {EcvReg(RegKind::General, 0), ERC::RegB};
+    } else if ("RCX" == _reg_name) {
+      return {EcvReg(RegKind::General, 1), ERC::RegX};
+    } else if ("ECX" == _reg_name) {
+      return {EcvReg(RegKind::General, 1), ERC::RegW};
+    } else if ("CL" == _reg_name) {
+      return {EcvReg(RegKind::General, 1), ERC::RegB};
+    } else if ("RDX" == _reg_name) {
+      return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("EDX" == _reg_name) {
+      return {EcvReg(RegKind::General, 2), ERC::RegW};
     } else if ("RBX" == _reg_name) {
       return {EcvReg(RegKind::General, 3), ERC::RegX};
+    } else if ("EBX" == _reg_name) {
+      return {EcvReg(RegKind::General, 3), ERC::RegW};
+    } else if ("BL" == _reg_name) {
+      return {EcvReg(RegKind::General, 3), ERC::RegB};
     } else if ("RSP" == _reg_name) {
       return {EcvReg(RegKind::General, 4), ERC::RegX};
     } else if ("RBP" == _reg_name) {
       return {EcvReg(RegKind::General, 5), ERC::RegX};
-    } else if ("RDI" == _reg_name) {
-      return {EcvReg(RegKind::General, 7), ERC::RegX};
     } else if ("RSI" == _reg_name) {
       return {EcvReg(RegKind::General, 6), ERC::RegX};
+    } else if ("RDI" == _reg_name) {
+      return {EcvReg(RegKind::General, 7), ERC::RegX};
+    } else if ("EDI" == _reg_name) {
+      return {EcvReg(RegKind::General, 7), ERC::RegW};
+    } else if ("R8" == _reg_name) {
+      return {EcvReg(RegKind::General, 8), ERC::RegX};
     } else if ("RIP" == _reg_name) {
       return {EcvReg(RegKind::Special, RIP_ORDER), ERC::RegX};
-    } else if ("RDX" == _reg_name) {
-      return {EcvReg(RegKind::General, 2), ERC::RegX};
     } else if ("BRANCH_TAKEN" == _reg_name) {
       return {EcvReg(RegKind::Special, BRANCH_TAKEN_ORDER), ERC::RegX};
     } else if ("STATE" == _reg_name) {
@@ -229,6 +251,8 @@ std::string EcvReg::GetWideRegName() const {
   } else if (kArchAMD64 == TARGET_ELF_ARCH) {
     if (0 == number) {
       return "RAX";
+    } else if (1 == number) {
+      return "RCX";
     } else if (2 == number) {
       return "RDX";
     } else if (3 == number) {
@@ -241,6 +265,8 @@ std::string EcvReg::GetWideRegName() const {
       return "RSI";
     } else if (7 == number) {
       return "RDI";
+    } else if (8 == number) {
+      return "R8";
     } else if (SP_ORDER == number) {
       return "RSP";
     } else if (RIP_ORDER == number) {
@@ -302,11 +328,36 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
     LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
   } else if (kArchAMD64 == TARGET_ELF_ARCH) {
     if (0 == number) {
-      return "RAX";
+      switch (ecv_reg_class) {
+        case ERC::RegW: return "EAX"; break;
+        case ERC::RegX: return "RAX"; break;
+        case ERC::RegB: return "AL"; break;
+        case ERC::RegH: return "AX"; break;
+        default: LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+      }
+    } else if (1 == number) {
+      switch (ecv_reg_class) {
+        case ERC::RegW: return "ECX"; break;
+        case ERC::RegX: return "RCX"; break;
+        case ERC::RegB: return "CL"; break;
+        case ERC::RegH: return "CX"; break;
+        default: LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+      }
     } else if (2 == number) {
-      return "RDX";
+      switch (ecv_reg_class) {
+        case ERC::RegW: return "EDX"; break;
+        case ERC::RegX: return "RDX"; break;
+        case ERC::RegB: return "DL"; break;
+        case ERC::RegH: return "DX"; break;
+        default: LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+      }
     } else if (3 == number) {
-      return "RBX";
+      switch (ecv_reg_class) {
+        case ERC::RegX: return "RBX"; break;
+        case ERC::RegW: return "EBX"; break;
+        case ERC::RegB: return "BL"; break;
+        default: LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+      }
     } else if (4 == number) {
       return "RSP";
     } else if (5 == number) {
@@ -315,6 +366,8 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
       return "RSI";
     } else if (7 == number) {
       return "RDI";
+    } else if (8 == number) {
+      return "R8";
     } else if (SP_ORDER == number) {
       return "RSP";
     } else if (RIP_ORDER == number) {
@@ -664,10 +717,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         write_regs.push_back({e_r, e_r_c});
         continue;
       } else if (Operand::Action::kActionRead == op.action) {
-        if (is_base_reg) {
-          CHECK(op.addr.index_reg.name.empty())
-              << "[Bug] addr.index_reg must not be added to operands list.";
-        }
+        // if (is_base_reg) {
+        //   CHECK(op.addr.index_reg.name.empty())
+        //       << "[Bug] addr.index_reg must not be added to operands list.";
+        // }
         if (31 != t_reg->number || "SP" == t_reg->name) {
           load_reg_map.insert({e_r, e_r_c});
         } else {

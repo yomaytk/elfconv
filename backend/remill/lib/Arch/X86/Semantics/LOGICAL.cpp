@@ -65,15 +65,14 @@ DEF_SEM_T_STATE(XOR, S1 src1, S2 src2) {
 //   return memory;
 // }
 
-// template <typename S1, typename S2>
-// DEF_SEM(TEST, S1 src1, S2 src2) {
-//   auto lhs = Read(src1);
-//   auto rhs = Read(src2);
-//   auto res = UAnd(lhs, rhs);
-//   SetFlagsLogical(state, lhs, rhs, res);
-//   UndefFlag(af);
-//   return memory;
-// }
+template <typename S1, typename S2>
+DEF_SEM_VOID_STATE(TEST, S1 src1, S2 src2) {
+  auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  auto res = UAnd(lhs, rhs);
+  SetFlagsLogical(state, lhs, rhs, res);
+  UndefFlag(af);
+}
 
 }  // namespace
 
@@ -131,7 +130,7 @@ DEF_ISEL_RnW_Rn_Rn(XOR_GPRv_GPRv_31, XOR);
 // DEF_ISEL(XOR_GPR8_MEMb) = XOR<R8W, R8, M8>;
 // DEF_ISEL_RnW_Rn_Rn(XOR_GPRv_GPRv_33, XOR);
 // DEF_ISEL_RnW_Rn_Mn(XOR_GPRv_MEMv, XOR);
-// DEF_ISEL(XOR_AL_IMMb) = XOR<R8W, R8, I8>;
+DEF_ISEL(XOR_AL_IMMb) = XOR<R8, I8>;
 // DEF_ISEL_RnW_Rn_In(XOR_OrAX_IMMz, XOR);
 
 // DEF_ISEL(NOT_MEMb) = NOT<M8W, M8>;
@@ -151,7 +150,7 @@ DEF_ISEL_RnW_Rn_Rn(XOR_GPRv_GPRv_31, XOR);
 // DEF_ISEL(TEST_GPR8_GPR8) = TEST<R8, R8>;
 // DEF_ISEL_Mn_Rn(TEST_MEMv_GPRv, TEST);
 // DEF_ISEL_Rn_Rn(TEST_GPRv_GPRv, TEST);
-// DEF_ISEL(TEST_AL_IMMb) = TEST<R8, I8>;
+DEF_ISEL(TEST_AL_IMMb) = TEST<R8, I8>;
 // DEF_ISEL_Rn_In(TEST_OrAX_IMMz, TEST);
 
 // namespace {

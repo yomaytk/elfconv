@@ -115,3 +115,7 @@ typedef struct {
 #define DEF_SEM_U64U64_STATE_RUN(name, ...) \
   ALWAYS_INLINE __attribute__((flatten)) static U64U64 name( \
       State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
+
+#define DEF_SEM_U32U32_STATE_RUN(name, ...) \
+ALWAYS_INLINE __attribute__((flatten)) static U32U32 name( \
+    State &state, RuntimeManager *runtime_manager, ##__VA_ARGS__)
