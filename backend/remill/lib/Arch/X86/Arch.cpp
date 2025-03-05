@@ -1018,6 +1018,7 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_SYSCALL: inst.sema_func_arg_type = SemaFuncArgType::StateRuntime; break;
     case XED_IFORM_CMP_GPR8_IMMb_80r7:
     case XED_IFORM_CMP_GPRv_IMMb:
+    case XED_IFORM_CMP_GPRv_IMMz:
     case XED_IFORM_CMP_GPRv_GPRv_39:
     case XED_IFORM_CMP_AL_IMMb:
     case XED_IFORM_CMP_OrAX_IMMz:

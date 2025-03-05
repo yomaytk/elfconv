@@ -85,8 +85,11 @@ idiv_gprv_32_error_msg:
 mov_gpr8_gpr8_88_error_msg:
     .string "[ERROR] MOV_GPR8_GPR8_88\n"
 
-imul_gprv_memv_imm8_error_msg:
-    .string "[ERROR] IMUL_GPRv_MEMv_IMM8\n"
+imul_gprv_memv_immb_error_msg:
+    .string "[ERROR] IMUL_GPRv_MEMv_IMMb\n"
+
+imul_gprv_memv_immz_error_msg:
+    .string "[ERROR] IMUL_GPRv_MEMv_IMMz\n"
 
 imul_gprv_gprv_error_msg:
     .string "[ERROR] IMUL_GPRv_GPRv\n"
@@ -124,9 +127,9 @@ fail_jnl_relbrb:
     jmp exit
 
 test_add_orax_immz:
-    mov eax, 0
-    add eax, 0x12345678
-    cmp eax, 0x12345678
+    xor rax, rax
+    add rax, 0x12345678
+    cmp rax, 0x12345678
     jne fail_add_orax_immz
     jmp test_cmp_gprv_gprv_39
 
@@ -175,7 +178,7 @@ test_imul_gprv_gprv:
     imul eax, ebx
     cmp eax, -15
     jne fail_imul_gprv_gprv
-    jmp test_imul_gprv_memv_imm8
+    jmp test_imul_gprv_memv_immb
 
 fail_imul_gprv_gprv:
     mov rax, 1
@@ -184,21 +187,39 @@ fail_imul_gprv_gprv:
     mov rdx, 27
     syscall
     jmp exit
-    
-test_imul_gprv_memv_imm8:
+
+test_imul_gprv_memv_immb:
     mov rbp, rsp
     sub rsp, 8
-    mov dword ptr [rbp], -2   # Store -2 in memory
+    mov dword ptr [rbp], 2
     xor eax, eax
     imul eax, dword ptr [rbp], -5
-    cmp eax, 10
-    jne fail_imul_gprv_memv_imm8
-    jmp test_mov_gpr8_gpr8_88
-
-fail_imul_gprv_memv_imm8:
+    cmp eax, -10
+    jne fail_imul_gprv_memv_immb
+    jmp test_imul_gprv_memv_immz
+    
+fail_imul_gprv_memv_immb:
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rip + imul_gprv_memv_imm8_error_msg]
+    lea rsi, [rip + imul_gprv_memv_immb_error_msg]
+    mov rdx, 29
+    syscall
+    jmp exit
+
+test_imul_gprv_memv_immz:
+    mov rbp, rsp
+    sub rsp, 8
+    mov dword ptr [rbp], 3
+    xor eax, eax
+    imul eax, dword ptr [rbp], -5000
+    cmp eax, -15000
+    jne fail_imul_gprv_memv_immz
+    jmp test_mov_gpr8_gpr8_88
+
+fail_imul_gprv_memv_immz:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + imul_gprv_memv_immz_error_msg]
     mov rdx, 29
     syscall
     jmp exit
@@ -260,10 +281,9 @@ fail_idiv_memv_32:
     jmp exit
 
 test_add_gprv_immz:
-    mov eax, 0
-    .byte 0x81, 0xC0  # ADD EAX, IMM32
-    .long 0x12345678  # IMM32
-    cmp eax, 0x12345678
+    xor rdx, rdx
+    add rdx, 5000
+    cmp rdx, 5000
     jne fail_add_gprv_immz
     jmp test_mov_gprv_immv
 
