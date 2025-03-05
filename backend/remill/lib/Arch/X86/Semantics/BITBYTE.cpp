@@ -28,7 +28,7 @@ namespace {
 //   return memory;
 // }
 
-DEF_SEM_T_STATE(SETL_RI) {
+DEF_SEM_U8_STATE(SETL_RI) {
   return static_cast<uint8_t>(BXor(FLAG_SF, FLAG_OF));
 }
 
