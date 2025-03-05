@@ -291,7 +291,7 @@ DEF_SEM_T_STATE_RUN(IMUL_M_RI, S1 src1, S2 src2) {
   return res_trunc;  // E.g. write to EAX can overwrite RAX.
 }
 template <typename S1, typename S2>
-DEF_SEM_T_STATE(IMU_RI_RI, S1 src1, S2 src2) {
+DEF_SEM_T_STATE(IMUL_RI_RI, S1 src1, S2 src2) {
   auto lhs = Signed(Read(src1));
   auto rhs = Signed(Read(src2));
   auto lhs_wide = SExt(lhs);
@@ -418,7 +418,7 @@ DEF_ISEL_RnW_Mn_In(IMUL_GPRv_MEMv_IMMb, IMUL_M_RI);
 
 // Two-operand, but dest is a register so turns into a three-operand.
 // DEF_ISEL_RnW_Rn_Mn(IMUL_GPRv_MEMv, IMUL);
-DEF_ISEL_RnW_Rn_Rn(IMUL_GPRv_GPRv, IMU_RI_RI);
+DEF_ISEL_RnW_Rn_Rn(IMUL_GPRv_GPRv, IMUL_RI_RI);
 
 // DEF_ISEL(MUL_GPR8) = MULal<R8>;
 // DEF_ISEL(MUL_MEMb) = MULal<M8>;
