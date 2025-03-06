@@ -1,5 +1,5 @@
 #define MAX_NUM 1000000
-#define CLOCKS_PER_SEC 1000000000L
+#define CLOCKS_PER_01MSEC 100000L
 
 void gettime(void *tp) {
   __asm__ volatile("movq %0, %%rsi;"  // rsi = str (pointer to buffer)
@@ -100,7 +100,7 @@ void prime_cal() {
   write_stdout(s, 1000);
 
   gettime(&emu_tp_e);
-  double diff = (double) (emu_tp_e.tv_nsec - emu_tp_s.tv_nsec) / (double) CLOCKS_PER_SEC;
+  int diff = (emu_tp_e.tv_nsec - emu_tp_s.tv_nsec) / CLOCKS_PER_01MSEC;
 
   int t_pos = 0;
   int int_d = (int) diff;
@@ -111,15 +111,12 @@ void prime_cal() {
   time[t_pos++] = 'e';
   time[t_pos++] = ':';
   time[t_pos++] = ' ';
-  time[t_pos++] = '0' + int_d;
+  time[t_pos++] = '0' + (int_d / 10000);
   time[t_pos++] = '.';
-
-  double fraction = diff - int_d;
-  int frac_d = (int) (fraction * 1000);
-
-  time[t_pos++] = '0' + (frac_d / 100);
-  time[t_pos++] = '0' + ((frac_d / 10) % 10);
-  time[t_pos++] = '0' + (frac_d % 10);
+  time[t_pos++] = '0' + ((int_d / 1000) % 10);
+  time[t_pos++] = '0' + ((int_d / 100) % 10);
+  time[t_pos++] = '0' + ((int_d / 10) % 10);
+  time[t_pos++] = '0' + (int_d % 10);
   time[t_pos++] = '\n';
 
   write_stdout(time, 100);
