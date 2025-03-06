@@ -423,11 +423,6 @@ static void DecodeMemory(Instruction &inst, const xed_decoded_inst_t *xedd,
   if (XED_IFORM_MOV_MEMw_SEG == iform) {
     size = 16;
   }
-  // NOTE: These instructions are not "scalable" for XED, so we need to name manually.
-  if (XED_IFORM_MOV_GPR8_MEMb == iform || XED_IFORM_MOV_MEMb_IMMb == iform) {
-    inst.function += "_";
-    inst.function += std::to_string(size);
-  }
 
   auto raw_segment_reg = xed_decoded_inst_get_seg_reg(xedd, mem_index);
   auto deduce_segment = [&](auto segment_reg) {
