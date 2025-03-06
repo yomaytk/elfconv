@@ -220,7 +220,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
+    case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
       struct timespec emu_tp;
       int clock_time = clock_gettime(CLOCK_REALTIME, &emu_tp);

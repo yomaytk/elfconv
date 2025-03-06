@@ -72,6 +72,7 @@
 
 #  define ECV_SYS_WRITE 64
 #  define ECV_SYS_EXIT 93
+#  define ECV_SYS_CLOCK_GETTIME AARCH64_SYS_CLOCK_GETTIME
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
 #  define PCREG CPUState.gpr.rip.qword
@@ -91,4 +92,5 @@
 
 #  define ECV_SYS_WRITE 1
 #  define ECV_SYS_EXIT 60
+#  define ECV_SYS_CLOCK_GETTIME 228
 #endif
