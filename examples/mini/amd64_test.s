@@ -177,7 +177,7 @@ test_imul_gprv_gprv:
     mov ebx, -5
     imul eax, ebx
     cmp eax, -15
-    jne fail_imul_gprv_gprv
+    jne fail_imul_gprv_gprv_immz
     jmp test_imul_gprv_memv_immb
 
 fail_imul_gprv_gprv:
@@ -187,6 +187,28 @@ fail_imul_gprv_gprv:
     mov rdx, 27
     syscall
     jmp exit
+
+test_imul_gprv_gprv_immz:
+    xor rbx, rbx
+    mov rax, 5
+    imul rbx, rax, 3
+    cmp rbx, 15
+    jne fail_imul_gprv_gprv_immz
+    jmp test_imul_gprv_memv_immb
+
+.section .data
+imul_gprv_gprv_immz_error_msg:
+    .string "[ERROR] IMUL_GPRv_GPRv_IMMz\n"
+.section .text
+
+fail_imul_gprv_gprv_immz:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + imul_gprv_gprv_immz_error_msg]
+    mov rdx, 30
+    syscall
+    jmp exit
+    
 
 test_imul_gprv_memv_immb:
     mov rbp, rsp
@@ -270,7 +292,7 @@ test_idiv_memv_32:
     jne fail_idiv_memv_32
     cmp edx, -3
     jne fail_idiv_memv_32
-    jmp test_div_gprv_64
+    jmp test_div_gprv
 
 fail_idiv_memv_32:
     mov rax, 1
@@ -280,27 +302,27 @@ fail_idiv_memv_32:
     syscall
     jmp exit
 
-test_div_gprv_64:
+test_div_gprv:
     mov rax, 100
     xor rdx, rdx
     mov rcx, 3
     div rcx
     cmp rax, 33
-    jne fail_div_gprv_64
+    jne fail_div_gprv
     cmp rdx, 1
-    jne fail_div_gprv_64
+    jne fail_div_gprv
     jmp test_add_gprv_immz
 
 .section .data
-div_gprv_64_error_msg:
-    .string "[ERROR] DIV_GPRv_64\n"
+div_gprv_error_msg:
+    .string "[ERROR] DIV_GPRv\n"
 .section .text
 
-fail_div_gprv_64:
+fail_div_gprv:
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rip + div_gprv_64_error_msg]
-    mov rdx, 22
+    lea rsi, [rip + div_gprv_error_msg]
+    mov rdx, 20
     syscall
     jmp exit
 
@@ -309,13 +331,34 @@ test_add_gprv_immz:
     add rdx, 5000
     cmp rdx, 5000
     jne fail_add_gprv_immz
-    jmp test_mov_gprv_immv
+    jmp test_add_gprv_gprv
 
 fail_add_gprv_immz:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + add_gprv_immz_error_msg]
     mov rdx, 22
+    syscall
+    jmp exit
+
+test_add_gprv_gprv:
+    mov rax, 10
+    mov rbx, 20
+    add rax, rbx
+    cmp rax, 30
+    jne fail_add_gprv_gprv
+    jmp test_mov_gprv_immv
+
+.section .data
+add_gprv_gprv_error_msg:
+    .string "[ERROR] ADD_GPRv_GPRv\n"
+.section .text
+
+fail_add_gprv_gprv:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + add_gprv_gprv_error_msg]
+    mov rdx, 23
     syscall
     jmp exit
 
@@ -693,16 +736,41 @@ fail_cmp_memv_immb:
     jmp exit
 
 test_jnz_relbrd:
-    mov rax, 15
-    cmp rax, 15
-    jne fail_jnz_relbrd
-    jmp test_movsxd_gprv_memz
+    mov rax, 2 
+    sub rax, 1
+    jnz force_jnz_relbrd # far jump
+    jmp fail_jnz_relbrd
+
+success_jnz_relbrd:
+    jmp test_jz_relbrd
 
 fail_jnz_relbrd:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + jnz_relbrd_error_msg]
     mov rdx, 25
+    syscall
+    jmp exit
+
+test_jz_relbrd:
+    mov rax, 1
+    sub rax, 1
+    jz force_jz_relbrd # far jump
+    jmp fail_jz_relbrd
+
+success_jz_relbrd:
+    jmp test_movsxd_gprv_memz
+
+.section .data
+jz_relbrd_error_msg:
+    .string "[ERROR] JZ_RELBRd\n"
+.section .text
+
+fail_jz_relbrd:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + jz_relbrd_error_msg]
+    mov rdx, 24
     syscall
     jmp exit
 
@@ -713,13 +781,33 @@ test_movsxd_gprv_memz:
     movsxd rax, dword ptr [rbp - 4]
     cmp rax, 5
     jne fail_movsxd_gprv_memz
-    jmp test_shl_gprv_immb_c1r4
+    jmp test_movsxd_gprv_gprz
 
 fail_movsxd_gprv_memz:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + movsxd_gprv_memz_error_msg]
     mov rdx, 25
+    syscall
+    jmp exit
+
+test_movsxd_gprv_gprz:
+    mov eax, -1
+    movsxd rax, eax
+    cmp rax, -1
+    jne fail_movsxd_gprv_gprz
+    jmp test_shl_gprv_immb_c1r4
+
+.section .data
+movsxd_gprv_gprz_error_msg:
+    .string "[ERROR] MOVSXD_GPRv_GPRz\n"
+.section .text
+
+fail_movsxd_gprv_gprz:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + movsxd_gprv_gprz_error_msg]
+    mov rdx, 26
     syscall
     jmp exit
 
@@ -730,7 +818,7 @@ test_shl_gprv_immb_c1r4:
     shl rax, 2
     cmp rax, 4
     jne fail_shl_gprv_immb_c1r4
-    jmp success
+    jmp test_inc_gprv_ffr0
 
 fail_shl_gprv_immb_c1r4:
     mov rax, 1
@@ -740,8 +828,54 @@ fail_shl_gprv_immb_c1r4:
     syscall
     jmp exit
 
+test_inc_gprv_ffr0:
+    mov rax, 5
+    inc rax
+    cmp rax, 6
+    jne fail_inc_gprv_ffr0
+    jmp test_dec_gprv_ffr1
+
+.section .data
+inc_gprv_ffr0_error_msg:
+    .string "[ERROR] INC_GPRv_FFr0\n"
+.section .text
+
+fail_inc_gprv_ffr0:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + inc_gprv_ffr0_error_msg]
+    mov rdx, 26
+    syscall
+    jmp exit
+
+test_dec_gprv_ffr1:
+    mov rax, 5
+    dec rax
+    cmp rax, 4
+    jne fail_dec_gprv_ffr1
+    jmp success
+
+.section .data
+dec_gprv_ffr1_error_msg:
+    .string "[ERROR] DEC_GPRv_FFr1\n"
+.section .text
+
+fail_dec_gprv_ffr1:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + dec_gprv_ffr1_error_msg]
+    mov rdx, 26
+    syscall
+    jmp exit
+
 force_jle_relbrd:
     jmp test_cdqe
+
+force_jnz_relbrd:
+    jmp success_jnz_relbrd
+
+force_jz_relbrd:
+    jmp success_jz_relbrd
 
 success:
     mov rax, 1
