@@ -33,7 +33,7 @@ namespace {
 #if 64 == ADDRESS_SIZE_BITS
 DEF_SEM_T(CDQE_EAX, R32 eax) {
   auto val = Read(eax);
-  return SExt(val); // to RAX
+  return ZExtTo<R64>(SExt(val)); // to RAX
 }
 #endif
 
@@ -46,7 +46,12 @@ DEF_SEM_T(CDQE_EAX, R32 eax) {
 //       cleared even though the write is to EDX.
 DEF_SEM_T(CDQ_EAX, R32 eax) {
   auto val = Read(eax);
-  return Trunc(UShr(Unsigned(SExt(val)), 32_u64)); // to XDX
+  auto ext_val = Trunc(UShr(Unsigned(SExt(val)), 32_u64));
+  #if 64 == ADDRESS_SIZE_BITS
+  return ZExtTo<R64>(ext_val); // to RDX
+  #else
+  return ZExtTo<R32>(ext_val); // to EDX
+  #endif
 }
 
 // #if 64 == ADDRESS_SIZE_BITS
