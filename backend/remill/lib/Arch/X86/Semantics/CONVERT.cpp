@@ -18,416 +18,421 @@
 
 namespace {
 
-DEF_SEM(CBW_AL) {
-  Write(REG_AX, Unsigned(SExt(REG_AL)));
-  return memory;
-}
-
-// Note: Need to write to the whole register so that high bits of RAX are
-//       cleared even though the write is to EAX.
-DEF_SEM(CWDE_AX) {
-  WriteZExt(REG_XAX, SExt(REG_AX));
-  return memory;
-}
+// DEF_SEM(CBW_AL) {
+//   Write(REG_AX, Unsigned(SExt(REG_AL)));
+//   return memory;
+// }
+// 
+// // Note: Need to write to the whole register so that high bits of RAX are
+// //       cleared even though the write is to EAX.
+// DEF_SEM(CWDE_AX) {
+//   WriteZExt(REG_XAX, SExt(REG_AX));
+//   return memory;
+// }
 
 #if 64 == ADDRESS_SIZE_BITS
-DEF_SEM(CDQE_EAX) {
-  WriteZExt(REG_RAX, SExt(REG_EAX));
-  return memory;
+DEF_SEM_T(CDQE_EAX, R32 eax) {
+  auto val = Read(eax);
+  return ZExtTo<R64>(SExt(val)); // to RAX
 }
 #endif
 
-DEF_SEM(CWD_AX) {
-  Write(REG_DX, Trunc(UShr(Unsigned(SExt(REG_AX)), 16_u32)));
-  return memory;
-}
+// DEF_SEM(CWD_AX) {
+//   Write(REG_DX, Trunc(UShr(Unsigned(SExt(REG_AX)), 16_u32)));
+//   return memory;
+// }
 
 // Note: Need to write to the whole register so that high bits of RDX are
 //       cleared even though the write is to EDX.
-DEF_SEM(CDQ_EAX) {
-  WriteZExt(REG_XDX, Trunc(UShr(Unsigned(SExt(REG_EAX)), 32_u64)));
-  return memory;
+DEF_SEM_T(CDQ_EAX, R32 eax) {
+  auto val = Read(eax);
+  auto ext_val = Trunc(UShr(Unsigned(SExt(val)), 32_u64));
+  #if 64 == ADDRESS_SIZE_BITS
+  return ZExtTo<R64>(ext_val); // to RDX
+  #else
+  return ZExtTo<R32>(ext_val); // to EDX
+  #endif
 }
 
-#if 64 == ADDRESS_SIZE_BITS
-DEF_SEM(CQO_RAX) {
-  Write(REG_RDX, UNot(USub(UShr(REG_RAX, 63_u64), 1_u64)));
-  return memory;
-}
-#endif
+// #if 64 == ADDRESS_SIZE_BITS
+// DEF_SEM(CQO_RAX) {
+//   Write(REG_RDX, UNot(USub(UShr(REG_RAX, 63_u64), 1_u64)));
+//   return memory;
+// }
+// #endif
 }  // namespace
 
-DEF_ISEL(CBW) = CBW_AL;
-DEF_ISEL(CWDE) = CWDE_AX;
+// DEF_ISEL(CBW) = CBW_AL;
+// DEF_ISEL(CWDE) = CWDE_AX;
 IF_64BIT(DEF_ISEL(CDQE) = CDQE_EAX;)
-DEF_ISEL(CWD) = CWD_AX;
+// DEF_ISEL(CWD) = CWD_AX;
 DEF_ISEL(CDQ) = CDQ_EAX;
-IF_64BIT(DEF_ISEL(CQO) = CQO_RAX;)
+// IF_64BIT(DEF_ISEL(CQO) = CQO_RAX;)
 
-namespace {
-
-template <typename S>
-DEF_SEM(CVTPI2PD, V128W dst, S src) {
-  auto src_vec = UReadV32(src);
-  auto a = Float64(SExtractV32(src_vec, 0));
-  auto b = Float64(SExtractV32(src_vec, 1));
-  FWriteV64(dst, FInsertV64(FInsertV64(FReadV64(dst), 0, a), 1, b));
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTPI2PD_XMMpd_MEMq) = CVTPI2PD<MV64>;
-DEF_ISEL(CVTPI2PD_XMMpd_MMXq) = CVTPI2PD<V64>;
-
-namespace {
-
-template <typename S>
-DEF_SEM(CVTPI2PS, V128W dst, S src) {
-  auto src_vec = UReadV32(src);
-  auto a = Float32(SExtractV32(src_vec, 0));
-  auto b = Float32(SExtractV32(src_vec, 1));
-  FWriteV32(dst, FInsertV32(FInsertV32(FReadV32(dst), 0, a), 1, b));
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTPI2PS_XMMq_MEMq) = CVTPI2PS<MV64>;
-DEF_ISEL(CVTPI2PS_XMMq_MMXq) = CVTPI2PS<V64>;
-
-namespace {
-
-template <typename D, typename S1, size_t num_to_convert>
-DEF_SEM(CVTDQ2PD, D dst, S1 src) {
-  auto src_vec = SReadV32(src);
-  auto dst_vec = FClearV64(FReadV64(dst));
-  _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
-    auto entry = Float64(SExtractV32(src_vec, i));
-    dst_vec = FInsertV64(dst_vec, i, entry);
-  }
-  FWriteV64(dst, dst_vec);
-  return memory;
-}
-
-typedef float32_t (*FloatConv32)(float32_t);
-typedef float64_t (*FloatConv64)(float64_t);
-
-}  // namespace
-
-DEF_ISEL(CVTDQ2PD_XMMpd_MEMq) = CVTDQ2PD<V128W, MV64, 2>;
-DEF_ISEL(CVTDQ2PD_XMMpd_XMMq) = CVTDQ2PD<V128W, V128, 2>;
-IF_AVX(DEF_ISEL(VCVTDQ2PD_XMMdq_MEMq) = CVTDQ2PD<VV128W, MV64, 2>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PD_XMMdq_XMMq) = CVTDQ2PD<VV128W, V128, 2>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PD_YMMqq_MEMdq) = CVTDQ2PD<VV128W, MV128, 4>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PD_YMMqq_XMMdq) = CVTDQ2PD<VV128W, V128, 4>;)
-
-namespace {
-
-template <typename D, typename S1, size_t num_to_convert>
-DEF_SEM(CVTDQ2PS, D dst, S1 src) {
-  auto src_vec = SReadV32(src);
-  auto dst_vec = FClearV32(FReadV32(dst));
-  _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
-    auto entry = Float32(SExtractV32(src_vec, i));
-    dst_vec = FInsertV32(dst_vec, i, entry);
-  }
-  FWriteV32(dst, dst_vec);
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTDQ2PS_XMMps_MEMdq) = CVTDQ2PS<V128W, MV128, 4>;
-DEF_ISEL(CVTDQ2PS_XMMps_XMMdq) = CVTDQ2PS<V128W, V128, 4>;
-IF_AVX(DEF_ISEL(VCVTDQ2PS_XMMdq_MEMdq) = CVTDQ2PS<VV128W, MV128, 4>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PS_XMMdq_XMMdq) = CVTDQ2PS<VV128W, V128, 4>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PS_YMMqq_MEMqq) = CVTDQ2PS<VV256W, MV256, 8>;)
-IF_AVX(DEF_ISEL(VCVTDQ2PS_YMMqq_YMMqq) = CVTDQ2PS<VV256W, VV256, 8>;)
-
-namespace {
-
-template <typename D, typename S1, size_t num_to_convert, FloatConv64 FRound = FRoundUsingMode64>
-DEF_SEM(CVTPD2DQ, D dst, S1 src) {
-  auto src_vec = FReadV64(src);
-  auto dst_vec = SClearV32(SReadV32(dst));
-  _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
-    float64_t rounded_elem = FRound(FExtractV64(src_vec, i));
-    auto entry = Float64ToInt32(rounded_elem);
-    dst_vec = SInsertV32(dst_vec, i, entry);
-  }
-  SWriteV32(dst, dst_vec);
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTPD2DQ_XMMdq_MEMpd) = CVTPD2DQ<V128W, MV128, 2>;
-DEF_ISEL(CVTPD2DQ_XMMdq_XMMpd) = CVTPD2DQ<V128W, V128, 2>;
-IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_MEMdq) = CVTPD2DQ<VV128W, MV128, 2>;)
-IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_XMMdq) = CVTPD2DQ<VV128W, V128, 2>;)
-IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_MEMqq) = CVTPD2DQ<VV128W, MV256, 4>;)
-IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_YMMqq) = CVTPD2DQ<VV128W, V256, 4>;)
-
-DEF_ISEL(CVTTPD2DQ_XMMdq_MEMpd) = CVTPD2DQ<V128W, MV128, 2, FTruncTowardZero64>;
-DEF_ISEL(CVTTPD2DQ_XMMdq_XMMpd) = CVTPD2DQ<V128W, V128, 2, FTruncTowardZero64>;
-IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_MEMdq) = CVTPD2DQ<VV128W, MV128, 2, FTruncTowardZero64>;)
-IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_XMMdq) = CVTPD2DQ<VV128W, V128, 2, FTruncTowardZero64>;)
-IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_MEMqq) = CVTPD2DQ<VV128W, MV256, 4, FTruncTowardZero64>;)
-IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_YMMqq) = CVTPD2DQ<VV128W, V256, 4, FTruncTowardZero64>;)
-
-namespace {
-
-template <typename D, typename S1, size_t num_to_convert, FloatConv32 FRound = FRoundUsingMode32>
-DEF_SEM(CVTPS2DQ, D dst, S1 src) {
-  auto src_vec = FReadV32(src);
-  auto dst_vec = SClearV32(SReadV32(dst));
-  _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
-    float32_t rounded_elem = FRound(FExtractV32(src_vec, i));
-    dst_vec = SInsertV32(dst_vec, i, Float32ToInt32(rounded_elem));
-  }
-  SWriteV32(dst, dst_vec);
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTPS2DQ_XMMdq_MEMps) = CVTPS2DQ<V128W, MV128, 4>;
-DEF_ISEL(CVTPS2DQ_XMMdq_XMMps) = CVTPS2DQ<V128W, V128, 4>;
-IF_AVX(DEF_ISEL(VCVTPS2DQ_XMMdq_MEMdq) = CVTPS2DQ<VV128W, MV128, 4>;)
-IF_AVX(DEF_ISEL(VCVTPS2DQ_XMMdq_XMMdq) = CVTPS2DQ<VV128W, V128, 4>;)
-IF_AVX(DEF_ISEL(VCVTPS2DQ_YMMqq_MEMqq) = CVTPS2DQ<VV256W, MV256, 8>;)
-IF_AVX(DEF_ISEL(VCVTPS2DQ_YMMqq_YMMqq) = CVTPS2DQ<VV256W, V256, 8>;)
-
-DEF_ISEL(CVTTPS2DQ_XMMdq_MEMps) = CVTPS2DQ<V128W, MV128, 4, FTruncTowardZero32>;
-DEF_ISEL(CVTTPS2DQ_XMMdq_XMMps) = CVTPS2DQ<V128W, V128, 4, FTruncTowardZero32>;
-IF_AVX(DEF_ISEL(VCVTTPS2DQ_XMMdq_MEMdq) = CVTPS2DQ<VV128W, MV128, 4, FTruncTowardZero32>;)
-IF_AVX(DEF_ISEL(VCVTTPS2DQ_XMMdq_XMMdq) = CVTPS2DQ<VV128W, V128, 4, FTruncTowardZero32>;)
-IF_AVX(DEF_ISEL(VCVTTPS2DQ_YMMqq_MEMqq) = CVTPS2DQ<VV256W, MV256, 8, FTruncTowardZero32>;)
-IF_AVX(DEF_ISEL(VCVTTPS2DQ_YMMqq_YMMqq) = CVTPS2DQ<VV256W, V256, 8, FTruncTowardZero32>;)
-
-namespace {
-
-template <typename S, FloatConv32 FRound = FRoundUsingMode32>
-DEF_SEM(CVTSS2SI_32, R32W dst, S src) {
-  float32_t rounded_val = FRound(FExtractV32(FReadV32(src), 0));
-  WriteZExt(dst, Unsigned(Float32ToInt32(rounded_val)));
-  return memory;
-}
-
-#if 64 == ADDRESS_SIZE_BITS
-template <typename S, FloatConv32 FRound = FRoundUsingMode32>
-DEF_SEM(CVTSS2SI_64, R64W dst, S src) {
-  float32_t rounded_val = FRound(FExtractV32(FReadV32(src), 0));
-  Write(dst, Unsigned(Float32ToInt64(rounded_val)));
-  return memory;
-}
-#endif  // ADDRESS_SIZE_BITS
-
-}  // namespace
-
-DEF_ISEL(CVTSS2SI_GPR32d_MEMss) = CVTSS2SI_32<MV32>;
-DEF_ISEL(CVTSS2SI_GPR32d_XMMss) = CVTSS2SI_32<V128>;
-IF_64BIT(DEF_ISEL(CVTSS2SI_GPR64q_MEMss) = CVTSS2SI_64<MV32>;)
-IF_64BIT(DEF_ISEL(CVTSS2SI_GPR64q_XMMss) = CVTSS2SI_64<V128>;)
-IF_AVX(DEF_ISEL(VCVTSS2SI_GPR32d_MEMd) = CVTSS2SI_32<MV32>;)
-IF_AVX(DEF_ISEL(VCVTSS2SI_GPR32d_XMMd) = CVTSS2SI_32<V128>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSS2SI_GPR64q_MEMd) = CVTSS2SI_64<MV32>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSS2SI_GPR64q_XMMd) = CVTSS2SI_64<V128>;))
-
-DEF_ISEL(CVTTSS2SI_GPR32d_MEMss) = CVTSS2SI_32<MV32, FTruncTowardZero32>;
-DEF_ISEL(CVTTSS2SI_GPR32d_XMMss) = CVTSS2SI_32<V128, FTruncTowardZero32>;
-IF_64BIT(DEF_ISEL(CVTTSS2SI_GPR64q_MEMss) = CVTSS2SI_64<MV32, FTruncTowardZero32>;)
-IF_64BIT(DEF_ISEL(CVTTSS2SI_GPR64q_XMMss) = CVTSS2SI_64<V128, FTruncTowardZero32>;)
-IF_AVX(DEF_ISEL(VCVTTSS2SI_GPR32d_MEMd) = CVTSS2SI_32<MV32, FTruncTowardZero32>;)
-IF_AVX(DEF_ISEL(VCVTTSS2SI_GPR32d_XMMd) = CVTSS2SI_32<V128, FTruncTowardZero32>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSS2SI_GPR64q_MEMd) = CVTSS2SI_64<MV32, FTruncTowardZero32>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSS2SI_GPR64q_XMMd) = CVTSS2SI_64<V128, FTruncTowardZero32>;))
-
-namespace {
-
-template <typename S, FloatConv64 FRound = FRoundUsingMode64>
-DEF_SEM(CVTSD2SI_32, R32W dst, S src) {
-  auto rounded_val = FRound(FExtractV64(FReadV64(src), 0));
-  WriteZExt(dst, Unsigned(Float64ToInt32(rounded_val)));
-  return memory;
-}
-
-#if 64 == ADDRESS_SIZE_BITS
-template <typename S, FloatConv64 FRound = FRoundUsingMode64>
-DEF_SEM(CVTSD2SI_64, R64W dst, S src) {
-  auto rounded_val = FRound(FExtractV64(FReadV64(src), 0));
-  Write(dst, Unsigned(Float64ToInt64(rounded_val)));
-  return memory;
-}
-#endif  // ADDRESS_SIZE_BITS
-}  // namespace
-
-DEF_ISEL(CVTSD2SI_GPR32d_MEMsd) = CVTSD2SI_32<MV64>;
-DEF_ISEL(CVTSD2SI_GPR32d_XMMsd) = CVTSD2SI_32<V128>;
-IF_AVX(DEF_ISEL(VCVTSD2SI_GPR32d_MEMq) = CVTSD2SI_32<MV64>;)
-IF_AVX(DEF_ISEL(VCVTSD2SI_GPR32d_XMMq) = CVTSD2SI_32<V128>;)
-IF_64BIT(DEF_ISEL(CVTSD2SI_GPR64q_MEMsd) = CVTSD2SI_64<MV64>;)
-IF_64BIT(DEF_ISEL(CVTSD2SI_GPR64q_XMMsd) = CVTSD2SI_64<V128>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSD2SI_GPR64q_MEMq) = CVTSD2SI_64<MV64>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSD2SI_GPR64q_XMMq) = CVTSD2SI_64<V128>;))
-
-DEF_ISEL(CVTTSD2SI_GPR32d_MEMsd) = CVTSD2SI_32<MV64, FTruncTowardZero64>;
-DEF_ISEL(CVTTSD2SI_GPR32d_XMMsd) = CVTSD2SI_32<V128, FTruncTowardZero64>;
-IF_AVX(DEF_ISEL(VCVTTSD2SI_GPR32d_MEMq) = CVTSD2SI_32<MV64, FTruncTowardZero64>;)
-IF_AVX(DEF_ISEL(VCVTTSD2SI_GPR32d_XMMq) = CVTSD2SI_32<V128, FTruncTowardZero64>;)
-IF_64BIT(DEF_ISEL(CVTTSD2SI_GPR64q_MEMsd) = CVTSD2SI_64<MV64, FTruncTowardZero64>;)
-IF_64BIT(DEF_ISEL(CVTTSD2SI_GPR64q_XMMsd) = CVTSD2SI_64<V128, FTruncTowardZero64>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSD2SI_GPR64q_MEMq) = CVTSD2SI_64<MV64, FTruncTowardZero64>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSD2SI_GPR64q_XMMq) = CVTSD2SI_64<V128, FTruncTowardZero64>;))
-
-
-namespace {
-
-template <typename S1>
-DEF_SEM(CVTSD2SS, V128W dst, V128 _nop_read, S1 src) {
-  FWriteV32(dst, FInsertV32(FReadV32(dst), 0, Float32(FExtractV64(FReadV64(src), 0))));
-  return memory;
-}
-
-#if HAS_FEATURE_AVX
-template <typename S2>
-DEF_SEM(VCVTSD2SS, VV128W dst, V128W src1, S2 src2) {
-  auto src1_vec = FReadV32(src1);
-  auto src2_vec = FReadV64(src2);
-  auto dst_vec = FInsertV32(src1_vec, 0, Float32(FExtractV64(src2_vec, 0)));
-  FWriteV32(dst, dst_vec);
-  return memory;
-}
-#endif  // HAS_FEATURE_AVX
-
-}  // namespace
-
-DEF_ISEL(CVTSD2SS_XMMss_MEMsd) = CVTSD2SS<MV64>;
-DEF_ISEL(CVTSD2SS_XMMss_XMMsd) = CVTSD2SS<V128>;
-IF_AVX(DEF_ISEL(VCVTSD2SS_XMMdq_XMMdq_MEMq) = VCVTSD2SS<MV64>;)
-IF_AVX(DEF_ISEL(VCVTSD2SS_XMMdq_XMMdq_XMMq) = VCVTSD2SS<V128>;)
-
-namespace {
-template <typename S2>
-DEF_SEM(CVTSI2SS, V128W dst, V128 src1, S2 src2) {
-  auto src1_vec = FReadV32(src1);
-  auto conv_val = Float32(Signed(Read(src2)));
-  FWriteV32(dst, FInsertV32(src1_vec, 0, conv_val));
-  return memory;
-}
-
-template <typename S2>
-DEF_SEM(CVTSI2SD, V128W dst, V128 src1, S2 src2) {
-  auto src1_vec = FReadV64(src1);
-  auto conv_val = Float64(Signed(Read(src2)));
-  FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
-  return memory;
-}
-
-template <typename S2>
-DEF_SEM(CVTSS2SD, VV128W dst_src1, V128 _nop_read, S2 src2) {
-  auto src1_vec = FReadV64(dst_src1);
-  auto src2_vec = FReadV32(src2);
-  auto conv_val = Float64(FExtractV32(src2_vec, 0));
-  FWriteV64(dst_src1, FInsertV64(src1_vec, 0, conv_val));
-  return memory;
-}
-
-#if HAS_FEATURE_AVX
-template <typename S2>
-DEF_SEM(VCVTSI2SS, VV128W dst, V128 src1, S2 src2) {
-  auto src1_vec = FReadV32(src1);
-  auto conv_val = Float32(Signed(Read(src2)));
-  FWriteV32(dst, FInsertV32(src1_vec, 0, conv_val));
-  return memory;
-}
-
-template <typename S2>
-DEF_SEM(VCVTSI2SD, VV128W dst, V128 src1, S2 src2) {
-  auto src1_vec = FReadV64(src1);
-  auto conv_val = Float64(Signed(Read(src2)));
-  FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
-  return memory;
-}
-
-template <typename S2>
-DEF_SEM(VCVTSS2SD, VV128W dst, V128 src1, S2 src2) {
-  auto src1_vec = FReadV64(src1);
-  auto src2_vec = FReadV32(src2);
-  auto conv_val = Float64(FExtractV32(src2_vec, 0));
-  FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
-  return memory;
-}
-#endif  // HAS_FEATURE_AVX
-}  // namespace
-
-DEF_ISEL(CVTSI2SS_XMMss_MEMd) = CVTSI2SS<M32>;
-DEF_ISEL(CVTSI2SS_XMMss_GPR32d) = CVTSI2SS<R32>;
-IF_64BIT(DEF_ISEL(CVTSI2SS_XMMss_MEMq) = CVTSI2SS<M64>;)
-IF_64BIT(DEF_ISEL(CVTSI2SS_XMMss_GPR64q) = CVTSI2SS<R64>;)
-IF_AVX(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_MEMd) = VCVTSI2SS<M32>;)
-IF_AVX(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_GPR32d) = VCVTSI2SS<R32>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_MEMq) = VCVTSI2SS<M64>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_GPR64q) = VCVTSI2SS<R64>;))
-
-
-DEF_ISEL(CVTSI2SD_XMMsd_MEMd) = CVTSI2SD<M32>;
-DEF_ISEL(CVTSI2SD_XMMsd_GPR32d) = CVTSI2SD<R32>;
-IF_64BIT(DEF_ISEL(CVTSI2SD_XMMsd_MEMq) = CVTSI2SD<M64>;)
-IF_64BIT(DEF_ISEL(CVTSI2SD_XMMsd_GPR64q) = CVTSI2SD<R64>;)
-IF_AVX(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_MEMd) = VCVTSI2SD<M32>;)
-IF_AVX(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_GPR32d) = VCVTSI2SD<R32>;)
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_MEMq) = VCVTSI2SD<M64>;))
-IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_GPR64q) = VCVTSI2SD<R64>;))
-
-DEF_ISEL(CVTSS2SD_XMMsd_MEMss) = CVTSS2SD<MV32>;
-DEF_ISEL(CVTSS2SD_XMMsd_XMMss) = CVTSS2SD<V128>;
-IF_AVX(DEF_ISEL(VCVTSS2SD_XMMdq_XMMdq_MEMd) = VCVTSS2SD<MV32>;)
-IF_AVX(DEF_ISEL(VCVTSS2SD_XMMdq_XMMdq_XMMd) = VCVTSS2SD<V128>;)
-
-namespace {
-
-template <typename D, typename S1, size_t vec_count>
-DEF_SEM(CVTPS2PD, D dst, S1 src) {
-  auto src_vec = FReadV32(src);
-  auto dst_vec = FClearV64(FReadV64(dst));
-  _Pragma("unroll") for (size_t i = 0; i < vec_count; ++i) {
-    auto conv_val = Float64(FExtractV32(src_vec, i));
-    dst_vec = FInsertV64(dst_vec, i, conv_val);
-  }
-  FWriteV64(dst, dst_vec);
-  return memory;
-}
-
-template <typename D, typename S1, size_t vec_count>
-DEF_SEM(CVTPD2PS, D dst, S1 src) {
-  auto src_vec = FReadV64(src);
-  auto dst_vec = FClearV32(FReadV32(dst));
-  _Pragma("unroll") for (size_t i = 0; i < vec_count; ++i) {
-    auto conv_val = Float32(FExtractV64(src_vec, i));
-    dst_vec = FInsertV32(dst_vec, i, conv_val);
-  }
-  FWriteV32(dst, dst_vec);
-  return memory;
-}
-
-}  // namespace
-
-DEF_ISEL(CVTPS2PD_XMMpd_MEMq) = CVTPS2PD<V128W, MV64, 2>;
-DEF_ISEL(CVTPS2PD_XMMpd_XMMq) = CVTPS2PD<V128W, V128, 2>;
-IF_AVX(DEF_ISEL(VCVTPS2PD_XMMdq_MEMq) = CVTPS2PD<VV128W, MV64, 2>;)
-IF_AVX(DEF_ISEL(VCVTPS2PD_XMMdq_XMMq) = CVTPS2PD<VV128W, V128, 2>;)
-IF_AVX(DEF_ISEL(VCVTPS2PD_YMMqq_MEMdq) = CVTPS2PD<VV256W, MV128, 4>;)
-IF_AVX(DEF_ISEL(VCVTPS2PD_YMMqq_XMMdq) = CVTPS2PD<VV256W, V128, 4>;)
-
-DEF_ISEL(CVTPD2PS_XMMps_MEMpd) = CVTPD2PS<V128W, MV128, 2>;
-DEF_ISEL(CVTPD2PS_XMMps_XMMpd) = CVTPD2PS<V128W, V128, 2>;
-IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_MEMdq) = CVTPD2PS<VV128W, MV128, 2>;)
-IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_XMMdq) = CVTPD2PS<VV128W, V128, 2>;)
-IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_MEMqq) = CVTPD2PS<VV128W, MV256, 4>;)
-IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_YMMqq) = CVTPD2PS<VV128W, V256, 4>;)
-
+// namespace {
+// 
+// template <typename S>
+// DEF_SEM(CVTPI2PD, V128W dst, S src) {
+//   auto src_vec = UReadV32(src);
+//   auto a = Float64(SExtractV32(src_vec, 0));
+//   auto b = Float64(SExtractV32(src_vec, 1));
+//   FWriteV64(dst, FInsertV64(FInsertV64(FReadV64(dst), 0, a), 1, b));
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTPI2PD_XMMpd_MEMq) = CVTPI2PD<MV64>;
+// DEF_ISEL(CVTPI2PD_XMMpd_MMXq) = CVTPI2PD<V64>;
+// 
+// namespace {
+// 
+// template <typename S>
+// DEF_SEM(CVTPI2PS, V128W dst, S src) {
+//   auto src_vec = UReadV32(src);
+//   auto a = Float32(SExtractV32(src_vec, 0));
+//   auto b = Float32(SExtractV32(src_vec, 1));
+//   FWriteV32(dst, FInsertV32(FInsertV32(FReadV32(dst), 0, a), 1, b));
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTPI2PS_XMMq_MEMq) = CVTPI2PS<MV64>;
+// DEF_ISEL(CVTPI2PS_XMMq_MMXq) = CVTPI2PS<V64>;
+// 
+// namespace {
+// 
+// template <typename D, typename S1, size_t num_to_convert>
+// DEF_SEM(CVTDQ2PD, D dst, S1 src) {
+//   auto src_vec = SReadV32(src);
+//   auto dst_vec = FClearV64(FReadV64(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
+//     auto entry = Float64(SExtractV32(src_vec, i));
+//     dst_vec = FInsertV64(dst_vec, i, entry);
+//   }
+//   FWriteV64(dst, dst_vec);
+//   return memory;
+// }
+// 
+// typedef float32_t (*FloatConv32)(float32_t);
+// typedef float64_t (*FloatConv64)(float64_t);
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTDQ2PD_XMMpd_MEMq) = CVTDQ2PD<V128W, MV64, 2>;
+// DEF_ISEL(CVTDQ2PD_XMMpd_XMMq) = CVTDQ2PD<V128W, V128, 2>;
+// IF_AVX(DEF_ISEL(VCVTDQ2PD_XMMdq_MEMq) = CVTDQ2PD<VV128W, MV64, 2>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PD_XMMdq_XMMq) = CVTDQ2PD<VV128W, V128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PD_YMMqq_MEMdq) = CVTDQ2PD<VV128W, MV128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PD_YMMqq_XMMdq) = CVTDQ2PD<VV128W, V128, 4>;)
+// 
+// namespace {
+// 
+// template <typename D, typename S1, size_t num_to_convert>
+// DEF_SEM(CVTDQ2PS, D dst, S1 src) {
+//   auto src_vec = SReadV32(src);
+//   auto dst_vec = FClearV32(FReadV32(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
+//     auto entry = Float32(SExtractV32(src_vec, i));
+//     dst_vec = FInsertV32(dst_vec, i, entry);
+//   }
+//   FWriteV32(dst, dst_vec);
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTDQ2PS_XMMps_MEMdq) = CVTDQ2PS<V128W, MV128, 4>;
+// DEF_ISEL(CVTDQ2PS_XMMps_XMMdq) = CVTDQ2PS<V128W, V128, 4>;
+// IF_AVX(DEF_ISEL(VCVTDQ2PS_XMMdq_MEMdq) = CVTDQ2PS<VV128W, MV128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PS_XMMdq_XMMdq) = CVTDQ2PS<VV128W, V128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PS_YMMqq_MEMqq) = CVTDQ2PS<VV256W, MV256, 8>;)
+// IF_AVX(DEF_ISEL(VCVTDQ2PS_YMMqq_YMMqq) = CVTDQ2PS<VV256W, VV256, 8>;)
+// 
+// namespace {
+// 
+// template <typename D, typename S1, size_t num_to_convert, FloatConv64 FRound = FRoundUsingMode64>
+// DEF_SEM(CVTPD2DQ, D dst, S1 src) {
+//   auto src_vec = FReadV64(src);
+//   auto dst_vec = SClearV32(SReadV32(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
+//     float64_t rounded_elem = FRound(FExtractV64(src_vec, i));
+//     auto entry = Float64ToInt32(rounded_elem);
+//     dst_vec = SInsertV32(dst_vec, i, entry);
+//   }
+//   SWriteV32(dst, dst_vec);
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTPD2DQ_XMMdq_MEMpd) = CVTPD2DQ<V128W, MV128, 2>;
+// DEF_ISEL(CVTPD2DQ_XMMdq_XMMpd) = CVTPD2DQ<V128W, V128, 2>;
+// IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_MEMdq) = CVTPD2DQ<VV128W, MV128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_XMMdq) = CVTPD2DQ<VV128W, V128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_MEMqq) = CVTPD2DQ<VV128W, MV256, 4>;)
+// IF_AVX(DEF_ISEL(VCVTPD2DQ_XMMdq_YMMqq) = CVTPD2DQ<VV128W, V256, 4>;)
+// 
+// DEF_ISEL(CVTTPD2DQ_XMMdq_MEMpd) = CVTPD2DQ<V128W, MV128, 2, FTruncTowardZero64>;
+// DEF_ISEL(CVTTPD2DQ_XMMdq_XMMpd) = CVTPD2DQ<V128W, V128, 2, FTruncTowardZero64>;
+// IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_MEMdq) = CVTPD2DQ<VV128W, MV128, 2, FTruncTowardZero64>;)
+// IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_XMMdq) = CVTPD2DQ<VV128W, V128, 2, FTruncTowardZero64>;)
+// IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_MEMqq) = CVTPD2DQ<VV128W, MV256, 4, FTruncTowardZero64>;)
+// IF_AVX(DEF_ISEL(VCVTTPD2DQ_XMMdq_YMMqq) = CVTPD2DQ<VV128W, V256, 4, FTruncTowardZero64>;)
+// 
+// namespace {
+// 
+// template <typename D, typename S1, size_t num_to_convert, FloatConv32 FRound = FRoundUsingMode32>
+// DEF_SEM(CVTPS2DQ, D dst, S1 src) {
+//   auto src_vec = FReadV32(src);
+//   auto dst_vec = SClearV32(SReadV32(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < num_to_convert; ++i) {
+//     float32_t rounded_elem = FRound(FExtractV32(src_vec, i));
+//     dst_vec = SInsertV32(dst_vec, i, Float32ToInt32(rounded_elem));
+//   }
+//   SWriteV32(dst, dst_vec);
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTPS2DQ_XMMdq_MEMps) = CVTPS2DQ<V128W, MV128, 4>;
+// DEF_ISEL(CVTPS2DQ_XMMdq_XMMps) = CVTPS2DQ<V128W, V128, 4>;
+// IF_AVX(DEF_ISEL(VCVTPS2DQ_XMMdq_MEMdq) = CVTPS2DQ<VV128W, MV128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTPS2DQ_XMMdq_XMMdq) = CVTPS2DQ<VV128W, V128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTPS2DQ_YMMqq_MEMqq) = CVTPS2DQ<VV256W, MV256, 8>;)
+// IF_AVX(DEF_ISEL(VCVTPS2DQ_YMMqq_YMMqq) = CVTPS2DQ<VV256W, V256, 8>;)
+// 
+// DEF_ISEL(CVTTPS2DQ_XMMdq_MEMps) = CVTPS2DQ<V128W, MV128, 4, FTruncTowardZero32>;
+// DEF_ISEL(CVTTPS2DQ_XMMdq_XMMps) = CVTPS2DQ<V128W, V128, 4, FTruncTowardZero32>;
+// IF_AVX(DEF_ISEL(VCVTTPS2DQ_XMMdq_MEMdq) = CVTPS2DQ<VV128W, MV128, 4, FTruncTowardZero32>;)
+// IF_AVX(DEF_ISEL(VCVTTPS2DQ_XMMdq_XMMdq) = CVTPS2DQ<VV128W, V128, 4, FTruncTowardZero32>;)
+// IF_AVX(DEF_ISEL(VCVTTPS2DQ_YMMqq_MEMqq) = CVTPS2DQ<VV256W, MV256, 8, FTruncTowardZero32>;)
+// IF_AVX(DEF_ISEL(VCVTTPS2DQ_YMMqq_YMMqq) = CVTPS2DQ<VV256W, V256, 8, FTruncTowardZero32>;)
+// 
+// namespace {
+// 
+// template <typename S, FloatConv32 FRound = FRoundUsingMode32>
+// DEF_SEM(CVTSS2SI_32, R32W dst, S src) {
+//   float32_t rounded_val = FRound(FExtractV32(FReadV32(src), 0));
+//   WriteZExt(dst, Unsigned(Float32ToInt32(rounded_val)));
+//   return memory;
+// }
+// 
+// #if 64 == ADDRESS_SIZE_BITS
+// template <typename S, FloatConv32 FRound = FRoundUsingMode32>
+// DEF_SEM(CVTSS2SI_64, R64W dst, S src) {
+//   float32_t rounded_val = FRound(FExtractV32(FReadV32(src), 0));
+//   Write(dst, Unsigned(Float32ToInt64(rounded_val)));
+//   return memory;
+// }
+// #endif  // ADDRESS_SIZE_BITS
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTSS2SI_GPR32d_MEMss) = CVTSS2SI_32<MV32>;
+// DEF_ISEL(CVTSS2SI_GPR32d_XMMss) = CVTSS2SI_32<V128>;
+// IF_64BIT(DEF_ISEL(CVTSS2SI_GPR64q_MEMss) = CVTSS2SI_64<MV32>;)
+// IF_64BIT(DEF_ISEL(CVTSS2SI_GPR64q_XMMss) = CVTSS2SI_64<V128>;)
+// IF_AVX(DEF_ISEL(VCVTSS2SI_GPR32d_MEMd) = CVTSS2SI_32<MV32>;)
+// IF_AVX(DEF_ISEL(VCVTSS2SI_GPR32d_XMMd) = CVTSS2SI_32<V128>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSS2SI_GPR64q_MEMd) = CVTSS2SI_64<MV32>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSS2SI_GPR64q_XMMd) = CVTSS2SI_64<V128>;))
+// 
+// DEF_ISEL(CVTTSS2SI_GPR32d_MEMss) = CVTSS2SI_32<MV32, FTruncTowardZero32>;
+// DEF_ISEL(CVTTSS2SI_GPR32d_XMMss) = CVTSS2SI_32<V128, FTruncTowardZero32>;
+// IF_64BIT(DEF_ISEL(CVTTSS2SI_GPR64q_MEMss) = CVTSS2SI_64<MV32, FTruncTowardZero32>;)
+// IF_64BIT(DEF_ISEL(CVTTSS2SI_GPR64q_XMMss) = CVTSS2SI_64<V128, FTruncTowardZero32>;)
+// IF_AVX(DEF_ISEL(VCVTTSS2SI_GPR32d_MEMd) = CVTSS2SI_32<MV32, FTruncTowardZero32>;)
+// IF_AVX(DEF_ISEL(VCVTTSS2SI_GPR32d_XMMd) = CVTSS2SI_32<V128, FTruncTowardZero32>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSS2SI_GPR64q_MEMd) = CVTSS2SI_64<MV32, FTruncTowardZero32>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSS2SI_GPR64q_XMMd) = CVTSS2SI_64<V128, FTruncTowardZero32>;))
+// 
+// namespace {
+// 
+// template <typename S, FloatConv64 FRound = FRoundUsingMode64>
+// DEF_SEM(CVTSD2SI_32, R32W dst, S src) {
+//   auto rounded_val = FRound(FExtractV64(FReadV64(src), 0));
+//   WriteZExt(dst, Unsigned(Float64ToInt32(rounded_val)));
+//   return memory;
+// }
+// 
+// #if 64 == ADDRESS_SIZE_BITS
+// template <typename S, FloatConv64 FRound = FRoundUsingMode64>
+// DEF_SEM(CVTSD2SI_64, R64W dst, S src) {
+//   auto rounded_val = FRound(FExtractV64(FReadV64(src), 0));
+//   Write(dst, Unsigned(Float64ToInt64(rounded_val)));
+//   return memory;
+// }
+// #endif  // ADDRESS_SIZE_BITS
+// }  // namespace
+// 
+// DEF_ISEL(CVTSD2SI_GPR32d_MEMsd) = CVTSD2SI_32<MV64>;
+// DEF_ISEL(CVTSD2SI_GPR32d_XMMsd) = CVTSD2SI_32<V128>;
+// IF_AVX(DEF_ISEL(VCVTSD2SI_GPR32d_MEMq) = CVTSD2SI_32<MV64>;)
+// IF_AVX(DEF_ISEL(VCVTSD2SI_GPR32d_XMMq) = CVTSD2SI_32<V128>;)
+// IF_64BIT(DEF_ISEL(CVTSD2SI_GPR64q_MEMsd) = CVTSD2SI_64<MV64>;)
+// IF_64BIT(DEF_ISEL(CVTSD2SI_GPR64q_XMMsd) = CVTSD2SI_64<V128>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSD2SI_GPR64q_MEMq) = CVTSD2SI_64<MV64>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSD2SI_GPR64q_XMMq) = CVTSD2SI_64<V128>;))
+// 
+// DEF_ISEL(CVTTSD2SI_GPR32d_MEMsd) = CVTSD2SI_32<MV64, FTruncTowardZero64>;
+// DEF_ISEL(CVTTSD2SI_GPR32d_XMMsd) = CVTSD2SI_32<V128, FTruncTowardZero64>;
+// IF_AVX(DEF_ISEL(VCVTTSD2SI_GPR32d_MEMq) = CVTSD2SI_32<MV64, FTruncTowardZero64>;)
+// IF_AVX(DEF_ISEL(VCVTTSD2SI_GPR32d_XMMq) = CVTSD2SI_32<V128, FTruncTowardZero64>;)
+// IF_64BIT(DEF_ISEL(CVTTSD2SI_GPR64q_MEMsd) = CVTSD2SI_64<MV64, FTruncTowardZero64>;)
+// IF_64BIT(DEF_ISEL(CVTTSD2SI_GPR64q_XMMsd) = CVTSD2SI_64<V128, FTruncTowardZero64>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSD2SI_GPR64q_MEMq) = CVTSD2SI_64<MV64, FTruncTowardZero64>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTTSD2SI_GPR64q_XMMq) = CVTSD2SI_64<V128, FTruncTowardZero64>;))
+// 
+// 
+// namespace {
+// 
+// template <typename S1>
+// DEF_SEM(CVTSD2SS, V128W dst, V128 _nop_read, S1 src) {
+//   FWriteV32(dst, FInsertV32(FReadV32(dst), 0, Float32(FExtractV64(FReadV64(src), 0))));
+//   return memory;
+// }
+// 
+// #if HAS_FEATURE_AVX
+// template <typename S2>
+// DEF_SEM(VCVTSD2SS, VV128W dst, V128W src1, S2 src2) {
+//   auto src1_vec = FReadV32(src1);
+//   auto src2_vec = FReadV64(src2);
+//   auto dst_vec = FInsertV32(src1_vec, 0, Float32(FExtractV64(src2_vec, 0)));
+//   FWriteV32(dst, dst_vec);
+//   return memory;
+// }
+// #endif  // HAS_FEATURE_AVX
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTSD2SS_XMMss_MEMsd) = CVTSD2SS<MV64>;
+// DEF_ISEL(CVTSD2SS_XMMss_XMMsd) = CVTSD2SS<V128>;
+// IF_AVX(DEF_ISEL(VCVTSD2SS_XMMdq_XMMdq_MEMq) = VCVTSD2SS<MV64>;)
+// IF_AVX(DEF_ISEL(VCVTSD2SS_XMMdq_XMMdq_XMMq) = VCVTSD2SS<V128>;)
+// 
+// namespace {
+// template <typename S2>
+// DEF_SEM(CVTSI2SS, V128W dst, V128 src1, S2 src2) {
+//   auto src1_vec = FReadV32(src1);
+//   auto conv_val = Float32(Signed(Read(src2)));
+//   FWriteV32(dst, FInsertV32(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// 
+// template <typename S2>
+// DEF_SEM(CVTSI2SD, V128W dst, V128 src1, S2 src2) {
+//   auto src1_vec = FReadV64(src1);
+//   auto conv_val = Float64(Signed(Read(src2)));
+//   FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// 
+// template <typename S2>
+// DEF_SEM(CVTSS2SD, VV128W dst_src1, V128 _nop_read, S2 src2) {
+//   auto src1_vec = FReadV64(dst_src1);
+//   auto src2_vec = FReadV32(src2);
+//   auto conv_val = Float64(FExtractV32(src2_vec, 0));
+//   FWriteV64(dst_src1, FInsertV64(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// 
+// #if HAS_FEATURE_AVX
+// template <typename S2>
+// DEF_SEM(VCVTSI2SS, VV128W dst, V128 src1, S2 src2) {
+//   auto src1_vec = FReadV32(src1);
+//   auto conv_val = Float32(Signed(Read(src2)));
+//   FWriteV32(dst, FInsertV32(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// 
+// template <typename S2>
+// DEF_SEM(VCVTSI2SD, VV128W dst, V128 src1, S2 src2) {
+//   auto src1_vec = FReadV64(src1);
+//   auto conv_val = Float64(Signed(Read(src2)));
+//   FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// 
+// template <typename S2>
+// DEF_SEM(VCVTSS2SD, VV128W dst, V128 src1, S2 src2) {
+//   auto src1_vec = FReadV64(src1);
+//   auto src2_vec = FReadV32(src2);
+//   auto conv_val = Float64(FExtractV32(src2_vec, 0));
+//   FWriteV64(dst, FInsertV64(src1_vec, 0, conv_val));
+//   return memory;
+// }
+// #endif  // HAS_FEATURE_AVX
+// }  // namespace
+// 
+// DEF_ISEL(CVTSI2SS_XMMss_MEMd) = CVTSI2SS<M32>;
+// DEF_ISEL(CVTSI2SS_XMMss_GPR32d) = CVTSI2SS<R32>;
+// IF_64BIT(DEF_ISEL(CVTSI2SS_XMMss_MEMq) = CVTSI2SS<M64>;)
+// IF_64BIT(DEF_ISEL(CVTSI2SS_XMMss_GPR64q) = CVTSI2SS<R64>;)
+// IF_AVX(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_MEMd) = VCVTSI2SS<M32>;)
+// IF_AVX(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_GPR32d) = VCVTSI2SS<R32>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_MEMq) = VCVTSI2SS<M64>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SS_XMMdq_XMMdq_GPR64q) = VCVTSI2SS<R64>;))
+// 
+// 
+// DEF_ISEL(CVTSI2SD_XMMsd_MEMd) = CVTSI2SD<M32>;
+// DEF_ISEL(CVTSI2SD_XMMsd_GPR32d) = CVTSI2SD<R32>;
+// IF_64BIT(DEF_ISEL(CVTSI2SD_XMMsd_MEMq) = CVTSI2SD<M64>;)
+// IF_64BIT(DEF_ISEL(CVTSI2SD_XMMsd_GPR64q) = CVTSI2SD<R64>;)
+// IF_AVX(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_MEMd) = VCVTSI2SD<M32>;)
+// IF_AVX(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_GPR32d) = VCVTSI2SD<R32>;)
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_MEMq) = VCVTSI2SD<M64>;))
+// IF_AVX(IF_64BIT(DEF_ISEL(VCVTSI2SD_XMMdq_XMMdq_GPR64q) = VCVTSI2SD<R64>;))
+// 
+// DEF_ISEL(CVTSS2SD_XMMsd_MEMss) = CVTSS2SD<MV32>;
+// DEF_ISEL(CVTSS2SD_XMMsd_XMMss) = CVTSS2SD<V128>;
+// IF_AVX(DEF_ISEL(VCVTSS2SD_XMMdq_XMMdq_MEMd) = VCVTSS2SD<MV32>;)
+// IF_AVX(DEF_ISEL(VCVTSS2SD_XMMdq_XMMdq_XMMd) = VCVTSS2SD<V128>;)
+// 
+// namespace {
+// 
+// template <typename D, typename S1, size_t vec_count>
+// DEF_SEM(CVTPS2PD, D dst, S1 src) {
+//   auto src_vec = FReadV32(src);
+//   auto dst_vec = FClearV64(FReadV64(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < vec_count; ++i) {
+//     auto conv_val = Float64(FExtractV32(src_vec, i));
+//     dst_vec = FInsertV64(dst_vec, i, conv_val);
+//   }
+//   FWriteV64(dst, dst_vec);
+//   return memory;
+// }
+// 
+// template <typename D, typename S1, size_t vec_count>
+// DEF_SEM(CVTPD2PS, D dst, S1 src) {
+//   auto src_vec = FReadV64(src);
+//   auto dst_vec = FClearV32(FReadV32(dst));
+//   _Pragma("unroll") for (size_t i = 0; i < vec_count; ++i) {
+//     auto conv_val = Float32(FExtractV64(src_vec, i));
+//     dst_vec = FInsertV32(dst_vec, i, conv_val);
+//   }
+//   FWriteV32(dst, dst_vec);
+//   return memory;
+// }
+// 
+// }  // namespace
+// 
+// DEF_ISEL(CVTPS2PD_XMMpd_MEMq) = CVTPS2PD<V128W, MV64, 2>;
+// DEF_ISEL(CVTPS2PD_XMMpd_XMMq) = CVTPS2PD<V128W, V128, 2>;
+// IF_AVX(DEF_ISEL(VCVTPS2PD_XMMdq_MEMq) = CVTPS2PD<VV128W, MV64, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPS2PD_XMMdq_XMMq) = CVTPS2PD<VV128W, V128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPS2PD_YMMqq_MEMdq) = CVTPS2PD<VV256W, MV128, 4>;)
+// IF_AVX(DEF_ISEL(VCVTPS2PD_YMMqq_XMMdq) = CVTPS2PD<VV256W, V128, 4>;)
+// 
+// DEF_ISEL(CVTPD2PS_XMMps_MEMpd) = CVTPD2PS<V128W, MV128, 2>;
+// DEF_ISEL(CVTPD2PS_XMMps_XMMpd) = CVTPD2PS<V128W, V128, 2>;
+// IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_MEMdq) = CVTPD2PS<VV128W, MV128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_XMMdq) = CVTPD2PS<VV128W, V128, 2>;)
+// IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_MEMqq) = CVTPD2PS<VV128W, MV256, 4>;)
+// IF_AVX(DEF_ISEL(VCVTPD2PS_XMMdq_YMMqq) = CVTPD2PS<VV128W, V256, 4>;)
+// 
 /*
 
 2194 VCVTPH2PS VCVTPH2PS_XMMdq_MEMq CONVERT F16C F16C ATTRIBUTES: MXCSR

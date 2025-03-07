@@ -21,7 +21,7 @@
 namespace {
 
 template <typename S>
-DEF_SEM_T(MOV_R_RI, const S src) {
+DEF_SEM_T(MOV_RI_RI, const S src) {
   return Read(src);
 }
 
@@ -184,18 +184,18 @@ DEF_SEM_T_RUN(MOV_RI_M, const S src) {
 // DEF_ISEL(CALL_POP_FUSED_64) = MOV<R64W, I64>;
 
 // DEF_ISEL(MOV_GPR8_IMMb_C6r0) = MOV<R8W, I8>;
-// DEF_ISEL(MOV_MEMb_IMMb) = MOV<M8W, I8>;
-DEF_ISEL_RnW_In(MOV_GPRv_IMMz, MOV_R_RI);
+DEF_ISEL(MOV_MEMb_IMMb) = MOV_M_RI<M8W, I8>;
+DEF_ISEL_RnW_In(MOV_GPRv_IMMz, MOV_RI_RI);
 DEF_ISEL_MnW_In(MOV_MEMv_IMMz, MOV_M_RI);
 // DEF_ISEL(MOVBE_GPRv_MEMv_16) = MOVBE16<R16W, M16>;
 // DEF_ISEL(MOVBE_GPRv_MEMv_32) = MOVBE32<R32W, M32>;
 // IF_64BIT(DEF_ISEL(MOVBE_GPRv_MEMv_64) = MOVBE64<R64W, M64>;)
-// DEF_ISEL(MOV_GPR8_GPR8_88) = MOV<R8W, R8>;
+DEF_ISEL(MOV_GPR8_GPR8_88) = MOV_RI_RI<R8>;
 DEF_ISEL(MOV_MEMb_GPR8) = MOV_M_RI<M8W, R8>;
 DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv, MOV_M_RI);
-DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_89, MOV_R_RI);
+DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_89, MOV_RI_RI);
 // DEF_ISEL_RnW_Rn(MOV_GPRv_GPRv_8B, MOV);
-// DEF_ISEL(MOV_GPR8_MEMb) = MOV<R8W, M8>;
+DEF_ISEL(MOV_GPR8_MEMb) = MOV_RI_M<M8>;
 // DEF_ISEL(MOV_GPR8_GPR8_8A) = MOV<R8W, R8>;
 DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV_RI_M);
 // DEF_ISEL_MnW_Rn(MOV_MEMv_GPRv_8B, MOV);
@@ -204,8 +204,8 @@ DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV_RI_M);
 // DEF_ISEL(MOV_MEMb_AL) = MOV<M8W, R8>;
 // DEF_ISEL_MnW_Rn(MOV_MEMv_OrAX, MOV);
 // DEF_ISEL(MOV_GPR8_IMMb_D0) = MOV<R8W, I8>;
-// DEF_ISEL(MOV_GPR8_IMMb_B0) = MOV<R8W, I8>;  // https://github.com/intelxed/xed/commit/906d25
-// DEF_ISEL_RnW_In(MOV_GPRv_IMMv, MOV);
+DEF_ISEL(MOV_GPR8_IMMb_B0) = MOV_RI_RI<I8>;// https://github.com/intelxed/xed/commit/906d25
+DEF_ISEL_RnW_In(MOV_GPRv_IMMv, MOV_RI_RI);
 
 // DEF_ISEL(MOVNTI_MEMd_GPR32) = MOV<M32W, R32>;
 // IF_64BIT(DEF_ISEL(MOVNTI_MEMq_GPR64) = MOV<M64W, R64>;)
@@ -1087,11 +1087,15 @@ DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV_RI_M);
 //   return memory;
 // }
 
-// template <typename D, typename S, typename SextT>
-// DEF_SEM(MOVSX, D dst, S src) {
-//   WriteZExt(dst, SExtTo<SextT>(Read(src)));
-//   return memory;
-// }
+template <typename S, typename SextT>
+DEF_SEM_T_RUN(MOVSX_RI_M, S src) {
+  return SExtTo<SextT>(ReadMem(src));
+}
+
+template <typename S, typename SextT>
+DEF_SEM_T(MOVSX_RI_RI, S src) {
+  return SExtTo<SextT>(Read(src));
+}
 
 // }  // namespace
 
@@ -1124,9 +1128,9 @@ DEF_ISEL_RnW_Mn(MOV_GPRv_MEMv, MOV_RI_M);
 // IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPR32_32) = MOVSX<R64W, R32, int64_t>;)
 
 // IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMd_64) = MOVSX<R64W, M32, int64_t>;)
-// IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMz_64) = MOVSX<R64W, M32, int64_t>;)
+IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMz_64) = MOVSX_RI_M<M32, int64_t>;)
 // IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPR32_64) = MOVSX<R64W, R32, int64_t>;)
-// IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPRz_64) = MOVSX<R64W, R32, int64_t>;)
+IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPRz_64) = MOVSX_RI_RI<R32, int64_t>;)
 
 // #if HAS_FEATURE_AVX512
 

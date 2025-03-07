@@ -51,6 +51,15 @@ DEF_SEM_T_STATE_RUN(ADD_RI_M, S1 src1, S2 src2) {
   return sum;
 }
 
+template <typename D, typename S1, typename S2>
+DEF_SEM_VOID_STATE_RUN(ADD_M_RI, D dst, S1 src1, S2 src2) {
+  auto lhs = ReadMem(src1);
+  auto rhs = Read(src2);
+  auto sum = UAdd(lhs, rhs);
+  WriteFlagsAddSub<tag_add>(state, lhs, rhs, sum);
+  MWriteZExt(dst, sum);
+} 
+
 // template <typename D, typename S1, typename S2>
 // DEF_SEM(ADDPS, D dst, S1 src1, S2 src2) {
 //   FWriteV32(dst, FAddV32(FReadV32(src1), FReadV32(src2)));
@@ -88,21 +97,21 @@ DEF_SEM_T_STATE_RUN(ADD_RI_M, S1 src1, S2 src2) {
 // DEF_ISEL(ADD_MEMb_IMMb_80r0) = ADD<M8W, M8, I8>;
 // DEF_ISEL(ADD_GPR8_IMMb_80r0) = ADD<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(ADD_MEMv_IMMz, ADD);
-// DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMz, ADD);
+DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMz, ADD_RI_RI);
 // DEF_ISEL(ADD_MEMb_IMMb_82r0) = ADD<M8W, M8, I8>;
 // DEF_ISEL(ADD_GPR8_IMMb_82r0) = ADD<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(ADD_MEMv_IMMb, ADD);
 DEF_ISEL_RnW_Rn_In(ADD_GPRv_IMMb, ADD_RI_RI);
-// DEF_ISEL(ADD_MEMb_GPR8) = ADD<M8W, M8, R8>;
+DEF_ISEL(ADD_MEMb_GPR8) = ADD_M_RI<M8W, M8, R8>;
 // DEF_ISEL(ADD_GPR8_GPR8_00) = ADD<R8W, R8, R8>;
 // DEF_ISEL_MnW_Mn_Rn(ADD_MEMv_GPRv, ADD);
-// DEF_ISEL_RnW_Rn_Rn(ADD_GPRv_GPRv_01, ADD);
+DEF_ISEL_RnW_Rn_Rn(ADD_GPRv_GPRv_01, ADD_RI_RI);
 // DEF_ISEL(ADD_GPR8_MEMb) = ADD<R8W, R8, M8>;
 // DEF_ISEL(ADD_GPR8_GPR8_02) = ADD<R8W, R8, R8>;
 DEF_ISEL_RnW_Rn_Mn(ADD_GPRv_MEMv, ADD_RI_M);
 // DEF_ISEL_RnW_Rn_Rn(ADD_GPRv_GPRv_03, ADD);
 // DEF_ISEL(ADD_AL_IMMb) = ADD<R8W, R8, I8>;
-// DEF_ISEL_RnW_Rn_In(ADD_OrAX_IMMz, ADD);
+DEF_ISEL_RnW_Rn_In(ADD_OrAX_IMMz, ADD_RI_RI);
 
 // DEF_ISEL(ADDPS_XMMps_MEMps) = ADDPS<V128W, V128, MV128>;
 // DEF_ISEL(ADDPS_XMMps_XMMps) = ADDPS<V128W, V128, V128>;
@@ -129,6 +138,15 @@ DEF_ISEL_RnW_Rn_Mn(ADD_GPRv_MEMv, ADD_RI_M);
 // IF_AVX(DEF_ISEL(VADDSD_XMMdq_XMMdq_XMMq) = ADDSD<VV128W, VV128, VV128>;)
 
 namespace {
+
+template <typename S1, typename S2>
+DEF_SEM_T_STATE_RUN(SUB_RI_M, S1 src1, S2 src2) {
+  auto lhs = Read(src1);
+  auto rhs = ReadMem(src2);
+  auto sum = USub(lhs, rhs);
+  WriteFlagsAddSub<tag_sub>(state, lhs, rhs, sum);
+  return sum;
+}
 
 template <typename S1, typename S2>
 DEF_SEM_T_STATE(SUB_RI_RI, S1 src1, S2 src2) {
@@ -176,7 +194,7 @@ DEF_SEM_T_STATE(SUB_RI_RI, S1 src1, S2 src2) {
 // DEF_ISEL(SUB_MEMb_IMMb_80r5) = SUB<M8W, M8, I8>;
 // DEF_ISEL(SUB_GPR8_IMMb_80r5) = SUB<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(SUB_MEMv_IMMz, SUB);
-// DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMz, SUB);
+DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMz, SUB_RI_RI);
 // DEF_ISEL(SUB_MEMb_IMMb_82r5) = SUB<M8W, M8, I8>;
 // DEF_ISEL(SUB_GPR8_IMMb_82r5) = SUB<R8W, R8, I8>;
 // DEF_ISEL_MnW_Mn_In(SUB_MEMv_IMMb, SUB);
@@ -184,12 +202,12 @@ DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMb, SUB_RI_RI);
 // DEF_ISEL(SUB_MEMb_GPR8) = SUB<M8W, M8, I8>;
 // DEF_ISEL(SUB_GPR8_GPR8_28) = SUB<R8W, R8, R8>;
 // DEF_ISEL_MnW_Mn_Rn(SUB_MEMv_GPRv, SUB);
-// DEF_ISEL_RnW_Rn_Rn(SUB_GPRv_GPRv_29, SUB);
+DEF_ISEL_RnW_Rn_Rn(SUB_GPRv_GPRv_29, SUB_RI_RI);
 // DEF_ISEL(SUB_GPR8_GPR8_2A) = SUB<R8W, R8, R8>;
 // DEF_ISEL(SUB_GPR8_MEMb) = SUB<R8W, R8, M8>;
 // DEF_ISEL_RnW_Rn_Rn(SUB_GPRv_GPRv_2B, SUB);
-// DEF_ISEL_RnW_Rn_Mn(SUB_GPRv_MEMv, SUB);
-// DEF_ISEL(SUB_AL_IMMb) = SUB<R8W, R8, I8>;
+DEF_ISEL_RnW_Rn_Mn(SUB_GPRv_MEMv, SUB_RI_M);
+DEF_ISEL(SUB_AL_IMMb) = SUB_RI_RI<R8, I8>;
 // DEF_ISEL_RnW_Rn_In(SUB_OrAX_IMMz, SUB);
 
 // DEF_ISEL(SUBPS_XMMps_MEMps) = SUBPS<V128W, V128, MV128>;
@@ -219,8 +237,16 @@ DEF_ISEL_RnW_Rn_In(SUB_GPRv_IMMb, SUB_RI_RI);
 namespace {
 
 template <typename S1, typename S2>
-DEF_SEM_VOID_STATE(CMP, S1 src1, S2 src2) {
+DEF_SEM_VOID_STATE(CMP_RI_RI, S1 src1, S2 src2) {
   auto lhs = Read(src1);
+  auto rhs = Read(src2);
+  auto sum = USub(lhs, rhs);
+  WriteFlagsAddSub<tag_sub>(state, lhs, rhs, sum);
+}
+
+template <typename S1, typename S2>
+DEF_SEM_VOID_STATE_RUN(CMP_M_RI, S1 src1, S2 src2) {
+  auto lhs = ReadMem(src1);
   auto rhs = Read(src2);
   auto sum = USub(lhs, rhs);
   WriteFlagsAddSub<tag_sub>(state, lhs, rhs, sum);
@@ -228,52 +254,62 @@ DEF_SEM_VOID_STATE(CMP, S1 src1, S2 src2) {
 
 }  // namespace
 
-// DEF_ISEL(CMP_MEMb_IMMb_80r7) = CMP<M8, I8>;
-// DEF_ISEL(CMP_GPR8_IMMb_80r7) = CMP<R8, I8>;
-// DEF_ISEL_Mn_In(CMP_MEMv_IMMz, CMP);
-// DEF_ISEL_Rn_In(CMP_GPRv_IMMz, CMP);
+DEF_ISEL(CMP_MEMb_IMMb_80r7) = CMP_M_RI<M8, I8>;
+DEF_ISEL(CMP_GPR8_IMMb_80r7) = CMP_RI_RI<R8, I8>;
+DEF_ISEL_Mn_In(CMP_MEMv_IMMz, CMP_M_RI);
+DEF_ISEL_Rn_In(CMP_GPRv_IMMz, CMP_RI_RI);
 // DEF_ISEL(CMP_MEMb_IMMb_82r7) = CMP<M8, I8>;
-// DEF_ISEL(CMP_GPR8_IMMb_82r7) = CMP<R8, I8>;
-// DEF_ISEL_Mn_In(CMP_MEMv_IMMb, CMP);
-DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
+DEF_ISEL(CMP_GPR8_IMMb_82r7) = CMP_RI_RI<R8, I8>;
+DEF_ISEL_Mn_In(CMP_MEMv_IMMb, CMP_M_RI);
+DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP_RI_RI);
 // DEF_ISEL(CMP_MEMb_GPR8) = CMP<M8, I8>;
-// DEF_ISEL(CMP_GPR8_GPR8_38) = CMP<R8, R8>;
+DEF_ISEL(CMP_GPR8_GPR8_38) = CMP_RI_RI<R8, R8>;
 // DEF_ISEL_Mn_In(CMP_MEMv_GPRv, CMP);
-// DEF_ISEL_Rn_Rn(CMP_GPRv_GPRv_39, CMP);
-// DEF_ISEL(CMP_GPR8_GPR8_3A) = CMP<R8, R8>;
+DEF_ISEL_Rn_Rn(CMP_GPRv_GPRv_39, CMP_RI_RI);
+DEF_ISEL(CMP_GPR8_GPR8_3A) = CMP_RI_RI<R8, R8>;
 // DEF_ISEL(CMP_GPR8_MEMb) = CMP<R8, M8>;
 // DEF_ISEL_Rn_Rn(CMP_GPRv_GPRv_3B, CMP);
 // DEF_ISEL_Rn_Mn(CMP_GPRv_MEMv, CMP);
-// DEF_ISEL(CMP_AL_IMMb) = CMP<R8, I8>;
-// DEF_ISEL_Rn_In(CMP_OrAX_IMMz, CMP);
+DEF_ISEL(CMP_AL_IMMb) = CMP_RI_RI<R8, I8>;
+DEF_ISEL_Rn_In(CMP_OrAX_IMMz, CMP_RI_RI);
 
-// namespace {
+namespace {
 
-// template <typename T, typename U, typename V>
-// ALWAYS_INLINE static void WriteFlagsMul(State &state, T lhs, T rhs, U res, V res_trunc) {
-//   const auto new_of = Overflow<tag_mul>::Flag(lhs, rhs, res);
-//   FLAG_CF = new_of;
-//   FLAG_PF = BUndefined();  // Technically undefined.
-//   FLAG_AF = BUndefined();
-//   FLAG_ZF = BUndefined();
-//   FLAG_SF = BUndefined();
-//   FLAG_OF = new_of;
-// }
+template <typename T, typename U, typename V>
+ALWAYS_INLINE static void WriteFlagsMul(State &state, T lhs, T rhs, U res, V res_trunc) {
+  const auto new_of = Overflow<tag_mul>::Flag(lhs, rhs, res);
+  FLAG_CF = new_of;
+  FLAG_PF = BUndefined();  // Technically undefined.
+  FLAG_AF = BUndefined();
+  FLAG_ZF = BUndefined();
+  FLAG_SF = BUndefined();
+  FLAG_OF = new_of;
+}
 
-// // 2-operand and 3-operand multipliers truncate their results down to their
-// // base types.
-// template <typename D, typename S1, typename S2>
-// DEF_SEM(IMUL, D dst, S1 src1, S2 src2) {
-//   auto lhs = Signed(Read(src1));
-//   auto rhs = Signed(Read(src2));
-//   auto lhs_wide = SExt(lhs);
-//   auto rhs_wide = SExt(rhs);
-//   auto res = SMul(lhs_wide, rhs_wide);
-//   auto res_trunc = TruncTo<S2>(res);
-//   WriteZExt(dst, res_trunc);  // E.g. write to EAX can overwrite RAX.
-//   WriteFlagsMul(state, lhs, rhs, res, res_trunc);
-//   return memory;
-// }
+// 2-operand and 3-operand multipliers truncate their results down to their
+// base types.
+template <typename S1, typename S2>
+DEF_SEM_T_STATE_RUN(IMUL_M_RI, S1 src1, S2 src2) {
+  auto lhs = Signed(ReadMem(src1));
+  auto rhs = Signed(Read(src2));
+  auto lhs_wide = SExt(lhs);
+  auto rhs_wide = SExt(rhs);
+  auto res = SMul(lhs_wide, rhs_wide);
+  auto res_trunc = TruncTo<S2>(res);
+  WriteFlagsMul(state, lhs, rhs, res, res_trunc);
+  return res_trunc;  // E.g. write to EAX can overwrite RAX.
+}
+template <typename S1, typename S2>
+DEF_SEM_T_STATE(IMUL_RI_RI, S1 src1, S2 src2) {
+  auto lhs = Signed(Read(src1));
+  auto rhs = Signed(Read(src2));
+  auto lhs_wide = SExt(lhs);
+  auto rhs_wide = SExt(rhs);
+  auto res = SMul(lhs_wide, rhs_wide);
+  auto res_trunc = TruncTo<S2>(res);
+  WriteFlagsMul(state, lhs, rhs, res, res_trunc);
+  return res_trunc;  // E.g. write to EAX can overwrite RAX.
+}
 
 // // Unsigned multiply without affecting flags.
 // template <typename D, typename S2>
@@ -370,7 +406,7 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 //   return memory;
 // }
 
-// }  // namespace
+}  // namespace
 
 // DEF_ISEL(IMUL_MEMb) = IMULal<M8>;
 // DEF_ISEL(IMUL_GPR8) = IMULal<R8>;
@@ -383,15 +419,15 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 // DEF_ISEL(IMUL_GPRv_32) = IMULeax<R32>;
 // IF_64BIT(DEF_ISEL(IMUL_GPRv_64) = IMULrax<R64>;)
 
-// // All dests are registers, albeit different ones from the sources.
-// DEF_ISEL_RnW_Mn_In(IMUL_GPRv_MEMv_IMMz, IMUL);
-// DEF_ISEL_RnW_Rn_In(IMUL_GPRv_GPRv_IMMz, IMUL);
-// DEF_ISEL_RnW_Mn_In(IMUL_GPRv_MEMv_IMMb, IMUL);
-// DEF_ISEL_RnW_Rn_In(IMUL_GPRv_GPRv_IMMb, IMUL);
+// All dests are registers, albeit different ones from the sources.
+DEF_ISEL_RnW_Mn_In(IMUL_GPRv_MEMv_IMMz, IMUL_M_RI);
+DEF_ISEL_RnW_Rn_In(IMUL_GPRv_GPRv_IMMz, IMUL_RI_RI);
+DEF_ISEL_RnW_Mn_In(IMUL_GPRv_MEMv_IMMb, IMUL_M_RI);
+// DEF_ISEL_RnW_Rn_In(IMUL_GPRv_GPRv_IMMb, IMUL_RI_RI);
 
-// // Two-operand, but dest is a register so turns into a three-operand.
+// Two-operand, but dest is a register so turns into a three-operand.
 // DEF_ISEL_RnW_Rn_Mn(IMUL_GPRv_MEMv, IMUL);
-// DEF_ISEL_RnW_Rn_Rn(IMUL_GPRv_GPRv, IMUL);
+DEF_ISEL_RnW_Rn_Rn(IMUL_GPRv_GPRv, IMUL_RI_RI);
 
 // DEF_ISEL(MUL_GPR8) = MULal<R8>;
 // DEF_ISEL(MUL_MEMb) = MULal<M8>;
@@ -433,7 +469,7 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 // IF_AVX(DEF_ISEL(VMULSD_XMMdq_XMMdq_MEMq) = MULSD<VV128W, VV128, MV128>;)
 // IF_AVX(DEF_ISEL(VMULSD_XMMdq_XMMdq_XMMq) = MULSD<VV128W, VV128, VV128>;)
 
-// namespace {
+namespace {
 
 // // TODO(pag): Is the checking of `res` against `res_trunc` worth it? It
 // //            introduces extra control flow.
@@ -498,25 +534,105 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 //       } \
 //     } \
 //   }
-
-//             MAKE_IDIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
-//                 MAKE_IDIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
-//                     MAKE_IDIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
-//                         IF_64BIT(MAKE_IDIVxax(rdxrax, REG_RAX, REG_RDX, REG_RAX, REG_RDX))
-
+// 
+// MAKE_IDIVxax(ax, REG_AL, REG_AH, REG_AL, REG_AH)
+// MAKE_IDIVxax(dxax, REG_AX, REG_DX, REG_AX, REG_DX)
+// MAKE_IDIVxax(edxeax, REG_EAX, REG_EDX, REG_XAX, REG_XDX)
+// IF_64BIT(MAKE_IDIVxax(rdxrax, REG_RAX, REG_RDX, REG_RAX, REG_RDX))
+// 
 // #undef MAKE_IDIVxax
 
-// }  // namespace
+template <typename S1, typename S2, typename S3>
+DEF_SEM_U64U64_STATE_RUN(IDIVedxeax_M, S3 src3, S1 src1, S2 src2, PC next_pc) {
+  auto lhs_low = ZExt(Read(src1));
+  auto lhs_high = ZExt(Read(src2));
+  auto rhs = SExt(ReadMem(src3));
+  auto shift = ZExt(BitSizeOf(src3));
+  auto lhs = Signed(UOr(UShl(lhs_high, shift), lhs_low));
+  if (IsZero(rhs)) {
+    __remill_error(state, 0xdeadbeaf, runtime_manager);
+    return {0xdeadbeaf, 0xdeadbeaf};
+  } else {
+    auto quot = SDiv(lhs, rhs);
+    auto rem = SRem(lhs, rhs);
+    auto quot_trunc = Trunc(quot);
+    auto rem_trunc = Trunc(rem);
+    if (quot != SExt(quot_trunc)) {
+      __remill_error(state, 0xdeadbeaf, runtime_manager);
+      return {0xdeadbeaf, 0xdeadbeaf};
+    } else {
+      auto quot_val = Unsigned(quot_trunc);
+      auto rem_val = Unsigned(rem_trunc);
+      ClearArithFlags();
+      return {quot_val, rem_val};
+    }
+  }
+}
+
+template <typename S1, typename S2, typename S3>
+DEF_SEM_U64U64_STATE_RUN(IDIVedxeax_R, S3 src3, S1 src1, S2 src2, PC next_pc) {
+  auto lhs_low = ZExt(Read(src1));
+  auto lhs_high = ZExt(Read(src2));
+  auto rhs = SExt(Read(src3));
+  auto shift = ZExt(BitSizeOf(src3));
+  auto lhs = Signed(UOr(UShl(lhs_high, shift), lhs_low));
+  if (IsZero(rhs)) {
+    __remill_error(state, 0xdeadbeaf, runtime_manager);
+    return {0xdeadbeaf, 0xdeadbeaf};
+  } else {
+    auto quot = SDiv(lhs, rhs);
+    auto rem = SRem(lhs, rhs);
+    auto quot_trunc = Trunc(quot);
+    auto rem_trunc = Trunc(rem);
+    if (quot != SExt(quot_trunc)) {
+      __remill_error(state, 0xdeadbeaf, runtime_manager);
+      return {0xdeadbeaf, 0xdeadbeaf};
+    } else {
+      auto quot_val = Unsigned(quot_trunc);
+      auto rem_val = Unsigned(rem_trunc);
+      ClearArithFlags();
+      return {quot_val, rem_val};
+    }
+  }
+}
+
+template <typename S1, typename S2, typename S3>
+DEF_SEM_U64U64_STATE_RUN(DIVrdxrax_R, S3 src3, S1 src1, S2 src2, PC next_pc) {
+  auto lhs_low = ZExt(Read(src1));
+  auto lhs_high = ZExt(Read(src2));
+  auto rhs = SExt(Read(src3));
+  auto shift = ZExt(BitSizeOf(src3));
+  auto lhs = UOr(UShl(lhs_high, shift), lhs_low);
+  if (IsZero(rhs)) {
+    __remill_error(state, 0xdeadbeaf, runtime_manager);
+    return {0xdeadbeaf, 0xdeadbeaf};
+  } else {
+    auto quot = UDiv(lhs, rhs);
+    auto rem = URem(lhs, rhs);
+    auto quot_trunc = Trunc(quot);
+    auto rem_trunc = Trunc(rem);
+    if (quot != ZExt(quot_trunc)) {
+      __remill_error(state, 0xdeadbeaf, runtime_manager);
+      return {0xdeadbeaf, 0xdeadbeaf};
+    } else {
+      ClearArithFlags();
+      return {quot_trunc, rem_trunc};
+    }
+  }
+}
+
+}  // namespace
 
 // DEF_ISEL(IDIV_MEMb) = IDIVax<M8>;
 // DEF_ISEL(IDIV_GPR8) = IDIVax<R8>;
 // DEF_ISEL(IDIV_MEMv_8) = IDIVax<M8>;
 // DEF_ISEL(IDIV_MEMv_16) = IDIVdxax<M16>;
-// DEF_ISEL(IDIV_MEMv_32) = IDIVedxeax<M32>;
+DEF_ISEL(IDIV_MEMv_32) = IDIVedxeax_M<R32, R32, M32>;
 // IF_64BIT(DEF_ISEL(IDIV_MEMv_64) = IDIVrdxrax<M64>;)
 // DEF_ISEL(IDIV_GPRv_8) = IDIVax<R8>;
 // DEF_ISEL(IDIV_GPRv_16) = IDIVdxax<R16>;
 // DEF_ISEL(IDIV_GPRv_32) = IDIVedxeax<R32>;
+DEF_ISEL(IDIV_GPRv_32) = IDIVedxeax_R<R32, R32, R32>;
 // IF_64BIT(DEF_ISEL(IDIV_GPRv_64) = IDIVrdxrax<R64>;)
 
 // DEF_ISEL(DIV_MEMb) = DIVax<M8>;
@@ -528,7 +644,7 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 // DEF_ISEL(DIV_GPRv_8) = DIVax<R8>;
 // DEF_ISEL(DIV_GPRv_16) = DIVdxax<R16>;
 // DEF_ISEL(DIV_GPRv_32) = DIVedxeax<R32>;
-// IF_64BIT(DEF_ISEL(DIV_GPRv_64) = DIVrdxrax<R64>;)
+IF_64BIT(DEF_ISEL(DIV_GPRv_64) = DIVrdxrax_R<R64, R64, R64>;)
 
 // namespace {
 
@@ -590,27 +706,43 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 // IF_AVX(DEF_ISEL(VDIVSD_XMMdq_XMMdq_MEMq) = DIVSD<VV128W, VV128, MV128>;)
 // IF_AVX(DEF_ISEL(VDIVSD_XMMdq_XMMdq_XMMq) = DIVSD<VV128W, VV128, VV128>;)
 
-// namespace {
+namespace {
 
 // template <typename D, typename S1>
-// DEF_SEM(INC, D dst, S1 src) {
-//   auto lhs = Read(src);
+// DEF_SEM_VOID_STATE_RUN(INC_M_M, D dst, S1 src) {
+//   auto lhs = ReadMem(src);
 //   decltype(lhs) rhs = 1;
 //   auto sum = UAdd(lhs, rhs);
-//   WriteZExt(dst, sum);
+//   MWriteZExt(dst, sum);
 //   WriteFlagsIncDec<tag_add>(state, lhs, rhs, sum);
-//   return memory;
 // }
 
+template <typename S1>
+DEF_SEM_T_STATE(INC_RI_RI, S1 src) {
+  auto lhs = Read(src);
+  decltype(lhs) rhs = 1;
+  auto sum = UAdd(lhs, rhs);
+  WriteFlagsIncDec<tag_add>(state, lhs, rhs, sum);
+  return sum;
+}
+
 // template <typename D, typename S1>
-// DEF_SEM(DEC, D dst, S1 src) {
-//   auto lhs = Read(src);
+// DEF_SEM_VOID_STATE_RUN(DEC_M_M, D dst, S1 src) {
+//   auto lhs = ReadMem(src);
 //   auto_t(S1) rhs = 1;
 //   auto sum = USub(lhs, rhs);
-//   WriteZExt(dst, sum);
+//   MWriteZExt(dst, sum);
 //   WriteFlagsIncDec<tag_sub>(state, lhs, rhs, sum);
-//   return memory;
 // }
+
+template <typename S1>
+DEF_SEM_T_STATE(DEC_RI_RI, S1 src) {
+  auto lhs = Read(src);
+  auto_t(S1) rhs = 1;
+  auto sum = USub(lhs, rhs);
+  WriteFlagsIncDec<tag_sub>(state, lhs, rhs, sum);
+  return sum;
+}
 
 // template <typename D, typename S1>
 // DEF_SEM(NEG, D dst, S1 src) {
@@ -622,18 +754,18 @@ DEF_ISEL_Rn_In(CMP_GPRv_IMMb, CMP);
 //   return memory;
 // }
 
-// }  // namespace
+}  // namespace
 
 // DEF_ISEL(INC_MEMb) = INC<M8W, M8>;
 // DEF_ISEL(INC_GPR8) = INC<R8W, R8>;
 // DEF_ISEL_MnW_Mn(INC_MEMv, INC);
-// DEF_ISEL_RnW_Rn(INC_GPRv_FFr0, INC);
+DEF_ISEL_RnW_Rn(INC_GPRv_FFr0, INC_RI_RI);
 // DEF_ISEL_RnW_Rn(INC_GPRv_40, INC);
 
 // DEF_ISEL(DEC_MEMb) = DEC<M8W, M8>;
 // DEF_ISEL(DEC_GPR8) = DEC<R8W, R8>;
 // DEF_ISEL_MnW_Mn(DEC_MEMv, DEC);
-// DEF_ISEL_RnW_Rn(DEC_GPRv_FFr1, DEC);
+DEF_ISEL_RnW_Rn(DEC_GPRv_FFr1, DEC_RI_RI);
 // DEF_ISEL_RnW_Rn(DEC_GPRv_48, DEC);
 
 // DEF_ISEL(NEG_MEMb) = NEG<M8W, M8>;
