@@ -725,6 +725,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         write_regs.push_back({e_r, e_r_c});
         continue;
       } else if (Operand::Action::kActionRead == op.action) {
+        // (FIXME) this check is specialized to the llvm ir store instruction of pre-post index in aarch64.
         // if (is_base_reg) {
         //   CHECK(op.addr.index_reg.name.empty())
         //       << "[Bug] addr.index_reg must not be added to operands list.";
