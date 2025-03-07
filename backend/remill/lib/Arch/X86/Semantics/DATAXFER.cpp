@@ -1092,6 +1092,11 @@ DEF_SEM_T_RUN(MOVSX_RI_M, S src) {
   return SExtTo<SextT>(ReadMem(src));
 }
 
+template <typename S, typename SextT>
+DEF_SEM_T(MOVSX_RI_RI, S src) {
+  return SExtTo<SextT>(Read(src));
+}
+
 // }  // namespace
 
 // DEF_ISEL(MOVZX_GPRv_MEMb_16) = MOVZX<R16W, M8>;
@@ -1125,7 +1130,7 @@ DEF_SEM_T_RUN(MOVSX_RI_M, S src) {
 // IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMd_64) = MOVSX<R64W, M32, int64_t>;)
 IF_64BIT(DEF_ISEL(MOVSXD_GPRv_MEMz_64) = MOVSX_RI_M<M32, int64_t>;)
 // IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPR32_64) = MOVSX<R64W, R32, int64_t>;)
-// IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPRz_64) = MOVSX<R64W, R32, int64_t>;)
+IF_64BIT(DEF_ISEL(MOVSXD_GPRv_GPRz_64) = MOVSX_RI_RI<R32, int64_t>;)
 
 // #if HAS_FEATURE_AVX512
 

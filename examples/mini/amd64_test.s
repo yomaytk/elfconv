@@ -270,12 +270,36 @@ test_idiv_memv_32:
     jne fail_idiv_memv_32
     cmp edx, -3
     jne fail_idiv_memv_32
-    jmp test_add_gprv_immz
+    jmp test_div_gprv_64
 
 fail_idiv_memv_32:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + idiv_memv_32_error_msg]
+    mov rdx, 22
+    syscall
+    jmp exit
+
+test_div_gprv_64:
+    mov rax, 100
+    xor rdx, rdx
+    mov rcx, 3
+    div rcx
+    cmp rax, 33
+    jne fail_div_gprv_64
+    cmp rdx, 1
+    jne fail_div_gprv_64
+    jmp test_add_gprv_immz
+
+.section .data
+div_gprv_64_error_msg:
+    .string "[ERROR] DIV_GPRv_64\n"
+.section .text
+
+fail_div_gprv_64:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + div_gprv_64_error_msg]
     mov rdx, 22
     syscall
     jmp exit
@@ -619,13 +643,36 @@ test_sub_gprv_immz:
     sub rax, 10
     cmp rax, 10
     jne fail_sub_gprv_immz
-    jmp test_cmp_memv_immb
+    jmp test_sub_gprv_memv_64
 
 fail_sub_gprv_immz:
     mov rax, 1
     mov rdi, 1
     lea rsi, [rip + sub_gprv_immz_error_msg]
     mov rdx, 25
+    syscall
+    jmp exit
+
+test_sub_gprv_memv_64:
+    mov rbp, rsp
+    sub rsp, 8
+    mov qword ptr [rbp - 8], 20
+    mov rax, 30
+    sub rax, qword ptr [rbp - 8]
+    cmp rax, 10
+    jne fail_sub_gprv_memv_64
+    jmp test_cmp_memv_immb
+
+.section .data
+sub_gprv_memv_64_error_msg:
+    .string "[ERROR] SUB_GPRv_MEMv_64\n"
+.section .text
+
+fail_sub_gprv_memv_64:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rip + sub_gprv_memv_64_error_msg]
+    mov rdx, 26
     syscall
     jmp exit
 

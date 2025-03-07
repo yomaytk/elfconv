@@ -179,7 +179,7 @@ void RuntimeManager::SVCWasiCall(void) {
     case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
       X0_Q = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
       break;
-    case AARCH64_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
+    case ECV_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
       X0_Q = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
       break;
     case AARCH64_SYS_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
@@ -209,7 +209,7 @@ void RuntimeManager::SVCWasiCall(void) {
       errno = _ECV_EACCESS;
       break;
     case AARCH64_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
-    case AARCH64_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
+    case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case AARCH64_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
       exit(X0_D);
       break;
@@ -234,7 +234,7 @@ void RuntimeManager::SVCWasiCall(void) {
       NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
+    case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
       struct _ecv__clockid {
         uint32_t id;

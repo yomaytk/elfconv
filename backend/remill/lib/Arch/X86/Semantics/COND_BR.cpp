@@ -98,14 +98,12 @@ DEF_SEM_U64_STATE(JNL, PC taken, PC not_taken) {
 //   return memory;
 // }
 
-// DEF_SEM(JZ, R8W cond, PC taken, PC not_taken, IF_32BIT_ELSE(R32W, R64W) pc_dst) {
-//   addr_t taken_pc = Read(taken);
-//   addr_t not_taken_pc = Read(not_taken);
-//   auto take_branch = __remill_compare_eq(FLAG_ZF);
-//   Write(cond, take_branch);
-//   Write(pc_dst, Select<addr_t>(take_branch, taken_pc, not_taken_pc));
-//   return memory;
-// }
+DEF_SEM_U64_STATE(JZ, PC taken, PC not_taken) {
+  addr_t taken_pc = Read(taken);
+  addr_t not_taken_pc = Read(not_taken);
+  auto take_branch = __remill_compare_eq(FLAG_ZF);
+  return take_branch;
+}
 
 // DEF_SEM(JP, R8W cond, PC taken, PC not_taken, IF_32BIT_ELSE(R32W, R64W) pc_dst) {
 //   addr_t taken_pc = Read(taken);
@@ -225,7 +223,7 @@ DEF_ISEL(JNL_RELBRd) = JNL;
 // DEF_ISEL(JZ_RELBRz_16) = JZ;
 // DEF_ISEL(JZ_RELBRz_32) = JZ;
 // IF_64BIT(DEF_ISEL(JZ_RELBRz_64) = JZ;)
-// DEF_ISEL(JZ_RELBRd) = JZ;
+DEF_ISEL(JZ_RELBRd) = JZ;
 
 // DEF_ISEL(JP_RELBRb) = JP;
 // DEF_ISEL(JP_RELBRz_8) = JP;

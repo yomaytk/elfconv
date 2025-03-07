@@ -985,6 +985,7 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_MOV_GPR8_IMMb_B0:
     case XED_IFORM_MOV_GPRv_IMMz:
     case XED_IFORM_MOV_GPRv_IMMv:
+    case XED_IFORM_MOVSXD_GPRv_GPRz:
     case XED_IFORM_JMP_RELBRb:
     case XED_IFORM_MOV_GPR8_GPR8_88:
     case XED_IFORM_MOV_GPRv_GPRv_89:
@@ -1005,8 +1006,10 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_CMP_MEMb_IMMb_80r7:
     case XED_IFORM_ADD_GPRv_MEMv:
     case XED_IFORM_ADD_MEMb_GPR8:
+    case XED_IFORM_SUB_GPRv_MEMv:
     case XED_IFORM_IMUL_GPRv_MEMv_IMMz:
     case XED_IFORM_IMUL_GPRv_MEMv_IMMb:
+    case XED_IFORM_DIV_GPRv:
     case XED_IFORM_IDIV_MEMv:
     case XED_IFORM_IDIV_GPRv:
     case XED_IFORM_SHL_GPRv_IMMb_C1r4:
@@ -1021,14 +1024,19 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_XOR_GPRv_GPRv_31:
     case XED_IFORM_XOR_AL_IMMb:
     case XED_IFORM_TEST_AL_IMMb:
+    case XED_IFORM_JZ_RELBRd:
     case XED_IFORM_JNZ_RELBRb:
     case XED_IFORM_JNZ_RELBRd:
     case XED_IFORM_JNL_RELBRd:
     case XED_IFORM_JNL_RELBRb:
     case XED_IFORM_JLE_RELBRd:
+    case XED_IFORM_IMUL_GPRv_GPRv_IMMz:
     case XED_IFORM_IMUL_GPRv_GPRv:
+    case XED_IFORM_INC_GPRv_FFr0:
+    case XED_IFORM_DEC_GPRv_FFr1:
     case XED_IFORM_ADD_GPRv_IMMb:
     case XED_IFORM_ADD_GPRv_IMMz:
+    case XED_IFORM_ADD_GPRv_GPRv_01:
     case XED_IFORM_ADD_OrAX_IMMz:
     case XED_IFORM_SUB_GPRv_GPRv_29:
     case XED_IFORM_SUB_AL_IMMb:
@@ -1197,6 +1205,12 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     case XED_IFORM_IDIV_GPRv:
       push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
       push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EDX);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
+      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
+      break;
+    case XED_IFORM_DIV_GPRv:
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RAX);
+      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RDX);
       push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
       push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
       break;

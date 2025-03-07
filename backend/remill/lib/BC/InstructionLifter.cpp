@@ -137,6 +137,8 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::General, 1), ERC::RegB};
     } else if ("RDX" == _reg_name) {
       return {EcvReg(RegKind::General, 2), ERC::RegX};
+    } else if ("DL" == _reg_name) {
+      return {EcvReg(RegKind::General, 2), ERC::RegB};
     } else if ("EDX" == _reg_name) {
       return {EcvReg(RegKind::General, 2), ERC::RegW};
     } else if ("RBX" == _reg_name) {
@@ -151,6 +153,8 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::General, 5), ERC::RegX};
     } else if ("RSI" == _reg_name) {
       return {EcvReg(RegKind::General, 6), ERC::RegX};
+    } else if ("ESI" == _reg_name) {
+      return {EcvReg(RegKind::General, 6), ERC::RegW};
     } else if ("RDI" == _reg_name) {
       return {EcvReg(RegKind::General, 7), ERC::RegX};
     } else if ("EDI" == _reg_name) {
@@ -363,7 +367,11 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
     } else if (5 == number) {
       return "RBP";
     } else if (6 == number) {
-      return "RSI";
+      switch (ecv_reg_class) {
+        case ERC::RegX: return "RSI"; break;
+        case ERC::RegW: return "ESI"; break;
+        default: LOG(FATAL) << "Unsupported x86-64 register. number: " << number;
+      }
     } else if (7 == number) {
       return "RDI";
     } else if (8 == number) {

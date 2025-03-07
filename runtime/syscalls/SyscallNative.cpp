@@ -218,7 +218,7 @@ void RuntimeManager::SVCNativeCall(void) {
       NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
+    case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
       clockid_t which_clock = X0_D;
       struct timespec emu_tp;
