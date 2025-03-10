@@ -61,7 +61,6 @@ main() {
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Runtime.o -c Runtime.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
     $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
@@ -80,7 +79,6 @@ main() {
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
     # shellcheck disable=SC2086
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Runtime.o -c Runtime.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallWasi.cpp && \
     $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \

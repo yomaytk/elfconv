@@ -23,6 +23,62 @@ class RuntimeManager;
 
 #include <limits>
 
+extern "C" const uint8_t *memory_arena_ptr;
+
+#define __remill_read_memory_macro8(run_mgr, addr) *(uint8_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macro16(run_mgr, addr) *(uint16_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macro32(run_mgr, addr) *(uint32_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macro64(run_mgr, addr) *(uint64_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macro128(run_mgr, addr) *(uint128_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macrof32(run_mgr, addr) *(float32_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macrof64(run_mgr, addr) *(float64_t *) (memory_arena_ptr + addr)
+
+#define __remill_write_memory_macro8(run_mgr, addr, src) \
+  do { \
+    auto dst = (uint8_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macro16(run_mgr, addr, src) \
+  do { \
+    auto dst = (uint16_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macro32(run_mgr, addr, src) \
+  do { \
+    auto dst = (uint32_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macro64(run_mgr, addr, src) \
+  do { \
+    auto dst = (uint64_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macro128(run_mgr, addr, src) \
+  do { \
+    auto dst = (uint128_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macrof32(run_mgr, addr, src) \
+  do { \
+    auto dst = (float32_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macrof64(run_mgr, addr, src) \
+  do { \
+    auto dst = (float64_t *) (memory_arena_ptr + addr); \
+    *dst = src; \
+  } while (0);
+
+#define __remill_write_memory_macrof128(run_mgr, addr, src) \
+  do { \
+  } while (0);
+
 namespace {
 
 // Note. assume the environment which can uses 128bit type
@@ -158,12 +214,12 @@ ALWAYS_INLINE static T _Read(RnW<T> reg) {
 #define MAKE_MREAD(size, ret_size, type_prefix, access_suffix) \
   ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
                                                           Mn<type_prefix##size##_t> op) { \
-    return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
+    return __remill_read_memory_macro##access_suffix(runtime_manager, op.addr); \
   } \
 \
   ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
                                                           MnW<type_prefix##size##_t> op) { \
-    return __remill_read_memory_##access_suffix(runtime_manager, op.addr); \
+    return __remill_read_memory_macro##access_suffix(runtime_manager, op.addr); \
   }
 
 MAKE_MREAD(8, 8, uint, 8)
@@ -218,7 +274,7 @@ MAKE_RWRITE(float64_t)
 #define MAKE_MWRITE(size, write_size, mem_prefix, type_prefix, access_suffix) \
   ALWAYS_INLINE static void _MWrite(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
                                     type_prefix##write_size##_t val) { \
-    __remill_write_memory_##access_suffix(runtime_manager, op.addr, val); \
+    __remill_write_memory_macro##access_suffix(runtime_manager, op.addr, val); \
   }
 
 MAKE_MWRITE(8, 8, uint, uint, 8)
@@ -315,7 +371,7 @@ MAKE_READRV(F, 64, doubles, float64_t)
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
       vec.elems[i] = \
-          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+          __remill_read_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
     } \
     return vec; \
   } \
@@ -327,7 +383,7 @@ MAKE_READRV(F, 64, doubles, float64_t)
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
       vec.elems[i] = \
-          __remill_read_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+          __remill_read_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
     } \
     return vec; \
   }
@@ -396,8 +452,8 @@ MAKE_READVI(F, 64, float64_t)
     using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
     vector_type vec = {}; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      vec[i] = __remill_read_memory_##mem_accessor(runtime_manager, \
-                                                   mem.addr + (i * sizeof(base_type))); \
+      vec[i] = __remill_read_memory_macro##mem_accessor(runtime_manager, \
+                                                        mem.addr + (i * sizeof(base_type))); \
     } \
     return vec; \
   }
@@ -508,8 +564,8 @@ MAKE_WRITEV(F, 64, doubles, RVnW, float64_t)
     const addr_t el_size = sizeof(base_type); \
     vec.vec_accessor.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec.vec_accessor); ++i) { \
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
-                                           vec.vec_accessor.elems[i]); \
+      __remill_write_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+                                                vec.vec_accessor.elems[i]); \
     } \
   } \
 \
@@ -524,8 +580,8 @@ MAKE_WRITEV(F, 64, doubles, RVnW, float64_t)
     const addr_t el_size = sizeof(base_type); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
 \
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
-                                           val.elems[i]); \
+      __remill_write_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+                                                val.elems[i]); \
     } \
   }
 
@@ -562,8 +618,8 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
     vector_type vec{}; \
     vec[0] = val; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
-                                           vec[i]); \
+      __remill_write_memory_macro##mem_accessor(runtime_manager, \
+                                                mem.addr + (i * sizeof(base_type)), vec[i]); \
     } \
   } \
 \
@@ -574,8 +630,8 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
     static_assert(sizeof(base_type) == sizeof(typename EcvBaseType<VT2>::BT), \
                   "Incompatible types to a write to a vector register"); \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      __remill_write_memory_##mem_accessor(runtime_manager, mem.addr + (i * sizeof(base_type)), \
-                                           vec[i]); \
+      __remill_write_memory_macro##mem_accessor(runtime_manager, \
+                                                mem.addr + (i * sizeof(base_type)), vec[i]); \
     } \
   }
 
@@ -757,7 +813,7 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 
 #define Write_Dc_Zva(op, diff, val) \
   do { \
-    __remill_write_memory_32(runtime_manager, op.addr + diff, val); \
+    __remill_write_memory_macro32(runtime_manager, op.addr + diff, val); \
   } while (false)
 
 #if !defined(issignaling)
