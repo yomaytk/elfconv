@@ -52,7 +52,7 @@ void lift(const char *elf_path) {
 void gen_converted_test() {
   auto cmd =
       std::string("clang++ -I../../../backend/remill/include -I../../../ -DELF_IS_AMD64 ") +
-      " -o converted_test.amd64 lift.bc ../../../runtime/Entry.cpp ../../../runtime/Memory.cpp ../../../runtime/Runtime.cpp " +
+      " -o converted_test.amd64 lift.bc ../../../runtime/Entry.cpp ../../../runtime/Memory.cpp " +
       "../../../runtime/syscalls/SyscallNative.cpp ../../../runtime/VmIntrinsics.cpp ../../../utils/Util.cpp ../../../utils/elfconv.cpp";
   cmd_check(system(cmd.c_str()), cmd.c_str());
 }

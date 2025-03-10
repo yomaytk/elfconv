@@ -18,6 +18,8 @@
 
 #include <glog/logging.h>
 #include <iostream>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
 #include <map>
@@ -38,7 +40,7 @@ namespace remill {
 #if defined(OPT_ALGO_DEBUG)
 #  define ECV_LOG(...) EcvLog(__VA_ARGS__)
 #  define ECV_LOG_NL(...) EcvLogNL(__VA_ARGS__)
-#  define DEBUG_REMOVE_LOOP_GRAPH(bag) PhiRegsBBBagNode::DebugGraphStruct(bag)
+#  define DEBUG_REMOVE_LOOP_GRAPH(bag) BBBag::DebugGraphStruct(bag)
 #else
 #  define ECV_LOG(...)
 #  define ECV_LOG_NL(...)
@@ -1032,7 +1034,7 @@ void TraceLifter::Impl::Optimize() {
 #endif
 }
 
-PhiRegsBBBagNode *PhiRegsBBBagNode::GetTrueBag() {
+BBBag *BBBag::GetTrueBag() {
   auto res = this;
   while (res != res->converted_bag) {
     res = res->converted_bag;
@@ -1040,7 +1042,7 @@ PhiRegsBBBagNode *PhiRegsBBBagNode::GetTrueBag() {
   return res;
 }
 
-void PhiRegsBBBagNode::MergeOwnRegs(PhiRegsBBBagNode *moved_bag) {
+void BBBag::MergeOwnRegs(BBBag *moved_bag) {
   // Merge own_ld_rmp
   for (auto [ld_er, ld_erc] : moved_bag->own_ld_rmp) {
     if (own_ld_rmp.contains(ld_er)) {
@@ -1063,7 +1065,7 @@ void PhiRegsBBBagNode::MergeOwnRegs(PhiRegsBBBagNode *moved_bag) {
   }
 }
 
-void PhiRegsBBBagNode::MergeFamilyBags(PhiRegsBBBagNode *merged_bag) {
+void BBBag::MergeFamilyBags(BBBag *merged_bag) {
   for (auto merged_par : merged_bag->parents) {
     auto true_merged_par = merged_par->GetTrueBag();
     parents.insert(true_merged_par);
@@ -1076,154 +1078,146 @@ void PhiRegsBBBagNode::MergeFamilyBags(PhiRegsBBBagNode *merged_bag) {
   }
 }
 
-void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
+void BBBag::RemoveLoop(llvm::BasicBlock *root_bb) {
 
-  ECV_LOG_NL(std::dec, "[DEBUG LOG]: ", "func: PhiRegsBBbagNode::RemoveLoop. target func: ",
-             root_bb->getParent()->getName().str());
-  {
+  std::stack<std::tuple<BBBag *, std::vector<BBBag *>, std::set<BBBag *>>> bag_stack;
+  auto root_bag = bb_regs_bag_map.at(root_bb);
+  bag_stack.emplace(std::make_tuple<BBBag *, std::vector<BBBag *>, std::set<BBBag *>>(
+      (remill::BBBag *) root_bag, {}, {}));  // Why (remill::PhiResgBBBagNode *) is needed?
 
-#define TUPLE_ELEM_T \
-  PhiRegsBBBagNode *, std::vector<PhiRegsBBBagNode *>, std::set<PhiRegsBBBagNode *>
-    std::stack<std::tuple<TUPLE_ELEM_T>> bag_stack;
-    auto root_bag = bb_regs_bag_map.at(root_bb);
-    bag_stack.emplace(
-        std::make_tuple<TUPLE_ELEM_T>((remill::PhiRegsBBBagNode *) root_bag, {},
-                                      {}));  // Why (remill::PhiResgBBBagNode *) is needed?
+  std::set<BBBag *> finished;
+  uint32_t bag_i = 0;
 
-    std::set<PhiRegsBBBagNode *> finished;
-    uint32_t bag_i = 0;
+  for (auto [_, bag] : bb_regs_bag_map) {
+    CHECK(!bag->converted_bag) << ECV_DEBUG_STREAM.str();
+    bag->converted_bag = bag;
+    debug_bag_map.insert({bag, bag_i++});
+  }
 
-    for (auto [_, bag] : bb_regs_bag_map) {
-      CHECK(!bag->converted_bag) << ECV_DEBUG_STREAM.str();
-      bag->converted_bag = bag;
-      debug_bag_map.insert({bag, bag_i++});
+  while (!bag_stack.empty()) {
+    auto target_bag = std::get<BBBag *>(bag_stack.top())->GetTrueBag();
+    auto pre_path = std::get<std::vector<BBBag *>>(bag_stack.top());
+    auto visited = std::get<std::set<BBBag *>>(bag_stack.top());
+    bag_stack.pop();
+    if (finished.contains(target_bag)) {
+      continue;
     }
+    DEBUG_REMOVE_LOOP_GRAPH(target_bag);
+    bool loop_found = false;
+    std::set<BBBag *> true_visited;
+    for (auto _bag : visited) {
+      auto true_bag = _bag->GetTrueBag();
+      if (true_bag == target_bag) {
+        loop_found = true;
+      }
+      true_visited.insert(true_bag);
+    }
+    visited = true_visited;
 
-    while (!bag_stack.empty()) {
-      auto target_bag = std::get<PhiRegsBBBagNode *>(bag_stack.top())->GetTrueBag();
-      auto pre_path = std::get<std::vector<PhiRegsBBBagNode *>>(bag_stack.top());
-      auto visited = std::get<std::set<PhiRegsBBBagNode *>>(bag_stack.top());
-      bag_stack.pop();
-      if (finished.contains(target_bag)) {
+    if (loop_found) {
+      auto it_loop_bag = pre_path.rbegin();
+      std::set<BBBag *> true_deleted_bags;
+      for (;;) {
+        CHECK(!pre_path.empty()) << ECV_DEBUG_STREAM.str();
+        it_loop_bag = pre_path.rbegin();
+        auto moved_bag = (*it_loop_bag)->GetTrueBag();
+        pre_path.pop_back();
+
+        if (target_bag == moved_bag) {
+          break;
+        } else if (true_deleted_bags.contains(moved_bag)) {
+          continue;
+        }
+
+        true_deleted_bags.insert(moved_bag);
+
+        // translates moved_bag
+        target_bag->MergeOwnRegs(moved_bag);
+        target_bag->MergeFamilyBags(moved_bag);
+        for (auto moved_bb : moved_bag->in_bbs) {
+          target_bag->in_bbs.insert(moved_bb);
+        }
+
+        // update cache
+        moved_bag->converted_bag = target_bag;
+        visited.erase(moved_bag);
+        bag_num--;
+
+        if (it_loop_bag == pre_path.rend()) {
+          LOG(FATAL) << "Unexpected path route on the BBBag::RemoveLoop()."
+                     << ECV_DEBUG_STREAM.str();
+        }
+      }
+
+      target_bag->is_loop = true;
+
+      // re-search this target_bag
+      visited.erase(target_bag);
+      bag_stack.emplace(target_bag, pre_path, visited);
+    } else {
+
+      // push the children
+      bool search_finished = true;
+      for (auto __child_bag : target_bag->children) {
+        auto child_bag = __child_bag->GetTrueBag();
+        if (finished.contains(child_bag) || child_bag == target_bag) {
+          continue;
+        }
+        search_finished = false;
+        auto child_pre_path = pre_path;
+        auto child_visited = visited;
+        child_pre_path.push_back(target_bag);
+        child_visited.insert(target_bag);
+        bag_stack.emplace(child_bag, child_pre_path, child_visited);
+      }
+
+      // finish the target_bag if all children are finished.
+      if (search_finished) {
+        finished.insert(target_bag);
+      }
+    }
+  }
+
+  // Update all bags to the true bags.
+  std::set<BBBag *> deleted_bag_set;
+  for (auto [bb, bag] : bb_regs_bag_map) {
+    // Update bag
+    auto target_true_bag = bag->GetTrueBag();
+    if (bag != target_true_bag) {
+      bb_regs_bag_map.insert_or_assign(bb, target_true_bag);
+      deleted_bag_set.insert(bag);
+    }
+    // Update parents
+    std::set<BBBag *> new_pars;
+    for (auto par : target_true_bag->parents) {
+      auto t_par = par->GetTrueBag();
+      if (t_par == target_true_bag) {
         continue;
       }
-      DEBUG_REMOVE_LOOP_GRAPH(target_bag);
-      bool loop_found = false;
-      std::set<PhiRegsBBBagNode *> true_visited;
-      for (auto _bag : visited) {
-        auto true_bag = _bag->GetTrueBag();
-        if (true_bag == target_bag) {
-          loop_found = true;
-        }
-        true_visited.insert(true_bag);
-      }
-      visited = true_visited;
-
-      if (loop_found) {
-        auto it_loop_bag = pre_path.rbegin();
-        std::set<PhiRegsBBBagNode *> true_deleted_bags;
-        for (;;) {
-          CHECK(!pre_path.empty()) << ECV_DEBUG_STREAM.str();
-          it_loop_bag = pre_path.rbegin();
-          auto moved_bag = (*it_loop_bag)->GetTrueBag();
-          pre_path.pop_back();
-
-          if (target_bag == moved_bag) {
-            break;
-          } else if (true_deleted_bags.contains(moved_bag)) {
-            continue;
-          }
-
-          true_deleted_bags.insert(moved_bag);
-
-          // translates moved_bag
-          target_bag->MergeOwnRegs(moved_bag);
-          target_bag->MergeFamilyBags(moved_bag);
-          for (auto moved_bb : moved_bag->in_bbs) {
-            target_bag->in_bbs.insert(moved_bb);
-          }
-
-          // update cache
-          moved_bag->converted_bag = target_bag;
-          visited.erase(moved_bag);
-          bag_num--;
-
-          if (it_loop_bag == pre_path.rend()) {
-            LOG(FATAL) << "Unexpected path route on the PhiRegsBBBagNode::RemoveLoop()."
-                       << ECV_DEBUG_STREAM.str();
-          }
-        }
-
-        target_bag->is_loop = true;
-
-        // re-search this target_bag
-        visited.erase(target_bag);
-        bag_stack.emplace(target_bag, pre_path, visited);
-      } else {
-
-        // push the children
-        bool search_finished = true;
-        for (auto __child_bag : target_bag->children) {
-          auto child_bag = __child_bag->GetTrueBag();
-          if (finished.contains(child_bag) || child_bag == target_bag) {
-            continue;
-          }
-          search_finished = false;
-          auto child_pre_path = pre_path;
-          auto child_visited = visited;
-          child_pre_path.push_back(target_bag);
-          child_visited.insert(target_bag);
-          bag_stack.emplace(child_bag, child_pre_path, child_visited);
-        }
-
-        // finish the target_bag if all children are finished.
-        if (search_finished) {
-          finished.insert(target_bag);
-        }
-      }
+      new_pars.insert(t_par);
     }
-
-    // Update all bags to the true bags.
-    std::set<PhiRegsBBBagNode *> deleted_bag_set;
-    for (auto [bb, bag] : bb_regs_bag_map) {
-      // Update bag
-      auto target_true_bag = bag->GetTrueBag();
-      if (bag != target_true_bag) {
-        bb_regs_bag_map.insert_or_assign(bb, target_true_bag);
-        deleted_bag_set.insert(bag);
+    target_true_bag->parents = new_pars;
+    // Update children
+    std::set<BBBag *> new_children;
+    for (auto child : target_true_bag->children) {
+      auto t_child = child->GetTrueBag();
+      if (t_child == target_true_bag) {
+        continue;
       }
-      // Update parents
-      std::set<PhiRegsBBBagNode *> new_pars;
-      for (auto par : target_true_bag->parents) {
-        auto t_par = par->GetTrueBag();
-        if (t_par == target_true_bag) {
-          continue;
-        }
-        new_pars.insert(t_par);
-      }
-      target_true_bag->parents = new_pars;
-      // Update children
-      std::set<PhiRegsBBBagNode *> new_children;
-      for (auto child : target_true_bag->children) {
-        auto t_child = child->GetTrueBag();
-        if (t_child == target_true_bag) {
-          continue;
-        }
-        new_children.insert(t_child);
-      }
-      target_true_bag->children = new_children;
+      new_children.insert(t_child);
     }
-    // Delete the all unneccesary bags.
-    for (auto deleted_bag : deleted_bag_set) {
-      delete (deleted_bag);
-    }
+    target_true_bag->children = new_children;
+  }
+  // Delete the all unneccesary bags.
+  for (auto deleted_bag : deleted_bag_set) {
+    delete (deleted_bag);
   }
 
 #if defined(OPT_ALGO_DEBUG)
 
   // Check the consistency of the parents and children
   {
-    std::set<PhiRegsBBBagNode *> bag_set;
+    std::set<BBBag *> bag_set;
     for (auto [_, bag] : bb_regs_bag_map) {
       if (!bag_set.contains(bag)) {
         bag_set.insert(bag);
@@ -1243,8 +1237,8 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
 
   // Check whether G of PhiregsBBBagNode* doesn't have loop. (for debug)
   {
-    std::stack<PhiRegsBBBagNode *> bag_stack;
-    std::set<PhiRegsBBBagNode *> visited, finished;
+    std::stack<BBBag *> bag_stack;
+    std::set<BBBag *> visited, finished;
     bag_stack.push(bb_regs_bag_map.at(root_bb));
 
     while (!bag_stack.empty()) {
@@ -1257,7 +1251,7 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
         for (auto child : target_bag->children) {
           if (!finished.contains(child)) {
             LOG(FATAL)
-                << "[Bug] The loop was detected from the G of PhiRegsBBBagNode* after PhiRegsBBBagNode::RemoveLoop."
+                << "[Bug] The loop was detected from the G of BBBag* after BBBag::RemoveLoop."
                 << ECV_DEBUG_STREAM.str();
           }
         }
@@ -1275,19 +1269,19 @@ void PhiRegsBBBagNode::RemoveLoop(llvm::BasicBlock *root_bb) {
     }
     CHECK(bag_num == finished.size())
         << "[Bug] bag_num: " << bag_num << ", finished.size(): " << finished.size()
-        << ". They should be equal at PhiRegsBBBagNode::RemoveLoop." << ECV_DEBUG_STREAM.str();
+        << ". They should be equal at BBBag::RemoveLoop." << ECV_DEBUG_STREAM.str();
   }
 
   DebugStreamReset();
 #endif
 }
 
-void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
-  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetPrecedingVirtualRegsBags. target func: ",
-             root_bb->getParent()->getName().str());
-  std::queue<PhiRegsBBBagNode *> bag_queue;
-  std::unordered_map<PhiRegsBBBagNode *, std::size_t> fin_pars_nummp;
-  std::set<PhiRegsBBBagNode *> fins;
+// This method calculates preceding registers for the BBBag which includes the `root_bb`.
+void BBBag::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
+
+  std::queue<BBBag *> bag_queue;
+  std::unordered_map<BBBag *, std::size_t> fin_pars_nummp;
+  std::set<BBBag *> fins;
   bag_queue.push(bb_regs_bag_map.at(root_bb));
 
   while (!bag_queue.empty()) {
@@ -1362,20 +1356,15 @@ void PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
     }
   }
 
-  CHECK(fins.size() == bag_num)
-      << "[Bug] bag_num: " << bag_num << ", finished_bag.size(): " << fins.size()
-      << ". They should be equal after PhiRegsBBagNode::GetPrecedingVirtualRegsBags."
-      << ECV_DEBUG_STREAM.str();
-
+  CHECK(fins.size() == bag_num);
   DebugStreamReset();
 }
 
-void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
-  ECV_LOG_NL("[DEBUG LOG]: ", "func: PhiRegsBBbagNode::GetSucceedingVirtualRegsBags. target func: ",
-             root_bb->getParent()->getName().str());
-  std::stack<PhiRegsBBBagNode *> bag_stack;
-  std::unordered_map<PhiRegsBBBagNode *, std::size_t> fin_chn_nummp;
-  std::set<PhiRegsBBBagNode *> fins;
+void BBBag::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
+
+  std::stack<BBBag *> bag_stack;
+  std::unordered_map<BBBag *, std::size_t> fin_chn_nummp;
+  std::set<BBBag *> fins;
   bag_stack.push(bb_regs_bag_map.at(root_bb));
 
   while (!bag_stack.empty()) {
@@ -1429,28 +1418,25 @@ void PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(llvm::BasicBlock *root_bb) {
     }
   }
 
-  CHECK(fins.size() == fin_chn_nummp.size() && fins.size() == bag_num)
-      << "[Bug] Search argorithm is incorrect of PhiRegsBBBagNode::GetPhiDerivedRegsBags: Search is insufficient."
-      << ECV_DEBUG_STREAM.str();
-
+  CHECK(fins.size() == fin_chn_nummp.size() && fins.size() == bag_num);
   DebugStreamReset();
 }
 
-void PhiRegsBBBagNode::GetPhiRegsBags(
+void BBBag::GetPhiRegsBags(
     llvm::BasicBlock *root_bb,
     std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> &bb_reg_info_node_map) {
 
-  // Remove loop from the graph of PhiRegsBBBagNode.
-  PhiRegsBBBagNode::RemoveLoop(root_bb);
+  // Remove loop from the graph of BBBag.
+  BBBag::RemoveLoop(root_bb);
 
 
-  // Calculate the bag_preceding_(load | store)_reg_map for the every PhiRegsBBBagNode.
-  PhiRegsBBBagNode::GetPrecedingVirtualRegsBags(root_bb);
-  // Calculate the sucs_ld_rmp for the every PhiRegsBBBagNode.
-  PhiRegsBBBagNode::GetSucceedingVirtualRegsBags(root_bb);
+  // Calculate the bag_preceding_(load | store)_reg_map for the every BBBag.
+  BBBag::GetPrecedingVirtualRegsBags(root_bb);
+  // Calculate the sucs_ld_rmp for the every BBBag.
+  BBBag::GetSucceedingVirtualRegsBags(root_bb);
 
   // Calculate the drvd_rmp.
-  std::set<PhiRegsBBBagNode *> finished;
+  std::set<BBBag *> finished;
   for (auto [_, t_bag] : bb_regs_bag_map) {
 
     if (finished.contains(t_bag)) {
@@ -1558,11 +1544,11 @@ void PhiRegsBBBagNode::GetPhiRegsBags(
   }
 }
 
-void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
+void BBBag::DebugGraphStruct(BBBag *target_bag) {
   ECV_LOG_NL("target bag: ", debug_bag_map.at(target_bag));
-  std::set<PhiRegsBBBagNode *> __bags;
-  ECV_LOG("PhiRegsBBBagNode * G Parents: ");
-  // stdout PhiRegsBBBagNode* G.
+  std::set<BBBag *> __bags;
+  ECV_LOG("BBBag * G Parents: ");
+  // stdout BBBag* G.
   for (auto [__bag, __bag_i] : debug_bag_map) {
     auto __t_bag = __bag->GetTrueBag();
     if (__bags.contains(__t_bag)) {
@@ -1571,7 +1557,7 @@ void PhiRegsBBBagNode::DebugGraphStruct(PhiRegsBBBagNode *target_bag) {
       __bags.insert(__t_bag);
       ECV_LOG("[[", debug_bag_map[__t_bag], "] -> [");
       auto _p_bag = __t_bag->children.begin();
-      std::set<PhiRegsBBBagNode *> __t_out_bags;
+      std::set<BBBag *> __t_out_bags;
       while (_p_bag != __t_bag->children.end()) {
         auto _t_p_bag = (*_p_bag)->GetTrueBag();
         if (__t_out_bags.contains(_t_p_bag)) {
@@ -1666,32 +1652,22 @@ VirtualRegsOpt::VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl
       }
     }
   }
-  CHECK(arg_state_val)
-      << "[Bug] state arg is empty at the initialization of VirtualRegsOpt. target func: "
-      << func->getName().str();
-  CHECK(arg_runtime_val)
-      << "[Bug] runtime_manager arg is empty at the initialization of VirtualRegsOpt. target func: "
-      << func->getName().str();
+
+  CHECK(arg_state_val && arg_runtime_val);
 }
 
 void VirtualRegsOpt::AnalyzeRegsBags() {
 
   impl->virtual_regs_opt = this;
 
-  ECV_LOG_NL(std::hex,
-             "[DEBUG LOG]. func: VirtualRegsOpt::OptimizeVritualRegsUsage. target function: ",
-             func->getName().str(), ".");
-
-  // Flatten the control flow graph
-  llvm::BasicBlock *t_bb;  // the parent bb of the joined bb
+  // t_bb: parent bb of the joined bb
+  llvm::BasicBlock *t_bb, *entry_bb;
   std::queue<llvm::BasicBlock *> bb_queue;
   std::set<llvm::BasicBlock *> visited;
-  auto entry_bb = &func->getEntryBlock();
-  auto entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
-  CHECK(nullptr != entry_terminator_br)
-      << "entry block of the lifted function must have the terminator instruction.";
-  CHECK(1 == entry_terminator_br->getNumSuccessors())
-      << "entry block terminator must have the one jump basic block.";
+  llvm::CastInfo<llvm::BranchInst, llvm::Instruction *>::CastReturnType entry_terminator_br;
+
+  entry_bb = &func->getEntryBlock();
+  entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
   t_bb = entry_terminator_br->getSuccessor(0);
   bb_queue.push(t_bb);
 
@@ -1701,30 +1677,42 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
     }
   };
 
+  // remill individually convert each machine instruction into a basic block of LLVM IR.
+  // However, VRP yields the some phi instructions for the every basic block, so having many basic blocks may incur performance overheads.
+  // According that, VRP combine the basic block to the basic block if the former has only child basic block and the latter has only parent basic block.
+  // Therefore VRP decrease the total number of basic blocks.
+  llvm::Instruction *t_endbr;
   while (!bb_queue.empty()) {
-    auto t_bb = bb_queue.front();
+
+    t_bb = bb_queue.front();
     bb_queue.pop();
     visited.insert(t_bb);
-    auto target_terminator = t_bb->getTerminator();
-    auto child_num = target_terminator->getNumSuccessors();
+    uint64_t child_num;
+
+    t_endbr = t_bb->getTerminator();
+    child_num = t_endbr->getNumSuccessors();
+
     if (2 < child_num) {
       LOG(FATAL)
           << "Every block of the lifted function by elfconv must not have the child blocks more than two."
           << ECV_DEBUG_STREAM.str();
     } else if (2 == child_num) {
-      push_successor_bb_queue(target_terminator->getSuccessor(0));
-      push_successor_bb_queue(target_terminator->getSuccessor(1));
+      push_successor_bb_queue(t_endbr->getSuccessor(0));
+      push_successor_bb_queue(t_endbr->getSuccessor(1));
     } else if (1 == child_num) {
-      auto candidate_bb = target_terminator->getSuccessor(0);
+
+      llvm::BasicBlock *candidate_bb, *joined_bb;
+
+      candidate_bb = t_endbr->getSuccessor(0);
       auto &candidate_bb_parents = bb_parents.at(candidate_bb);
       if (1 == candidate_bb_parents.size()) {
         // join candidate_bb to the t_bb
-        auto joined_bb = candidate_bb;
-        auto target_terminator = t_bb->getTerminator();
-        CHECK(llvm::dyn_cast<llvm::BranchInst>(target_terminator))
+        joined_bb = candidate_bb;
+        t_endbr = t_bb->getTerminator();
+        CHECK(llvm::dyn_cast<llvm::BranchInst>(t_endbr))
             << "The parent basic block of the lifted function must terminate by the branch instruction.";
         // delete the branch instruction of the t_bb and joined_bb
-        target_terminator->eraseFromParent();
+        t_endbr->eraseFromParent();
         // transfer the all instructions (t_bb = t_bb & joined_bb)
         t_bb->splice(t_bb->end(), joined_bb);
         // join BBRegInfoNode
@@ -1732,12 +1720,12 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
         bb_reg_info_node_map.at(t_bb)->join_reg_info_node(joined_bb_reg_info_node);
         // update bb_parents
         bb_parents.erase(joined_bb);
-        target_terminator = t_bb->getTerminator();
-        if (llvm::dyn_cast<llvm::BranchInst>(target_terminator)) {
+        t_endbr = t_bb->getTerminator();
+        if (llvm::dyn_cast<llvm::BranchInst>(t_endbr)) {
           // joined_bb has children
-          for (uint32_t i = 0; i < target_terminator->getNumSuccessors(); i++) {
-            bb_parents.at(target_terminator->getSuccessor(i)).erase(joined_bb);
-            bb_parents.at(target_terminator->getSuccessor(i)).insert(t_bb);
+          for (uint32_t i = 0; i < t_endbr->getNumSuccessors(); i++) {
+            bb_parents.at(t_endbr->getSuccessor(i)).erase(joined_bb);
+            bb_parents.at(t_endbr->getSuccessor(i)).insert(t_bb);
           }
           bb_queue.push(t_bb);
         }
@@ -1747,7 +1735,7 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
         push_successor_bb_queue(candidate_bb);
       }
     } else /* if (0 == child_num)*/ {
-      CHECK(llvm::dyn_cast<llvm::ReturnInst>(target_terminator))
+      CHECK(llvm::dyn_cast<llvm::ReturnInst>(t_endbr))
           << "The basic block which doesn't have the successors must be ReturnInst.";
     }
   }
@@ -1756,20 +1744,19 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
   ECV_LOG_NL("target_func: ", func->getName().str());
 
 
-  // Initialize the Graph of PhiRegsBBBagNode.
+  // Initialize the Graph of BBBag.
   for (auto &[bb, bb_reg_info_node] : bb_reg_info_node_map) {
-    auto phi_regs_bag =
-        new PhiRegsBBBagNode(bb_reg_info_node->bb_ld_r_mp, bb_reg_info_node->bb_ld_r_mp,
-                             std::move(bb_reg_info_node->bb_str_r_mp), {bb});
-    PhiRegsBBBagNode::bb_regs_bag_map.insert({bb, phi_regs_bag});
+    auto phi_regs_bag = new BBBag(bb_reg_info_node->bb_ld_r_mp, bb_reg_info_node->bb_ld_r_mp,
+                                  std::move(bb_reg_info_node->bb_str_r_mp), {bb});
+    BBBag::bb_regs_bag_map.insert({bb, phi_regs_bag});
   }
-  PhiRegsBBBagNode::bag_num = PhiRegsBBBagNode::bb_regs_bag_map.size();
+  BBBag::bag_num = BBBag::bb_regs_bag_map.size();
 
   for (auto [bb, pars] : bb_parents) {
     for (auto par : pars) {
-      auto par_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map.at(par);
-      auto child_phi_regs_bag = PhiRegsBBBagNode::bb_regs_bag_map.at(bb);
-      // Remove self-loop because it is not needed for the PhiRegsBBBagNode* Graph.
+      auto par_phi_regs_bag = BBBag::bb_regs_bag_map.at(par);
+      auto child_phi_regs_bag = BBBag::bb_regs_bag_map.at(bb);
+      // Remove self-loop because it is not needed for the BBBag* Graph.
       if (par_phi_regs_bag == child_phi_regs_bag) {
         continue;
       }
@@ -1779,11 +1766,11 @@ void VirtualRegsOpt::AnalyzeRegsBags() {
   }
 
   // Calculate the registers which needs to get on the phi nodes for every basic block.
-  PhiRegsBBBagNode::GetPhiRegsBags(&func->getEntryBlock(), bb_reg_info_node_map);
-  bb_regs_bag_map = PhiRegsBBBagNode::bb_regs_bag_map;
+  BBBag::GetPhiRegsBags(&func->getEntryBlock(), bb_reg_info_node_map);
+  bb_regs_bag_map = BBBag::bb_regs_bag_map;
 
-  // Reset static data of PhiRegsBBBagNode.
-  PhiRegsBBBagNode::Reset();
+  // Reset static data of BBBag.
+  BBBag::Reset();
 
   ECV_LOG_NL(OutLLVMFunc(func).str().c_str());
   DebugStreamReset();
@@ -2733,7 +2720,7 @@ llvm::Value *VirtualRegsOpt::GetDrvdValue(llvm::BasicBlock *t_bb, llvm::BasicBlo
       }
       relay_bb_cache.insert(relay_bb);
 
-      // Add relay_bb to the PhiRegsBBBagNode and BBRegInfoNode.
+      // Add relay_bb to the BBBag and BBRegInfoNode.
       auto req_bag = bb_regs_bag_map.at(req_bb);
       bb_regs_bag_map.insert({relay_bb, req_bag});
       auto relay_bb_r_info = new BBRegInfoNode(func, arg_state_val, arg_runtime_val);

@@ -12,12 +12,16 @@
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
+#else
+#  include <remill/Arch/AArch64/Runtime/State.h>  // default
 #endif
 
-const addr_t STACK_START_VMA = 0x0fff'ff00'0000'0000; /* 65535 TiB FIXME! */
-const size_t STACK_SIZE = 1 * 1024 * 1024; /* 4 MiB */
-const addr_t HEAPS_START_VMA = 0x4000'0000'0000; /* 64 TiB FIXME! */
-const uint64_t HEAP_UNIT_SIZE = 1 * 1024 * 1024 * 1024; /* 1 GiB */
+const size_t MEMORY_ARENA_SIZE = 512 * 1024 * 1024; /* 512 MiB */
+const addr_t MEMORY_ARENA_VMA = 0;
+const size_t STACK_SIZE = 4 * 1024 * 1024; /* 4 MiB */
+const addr_t STACK_START_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
+const size_t HEAP_UNIT_SIZE = 252 * 1024 * 1024; /* 252 MiB */
+const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
@@ -61,41 +65,33 @@ enum class MemoryAreaType : uint8_t {
   HEAP,
   DATA,
   RODATA,
+  ARENA,
   OTHER,
 };
 
 class MappedMemory {
 
  public:
-  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma,
-               addr_t __vma_end, uint64_t __len, uint8_t *__bytes, uint8_t *__upper_bytes,
-               bool __bytes_on_heap)
+  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
+               uint8_t *__bytes, addr_t __heap_cur)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
-        vma_end(__vma_end),
         len(__len),
         bytes(__bytes),
-        upper_bytes(__upper_bytes),
-        bytes_on_heap(__bytes_on_heap) {}
+        heap_cur(__heap_cur) {}
   MappedMemory() {}
   ~MappedMemory() {
-    if (bytes_on_heap)
-      free(bytes);
+    free(bytes);
   }
 
-  static MappedMemory *VMAStackEntryInit(int argc, char *argv[],
-                                         State &state /* start stack pointer */);
-  static MappedMemory *VMAHeapEntryInit();
-  void DebugEmulatedMemory();
+  static MappedMemory *MemoryArenaInit(int argc, char *argv[],
+                                       State &state /* start stack pointer */);
 
   MemoryAreaType memory_area_type;
   std::string name;
   addr_t vma;
-  addr_t vma_end;
   uint64_t len;
   uint8_t *bytes;
-  uint8_t *upper_bytes;
-  bool bytes_on_heap;  // whether or not bytes is allocated on the heap memory
   uint64_t heap_cur; /* for Heap */
 };
