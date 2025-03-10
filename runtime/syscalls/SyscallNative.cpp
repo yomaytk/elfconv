@@ -101,8 +101,8 @@ void RuntimeManager::SVCNativeCall(void) {
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
   switch (SYSNUMREG) {
-    case AARCH64_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
-    case AARCH64_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
+    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
+    case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
@@ -129,28 +129,28 @@ void RuntimeManager::SVCNativeCall(void) {
         default: break;
       }
     }
-    case AARCH64_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
+    case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
-    case AARCH64_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
+    case ECV_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
       X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
-    case AARCH64_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
+    case ECV_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
       X0_D = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
       break;
-    case AARCH64_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
+    case ECV_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
       X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
       break;
-    case AARCH64_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
+    case ECV_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
-    case AARCH64_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
+    case ECV_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
       /* TODO */
       X0_Q = -1;
-      EMPTY_SYSCALL(AARCH64_SYS_FACCESSAT);
+      EMPTY_SYSCALL(ECV_SYS_FACCESSAT);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
+    case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
       char *filepath = (char *) TranslateVMA(X1_Q);
       X0_D = openat(X0_D, filepath, X2_D, X3_D);
@@ -159,17 +159,17 @@ void RuntimeManager::SVCNativeCall(void) {
       }
       break;
     }
-    case AARCH64_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
-    case AARCH64_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
+    case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
-    case AARCH64_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
+    case ECV_SYS_READ: /* read (unsigned int fd, char *buf, size_t count) */
       X0_Q = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
       break;
     case ECV_SYS_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
       X0_Q = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
       break;
-    case AARCH64_SYS_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
+    case ECV_SYS_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
@@ -183,27 +183,27 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
-    case AARCH64_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
+    case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
-    case AARCH64_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
+    case ECV_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       /* TODO */
       X0_Q = -1;
-      EMPTY_SYSCALL(AARCH64_SYS_NEWFSTATAT);
+      EMPTY_SYSCALL(ECV_SYS_NEWFSTATAT);
       errno = _ECV_EACCESS;
       break;
-    case AARCH64_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
-    case AARCH64_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
-      syscall(AARCH64_SYS_EXITGROUP, X0_D);
+    case ECV_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
+      syscall(ECV_SYS_EXITGROUP, X0_D);
       break;
-    case AARCH64_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
+    case ECV_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
       *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
       X0_Q = tid;
     } break;
-    case AARCH64_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
+    case ECV_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
       /* TODO */
       if ((X1_D & 0x7F) == 0) {
         /* FUTEX_WAIT */
@@ -211,11 +211,11 @@ void RuntimeManager::SVCNativeCall(void) {
       } else {
         elfconv_runtime_error("Unknown futex op 0x%08u\n", X1_D);
       }
-      NOP_SYSCALL(AARCH64_SYS_FUTEX);
+      NOP_SYSCALL(ECV_SYS_FUTEX);
       break;
-    case AARCH64_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
+    case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
       X0_Q = 0;
-      NOP_SYSCALL(AARCH64_SYS_SET_ROBUST_LIST);
+      NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
       errno = _ECV_EACCESS;
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
@@ -226,89 +226,87 @@ void RuntimeManager::SVCNativeCall(void) {
       memcpy(TranslateVMA(X1_Q), &emu_tp, sizeof(timespec));
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
-    case AARCH64_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
+    case ECV_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
       X0_Q = tgkill(X0_D, X1_D, X2_D);
       break;
-    case AARCH64_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
+    case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
       /* TODO */
       X0_Q = 0;
-      EMPTY_SYSCALL(AARCH64_SYS_RT_SIGPROCMASK);
+      EMPTY_SYSCALL(ECV_SYS_RT_SIGPROCMASK);
       break;
-    case AARCH64_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
+    case ECV_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
                        (struct sigaction *) TranslateVMA(X2_Q));
       break;
-    case AARCH64_SYS_UNAME: /* uname (struct old_utsname* buf) */
+    case ECV_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
       struct utsname _utsname;
       int ret = uname(&_utsname);
       memcpy(TranslateVMA(X0_Q), &_utsname, sizeof(utsname));
       X0_D = ret;
     } break;
-    case AARCH64_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
+    case ECV_SYS_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
       X0_D = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
                           (struct timezone *) 0); /* FIXME (second argument) */
       break;
-    case AARCH64_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
+    case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
-    case AARCH64_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
-    case AARCH64_SYS_GETPPID: /* getppid () */ X0_D = getppid(); break;
-    case AARCH64_SYS_GETTUID: /* getuid () */ X0_D = getuid(); break;
-    case AARCH64_SYS_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
-    case AARCH64_SYS_GETGID: /* getgid () */ X0_D = getgid(); break;
-    case AARCH64_SYS_GETEGID: /* getegid () */ X0_D = getegid(); break;
-    case AARCH64_SYS_GETTID: /* gettid () */ X0_D = gettid(); break;
-    case AARCH64_SYS_BRK: /* brk (unsigned long brk) */
+    case ECV_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
+    case ECV_SYS_GETPPID: /* getppid () */ X0_D = getppid(); break;
+    case ECV_SYS_GETUID: /* getuid () */ X0_D = getuid(); break;
+    case ECV_SYS_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
+    case ECV_SYS_GETGID: /* getgid () */ X0_D = getgid(); break;
+    case ECV_SYS_GETEGID: /* getegid () */ X0_D = getegid(); break;
+    case ECV_SYS_GETTID: /* gettid () */ X0_D = gettid(); break;
+    case ECV_SYS_BRK: /* brk (unsigned long brk) */
     {
-      auto __heap_memory = heap_memory;
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = __heap_memory->heap_cur;
-      } else if (__heap_memory->vma <= X0_Q && X0_Q < __heap_memory->vma + __heap_memory->len) {
+        X0_Q = memory_arena->heap_cur;
+      } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        __heap_memory->heap_cur = X0_Q;
+        memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
     } break;
-    case AARCH64_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
+    case ECV_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
       /* TODO */
       X0_Q = 0;
-      EMPTY_SYSCALL(AARCH64_SYS_MUNMAP);
+      EMPTY_SYSCALL(ECV_SYS_MUNMAP);
       break;
-    case AARCH64_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
+    case ECV_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
-        auto __heap_memory = heap_memory;
         if (X4_D != -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = __heap_memory->heap_cur;
-          __heap_memory->heap_cur += X1_Q;
+          X0_Q = memory_arena->heap_cur;
+          memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
       }
-      NOP_SYSCALL(AARCH64_SYS_MMAP);
+      NOP_SYSCALL(ECV_SYS_MMAP);
       break;
-    case AARCH64_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
+    case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       X0_Q = 0;
-      NOP_SYSCALL(AARCH64_SYS_MPROTECT);
+      NOP_SYSCALL(ECV_SYS_MPROTECT);
       break;
-    case AARCH64_SYS_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
+    case ECV_SYS_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
       X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
-    case AARCH64_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
+    case ECV_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
       X0_Q = 0;
-      NOP_SYSCALL(AARCH64_SYS_PRLIMIT64);
+      NOP_SYSCALL(ECV_SYS_PRLIMIT64);
       break;
-    case AARCH64_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
+    case ECV_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
       auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
       X0_Q = 0 == res ? X1_Q : -1;
     } break;
-    case AARCH64_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
+    case ECV_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
       int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
@@ -336,10 +334,10 @@ void RuntimeManager::SVCNativeCall(void) {
         X0_Q = -1;
       }
     } break;
-    case AARCH64_SYS_RSEQ:
+    case ECV_SYS_RSEQ:
       /* TODO */
       X0_Q = 0;
-      NOP_SYSCALL(AARCH64_SYS_RSEQ);
+      NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
     default:
       elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);

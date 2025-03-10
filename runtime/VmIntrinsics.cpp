@@ -28,67 +28,62 @@
   fflush(stdout); \
   abort();
 
+// __remill_(read | write)_memory_* functions are not used for the optimization.
+
 uint8_t __remill_read_memory_8(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint8_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_8 function must not be called!");
 }
 
 uint16_t __remill_read_memory_16(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint16_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_16 function must not be called!");
 }
 
 uint32_t __remill_read_memory_32(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint32_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_32 function must not be called!");
 }
 
 uint64_t __remill_read_memory_64(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint64_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_64 function must not be called!");
 }
 
 uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(uint128_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_128 function must not be called!");
 }
 
 float32_t __remill_read_memory_f32(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(float32_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_f32 function must not be called!");
 }
 
 float64_t __remill_read_memory_f64(RuntimeManager *runtime_manager, addr_t addr) {
-  return *(float64_t *) runtime_manager->TranslateVMA(addr);
+  elfconv_runtime_error("__remill_read_memory_f64 function must not be called!");
 }
 
 void __remill_write_memory_8(RuntimeManager *runtime_manager, addr_t addr, uint8_t src) {
-  auto dst = (uint8_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_8 function must not be called!");
 }
 
 void __remill_write_memory_16(RuntimeManager *runtime_manager, addr_t addr, uint16_t src) {
-  auto dst = (uint16_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_16 function must not be called!");
 }
 
 void __remill_write_memory_32(RuntimeManager *runtime_manager, addr_t addr, uint32_t src) {
-  auto dst = (uint32_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_32 function must not be called!");
 }
 
 void __remill_write_memory_64(RuntimeManager *runtime_manager, addr_t addr, uint64_t src) {
-  auto dst = (uint64_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_64 function must not be called!");
 }
 
 void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr, uint128_t src) {
-  auto dst = (uint128_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_128 function must not be called!");
 }
 
 void __remill_write_memory_f32(RuntimeManager *runtime_manager, addr_t addr, float32_t src) {
-  auto dst = (float32_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_f32 function must not be called!");
 }
 
 void __remill_write_memory_f64(RuntimeManager *runtime_manager, addr_t addr, float64_t src) {
-  auto dst = (float64_t *) runtime_manager->TranslateVMA(addr);
-  *dst = src;
+  elfconv_runtime_error("__remill_write_memory_f64 function must not be called!");
 }
 
 void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}

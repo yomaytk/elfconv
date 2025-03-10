@@ -105,17 +105,17 @@ class TraceManager {
   uint64_t _io_file_xsputn_vma = 0;
 };
 
-class PhiRegsBBBagNode {
+class BBBag {
  public:
-  PhiRegsBBBagNode(EcvRegMap<ERC> __own_ld_reg_map, EcvRegMap<ERC> __succeeding_load_reg_map,
-                   EcvRegMap<ERC> &&__own_str_reg_map, std::set<llvm::BasicBlock *> &&__in_bbs)
+  BBBag(EcvRegMap<ERC> __own_ld_reg_map, EcvRegMap<ERC> __succeeding_load_reg_map,
+        EcvRegMap<ERC> &&__own_str_reg_map, std::set<llvm::BasicBlock *> &&__in_bbs)
       : own_ld_rmp(__own_ld_reg_map),
         own_str_rmp(std::move(__own_str_reg_map)),
         sucs_ld_rmp(__succeeding_load_reg_map),
         in_bbs(std::move(__in_bbs)),
         converted_bag(nullptr) {}
 
-  PhiRegsBBBagNode() {}
+  BBBag() {}
   static void Reset() {
     bb_regs_bag_map.clear();
     bag_num = 0;
@@ -129,16 +129,16 @@ class PhiRegsBBBagNode {
   GetPhiRegsBags(llvm::BasicBlock *root_bb,
                  std::unordered_map<llvm::BasicBlock *, BBRegInfoNode *> &bb_info_node_map);
 
-  static inline std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map = {};
+  static inline std::unordered_map<llvm::BasicBlock *, BBBag *> bb_regs_bag_map = {};
   static inline std::size_t bag_num = 0;
-  static inline std::unordered_map<PhiRegsBBBagNode *, uint32_t> debug_bag_map = {};
+  static inline std::unordered_map<BBBag *, uint32_t> debug_bag_map = {};
   // The register set which should be passed from caller function.
 
-  PhiRegsBBBagNode *GetTrueBag();
-  void MergeOwnRegs(PhiRegsBBBagNode *moved_bag);
-  void MergeFamilyBags(PhiRegsBBBagNode *merged_bag);
+  BBBag *GetTrueBag();
+  void MergeOwnRegs(BBBag *moved_bag);
+  void MergeFamilyBags(BBBag *merged_bag);
 
-  static void DebugGraphStruct(PhiRegsBBBagNode *target_bag);
+  static void DebugGraphStruct(BBBag *target_bag);
 
   // The register set which is loaded in the own bag.
   EcvRegMap<ERC> own_ld_rmp;
@@ -163,10 +163,10 @@ class PhiRegsBBBagNode {
   // The basic block set which is included in this bag.
   std::set<llvm::BasicBlock *> in_bbs;
 
-  std::set<PhiRegsBBBagNode *> parents;
-  std::set<PhiRegsBBBagNode *> children;
+  std::set<BBBag *> parents;
+  std::set<BBBag *> children;
 
-  PhiRegsBBBagNode *converted_bag;
+  BBBag *converted_bag;
 
   bool is_loop;
 };
@@ -201,6 +201,8 @@ class TraceLifter {
   friend class VirtualRegsOpt;
 };
 
+// This class is the base class for the optimization of virtual registers propagation (VRP).
+// ref: https://github.com/yomaytk/elfconv/pull/53
 class VirtualRegsOpt {
  public:
   VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl, uint64_t __fun_vma);
@@ -243,7 +245,7 @@ class VirtualRegsOpt {
 
   uint64_t phi_val_order;
 
-  std::unordered_map<llvm::BasicBlock *, PhiRegsBBBagNode *> bb_regs_bag_map;
+  std::unordered_map<llvm::BasicBlock *, BBBag *> bb_regs_bag_map;
   EcvRegMap<ERC> passed_caller_reg_map;
   EcvRegMap<ERC> passed_callee_ret_reg_map;
 

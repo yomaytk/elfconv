@@ -1,3 +1,4 @@
+#include "Memory.h"
 #include "Runtime.h"
 
 #include <cstdint>
@@ -7,33 +8,27 @@
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
-#if defined(ELF_IS_AARCH64)
-#  include <remill/Arch/AArch64/Runtime/State.h>
-#elif defined(ELF_IS_AMD64)
-#  include <remill/Arch/X86/Runtime/State.h>
-#endif
 
 State CPUState = State();
+
+// memory_arena_ptr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
+extern "C" uint8_t *memory_arena_ptr = nullptr;
 
 int main(int argc, char *argv[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
 
-  /* allocate Stack */
-  auto mapped_stack = MappedMemory::VMAStackEntryInit(argc, argv, CPUState);
-  /* allocate Heap */
-  auto mapped_heap = MappedMemory::VMAHeapEntryInit();
   /* allocate every sections */
+  auto memory_arena = MappedMemory::MemoryArenaInit(argc, argv, CPUState);
+  memory_arena_ptr = memory_arena->bytes;
   for (int i = 0; i < __g_data_sec_num; i++) {
-    // remove covered section (FIXME)
-    if (strncmp(reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]), ".tbss", 5) == 0)
+    // remove covered section
+    if (strncmp(reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]), ".tbss", 5) == 0) {
       continue;
-    mapped_memorys.push_back(new MappedMemory(
-        MemoryAreaType::DATA, reinterpret_cast<const char *>(__g_data_sec_name_ptr_array[i]),
-        __g_data_sec_vma_array[i],
-        __g_data_sec_vma_array[i] + static_cast<size_t>(__g_data_sec_size_array[i]),
-        static_cast<size_t>(__g_data_sec_size_array[i]), __g_data_sec_bytes_ptr_array[i],
-        __g_data_sec_bytes_ptr_array[i] + __g_data_sec_size_array[i], false));
+    }
+    // copy every data secation to the memory arena.
+    memcpy(memory_arena->bytes + __g_data_sec_vma_array[i], __g_data_sec_bytes_ptr_array[i],
+           static_cast<size_t>(__g_data_sec_size_array[i]));
   }
 #if defined(ELF_IS_AARCH64)
   /* set program counter */
@@ -45,8 +40,7 @@ int main(int argc, char *argv[]) {
   CPUState.sr.dczid_el0 = {.qword = 0x4};
 #endif
   /* set RuntimeManager */
-  auto runtime_manager = new RuntimeManager(mapped_memorys, mapped_stack, mapped_heap);
-  runtime_manager->heaps_end_addr = HEAPS_START_VMA + HEAP_UNIT_SIZE;
+  auto runtime_manager = new RuntimeManager(mapped_memorys, nullptr, nullptr, memory_arena);
   /* set lifted function pointer table */
   for (int i = 0; __g_fn_vmas[i] && __g_fn_ptr_table[i]; i++) {
     runtime_manager->addr_fn_map[__g_fn_vmas[i]] = __g_fn_ptr_table[i];
