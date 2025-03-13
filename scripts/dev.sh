@@ -121,8 +121,12 @@ main() {
     ;;
     *-wasm)
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
+      PRELOAD=
+      if [ -n "$MOUNT_DIR" ]; then
+        PRELOAD="--preload-file ${MOUNT_DIR}"
+      fi
       echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
-      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --preload-file $MOUNT_DIR --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
                               lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[\033[32mINFO\033[0m] exe.wasm and exe.js were generated."
       cp exe.js ${ROOT_DIR}/examples/browser
