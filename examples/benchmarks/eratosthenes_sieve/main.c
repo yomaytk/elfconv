@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_NUM 10000000
+#define MAX_NUM 30000000
 
 int digit_num(int num) {
   int res = 0;
@@ -39,13 +39,7 @@ static double second(void)
 
 int main() {
 
-  double t1 = second();
-
-  printf("t1: %f\n", t1);
-
-  double tt1 = second();
-
-  printf("tt1: %f\n", tt1);
+  double st = second();
 
   int *nums = (int *) malloc(MAX_NUM * sizeof(int));
   char s[100];
@@ -56,7 +50,7 @@ int main() {
   }
 
   // cal
-  for (int base = 2; base < 1000; base++) {
+  for (int base = 2; base < MAX_NUM; base++) {
     if (!nums[base]) {
       continue;
     }
@@ -78,11 +72,11 @@ int main() {
     }
   }
   s[seek] = '\n';
+  s[++seek] = '\0';
 
-  double t2 = second();
-  printf("t2: %f\n", t2);
+  double et = second();
 
   // // stdout
   printf("max prime: %s", s);
-  printf("time: %f\n", t2 - tt1);
+  printf("time: %f\n", et - st);
 }

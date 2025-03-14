@@ -7,6 +7,7 @@
 #include <remill/BC/HelperMacro.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -100,6 +101,9 @@ struct _ecv_statx {
   Calling Conventions
   arch: arm64, syscall NR: x8, return: x0, arg0: x0, arg1: x1, arg2: x2, arg3: x3, arg4: x4, arg5: x5
   ref: https://blog.xhyeax.com/2022/04/28/arm64-syscall-table/
+
+  arch: x86-64, sycall NR: rax, return: rax, arg0: rdi, arg1: rsi, arg2: rdx, arg3: r10, arg4: r8, arg5: r9
+  ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 */
 void RuntimeManager::SVCWasiCall(void) {
 
@@ -284,6 +288,8 @@ void RuntimeManager::SVCWasiCall(void) {
       X0_D = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
                           (struct timezone *) 0); /* FIXME (second argument) */
       break;
+    case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
+      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
     case ECV_SYS_GETPID: /* getpid () */ X0_D = 42; break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = 42; break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = 42; break;
