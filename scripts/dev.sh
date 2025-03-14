@@ -23,7 +23,7 @@ setting() {
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
   WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
-  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
+  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
@@ -60,19 +60,13 @@ lifting() {
   echo -e "[\033[32mINFO\033[0m] ELF -> LLVM bitcode..."
   elf_path=$( realpath "$1" )
   
-  wasi32_target_arch=''
-  if [ "$TARGET" = "*-wasi32" ]; then
-    wasi32_target_arch='wasi32'
-  fi
-  
-    ${BUILD_LIFTER_DIR}/elflift \
+  ${BUILD_LIFTER_DIR}/elflift \
     --arch "$2" \
     --bc_out ./lift.bc \
     --target_elf "$elf_path" \
     --dbg_fun_cfg "$3" \
-    --bitcode_path "$4" \
-    --target_arch "$wasi32_target_arch" && \
-    llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
+    --bitcode_path "$4"
+  llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
   echo -e "[\033[32mINFO\033[0m] lift.bc was generated."
 
 }
