@@ -29,13 +29,15 @@ class ELFSymbol {
     SYM_TYPE_UNKNOWN = 4,
   };
 
-  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr)
+  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr, uint64_t __sym_size)
       : sym_type(__sym_type),
         sym_name(__sym_name),
-        addr(__addr) {}
+        addr(__addr),
+        sym_size(__sym_size) {}
   ELFSymbol::SymbolType sym_type;
   std::string sym_name;
   uintptr_t addr;
+  uint64_t sym_size;
 };
 
 class ELFSection {
@@ -73,18 +75,22 @@ class ELFObject {
   };
   enum BinaryArch : uint8_t {
     ARCH_AARCH64 = 0,
-    ARCH_UNKNOWN = 1,
+    ARCH_AMD64 = 1,
+    ARCH_UNKNOWN = 2,
   };
 
   struct FuncEntry {
-    uintptr_t entry;
-    std::string func_name;
-    FuncEntry(uintptr_t __entry, std::string __func_name)
+    FuncEntry(uintptr_t __entry, std::string __func_name, uint64_t __func_size)
         : entry(__entry),
-          func_name(__func_name) {}
+          func_name(__func_name),
+          func_size(__func_size) {}
     bool operator<(const FuncEntry &rhs) {
       return entry < rhs.entry;
     }
+
+    uintptr_t entry;
+    std::string func_name;
+    uint64_t func_size;
   };
   struct CodeSection {
     std::string sec_name;
@@ -102,12 +108,14 @@ class ELFObject {
   void LoadELF();
   void SetCodeSection();
   std::vector<FuncEntry> GetFuncEntry();
+  void R2Detect();
   void DebugSections();
   void DebugStaticSymbols();
   void DebugBinary();
 
-  ELFObject(std::string __file_name) : file_name(__file_name), bfd_inited(false) {}
-  ELFObject() {}
+  ELFObject(std::string __file_name) : file_name(__file_name), bfd_inited(false) {
+    stripped = false;
+  }
 
   std::string file_name;
   bool bfd_inited;
@@ -122,10 +130,13 @@ class ELFObject {
   std::vector<ELFSection> sections;
   std::vector<ELFSymbol> symbols;
   std::unordered_map<std::string, CodeSection> code_sections;
+  unsigned long symbol_table_size;
 
   uint64_t e_phent;
   uint64_t e_phnum;
   uint8_t *e_ph;
+
+  bool stripped;
 
  private:
   void OpenELF();

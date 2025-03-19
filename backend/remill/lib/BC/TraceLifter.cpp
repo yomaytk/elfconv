@@ -878,6 +878,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto call_inst = llvm::dyn_cast<llvm::CallInst>(inst);
           inst = inst->getNextNode();
           if (t_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
+
 #if defined(OPT_REAL_REGS_DEBUG)
             auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
             auto sema_pc = t_bb_reg_info_node->sema_func_pc_map.at(call_inst);
@@ -885,6 +886,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                 debug_llvmir_u64_fn,
                 {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), sema_pc)}, "", call_inst);
 #endif
+
             auto &write_regs = t_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
             auto call_next_inst = call_inst->getNextNode();
             if (write_regs.size() == 1) {
