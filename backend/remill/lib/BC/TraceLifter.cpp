@@ -931,18 +931,18 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         }
       }
 
-      // Add passed_caller_reg_map and passed_callee_ret_reg_map.
-      for (int i = 0; i < 8; i++) {
-        virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::General, i), ERC::RegX});
-        virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
-        virtual_regs_opt->passed_callee_ret_reg_map.insert(
-            {EcvReg(RegKind::General, i), ERC::RegX});
-        virtual_regs_opt->passed_callee_ret_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
-      }
-      virtual_regs_opt->passed_caller_reg_map.insert(
-          {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
-      virtual_regs_opt->passed_callee_ret_reg_map.insert(
-          {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
+      // (FIXME?) Add passed_caller_reg_map and passed_callee_ret_reg_map.
+      // for (int i = 0; i < 8; i++) {
+      //   virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::General, i), ERC::RegX});
+      //   virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
+      //   virtual_regs_opt->passed_callee_ret_reg_map.insert(
+      //       {EcvReg(RegKind::General, i), ERC::RegX});
+      //   virtual_regs_opt->passed_callee_ret_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
+      // }
+      // virtual_regs_opt->passed_caller_reg_map.insert(
+      //     {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
+      // virtual_regs_opt->passed_callee_ret_reg_map.insert(
+      //     {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
 
     } else {
       no_indirect_lifted_funcs.insert(func);

@@ -135,7 +135,6 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
 
 void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
   static std::unordered_map<addr_t, LiftedFunc> vma_cache;
-  std::cout << "BLR vma: 0x" << std::hex << fn_vma << std::dec << std::endl;
   if (auto jmp_fn_cache = vma_cache[fn_vma]; jmp_fn_cache) {
     jmp_fn_cache(&state, fn_vma, runtime_manager);
   } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
