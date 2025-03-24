@@ -1,5 +1,0 @@
-CompileFlags:
-  Add: [
-    "-I${HOME}/workspace/compiler/elfconv/backend/remill/include",
-    "-I${HOME}/workspace/compiler/elfconv"
-  ]
