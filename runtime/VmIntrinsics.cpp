@@ -1,6 +1,8 @@
 #include "Memory.h"
 #include "Runtime.h"
+#include "remill/Arch/Runtime/Types.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdarg>
 #include <iomanip>
@@ -19,7 +21,7 @@
 #  include <remill/Arch/X86/Runtime/State.h>
 #  define PCREG CPUState.gpr.rip.qword
 #else
-#  define PCREG 0
+#  define PCREG CPUState.gpr.pc.qword
 #endif
 
 #define UNDEFINED_INTRINSICS(intrinsics) \
@@ -132,35 +134,44 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
 
-
-void __remill_function_call(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
-  static std::unordered_map<addr_t, LiftedFunc> vma_cache;
-  if (auto jmp_fn_cache = vma_cache[fn_vma]; jmp_fn_cache) {
-    jmp_fn_cache(&state, fn_vma, runtime_manager);
-  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
-    vma_cache.insert({fn_vma, jmp_fn});
-    jmp_fn(&state, fn_vma, runtime_manager);
+void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
+  // jump to the optimized function.
+  if (auto jmp_fn = runtime_manager->addr_optfn_vma_map[t_vma]; jmp_fn) {
+    jmp_fn(&state, t_vma, runtime_manager);
+  }
+  // jump to the noopt function.
+  else if (auto it = std::lower_bound(runtime_manager->noopt_fun_entrys.begin(),
+                                      runtime_manager->noopt_fun_entrys.end(), t_vma);
+           it != runtime_manager->noopt_fun_entrys.end()) {
+    PCREG = t_vma;
+    auto noopt_t_fun = runtime_manager->addr_nooptfn_vma_map.at(*it);
+    noopt_t_fun(&state, *it, runtime_manager);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR). PC: "
         "0x%08x\n",
-        fn_vma, PCREG);
+        t_vma, PCREG);
   }
 }
 
 /* BR instruction */
-void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager) {
-  static std::unordered_map<addr_t, LiftedFunc> vma_cache_2;
-  if (auto jmp_fn_cache = vma_cache_2[fn_vma]; jmp_fn_cache) {
-    jmp_fn_cache(&state, fn_vma, runtime_manager);
-  } else if (auto jmp_fn = runtime_manager->addr_fn_map[fn_vma]; jmp_fn) {
-    vma_cache_2.insert({fn_vma, jmp_fn});
-    jmp_fn(&state, fn_vma, runtime_manager);
+void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
+  // jump to the optimized function.
+  if (auto jmp_fn = runtime_manager->addr_optfn_vma_map[t_vma]; jmp_fn) {
+    jmp_fn(&state, t_vma, runtime_manager);
+  }
+  // jump to the noopt function.
+  else if (auto it = std::lower_bound(runtime_manager->noopt_fun_entrys.begin(),
+                                      runtime_manager->noopt_fun_entrys.end(), t_vma);
+           it != runtime_manager->noopt_fun_entrys.end()) {
+    PCREG = t_vma;
+    auto noopt_t_fun = runtime_manager->addr_nooptfn_vma_map.at(*it);
+    noopt_t_fun(&state, *it, runtime_manager);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR). PC: "
         "0x%08x\n",
-        fn_vma, PCREG);
+        t_vma, PCREG);
   }
 }
 
@@ -168,21 +179,28 @@ void __remill_jump(State &state, addr_t fn_vma, RuntimeManager *runtime_manager)
 extern "C" uint64_t *__g_get_indirectbr_block_address(RuntimeManager *runtime_manager,
                                                       uint64_t fun_vma, uint64_t bb_vma) {
   if (runtime_manager->addr_block_addrs_map.count(fun_vma) == 1) {
-    auto vma_bb_map = runtime_manager->addr_block_addrs_map[fun_vma];
+    auto &vma_bb_map = runtime_manager->addr_block_addrs_map[fun_vma];
     if (vma_bb_map.count(bb_vma) == 1) {
       return vma_bb_map[bb_vma];
     } else {
-      if (runtime_manager->addr_fn_map.count(fun_vma) == 1)
-        return vma_bb_map[UINT64_MAX];
-      else
-        elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n",
-                              bb_vma, __func__);
+      elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n", bb_vma,
+                            __func__);
     }
   } else {
     elfconv_runtime_error(
         "[ERROR] 0x%llx is not the entry address of any lifted function. (at %s)\n", fun_vma,
         __func__);
   }
+}
+
+// get the target basic block label pointer on the noopt indirectbr instruction.
+extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t t_vma) {
+  auto it = std::lower_bound(runtime_manager->noopt_inst_vmas.begin(),
+                             runtime_manager->noopt_inst_vmas.end(), t_vma);
+  if (t_vma != *it) {
+    elfconv_runtime_error("address 0x%lx cannot be found on the basic block list.", t_vma);
+  }
+  return runtime_manager->noopt_bb_ptrs[it - runtime_manager->noopt_inst_vmas.begin()];
 }
 
 // push the callee symbol to the call stack for debug
@@ -193,7 +211,7 @@ extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t 
     }
     runtime_manager->call_stacks.push_back(fn_vma);
     std::string tab_space;
-    for (int i = 0; i < runtime_manager->call_stacks.size(); i++) {
+    for (size_t i = 0; i < runtime_manager->call_stacks.size(); i++) {
       if (i & 0b1)
         tab_space += "\033[34m";
       else

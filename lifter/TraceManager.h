@@ -50,6 +50,9 @@ class AArch64TraceManager : public remill::TraceManager {
   void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
   llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
+  void SetLiftedOptFuncTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
+  llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr);
+  llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr);
   bool TryReadExecutableByte(uint64_t addr, uint8_t *byte);
   std::string GetLiftedFuncName(uint64_t addr);
   std::string GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s);
@@ -62,9 +65,12 @@ class AArch64TraceManager : public remill::TraceManager {
   BinaryLoader::ELFObject elf_obj;
   std::unordered_map<uintptr_t, uint8_t> memory;
   std::unordered_map<uintptr_t, llvm::Function *> traces;
+  std::unordered_map<uintptr_t, llvm::Function *> opt_fun_traces;
   std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
+
   std::string entry_func_lifted_name;
   std::string panic_plt_jmp_fun_name;
+
   uintptr_t entry_point;
 
  private:

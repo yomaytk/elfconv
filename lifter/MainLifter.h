@@ -2,6 +2,7 @@
 
 #include "Binary/Loader.h"
 
+#include <llvm/IR/Constant.h>
 #include <remill/BC/TraceLifter.h>
 
 using namespace remill;
@@ -24,8 +25,6 @@ class MainLifter : public TraceLifter {
           e_phnum_name("__g_e_phnum"),
           e_ph_name("__g_e_ph"),
           g_platform_name("__g_platform_name"),
-          g_addr_list_name("__g_fn_vmas"),
-          g_fun_ptr_table_name("__g_fn_ptr_table"),
           g_block_address_ptrs_array_name("__g_block_address_ptrs_array"),
           g_block_address_vmas_array_name("__g_block_address_vmas_array"),
           g_block_address_size_array_name("__g_block_address_size_array"),
@@ -33,6 +32,8 @@ class MainLifter : public TraceLifter {
           g_block_address_array_size_name("__g_block_address_array_size"),
           g_fun_symbol_table_name("__g_fn_symbol_table"),
           g_addr_list_second_name("__g_fn_vmas_second"),
+          ecv_noopt_inst_vmas_name("_ecv_noopt_inst_vmas"),
+          ecv_noopt_bb_ptrs_name("_ecv_noopt_bb_ptrs"),
           debug_state_machine_name("debug_state_machine"),
           debug_state_machine_vectors_name("debug_state_machine_vectors"),
           debug_llvmir_u64value_name("debug_llvmir_u64value"),
@@ -55,8 +56,6 @@ class MainLifter : public TraceLifter {
     std::string e_phnum_name;
     std::string e_ph_name;
     std::string g_platform_name;
-    std::string g_addr_list_name;
-    std::string g_fun_ptr_table_name;
     std::string g_block_address_ptrs_array_name;
     std::string g_block_address_vmas_array_name;
     std::string g_block_address_size_array_name;
@@ -64,6 +63,9 @@ class MainLifter : public TraceLifter {
     std::string g_block_address_array_size_name;
     std::string g_fun_symbol_table_name;
     std::string g_addr_list_second_name;
+    std::string ecv_noopt_inst_vmas_name;
+    std::string ecv_noopt_bb_ptrs_name;
+
     std::string debug_state_machine_name;
     std::string debug_state_machine_vectors_name;
     std::string debug_llvmir_u64value_name;
@@ -93,7 +95,8 @@ class MainLifter : public TraceLifter {
 
     /* Set lifted function pointer table */
     llvm::GlobalVariable *
-    SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map);
+    SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map,
+                         const char *addr_list_name, const char *func_ptrs_name);
 
     /* Set block address data */
     llvm::GlobalVariable *
@@ -103,13 +106,16 @@ class MainLifter : public TraceLifter {
                         std::vector<llvm::Constant *> &block_address_fn_vma_array);
 
     /* Global variable array definition helper */
-    llvm::GlobalVariable *GenGlobalArrayHelper(
+    llvm::GlobalVariable *SetGblArrayIr(
         llvm::Type *elem_type, std::vector<llvm::Constant *> &constant_array,
         const llvm::Twine &Name = "", bool isConstant = true,
         llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage) override;
 
     /* Declare global helper function called by lifted llvm bitcode */
     virtual void DeclareHelperFunction() override;
+
+    void SetNoOptVmaBBLists(std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs);
+    void SetStrippedFlag(bool is_stripped);
 
     /* instruction test helper */
     /* Prepare the virtual machine for instruction test (need override) */
@@ -125,7 +131,7 @@ class MainLifter : public TraceLifter {
     llvm::Function *DeclareDebugFunction();
     /* Set lifted function symbol name table */
     llvm::GlobalVariable *
-    SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+    SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map);
     // set register name gvar
     void SetRegisterNames();
   };
@@ -143,17 +149,22 @@ class MainLifter : public TraceLifter {
   void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
   void SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph);
   void SetPlatform(const char *platform_name);
-  void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+  void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map,
+                            const char *addr_list_name, const char *func_ptrs_name);
   void SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
+
   virtual void DeclareHelperFunction();
 
   void Optimize();
+
+  void SetNoOptVmaBBLists();
+  void SetStrippedFlag(bool is_stripped);
   /* debug */
   void DeclareDebugFunction();
-  void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_map);
+  void SetFuncSymbolNameTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map);
   void SetRegisterNames();
 
  private:

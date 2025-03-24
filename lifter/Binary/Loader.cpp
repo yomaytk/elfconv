@@ -1,5 +1,3 @@
-#include "utils/Util.h"
-
 #include <bfd.h>
 #include <cassert>
 #include <cstdint>
@@ -301,8 +299,8 @@ void ELFObject::LoadSectionsBFD() {
 }
 
 void ELFObject::R2Detect() {
-  std::string cmd = "r2 -q -c \"e anal.vars=false; e anal.hasnext=true;afr;aac; aflj\" " +
-                    file_name + " > " + "/tmp/elfconv_func_detection.json";
+  std::string cmd = "r2 -q -c \"e anal.nopskip=true; e anal.hasnext=true;aaa; aflj\" " + file_name +
+                    " > " + "/tmp/elfconv_func_detection.json";
 
   int ret = system(cmd.c_str());
   if (ret != 0) {

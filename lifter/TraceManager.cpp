@@ -21,6 +21,24 @@ llvm::Function *AArch64TraceManager::GetLiftedTraceDefinition(uint64_t addr) {
   return GetLiftedTraceDeclaration(addr);
 }
 
+void AArch64TraceManager::SetLiftedOptFuncTraceDefinition(uint64_t addr,
+                                                          llvm::Function *lifted_func) {
+  opt_fun_traces[addr] = lifted_func;
+}
+
+llvm::Function *AArch64TraceManager::GetLiftedOptFuncTraceDeclaration(uint64_t addr) {
+  auto trace_it = opt_fun_traces.find(addr);
+  if (trace_it != traces.end()) {
+    return trace_it->second;
+  } else {
+    return nullptr;
+  }
+}
+
+llvm::Function *AArch64TraceManager::GetLiftedOptFuncTraceDefinition(uint64_t addr) {
+  return GetLiftedOptFuncTraceDeclaration(addr);
+}
+
 bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
 
   auto byte_it = memory.find(addr);
@@ -141,8 +159,8 @@ void AArch64TraceManager::SetELFData() {
             memory[addr] = bytes[addr - sec_vma];
           }
           if (empty_seg_size > 1000) {
-            printf("empty segment function is too big? vma: 0x%lx, size: %ld\n", empty_seg_vma,
-                   empty_seg_size);
+            printf("[INFO] empty segment function is too big? vma: 0x%lx, size: %ld\n",
+                   empty_seg_vma, empty_seg_size);
           }
           disasm_funcs.emplace(func_end,
                                DisasmFunc(empty_seg_fun_name, empty_seg_vma, empty_seg_size));
@@ -162,7 +180,7 @@ void AArch64TraceManager::SetELFData() {
     }
   }
 
-  // set instructions of every block of .plt section (FIXME)
+  // define functions in .plt section (FIXME)
   auto plt_section = elf_obj.code_sections[".plt"];
   if (plt_section.sec_name.empty())
     plt_section = elf_obj.code_sections[".iplt"];

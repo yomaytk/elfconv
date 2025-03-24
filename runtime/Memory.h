@@ -58,6 +58,15 @@ extern const uint64_t *__g_block_address_vmas_array[];
 extern const uint64_t __g_block_address_size_array[];
 extern const uint64_t __g_block_address_fn_vma_array[];
 extern const uint64_t __g_block_address_array_size;
+
+extern const uint8_t _ecv_is_stripped;
+
+extern const uint64_t *_ecv_noopt_bb_ptrs[];
+extern const uint64_t _ecv_noopt_inst_vmas[];
+extern const uint64_t _ecv_noopt_vmabbs_size;
+
+extern const uint64_t _ecv_noopt_func_entrys[];
+extern const LiftedFunc _ecv_noopt_fun_ptrs[];
 }
 
 enum class MemoryAreaType : uint8_t {

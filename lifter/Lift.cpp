@@ -88,51 +88,81 @@ int main(int argc, char *argv[]) {
   MainLifter main_lifter(arch.get(), &manager);
   main_lifter.SetRuntimeManagerClass();
 
-  std::unordered_map<uint64_t, const char *> addr_fn_map;
+  std::unordered_map<uint64_t, const char *> addr_fn_name_map;
 
-  /* declare debug function */
+  //  declare debug function
   main_lifter.DeclareDebugFunction();
-  /* declare helper function for lifted LLVM bitcode */
+  //  declare helper function for lifted LLVM bitcode
   main_lifter.DeclareHelperFunction();
   // set global register names
   main_lifter.SetRegisterNames();
 
-  /* lift every disassembled function */
+  // Lift every disassembled function
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str()))
+    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str())) {
       elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
-    addr_fn_map[addr] = dasm_func.func_name.c_str();
-    /* set function attributes */
+    }
+    addr_fn_name_map[addr] = dasm_func.func_name.c_str();
+    //  set function name
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(dasm_func.func_name.c_str());
   }
 
-  // Optimize the generated LLVM IR.
+  // Optimize the every lifted function.
   main_lifter.Optimize();
 
-  /* set entry function of lifted function */
-  if (manager.entry_func_lifted_name.empty())
+  //  Set entry point of lifted function
+  if (manager.entry_func_lifted_name.empty()) {
     elfconv_runtime_error("[ERROR] We couldn't find entry function.\n");
-  else
+  } else {
     main_lifter.SetEntryPoint(manager.entry_func_lifted_name);
-  /* set ELF header info */
+  }
+  //  Set ELF header info
   main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
-  /* set lifted function pointer table (necessary for indirect call) */
-  main_lifter.SetLiftedFunPtrTable(addr_fn_map);
+  //  Set lifted optimized function pointer table for indirect function calls.
+  main_lifter.SetLiftedFunPtrTable(addr_fn_name_map, "__g_fn_vmas", "__g_fn_ptr_table");
+
 #if defined(LIFT_CALLSTACK_DEBUG)
-  /* debug call stack */
-  main_lifter.SetFuncSymbolNameTable(addr_fn_map);
+  //  debug call stack
+  main_lifter.SetFuncSymbolNameTable(addr_fn_name_map);
 #endif
-  /* set Platform name (FIXME) */
+
+  //  Set Platform name (FIXME)
   main_lifter.SetPlatform("aarch64");
-  /* set entry point */
+  //  Set entry point
   main_lifter.SetEntryPC(manager.entry_point);
-  /* set data section */
+  //  Set data section
   main_lifter.SetDataSections(manager.elf_obj.sections);
-  /* set block address data */
+  //  Set block address data
   main_lifter.SetBlockAddressData(
       manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array,
       manager.g_block_address_size_array, manager.g_block_address_fn_vma_array);
+  main_lifter.SetStrippedFlag(manager.elf_obj.stripped);
+
+  // If the ELF binary is stripped, we should lift noopt functions.
+  if (manager.elf_obj.stripped) {
+    // Reset the cache.
+    addr_fn_name_map.clear();
+    manager.traces.clear();
+
+    // Lift every function with noopt mode if the binary is stripped.
+    for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
+      auto noopt_func_name = dasm_func.func_name + "_noopt";
+      if (!main_lifter.Lift(dasm_func.vma, noopt_func_name.c_str())) {
+        elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", noopt_func_name.c_str());
+      }
+      addr_fn_name_map[addr] = noopt_func_name.c_str();
+      // Set function name
+      auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
+      lifted_fn->setName(noopt_func_name.c_str());
+    }
+
+    // Set lifted noopt function pointer table for indirect function calls.
+    main_lifter.SetLiftedFunPtrTable(addr_fn_name_map, "_ecv_noopt_func_entrys",
+                                     "_ecv_noopt_fun_ptrs");
+    // Set lifted noopt all vmas and basic blocks
+    main_lifter.SetNoOptVmaBBLists();
+  }
 
   /* generate LLVM bitcode file */
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
