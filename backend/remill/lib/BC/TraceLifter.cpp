@@ -993,20 +993,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
-    // (NEED?) Add passed_caller_reg_map and passed_callee_ret_reg_map.
-    // for (int i = 0; i < 8; i++) {
-    //   virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::General, i), ERC::RegX});
-    //   virtual_regs_opt->passed_caller_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
-    //   virtual_regs_opt->passed_callee_ret_reg_map.insert(
-    //       {EcvReg(RegKind::General, i), ERC::RegX});
-    //   virtual_regs_opt->passed_callee_ret_reg_map.insert({EcvReg(RegKind::Vector, i), ERC::RegV});
-    // }
-    // virtual_regs_opt->passed_caller_reg_map.insert(
-    //     {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
-    // virtual_regs_opt->passed_callee_ret_reg_map.insert(
-    //     {EcvReg(RegKind::Special, SP_ORDER), ERC::RegX});
-
-    { opt_target_funcs.insert(func); }
+    // If the lifted function doesn't have the indirect jump instruction or is not noopt target function, we optimize it.
+    if (!indirectbr_block && !not_vr_opt) {
+      opt_target_funcs.insert(func);
+    }
 
     // add terminator to the all basic block to avoid error on CFG flat
     for (auto &block : *func) {
