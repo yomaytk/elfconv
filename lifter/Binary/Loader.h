@@ -29,15 +29,18 @@ class ELFSymbol {
     SYM_TYPE_UNKNOWN = 4,
   };
 
-  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr, uint64_t __sym_size)
+  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr, uint64_t __sym_size,
+            bfd_section *__in_section)
       : sym_type(__sym_type),
         sym_name(__sym_name),
         addr(__addr),
-        sym_size(__sym_size) {}
+        sym_size(__sym_size),
+        in_section(__in_section) {}
   ELFSymbol::SymbolType sym_type;
   std::string sym_name;
   uintptr_t addr;
   uint64_t sym_size;
+  bfd_section *in_section;
 };
 
 class ELFSection {
@@ -79,19 +82,6 @@ class ELFObject {
     ARCH_UNKNOWN = 2,
   };
 
-  struct FuncEntry {
-    FuncEntry(uintptr_t __entry, std::string __func_name, uint64_t __func_size)
-        : entry(__entry),
-          func_name(__func_name),
-          func_size(__func_size) {}
-    bool operator<(const FuncEntry &rhs) {
-      return entry < rhs.entry;
-    }
-
-    uintptr_t entry;
-    std::string func_name;
-    uint64_t func_size;
-  };
   struct CodeSection {
     std::string sec_name;
     uintptr_t vma;
@@ -107,7 +97,7 @@ class ELFObject {
 
   void LoadELF();
   void SetCodeSection();
-  std::vector<FuncEntry> GetFuncEntry();
+  asection *GetIncludedSection(uint64_t vma);
   void R2Detect();
   void DebugSections();
   void DebugStaticSymbols();
@@ -128,7 +118,7 @@ class ELFObject {
   uint32_t bits;
   uintptr_t entry;
   std::vector<ELFSection> sections;
-  std::vector<ELFSymbol> symbols;
+  std::vector<ELFSymbol> func_symbols;
   std::unordered_map<std::string, CodeSection> code_sections;
   unsigned long symbol_table_size;
 

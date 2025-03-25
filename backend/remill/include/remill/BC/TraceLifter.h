@@ -80,7 +80,7 @@ class TraceManager {
   virtual llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr) = 0;
 
   /* get lifted function name of the target address */
-  virtual std::string GetLiftedFuncName(uint64_t addr) = 0;
+  virtual std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) = 0;
 
   /* get whether or not addr is entry of function */
   virtual bool isFunctionEntry(uint64_t addr) = 0;
@@ -393,7 +393,7 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
-  bool not_vr_opt;
+  bool vrp_opt_mode;
 
   std::set<llvm::Function *> opt_target_funcs;
   std::set<llvm::Function *> lifted_funcs;

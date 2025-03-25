@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
   //  Set ELF header info
   main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
   //  Set lifted optimized function pointer table for indirect function calls.
-  main_lifter.SetLiftedFunPtrTable(addr_fn_name_map, "__g_fn_vmas", "__g_fn_ptr_table");
+  main_lifter.SetLiftedFunPtrTable(addr_fn_name_map);
 
 #if defined(LIFT_CALLSTACK_DEBUG)
   //  debug call stack
@@ -139,30 +139,34 @@ int main(int argc, char *argv[]) {
       manager.g_block_address_size_array, manager.g_block_address_fn_vma_array);
   main_lifter.SetStrippedFlag(manager.elf_obj.stripped);
 
+  std::unordered_map<uint64_t, std::string> addr_noopt_fn_name_map;
+
   // If the ELF binary is stripped, we should lift noopt functions.
-  if (manager.elf_obj.stripped) {
-    // Reset the cache.
-    addr_fn_name_map.clear();
-    manager.traces.clear();
+  // if (manager.elf_obj.stripped) {
+  //   std::cout << "[\033[32m"
+  //             << "INFO"
+  //             << "\033[0m"
+  //             << "] NoOpt Function Generation." << std::endl;
+  //   // Reset the cache.
+  //   manager.traces.clear();
 
-    // Lift every function with noopt mode if the binary is stripped.
-    for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-      auto noopt_func_name = dasm_func.func_name + "_noopt";
-      if (!main_lifter.Lift(dasm_func.vma, noopt_func_name.c_str())) {
-        elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", noopt_func_name.c_str());
-      }
-      addr_fn_name_map[addr] = noopt_func_name.c_str();
-      // Set function name
-      auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
-      lifted_fn->setName(noopt_func_name.c_str());
-    }
+  //   // Lift every function with noopt mode if the binary is stripped.
+  //   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
+  //     addr_noopt_fn_name_map[addr] = dasm_func.func_name + "_noopt";
+  //     auto &noopt_fun_name = addr_noopt_fn_name_map[addr];
+  //     if (!main_lifter.Lift(dasm_func.vma, noopt_fun_name.c_str())) {
+  //       elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", noopt_fun_name.c_str());
+  //     }
+  //     // Set function name
+  //     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
+  //     lifted_fn->setName(noopt_fun_name.c_str());
+  //   }
+  // }
 
-    // Set lifted noopt function pointer table for indirect function calls.
-    main_lifter.SetLiftedFunPtrTable(addr_fn_name_map, "_ecv_noopt_func_entrys",
-                                     "_ecv_noopt_fun_ptrs");
-    // Set lifted noopt all vmas and basic blocks
-    main_lifter.SetNoOptVmaBBLists();
-  }
+  // Set lifted noopt function pointer table for indirect function calls.
+  // main_lifter.SetLiftedNoOptFunPtrTable(addr_noopt_fn_name_map, manager.elf_obj.stripped);
+  // // Set lifted noopt all vmas and basic blocks
+  // main_lifter.SetNoOptVmaBBLists(manager.elf_obj.stripped);
 
   /* generate LLVM bitcode file */
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
@@ -181,6 +185,8 @@ int main(int argc, char *argv[]) {
   }
 
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
+
+  std::cout << "[INFO] Lift end." << std::endl;
 
   return 0;
 }

@@ -2,6 +2,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <glog/logging.h>
 #include <sstream>
 #define PACKAGE
 #include "Loader.h"
@@ -155,6 +156,17 @@ void ELFObject::LoadELFBFD() {
   // LoadDynamicSymbolsBFD(); /* FIXME */
 }
 
+asection *ELFObject::GetIncludedSection(uint64_t vma) {
+  for (auto sec = bfd_h->sections; sec; sec = sec->next) {
+    bfd_vma sec_vma = bfd_section_vma(sec);
+    bfd_size_type sec_size = bfd_section_size(sec);
+    if (sec_vma <= vma && vma < sec_vma + sec_size) {
+      return sec;
+    }
+  }
+  elfconv_runtime_error("cannot find the included section.\n");
+}
+
 void ELFObject::LoadStaticSymbolsBFD() {
 
   asymbol **bfd_symtab = nullptr;
@@ -169,21 +181,14 @@ void ELFObject::LoadStaticSymbolsBFD() {
     elfconv_runtime_error("failed to read symtab.\n");
   }
   for (int i = 0; i < sym_num; i++) {
-    ELFSymbol::SymbolType sym_type;
     if (bfd_symtab[i]->flags & BSF_FUNCTION ||
         std::memcmp(bfd_symtab[i]->name, "_start", sizeof("_start")) == 0) {
-      sym_type = ELFSymbol::SymbolType::SYM_TYPE_FUNC;
-    } else if (bfd_symtab[i]->flags & BSF_LOCAL) {
-      sym_type = ELFSymbol::SymbolType::SYM_TYPE_LVAR;
-      continue;
-    } else if (bfd_symtab[i]->flags & BSF_GLOBAL) {
-      sym_type = ELFSymbol::SymbolType::SYM_TYPE_GVAR;
-      continue;
     } else {
       continue;
     }
-    symbols.emplace_back(sym_type, std::string(bfd_symtab[i]->name),
-                         bfd_asymbol_value(bfd_symtab[i]), UINT64_MAX);
+    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, std::string(bfd_symtab[i]->name),
+                              bfd_asymbol_value(bfd_symtab[i]), UINT64_MAX,
+                              GetIncludedSection(bfd_asymbol_value(bfd_symtab[i])));
   }
 }
 
@@ -210,17 +215,12 @@ void ELFObject::LoadDynamicSymbolsBFD() {
       if (bfd_symtab[i]->flags & BSF_FUNCTION ||
           std::memcmp(bfd_symtab[i]->name, "_start", sizeof("_start")) == 0) {
         sym_type = ELFSymbol::SymbolType::SYM_TYPE_FUNC;
-      } else if (bfd_symtab[i]->flags & BSF_LOCAL) {
-        sym_type = ELFSymbol::SymbolType::SYM_TYPE_LVAR;
-        continue;
-      } else if (bfd_symtab[i]->flags & BSF_GLOBAL) {
-        sym_type = ELFSymbol::SymbolType::SYM_TYPE_GVAR;
-        continue;
       } else {
         continue;
       }
-      symbols.emplace_back(sym_type, std::string(bfd_symtab[i]->name),
-                           bfd_asymbol_value(bfd_symtab[i]), UINT64_MAX);
+      func_symbols.emplace_back(
+          sym_type, std::string(bfd_symtab[i]->name), bfd_asymbol_value(bfd_symtab[i]),
+          /* symbol size is not used for not stripped binary */ UINT64_MAX, nullptr);
     }
   } else {
     printf("[INFO] static symbol table is not found.\n");
@@ -238,21 +238,6 @@ void ELFObject::SetCodeSection() {
       }
     }
   }
-}
-
-std::vector<ELFObject::FuncEntry> ELFObject::GetFuncEntry() {
-
-  std::vector<ELFObject::FuncEntry> func_entrys;
-  if (symbols.empty()) {
-    elfconv_runtime_error("[BUG] GetFuncEntry is called but symbols is empty\n");
-  } else {
-    for (auto &symbol : symbols) {
-      if (symbol.sym_type == ELFSymbol::SymbolType::SYM_TYPE_FUNC) {
-        func_entrys.emplace_back(FuncEntry(symbol.addr, symbol.sym_name, symbol.sym_size));
-      }
-    }
-  }
-  return func_entrys;
 }
 
 void ELFObject::LoadSectionsBFD() {
@@ -319,16 +304,16 @@ void ELFObject::R2Detect() {
     minbound = j_data["minbound"].get<uint64_t>();
     maxbound = j_data["maxbound"].get<uint64_t>();
     sym_size = j_data["size"].get<uint64_t>();
-    fun_offset_name << "__fcn_0x" << std::hex << offset;
-    symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_offset_name.str(), offset,
-                         sym_size);
+    fun_offset_name << "__r2fcn_0x" << std::hex << offset;
+    func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_offset_name.str(), offset,
+                              sym_size, GetIncludedSection(offset));
 
     // There is the case whose offset is not equal to the minbound for the analysis results of radare2.
     // In the case, we make new function of the range of minbound to maxbound.
     if (minbound != offset) {
-      fun_minbound_name << "__fcn_0x" << std::hex << minbound;
-      symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_minbound_name.str(), minbound,
-                           maxbound - minbound);
+      fun_minbound_name << "__r2fcn_0x" << std::hex << minbound;
+      func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_minbound_name.str(),
+                                minbound, maxbound - minbound, GetIncludedSection(minbound));
     }
   }
 }
@@ -368,7 +353,7 @@ void ELFObject::DebugSections() {
 void ELFObject::DebugStaticSymbols() {
 
   char s[250];
-  for (auto &symbol : symbols) {
+  for (auto &symbol : func_symbols) {
     std::memset(s, ' ', 250);
     // copy "Symbol"
     std::strncpy(s, "Symbol", std::strlen("Symbol"));

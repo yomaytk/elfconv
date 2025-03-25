@@ -39,10 +39,14 @@ void MainLifter::SetPlatform(const char *platform_name) {
 }
 
 /* Set lifted function pointer table */
-void MainLifter::SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map,
-                                      const char *addr_list_name, const char *func_ptrs_name) {
-  static_cast<WrapImpl *>(impl.get())
-      ->SetLiftedFunPtrTable(addr_fn_name_map, addr_list_name, func_ptrs_name);
+void MainLifter::SetLiftedFunPtrTable(
+    std::unordered_map<uint64_t, const char *> &addr_fn_name_map) {
+  static_cast<WrapImpl *>(impl.get())->SetLiftedFunPtrTable(addr_fn_name_map);
+}
+
+void MainLifter::SetLiftedNoOptFunPtrTable(
+    std::unordered_map<uint64_t, std::string> &addr_fn_name_map, bool is_stripped) {
+  static_cast<WrapImpl *>(impl.get())->SetLiftedNoOptFunPtrTable(addr_fn_name_map, is_stripped);
 }
 
 /* Set block address data */
@@ -61,8 +65,9 @@ void MainLifter::DeclareHelperFunction() {
 }
 
 // Set noopt vma and basic blocks
-void MainLifter::SetNoOptVmaBBLists() {
-  static_cast<WrapImpl *>(impl.get())->SetNoOptVmaBBLists(impl.get()->noopt_all_vma_bbs);
+void MainLifter::SetNoOptVmaBBLists(bool is_stripped) {
+  static_cast<WrapImpl *>(impl.get())
+      ->SetNoOptVmaBBLists(impl.get()->noopt_all_vma_bbs, is_stripped);
 }
 
 void MainLifter::SetStrippedFlag(bool is_stripped) {
@@ -215,9 +220,8 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetPlatform(const char *platform_nam
 }
 
 /* Set lifted function pointer table */
-llvm::GlobalVariable *MainLifter::WrapImpl::SetLiftedFunPtrTable(
-    std::unordered_map<uint64_t, const char *> &addr_fn_name_map, const char *addr_list_name,
-    const char *func_ptrs_name) {
+void MainLifter::WrapImpl::SetLiftedFunPtrTable(
+    std::unordered_map<uint64_t, const char *> &addr_fn_name_map) {
 
   std::vector<llvm::Constant *> addr_list, fn_ptr_list;
 
@@ -232,12 +236,35 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetLiftedFunPtrTable(
   /* insert guard */
   addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0));
   /* define global fn ptr table */
-  SetGblArrayIr(llvm::Type::getInt64Ty(context), addr_list, addr_list_name);
-  return SetGblArrayIr(fn_ptr_list[0]->getType(), fn_ptr_list, func_ptrs_name);
+  SetGblArrayIr(llvm::Type::getInt64Ty(context), addr_list, "__g_fn_vmas");
+  SetGblArrayIr(llvm::Type::getInt64PtrTy(context), fn_ptr_list, "__g_fn_ptr_table");
+}
+
+void MainLifter::WrapImpl::SetLiftedNoOptFunPtrTable(
+    std::unordered_map<uint64_t, std::string> &addr_fn_name_map, bool is_stripped) {
+
+  std::vector<llvm::Constant *> addr_list, fn_ptr_list;
+
+  if (is_stripped) {
+    for (auto &[addr, fn_name] : addr_fn_name_map) {
+      auto lifted_fun = module->getFunction(fn_name);
+      if (!lifted_fun) {
+        elfconv_runtime_error("[ERROR] lifted fun \"%s\" cannot be found.\n", fn_name.c_str());
+      }
+      addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), addr));
+      fn_ptr_list.push_back(lifted_fun);
+    }
+    // Insert guard
+    addr_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0));
+  }
+
+  // Define global fn ptr table
+  SetGblArrayIr(llvm::Type::getInt64Ty(context), addr_list, "_ecv_noopt_func_entrys");
+  SetGblArrayIr(llvm::Type::getInt64PtrTy(context), fn_ptr_list, "_ecv_noopt_fun_ptrs");
 }
 
 /* Set block address data */
-llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
+void MainLifter::WrapImpl::SetBlockAddressData(
     std::vector<llvm::Constant *> &block_address_ptrs_array,
     std::vector<llvm::Constant *> &block_address_vmas_array,
     std::vector<llvm::Constant *> &block_address_sizes_array,
@@ -252,8 +279,8 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetBlockAddressData(
                 g_block_address_vmas_array_name);
   SetGblArrayIr(llvm::Type::getInt64Ty(context), block_address_sizes_array,
                 g_block_address_size_array_name);
-  return SetGblArrayIr(llvm::Type::getInt64Ty(context), block_address_fn_vma_array,
-                       g_block_address_fn_vma_array_name);
+  SetGblArrayIr(llvm::Type::getInt64Ty(context), block_address_fn_vma_array,
+                g_block_address_fn_vma_array_name);
 }
 
 /* Global variable array definition helper */
@@ -267,15 +294,18 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetGblArrayIr(
 }
 
 void MainLifter::WrapImpl::SetNoOptVmaBBLists(
-    std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs) {
+    std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs, bool is_stripped) {
 
   std::vector<llvm::Constant *> vmas, bb_addrs;
 
-  std::sort(noopt_all_vma_bbs.begin(), noopt_all_vma_bbs.end());
-  for (auto &[vma, bb_addr] : noopt_all_vma_bbs) {
-    vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma));
-    bb_addrs.push_back(bb_addr);
+  if (is_stripped) {
+    std::sort(noopt_all_vma_bbs.begin(), noopt_all_vma_bbs.end());
+    for (auto &[vma, bb_addr] : noopt_all_vma_bbs) {
+      vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma));
+      bb_addrs.push_back(bb_addr);
+    }
   }
+
   // _ecv_noopt_inst_vmas
   SetGblArrayIr(llvm::Type::getInt64Ty(context), vmas, "_ecv_noopt_inst_vmas");
   // _ecv_noopt_bb_ptrs
@@ -296,13 +326,21 @@ void MainLifter::WrapImpl::SetStrippedFlag(bool is_stripped) {
 
 /* declare helper function in the lifted LLVM bitcode */
 void MainLifter::WrapImpl::DeclareHelperFunction() {
-  /* uint64_t *__g_get_jmp_block_address(RuntimeManager*,  uint64_t, uint64_t) */
+
+  // uint64_t *__g_get_jmp_block_address(RuntimeManager*, uint64_t, uint64_t)
   llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
                               {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
                                llvm::Type::getInt64Ty(context)},
                               false),
       llvm::Function::ExternalLinkage, g_get_indirectbr_block_address_func_name, *module);
+
+  // uint64_t *_ecv_noopt_get_bb(RuntimeManager *, addr_t)
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context)},
+                              false),
+      llvm::Function::ExternalLinkage, _ecv_noopt_get_bb_name, *module);
 }
 
 /* Prepare the virtual machine for instruction test */

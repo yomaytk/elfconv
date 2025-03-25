@@ -183,8 +183,14 @@ extern "C" uint64_t *__g_get_indirectbr_block_address(RuntimeManager *runtime_ma
     if (vma_bb_map.count(bb_vma) == 1) {
       return vma_bb_map[bb_vma];
     } else {
-      elfconv_runtime_error("[ERROR] 0x%llx is not the vma of the block address of '%s'.\n", bb_vma,
-                            __func__);
+      if (runtime_manager->addr_optfn_vma_map.count(fun_vma) == 1 ||
+          runtime_manager->addr_nooptfn_vma_map.count(fun_vma) == 1) {
+        return vma_bb_map[UINT64_MAX];
+      } else {
+        elfconv_runtime_error(
+            "[ERROR] 0x%llx is neither the block address vma or lifted function vma of '%s'.\n",
+            bb_vma, __func__);
+      }
     }
   } else {
     elfconv_runtime_error(

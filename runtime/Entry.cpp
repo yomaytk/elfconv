@@ -1,6 +1,7 @@
 #include "Memory.h"
 #include "Runtime.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -79,8 +80,6 @@ int main(int argc, char *argv[]) {
       runtime_manager->noopt_bb_ptrs.push_back(const_cast<uint64_t *>(_ecv_noopt_bb_ptrs[i]));
     }
   }
-
-  // Set
 
   //  Go to the entry function (__g_entry_func is injected by lifted LLVM IR)
   __g_entry_func(&CPUState, __g_entry_pc, runtime_manager);

@@ -1,7 +1,11 @@
 #include "TraceManager.h"
 
 #include "Lift.h"
+#include "lifter/Binary/Loader.h"
+#include "remill/Arch/Runtime/Types.h"
 
+#include <algorithm>
+#include <bfd.h>
 #include <utils/Util.h>
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
@@ -50,11 +54,16 @@ bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
   }
 }
 
-std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr) {
-  if (disasm_funcs.count(addr) == 1)
-    return disasm_funcs[addr].func_name;
-  else
+std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) {
+  if (disasm_funcs.count(addr) == 1) {
+    if (vrp_opt_mode) {
+      return disasm_funcs[addr].func_name;
+    } else {
+      return disasm_funcs[addr].func_name + "_noopt";
+    }
+  } else {
     elfconv_runtime_error("[ERROR] addr (0x%lx) doesn't indicate the entry of function.\n", addr);
+  }
 }
 
 bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
@@ -95,89 +104,110 @@ void AArch64TraceManager::SetELFData() {
   elf_obj.LoadELF();
   entry_point = elf_obj.entry;
 
-  // set text section
+  std::unordered_map<asection *, std::vector<BinaryLoader::ELFSymbol>> code_sec_func_mp;
+
+  // Set text section
   elf_obj.SetCodeSection();
-  // set symbol table (WARNING: only when the ELF binary is not stripped)
-  auto func_entrys = elf_obj.GetFuncEntry();
-  std::sort(func_entrys.rbegin(), func_entrys.rend());
 
-  // set instructions of every function.
-  for (size_t i = 0; i < func_entrys.size();) {
-    uintptr_t n_fun_entry;
-    uintptr_t sec_vma;
-    uint8_t *bytes;
-    int sec_included_cnt = 0;
+  // Set memory of code section bytes.
+  for (auto &[_, code_sec] : elf_obj.code_sections) {
+    for (addr_t addr = code_sec.vma; addr < code_sec.vma + code_sec.size; addr++) {
+      memory[addr] = code_sec.bytes[addr - code_sec.vma];
+    }
+  }
 
-    // specify included section
-    for (auto &[_, code_sec] : elf_obj.code_sections) {
-      if (code_sec.vma <= func_entrys[i].entry &&
-          func_entrys[i].entry < code_sec.vma + code_sec.size) {
-        sec_vma = code_sec.vma;
-        n_fun_entry = code_sec.vma + code_sec.size;
-        bytes = code_sec.bytes;
-        sec_included_cnt++;
+  if (elf_obj.stripped) {
+
+    for (auto fun_symbol : elf_obj.func_symbols) {
+      if (code_sec_func_mp.contains(fun_symbol.in_section)) {
+        code_sec_func_mp[fun_symbol.in_section].push_back(fun_symbol);
+      } else {
+        code_sec_func_mp[fun_symbol.in_section] = {fun_symbol};
       }
     }
-    if (sec_included_cnt > 1) {
-      elfconv_runtime_error(
-          "[ERROR] \"%s\" is included in multiple sections. vma: %ld, size: %ld\n",
-          func_entrys[i].func_name.c_str(), func_entrys[i].entry, func_entrys[i].func_size);
-    } else if (sec_included_cnt == 0) {
-      printf("[LOG] \"%s\" is not included in any section. vma: 0x%lx, size: %ld ignored.\n",
-             func_entrys[i].func_name.c_str(), func_entrys[i].entry, func_entrys[i].func_size);
-      i++;
-      continue;  // (FIXME)
-    }
 
-    // assign every insn to the manager
-    while (sec_vma < n_fun_entry) {
+    // Make DisasmFunc for the every section.
+    // If there is an empty segment between functions, we lift the empty segment as one function.
+    for (auto &[code_sec, func_symbols] : code_sec_func_mp) {
+      std::sort(func_symbols.rbegin(), func_symbols.rend(),
+                [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
+      bfd_vma sec_vma = bfd_section_vma(code_sec);
+      bfd_size_type sec_size = bfd_section_size(code_sec);
+      addr_t entry = sec_vma;
+      for (size_t i = 0; i < func_symbols.size(); i++) {
+        // Empty segment function.
+        if (entry < func_symbols[i].addr) {
+          auto empty_seg_fun_name = GetUniqueLiftedFuncName("empty_segment_func", entry);
+          disasm_funcs.emplace(entry,
+                               DisasmFunc(empty_seg_fun_name, entry, func_symbols[i].addr - entry));
+        }
+        // Detected function.
+        auto lifted_func_name =
+            GetUniqueLiftedFuncName(func_symbols[i].sym_name, func_symbols[i].addr);
+        disasm_funcs.emplace(
+            func_symbols[i].addr,
+            DisasmFunc(lifted_func_name, func_symbols[i].addr, func_symbols[i].sym_size));
+        // Set program entry point function if applicapable.
+        if (entry_point == func_symbols[i].addr) {
+          if (!entry_func_lifted_name.empty()) {
+            elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
+          }
+          entry_func_lifted_name = lifted_func_name;
+        }
+      }
+      if (auto last_entry = func_symbols.back().addr + func_symbols.back().sym_size;
+          last_entry < sec_vma + sec_size) {
+        // Last empty segment function.
+        auto last_empty_seg_fun_name = GetUniqueLiftedFuncName("empty_segment_func", last_entry);
+        disasm_funcs.emplace(last_entry, DisasmFunc(last_empty_seg_fun_name, last_entry,
+                                                    (sec_vma + sec_size) - last_entry));
+      }
+    }
+  } else {
+
+    auto &func_symbols = elf_obj.func_symbols;
+    std::sort(func_symbols.begin(), func_symbols.end(),
+              [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
+
+    for (size_t i = 0; i < func_symbols.size() - 1; i++) {
+      auto lifted_func_name =
+          GetUniqueLiftedFuncName(func_symbols[i].sym_name, func_symbols[i].addr);
 
       // (FIXME) tmp patch for `_IO_file_xsputn` function.
-      auto lifted_func_name =
-          GetUniqueLiftedFuncName(func_entrys[i].func_name, func_entrys[i].entry);
       if (strncmp(lifted_func_name.c_str(), "_IO_file_xsputn____", 19) == 0) {
-        _io_file_xsputn_vma = func_entrys[i].entry;
+        _io_file_xsputn_vma = func_symbols[i].addr;
       }
 
-      // set program entry point function if applicapable.
-      if (entry_point == func_entrys[i].entry) {
+      // Set program entry point function if applicapable.
+      if (entry_point == func_symbols[i].addr) {
         if (!entry_func_lifted_name.empty()) {
           elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
         }
         entry_func_lifted_name = lifted_func_name;
       }
 
-      if (elf_obj.stripped) {
-        // if there is a byte sequence not included in any function (empty segment), we make a new function which consists of the byte.
-        uint64_t func_end = func_entrys[i].entry + func_entrys[i].func_size;
-        if (func_end < n_fun_entry) {
-          uint64_t empty_seg_vma = func_end;
-          uint64_t empty_seg_end = n_fun_entry;
-          uint64_t empty_seg_size = empty_seg_end - empty_seg_vma;
-          auto empty_seg_fun_name = GetUniqueLiftedFuncName("empty_segment_func", empty_seg_vma);
-          for (uintptr_t addr = empty_seg_vma; addr < n_fun_entry; addr++) {
-            memory[addr] = bytes[addr - sec_vma];
-          }
-          if (empty_seg_size > 1000) {
-            printf("[INFO] empty segment function is too big? vma: 0x%lx, size: %ld\n",
-                   empty_seg_vma, empty_seg_size);
-          }
-          disasm_funcs.emplace(func_end,
-                               DisasmFunc(empty_seg_fun_name, empty_seg_vma, empty_seg_size));
-        }
+      if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
+        disasm_funcs.emplace(func_symbols[i].addr,
+                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
+                                        func_symbols[i + 1].addr - func_symbols[i].addr));
+      } else {
+        disasm_funcs.emplace(func_symbols[i].addr,
+                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
+                                        (bfd_section_vma(func_symbols[i].in_section) +
+                                         bfd_section_size(func_symbols[i].in_section)) -
+                                            func_symbols[i].addr));
       }
-
-      // assign every instruction byte to the std::unordered_map<uintptr_t, uint8_t> memory.
-      for (uintptr_t addr = func_entrys[i].entry; addr < n_fun_entry; addr++) {
-        memory[addr] = bytes[addr - sec_vma];
-      }
-      disasm_funcs.emplace(func_entrys[i].entry, DisasmFunc(lifted_func_name, func_entrys[i].entry,
-                                                            n_fun_entry - func_entrys[i].entry));
-
-      // next loop
-      n_fun_entry = func_entrys[i].entry;
-      i++;
     }
+
+    // Last function.
+    auto last_func_symbol = func_symbols.back();
+    auto lifted_func_name =
+        GetUniqueLiftedFuncName(last_func_symbol.sym_name, last_func_symbol.addr);
+    disasm_funcs.emplace(last_func_symbol.addr,
+                         DisasmFunc(lifted_func_name, last_func_symbol.addr,
+                                    (bfd_section_vma(last_func_symbol.in_section) +
+                                     bfd_section_size(last_func_symbol.in_section)) -
+                                        last_func_symbol.addr));
   }
 
   // define functions in .plt section (FIXME)

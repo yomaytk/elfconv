@@ -94,16 +94,16 @@ class MainLifter : public TraceLifter {
     llvm::GlobalVariable *SetPlatform(const char *platform_name);
 
     /* Set lifted function pointer table */
-    llvm::GlobalVariable *
-    SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map,
-                         const char *addr_list_name, const char *func_ptrs_name);
+    void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map);
+
+    void SetLiftedNoOptFunPtrTable(std::unordered_map<uint64_t, std::string> &addr_fun_map,
+                                   bool is_stripped);
 
     /* Set block address data */
-    llvm::GlobalVariable *
-    SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
-                        std::vector<llvm::Constant *> &block_address_vmas_array,
-                        std::vector<llvm::Constant *> &block_address_size_array,
-                        std::vector<llvm::Constant *> &block_address_fn_vma_array);
+    void SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
+                             std::vector<llvm::Constant *> &block_address_vmas_array,
+                             std::vector<llvm::Constant *> &block_address_size_array,
+                             std::vector<llvm::Constant *> &block_address_fn_vma_array);
 
     /* Global variable array definition helper */
     llvm::GlobalVariable *SetGblArrayIr(
@@ -114,7 +114,8 @@ class MainLifter : public TraceLifter {
     /* Declare global helper function called by lifted llvm bitcode */
     virtual void DeclareHelperFunction() override;
 
-    void SetNoOptVmaBBLists(std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs);
+    void SetNoOptVmaBBLists(std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs,
+                            bool is_stripped);
     void SetStrippedFlag(bool is_stripped);
 
     /* instruction test helper */
@@ -149,8 +150,9 @@ class MainLifter : public TraceLifter {
   void SetDataSections(std::vector<BinaryLoader::ELFSection> &sections);
   void SetELFPhdr(uint64_t e_phent, uint64_t e_phnum, uint8_t *e_ph);
   void SetPlatform(const char *platform_name);
-  void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map,
-                            const char *addr_list_name, const char *func_ptrs_name);
+  void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map);
+  void SetLiftedNoOptFunPtrTable(std::unordered_map<uint64_t, std::string> &addr_fn_name_map,
+                                 bool is_stripped);
   void SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
@@ -160,7 +162,7 @@ class MainLifter : public TraceLifter {
 
   void Optimize();
 
-  void SetNoOptVmaBBLists();
+  void SetNoOptVmaBBLists(bool is_stripped);
   void SetStrippedFlag(bool is_stripped);
   /* debug */
   void DeclareDebugFunction();
