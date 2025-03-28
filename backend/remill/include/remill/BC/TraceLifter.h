@@ -290,7 +290,7 @@ class TraceLifter::Impl {
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
         runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
-        g_get_indirectbr_block_address_func_name("__g_get_indirectbr_block_address"),
+        g_get_indirectbr_block_address_func_name("_ecv_get_indirectbr_block_address"),
         _ecv_noopt_get_bb_name("_ecv_noopt_get_bb"),
         debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),

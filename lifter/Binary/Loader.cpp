@@ -145,7 +145,7 @@ void ELFObject::LoadELFBFD() {
   symbol_table_size = bfd_get_symtab_upper_bound(bfd_h);
   if (symbol_table_size <= 8) {
     // The ELF binary is stripped. we use 'radare2' to detect the function boundaries.
-    stripped = true;
+    is_stripped = true;
     R2Detect();
   } else {
     // we can detect all functions by watching the symbol table.
@@ -187,7 +187,7 @@ void ELFObject::LoadStaticSymbolsBFD() {
       continue;
     }
     func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, std::string(bfd_symtab[i]->name),
-                              bfd_asymbol_value(bfd_symtab[i]), UINT64_MAX,
+                              bfd_asymbol_value(bfd_symtab[i]),
                               GetIncludedSection(bfd_asymbol_value(bfd_symtab[i])));
   }
 }
@@ -218,9 +218,8 @@ void ELFObject::LoadDynamicSymbolsBFD() {
       } else {
         continue;
       }
-      func_symbols.emplace_back(
-          sym_type, std::string(bfd_symtab[i]->name), bfd_asymbol_value(bfd_symtab[i]),
-          /* symbol size is not used for not stripped binary */ UINT64_MAX, nullptr);
+      func_symbols.emplace_back(sym_type, std::string(bfd_symtab[i]->name),
+                                bfd_asymbol_value(bfd_symtab[i]), nullptr);
     }
   } else {
     printf("[INFO] static symbol table is not found.\n");
@@ -283,6 +282,7 @@ void ELFObject::LoadSectionsBFD() {
   }
 }
 
+// In the current implementation, we use radare2 analysis only for noopt mode.
 void ELFObject::R2Detect() {
   std::string cmd = "r2 -q -c \"e anal.nopskip=true; e anal.hasnext=true;aaa; aflj\" " + file_name +
                     " > " + "/tmp/elfconv_func_detection.json";
@@ -297,23 +297,21 @@ void ELFObject::R2Detect() {
   nlohmann::json data = nlohmann::json::parse(json_file);
 
   for (auto j_data : data) {
-    uint64_t offset, minbound, maxbound, sym_size;
+    uint64_t offset, minbound;
     std::stringstream fun_offset_name, fun_minbound_name;
 
     offset = j_data["offset"].get<uint64_t>();
     minbound = j_data["minbound"].get<uint64_t>();
-    maxbound = j_data["maxbound"].get<uint64_t>();
-    sym_size = j_data["size"].get<uint64_t>();
-    fun_offset_name << "__r2fcn_0x" << std::hex << offset;
+    fun_offset_name << "__r2fcn_0x" << std::hex << offset << "_noopt";
     func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_offset_name.str(), offset,
-                              sym_size, GetIncludedSection(offset));
+                              GetIncludedSection(offset));
 
     // There is the case whose offset is not equal to the minbound for the analysis results of radare2.
     // In the case, we make new function of the range of minbound to maxbound.
     if (minbound != offset) {
-      fun_minbound_name << "__r2fcn_0x" << std::hex << minbound;
+      fun_minbound_name << "__r2fcn_minbound_0x" << std::hex << minbound << "_noopt";
       func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_minbound_name.str(),
-                                minbound, maxbound - minbound, GetIncludedSection(minbound));
+                                minbound, GetIncludedSection(minbound));
     }
   }
 }

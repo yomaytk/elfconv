@@ -29,17 +29,15 @@ class ELFSymbol {
     SYM_TYPE_UNKNOWN = 4,
   };
 
-  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr, uint64_t __sym_size,
+  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr,
             bfd_section *__in_section)
       : sym_type(__sym_type),
         sym_name(__sym_name),
         addr(__addr),
-        sym_size(__sym_size),
         in_section(__in_section) {}
   ELFSymbol::SymbolType sym_type;
   std::string sym_name;
   uintptr_t addr;
-  uint64_t sym_size;
   bfd_section *in_section;
 };
 
@@ -104,7 +102,7 @@ class ELFObject {
   void DebugBinary();
 
   ELFObject(std::string __file_name) : file_name(__file_name), bfd_inited(false) {
-    stripped = false;
+    is_stripped = false;
   }
 
   std::string file_name;
@@ -126,7 +124,7 @@ class ELFObject {
   uint64_t e_phnum;
   uint8_t *e_ph;
 
-  bool stripped;
+  bool is_stripped;
 
  private:
   void OpenELF();

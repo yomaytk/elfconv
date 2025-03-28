@@ -104,63 +104,59 @@ void AArch64TraceManager::SetELFData() {
   elf_obj.LoadELF();
   entry_point = elf_obj.entry;
 
-  std::unordered_map<asection *, std::vector<BinaryLoader::ELFSymbol>> code_sec_func_mp;
-
   // Set text section
   elf_obj.SetCodeSection();
 
-  // Set memory of code section bytes.
+  // Set memory of all code section bytes.
   for (auto &[_, code_sec] : elf_obj.code_sections) {
     for (addr_t addr = code_sec.vma; addr < code_sec.vma + code_sec.size; addr++) {
       memory[addr] = code_sec.bytes[addr - code_sec.vma];
     }
   }
 
-  if (elf_obj.stripped) {
+  if (elf_obj.is_stripped) {
 
     for (auto fun_symbol : elf_obj.func_symbols) {
-      if (code_sec_func_mp.contains(fun_symbol.in_section)) {
-        code_sec_func_mp[fun_symbol.in_section].push_back(fun_symbol);
+      if (sec_symbol_mp.contains(fun_symbol.in_section)) {
+        sec_symbol_mp[fun_symbol.in_section].insert({fun_symbol.addr, fun_symbol});
       } else {
-        code_sec_func_mp[fun_symbol.in_section] = {fun_symbol};
+        sec_symbol_mp[fun_symbol.in_section] = {{fun_symbol.addr, fun_symbol}};
       }
     }
 
-    // Make DisasmFunc for the every section.
-    // If there is an empty segment between functions, we lift the empty segment as one function.
-    for (auto &[code_sec, func_symbols] : code_sec_func_mp) {
-      std::sort(func_symbols.rbegin(), func_symbols.rend(),
-                [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
+    // Make DisasmFunc for the every detected function entry and empty segment spaces.
+    for (auto &[code_sec, func_symbol_mp] : sec_symbol_mp) {
+
       bfd_vma sec_vma = bfd_section_vma(code_sec);
       bfd_size_type sec_size = bfd_section_size(code_sec);
-      addr_t entry = sec_vma;
-      for (size_t i = 0; i < func_symbols.size(); i++) {
-        // Empty segment function.
-        if (entry < func_symbols[i].addr) {
-          auto empty_seg_fun_name = GetUniqueLiftedFuncName("empty_segment_func", entry);
-          disasm_funcs.emplace(entry,
-                               DisasmFunc(empty_seg_fun_name, entry, func_symbols[i].addr - entry));
-        }
-        // Detected function.
-        auto lifted_func_name =
-            GetUniqueLiftedFuncName(func_symbols[i].sym_name, func_symbols[i].addr);
-        disasm_funcs.emplace(
-            func_symbols[i].addr,
-            DisasmFunc(lifted_func_name, func_symbols[i].addr, func_symbols[i].sym_size));
+
+      auto sym_it = func_symbol_mp.begin();
+
+      // Add the head of the section as one function.
+      if (sym_it->first != sec_vma) {
+        auto head_lifted_func_name = GetUniqueLiftedFuncName("_ecv_firstsec_", sec_vma);
+        disasm_funcs.emplace(sec_vma,
+                             DisasmFunc(head_lifted_func_name, sec_vma, sym_it->first - sec_vma));
+      }
+
+      // Add the every function of the code section.
+      while (sym_it != func_symbol_mp.end()) {
+        // Detected function by r2.
+        auto symbol = sym_it->second;
+        auto addr_end = sym_it == std::prev(func_symbol_mp.end()) ? sec_vma + sec_size
+                                                                  : std::next(sym_it)->second.addr;
+        auto lifted_func_name = GetUniqueLiftedFuncName(symbol.sym_name, symbol.addr);
+        disasm_funcs.emplace(symbol.addr,
+                             DisasmFunc(lifted_func_name, symbol.addr, addr_end - symbol.addr));
+
         // Set program entry point function if applicapable.
-        if (entry_point == func_symbols[i].addr) {
+        if (entry_point == symbol.addr) {
           if (!entry_func_lifted_name.empty()) {
             elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
           }
           entry_func_lifted_name = lifted_func_name;
         }
-      }
-      if (auto last_entry = func_symbols.back().addr + func_symbols.back().sym_size;
-          last_entry < sec_vma + sec_size) {
-        // Last empty segment function.
-        auto last_empty_seg_fun_name = GetUniqueLiftedFuncName("empty_segment_func", last_entry);
-        disasm_funcs.emplace(last_entry, DisasmFunc(last_empty_seg_fun_name, last_entry,
-                                                    (sec_vma + sec_size) - last_entry));
+        sym_it++;
       }
     }
   } else {
@@ -180,9 +176,6 @@ void AArch64TraceManager::SetELFData() {
 
       // Set program entry point function if applicapable.
       if (entry_point == func_symbols[i].addr) {
-        if (!entry_func_lifted_name.empty()) {
-          elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
-        }
         entry_func_lifted_name = lifted_func_name;
       }
 
@@ -208,6 +201,10 @@ void AArch64TraceManager::SetELFData() {
                                     (bfd_section_vma(last_func_symbol.in_section) +
                                      bfd_section_size(last_func_symbol.in_section)) -
                                         last_func_symbol.addr));
+  }
+
+  if (entry_func_lifted_name.empty()) {
+    elfconv_runtime_error("[ERROR] entry_function is not found.\n");
   }
 
   // define functions in .plt section (FIXME)

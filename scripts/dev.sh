@@ -17,7 +17,7 @@ setting() {
   BUILD_TESTS_AARCH64_DIR=${BUILD_DIR}/tests/aarch64
   CXX=clang++-16
   OPTFLAGS="-O3"
-  CLANGFLAGS="${OPTFLAGS} -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
+  CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
@@ -60,7 +60,7 @@ lifting() {
   echo -e "[\033[32mINFO\033[0m] ELF -> LLVM bitcode..."
   elf_path=$( realpath "$1" )
   
-  wasi32_target_arch=''
+  target_arch=$HOST_CPU
   if [ "$TARGET" = "*-wasi32" ]; then
     wasi32_target_arch='wasi32'
   fi

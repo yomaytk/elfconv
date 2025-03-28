@@ -1028,6 +1028,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     if (vrp_opt_mode) {
       manager.SetLiftedOptFuncTraceDefinition(trace_addr, func);
     }
+
     virtual_regs_opt->block_num = lifted_block_map.size();
   }
 

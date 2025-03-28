@@ -26,48 +26,36 @@ const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
 
-extern "C" {
-/* State machine which represents all CPU registers */
-extern State CPUState;
-/* Lifted entry function address */
-extern const LiftedFunc __g_entry_func;
-/* entry point of the original ELF */
-extern const addr_t __g_entry_pc;
-extern const uint8_t *__g_data_sec_name_ptr_array[];
-extern const uint64_t __g_data_sec_vma_array[];
-extern uint64_t __g_data_sec_size_array[];
-extern uint8_t *__g_data_sec_bytes_ptr_array[];
-extern const uint64_t __g_data_sec_num;
-/* e_phentsize */
-extern _ecv_reg_t __g_e_phent;
-/* e_phnum */
-extern _ecv_reg_t __g_e_phnum;
-/* every program header bytes */
-extern uint8_t __g_e_ph[];
-/* lifted function pointer table */
-extern uint64_t __g_fn_vmas[];
-extern LiftedFunc __g_fn_ptr_table[];
-/* platform name */
-extern const char __g_platform_name[];
-/* lifted function symbol table (for debug) */
-extern const uint8_t *__g_fn_symbol_table[];
-extern uint64_t __g_fn_vmas_second[];
-/* block addres arrays of the lifted function which includes BR instruction */
-extern uint64_t **__g_block_address_ptrs_array[];
-extern const uint64_t *__g_block_address_vmas_array[];
-extern const uint64_t __g_block_address_size_array[];
-extern const uint64_t __g_block_address_fn_vma_array[];
-extern const uint64_t __g_block_address_array_size;
-
-extern const uint8_t _ecv_is_stripped;
-
-extern const uint64_t *_ecv_noopt_bb_ptrs[];
-extern const uint64_t _ecv_noopt_inst_vmas[];
-extern const uint64_t _ecv_noopt_vmabbs_size;
-
-extern const uint64_t _ecv_noopt_func_entrys[];
-extern const LiftedFunc _ecv_noopt_fun_ptrs[];
-}
+//  State machine which represents all CPU registers */
+extern "C" State CPUState;
+//  Lifted entry function pointer
+extern "C" const LiftedFunc _ecv_entry_func;
+//  Entry point of the ELF
+extern "C" const addr_t _ecv_entry_pc;
+//  Data of data sections of the ELF
+extern "C" const uint8_t *_ecv_data_sec_name_ptr_array[];
+extern "C" const uint64_t _ecv_data_sec_vma_array[];
+extern "C" const uint64_t _ecv_data_sec_size_array[];
+extern "C" const uint8_t *_ecv_data_sec_bytes_ptr_array[];
+extern "C" const uint64_t _ecv_data_sec_num;
+//  Program header data of the ELF
+extern "C" _ecv_reg_t _ecv_e_phent;
+extern "C" _ecv_reg_t _ecv_e_phnum;
+extern "C" uint8_t _ecv_e_ph[];
+//  Platform name of the target architecture
+extern "C" uint8_t *_ecv_platform_name;
+//  Lifted function pointer table
+extern "C" uint64_t _ecv_fun_vmas[];
+extern "C" LiftedFunc _ecv_fun_ptrs[];
+//  Lifted function symbol table (for debug)
+extern "C" const uint8_t *_ecv_fn_symbol_table[];
+extern "C" uint64_t _ecv_fn_vmas_second[];
+//  Basic block address arrays of the lifted function for indirect jump
+extern "C" uint64_t **_ecv_block_address_ptrs_array[];
+extern "C" const uint64_t *_ecv_block_address_vmas_array[];
+extern "C" const uint64_t _ecv_block_address_size_array[];
+extern "C" const uint64_t _ecv_block_address_fn_vma_array[];
+extern "C" const uint64_t _ecv_block_address_array_size;
 
 enum class MemoryAreaType : uint8_t {
   STACK,
