@@ -19,6 +19,10 @@
 
 #define ERROR_LEN 1000
 
+#define ECV_DWARF_UNDEF_VAL 20000
+#define ECV_DWARF_SAME_VAL 20001
+#define ECV_DWARF_CFA_VAL 20002
+
 using namespace BinaryLoader;
 
 int ReadEhdr(const char *file_name, uint64_t *e_phent, uint64_t *e_phnum, uint8_t *e_ph[]) {
@@ -144,12 +148,25 @@ void ELFObject::LoadELFBFD() {
   // functions detection.
   symbol_table_size = bfd_get_symtab_upper_bound(bfd_h);
   if (symbol_table_size <= 8) {
-    // The ELF binary is stripped. we use 'radare2' to detect the function boundaries.
+    // The ELF binary is stripped.
     is_stripped = true;
-    R2Detect();
+    // The ELF binary generated from gcc or clang has `eh_frame` section even if it is stripped,
+    // and we can detect the function entry and length from the section if the section exists.
+    int eh_frame_anal = GetSblFromEhFrame();
+    if (eh_frame_anal == 0) {
+      able_vrp_opt = true;
+    } else {
+      // If the ELF binary doesn't have the `eh_frame` section or failed to analyze the section,
+      // elfconv uses `radare2` reverse engineering framework to detect many functions.
+      // However, this method possibly has miss detection, so it is difficult to execute VRP optimization.
+      able_vrp_opt = false;
+      R2Detect();
+    }
   } else {
     // we can detect all functions by watching the symbol table.
     LoadStaticSymbolsBFD();
+    is_stripped = false;
+    able_vrp_opt = true;
   }
 
   /* get every dynamic symbol table */
@@ -280,6 +297,122 @@ void ELFObject::LoadSectionsBFD() {
 
     sections.emplace_back(this, sec_type, sec_name, vma, size, sec_bytes);
   }
+}
+
+// We can get function entry address and function size (but not necessary for elfconv) by watching the `eh_frame` section.
+// In order to parse eh_frame, we use libdwarf library.
+int ELFObject::GetSblFromEhFrame() {
+
+  Dwarf_Debug dbg;
+  Dwarf_Error error;
+  Dwarf_Ptr errarg = 0;
+  Dwarf_Handler errhand = 0;
+  int elf_fd;
+  int reg_table_rule_count;
+  int dwarf_res;
+
+  if ((elf_fd = open(file_name.c_str(), O_RDONLY)) < 0) {
+    elfconv_runtime_error("open ELF file on ELFObject::GetSblOfEhFrame. file_name: %s.\n",
+                          file_name.c_str());
+  }
+
+  // libdwarf init.
+  if ((dwarf_res = dwarf_init(elf_fd, /*DW_DLC_REA*/ 0, errhand, errarg, &dbg, &error)) !=
+      DW_DLV_OK) {
+    fprintf(stderr, "dwarf_init() failed\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // Set various meta data of Dwarf_dbg.
+  reg_table_rule_count = 1999;
+  dwarf_set_frame_undefined_value(dbg, ECV_DWARF_UNDEF_VAL);
+  dwarf_set_frame_rule_initial_value(dbg, ECV_DWARF_UNDEF_VAL);
+  dwarf_set_frame_same_value(dbg, ECV_DWARF_SAME_VAL);
+  dwarf_set_frame_cfa_value(dbg, ECV_DWARF_CFA_VAL);
+  dwarf_set_frame_rule_table_size(dbg, reg_table_rule_count);
+
+  // Parse `eh_frame` section and make all function symbols.
+  dwarf_res = ParseEhFrame(dbg);
+  if (dwarf_res != 0) {
+    return -1;
+  }
+  dwarf_res = dwarf_finish(dbg, &error);
+
+  if (dwarf_res != DW_DLV_OK) {
+    fprintf(stderr, "dwarf_finish failed!\n");
+    exit(EXIT_FAILURE);
+  }
+
+  close(elf_fd);
+  return 0;
+}
+
+int ELFObject::ParseEhFrame(Dwarf_Debug dbg) {
+
+  Dwarf_Error error;
+  Dwarf_Signed cie_element_count = 0;
+  Dwarf_Signed fde_element_count = 0;
+  Dwarf_Cie *cie_data = 0;
+  Dwarf_Fde *fde_data = 0;
+  int p_res = DW_DLV_ERROR;
+
+  // Parse `eh_frame` section.
+  p_res = dwarf_get_fde_list_eh(dbg, &cie_data, &cie_element_count, &fde_data, &fde_element_count,
+                                &error);
+  if (p_res == DW_DLV_NO_ENTRY) {
+    LOG(INFO) << "[INFO] No frame data on the ELF.\n";
+    return -1;
+  } else if (p_res == DW_DLV_ERROR) {
+    LOG(WARNING) << "Error reading frame data.\n";
+    return -1;
+  }
+
+  // Get every function entry address and fucntion size from the parsed data.
+  for (Dwarf_Signed fdenum = 0; fdenum < fde_element_count; ++fdenum) {
+
+    Dwarf_Cie cie = 0;
+    uint64_t ehf_fun_entry = 0;
+    size_t ehf_fun_size = 0;
+
+    p_res = dwarf_get_cie_of_fde(fde_data[fdenum], &cie, &error);
+    if (p_res != DW_DLV_OK) {
+      elfconv_runtime_error("Error accessing fdenum %" DW_PR_DSd " to get its cie\n", fdenum);
+    }
+
+    // Make all func symbols.
+    GetFuncFromEhFrame(&ehf_fun_entry, &ehf_fun_size, dbg, fde_data[fdenum]);
+    std::stringstream ehf_fun_name;
+    ehf_fun_name << "_ecv_lifted_fun_0x" << std::hex << ehf_fun_entry;
+    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, ehf_fun_name.str(), ehf_fun_entry,
+                              GetIncludedSection(ehf_fun_entry));
+  }
+
+  // Destructor.
+  dwarf_fde_cie_list_dealloc(dbg, cie_data, cie_element_count, fde_data, fde_element_count);
+
+  return 0;
+}
+
+void ELFObject::GetFuncFromEhFrame(uint64_t *ehf_fun_entry, size_t *ehf_fun_size, Dwarf_Debug dbg,
+                                   Dwarf_Fde fde) {
+  int f_res;
+  Dwarf_Error error;
+  Dwarf_Unsigned func_length = 0;
+  Dwarf_Unsigned fde_byte_length = 0;
+  Dwarf_Off cie_offset = 0;
+  Dwarf_Off fde_offset = 0;
+  Dwarf_Addr lowpc = 0;
+  Dwarf_Signed cie_index = 0;
+  Dwarf_Ptr fde_bytes;
+
+  f_res = dwarf_get_fde_range(fde, &lowpc, &func_length, &fde_bytes, &fde_byte_length, &cie_offset,
+                              &cie_index, &fde_offset, &error);
+  if (f_res != DW_DLV_OK) {
+    elfconv_runtime_error("Failed to get fde range\n");
+  }
+
+  *ehf_fun_entry = lowpc;
+  *ehf_fun_size = func_length;
 }
 
 // In the current implementation, we use radare2 analysis only for noopt mode.

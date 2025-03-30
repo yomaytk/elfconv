@@ -93,13 +93,16 @@ class MainLifter : public TraceLifter {
     void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map);
 
     void SetLiftedNoOptFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fun_map,
-                                   bool is_stripped);
+                                   bool able_vrp_opt);
 
     // Set block address data
     void SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
                              std::vector<llvm::Constant *> &block_address_vmas_array,
                              std::vector<llvm::Constant *> &block_address_size_array,
                              std::vector<llvm::Constant *> &block_address_fn_vma_array);
+
+    // If the ELF is stripped, we set opt mode on. Otherwise, we set it off.
+    void SetOptMode(bool able_vrp_opt);
 
     //  Global variable array definition helper function
     llvm::GlobalVariable *SetGblArrayIr(
@@ -112,8 +115,7 @@ class MainLifter : public TraceLifter {
     virtual void DeclareHelperFunction() override;
 
     void SetNoOptVmaBBLists(std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs,
-                            bool is_stripped);
-    void SetStrippedFlag(bool is_stripped);
+                            bool able_vrp_opt);
 
     //  instruction test helper
     //  Prepare the virtual machine for instruction test (need override)
@@ -150,19 +152,18 @@ class MainLifter : public TraceLifter {
   void SetPlatform(const char *platform_name);
   void SetLiftedFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map);
   void SetLiftedNoOptFunPtrTable(std::unordered_map<uint64_t, const char *> &addr_fn_name_map,
-                                 bool is_stripped);
+                                 bool able_vrp_opt);
   void SetBlockAddressData(std::vector<llvm::Constant *> &block_address_ptrs_array,
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
+  void SetOptMode(bool able_vrp_opt);
   virtual void DeclareHelperFunction();
 
   void Optimize();
 
   // Set all addressses of the basic blocks of the every instruction for noopt lifted functions.
-  void SetNoOptVmaBBLists(bool is_stripped);
-  // Set stripped flag `_ecv_is_stripped`.
-  void SetStrippedFlag(bool is_stripped);
+  void SetNoOptVmaBBLists(bool able_vrp_opt);
 
   // Set common metadata of the ELF whether it is stripped or not.
   void SetCommonMetaData();

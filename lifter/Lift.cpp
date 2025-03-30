@@ -106,9 +106,8 @@ int main(int argc, char *argv[]) {
   // entry point, program header, every data sections, etc.
   main_lifter.SetCommonMetaData();
 
-  std::unordered_map<uint64_t, const char *> addr_fun_name_map;
-
   // Lift every function.
+  std::unordered_map<uint64_t, const char *> addr_fun_name_map;
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     addr_fun_name_map[addr] = dasm_func.func_name.c_str();
     auto &noopt_fun_name = addr_fun_name_map[addr];
@@ -121,7 +120,11 @@ int main(int argc, char *argv[]) {
   }
 
   // Subsequence process of lifting.
-  main_lifter.SubseqOfLifting(addr_fun_name_map);
+  if (manager.elf_obj.able_vrp_opt) {
+    main_lifter.SubseqOfLifting(addr_fun_name_map);
+  } else {
+    main_lifter.SubseqForNoOptLifting(addr_fun_name_map);
+  }
 
   // Prepare and validate the LLVM Module.
   auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));

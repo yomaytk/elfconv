@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <bfd.h>
+#include <cstdint>
 #include <utils/Util.h>
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
@@ -56,11 +57,7 @@ bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
 
 std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) {
   if (disasm_funcs.count(addr) == 1) {
-    if (vrp_opt_mode) {
-      return disasm_funcs[addr].func_name;
-    } else {
-      return disasm_funcs[addr].func_name + "_noopt";
-    }
+    return disasm_funcs[addr].func_name;
   } else {
     elfconv_runtime_error("[ERROR] addr (0x%lx) doesn't indicate the entry of function.\n", addr);
   }
@@ -99,6 +96,10 @@ uint64_t AArch64TraceManager::GetFuncVMA_E(uint64_t vma_s) {
   }
 }
 
+uint64_t AArch64TraceManager::GetFuncNums() {
+  return disasm_funcs.size();
+}
+
 void AArch64TraceManager::SetELFData() {
 
   elf_obj.LoadELF();
@@ -114,7 +115,46 @@ void AArch64TraceManager::SetELFData() {
     }
   }
 
-  if (elf_obj.is_stripped) {
+  // Make all disasmbled functions data depending on optimization mode.
+  if (elf_obj.able_vrp_opt) {
+
+    auto &func_symbols = elf_obj.func_symbols;
+    std::sort(func_symbols.begin(), func_symbols.end(),
+              [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
+
+    for (size_t i = 0; i < func_symbols.size() - 1; i++) {
+      auto lifted_func_name =
+          GetUniqueLiftedFuncName(func_symbols[i].sym_name, func_symbols[i].addr);
+
+      // Set program entry point function if applicapable.
+      if (entry_point == func_symbols[i].addr) {
+        entry_func_lifted_name = lifted_func_name;
+      }
+
+      if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
+        disasm_funcs.emplace(func_symbols[i].addr,
+                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
+                                        func_symbols[i + 1].addr - func_symbols[i].addr));
+      } else {
+        disasm_funcs.emplace(func_symbols[i].addr,
+                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
+                                        (bfd_section_vma(func_symbols[i].in_section) +
+                                         bfd_section_size(func_symbols[i].in_section)) -
+                                            func_symbols[i].addr));
+      }
+    }
+
+    // Last function.
+    auto last_func_symbol = func_symbols.back();
+    auto lifted_func_name =
+        GetUniqueLiftedFuncName(last_func_symbol.sym_name, last_func_symbol.addr);
+    disasm_funcs.emplace(last_func_symbol.addr,
+                         DisasmFunc(lifted_func_name, last_func_symbol.addr,
+                                    (bfd_section_vma(last_func_symbol.in_section) +
+                                     bfd_section_size(last_func_symbol.in_section)) -
+                                        last_func_symbol.addr));
+
+  } else {
 
     for (auto fun_symbol : elf_obj.func_symbols) {
       if (sec_symbol_mp.contains(fun_symbol.in_section)) {
@@ -159,48 +199,6 @@ void AArch64TraceManager::SetELFData() {
         sym_it++;
       }
     }
-  } else {
-
-    auto &func_symbols = elf_obj.func_symbols;
-    std::sort(func_symbols.begin(), func_symbols.end(),
-              [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
-
-    for (size_t i = 0; i < func_symbols.size() - 1; i++) {
-      auto lifted_func_name =
-          GetUniqueLiftedFuncName(func_symbols[i].sym_name, func_symbols[i].addr);
-
-      // (FIXME) tmp patch for `_IO_file_xsputn` function.
-      if (strncmp(lifted_func_name.c_str(), "_IO_file_xsputn____", 19) == 0) {
-        _io_file_xsputn_vma = func_symbols[i].addr;
-      }
-
-      // Set program entry point function if applicapable.
-      if (entry_point == func_symbols[i].addr) {
-        entry_func_lifted_name = lifted_func_name;
-      }
-
-      if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
-        disasm_funcs.emplace(func_symbols[i].addr,
-                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
-                                        func_symbols[i + 1].addr - func_symbols[i].addr));
-      } else {
-        disasm_funcs.emplace(func_symbols[i].addr,
-                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
-                                        (bfd_section_vma(func_symbols[i].in_section) +
-                                         bfd_section_size(func_symbols[i].in_section)) -
-                                            func_symbols[i].addr));
-      }
-    }
-
-    // Last function.
-    auto last_func_symbol = func_symbols.back();
-    auto lifted_func_name =
-        GetUniqueLiftedFuncName(last_func_symbol.sym_name, last_func_symbol.addr);
-    disasm_funcs.emplace(last_func_symbol.addr,
-                         DisasmFunc(lifted_func_name, last_func_symbol.addr,
-                                    (bfd_section_vma(last_func_symbol.in_section) +
-                                     bfd_section_size(last_func_symbol.in_section)) -
-                                        last_func_symbol.addr));
   }
 
   if (entry_func_lifted_name.empty()) {

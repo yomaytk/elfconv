@@ -105,6 +105,8 @@ class TraceManager {
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 
+  virtual uint64_t GetFuncNums() = 0;
+
   /* global array of block address various data */
   std::vector<llvm::Constant *> g_block_address_ptrs_array;
   std::vector<llvm::Constant *> g_block_address_vmas_array;
@@ -112,6 +114,7 @@ class TraceManager {
   std::vector<llvm::Constant *> g_block_address_fn_vma_array;
 
   uint64_t _io_file_xsputn_vma = 0;
+  uint64_t noopt_lift_fin_cnt = 0;
 };
 
 class BBBag {

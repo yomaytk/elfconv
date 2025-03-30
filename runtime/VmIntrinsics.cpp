@@ -133,20 +133,15 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
-
 void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
-  auto &addr_funptr_str_list = runtime_manager->addr_funptr_srt_list;
+  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   if (auto jmp_fun_it =
-          std::lower_bound(addr_funptr_str_list.begin(), addr_funptr_str_list.end(), t_vma,
+          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
                            [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      jmp_fun_it != addr_funptr_str_list.end()) {
-    // If the t_vma is not equal to the function entry point,
-    // this should be the jumpt to the point within the noopt function.
-    if (t_vma != jmp_fun_it->first) {
-      // target instruction address is used via `PC` register.
-      PCREG = t_vma;
-    }
+      jmp_fun_it != addr_funptr_srt_list.end()) {
+    // target instruction address is used via `PC` register.
+    PCREG = t_vma;
     jmp_fun_it->second(&state, t_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
@@ -158,18 +153,14 @@ void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_
 
 /* BR instruction */
 void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
-  auto &addr_funptr_str_list = runtime_manager->addr_funptr_srt_list;
+  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   if (auto jmp_fun_it =
-          std::lower_bound(addr_funptr_str_list.begin(), addr_funptr_str_list.end(), t_vma,
+          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
                            [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      jmp_fun_it != addr_funptr_str_list.end()) {
-    // If the t_vma is not equal to the function entry point,
-    // this should be the jumpt to the point within the noopt function.
-    if (t_vma != jmp_fun_it->first) {
-      // target instruction address is used via `PC` register.
-      PCREG = t_vma;
-    }
+      jmp_fun_it != addr_funptr_srt_list.end()) {
+    // target instruction address is used via `PC` register.
+    PCREG = t_vma;
     jmp_fun_it->second(&state, t_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
@@ -190,7 +181,11 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_m
     } else {
       // If the target instruction is not the vma of basic block but the function entry point,
       // jump to the basic block for `__remill_jump`.
-      if (fun_bb_addr_map.contains(bb_vma)) {
+      auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
+      if (auto fun_it =
+              std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), bb_vma,
+                               [](auto const &lhs, addr_t value) { return lhs.first < value; });
+          fun_it->first == bb_vma) {
         return vma_bb_map[UINT64_MAX];
       } else {
         elfconv_runtime_error(
@@ -207,19 +202,20 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_m
 
 // get the target basic block label pointer on the noopt indirectbr instruction.
 extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t t_vma) {
-  auto &addr_funptr_str_list = runtime_manager->addr_funptr_srt_list;
+  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   auto &fun_bb_addr_map = runtime_manager->fun_bb_addr_map;
-  // fun_it must be the current function, but no guarantee on the current implementation.
-  auto fun_it = std::lower_bound(addr_funptr_str_list.begin(), addr_funptr_str_list.end(), t_vma,
+  // fun_it must indicate the current function, but no guarantee on the current implementation.
+  auto fun_it = std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
                                  [](auto const &lhs, addr_t value) { return lhs.first < value; });
 
-  if (fun_it == addr_funptr_str_list.end()) {
+  if (fun_it == addr_funptr_srt_list.end()) {
     elfconv_runtime_error("[ERROR] address 0x%lx is not the address of the lifted instructios.\n",
                           t_vma);
   }
 
   auto vma_bb_map = fun_bb_addr_map.at(fun_it->first);
-  return vma_bb_map.at(t_vma);
+  auto res = vma_bb_map.at(t_vma);
+  return res;
 }
 
 // push the callee symbol to the call stack for debug

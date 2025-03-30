@@ -44,6 +44,7 @@ if(${CMAKE_ELFLIFT_STATIC_LINK})
     PRIVATE
     bfd
     elf
+    dwarf
     ${LIBIBERTY_PATH}
   )
 else()
@@ -53,6 +54,7 @@ else()
     PRIVATE
     bfd
     elf
+    dwarf
   )
 endif()
 

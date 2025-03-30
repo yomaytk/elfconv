@@ -60,6 +60,7 @@ class AArch64TraceManager : public remill::TraceManager {
   bool isFunctionEntry(uint64_t addr);
   bool isWithinFunction(uint64_t trace_addr, uint64_t inst_addr);
   uint64_t GetFuncVMA_E(uint64_t vma_s);
+  uint64_t GetFuncNums();
 
   void SetELFData();
 

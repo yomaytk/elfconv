@@ -20,6 +20,7 @@
 #include <iostream>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
@@ -322,11 +323,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   indirectbr_block = nullptr;
   inst.Reset();
   delayed_inst.Reset();
-  vrp_opt_mode = true;
-
-  if (std::string(fn_name).ends_with("_noopt")) {
-    vrp_opt_mode = false;
-  }
 
   // Get a trace head that the manager knows about, or that we
   // will eventually tell the trace manager about.
@@ -660,6 +656,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           // When we find such a instruction, we treat it as `nop`.
           if (target_trace && inst.branch_not_taken_pc != inst.branch_taken_pc) {
             trace_work_list.insert(inst.branch_taken_pc);
+            // In the noopt mode, direct function call must go through the `L_far_jump_instruction` label,
+            // then we should store the program counter to `PC` register because `L_far_jump_instruction` block
+            // get the first instruction address from `PC`.
+            if (!vrp_opt_mode) {
+              llvm::IRBuilder<> ir(block);
+              ir.CreateStore(
+                  llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc),
+                  LoadProgramCounterRef(block));
+            }
             auto lifted_func_call = AddCall(
                 block, target_trace, *intrinsics,
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
@@ -672,6 +677,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         case Instruction::kCategoryConditionalDirectFunctionCall: {
           CHECK(ArchName::kArchAArch64LittleEndian != arch->arch_name)
               << "`Instruction::kCategoryConditionalDirectFunctionCall` instruction exists in aarch64?";
+          LOG(FATAL);
           if (inst.branch_not_taken_pc == inst.branch_taken_pc) {
             goto direct_func_call;
           }
@@ -847,34 +853,18 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       goto inst_lifting_start;
     }
 
+    std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
+    llvm::GlobalVariable *g_bb_addrs, *g_bb_addr_vmas;
+
     //  Add indirect branch basic block for intraprocedural indirect jump instruction.
     if (indirectbr_block) {
       auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
-      // generate gvar of block address array (g_bb_addrs) and vma array of it (g_bb_addr_vmas)
-      std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
-      for (auto &[_vma, _bb] : lifted_block_map) {
-        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
-        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), _vma));
-      }
-      //  the end element is br_to_func_block
+      // Add basic block address of br_to_func_block to the grobal data array.
       bb_addrs.push_back(llvm::BlockAddress::get(func, br_to_func_block));
       bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
-      auto g_bb_addrs = SetGblArrayIr(llvm::Type::getInt64PtrTy(context), bb_addrs,
-                                      func->getName() + ".bb_addrs");
-      auto g_bb_addr_vmas = SetGblArrayIr(llvm::Type::getInt64Ty(context), bb_addr_vmas,
-                                          func->getName() + ".bb_addr_vmas");
-      //  save pointers of the array
-      manager.g_block_address_ptrs_array.push_back(
-          llvm::ConstantExpr::getBitCast(g_bb_addrs, llvm::Type::getInt64PtrTy(context)));
-      manager.g_block_address_vmas_array.push_back(
-          llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64PtrTy(context)));
-      manager.g_block_address_size_array.push_back(
-          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
-      manager.g_block_address_fn_vma_array.push_back(
-          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
       //  indirectbr_block
       llvm::IRBuilder<> ir_1(indirectbr_block);
-      //  calculate the target block address
+      //  function to calculate the target basic block address
       auto g_get_jmp_helper_fn = module->getFunction(
           g_get_indirectbr_block_address_func_name); /* return type: uint64_t* */
       auto br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
@@ -891,8 +881,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       auto indirect_br_i = ir_1.CreateIndirectBr(
           ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
           bb_addrs.size());
-      for (auto &[_, _block] : lifted_block_map) {
-        indirect_br_i->addDestination(_block);
+      for (auto &[_, lifted_block] : lifted_block_map) {
+        indirect_br_i->addDestination(lifted_block);
       }
       indirect_br_i->addDestination(br_to_func_block);
       // Update cache for `remill_jump` block.
@@ -911,11 +901,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     if (!vrp_opt_mode) {
       llvm::BasicBlock *root_bb, *org_first_bb, *new_first_bb;
       llvm::Instruction *root_trmi;
+      std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
 
       root_bb = &(func->front());
       root_trmi = root_bb->getTerminator();
       org_first_bb = root_trmi->getSuccessor(0);
-      new_first_bb = llvm::BasicBlock::Create(context, "", func);
+      new_first_bb = llvm::BasicBlock::Create(context, "L_far_jump_instruction", func);
 
       root_trmi->setSuccessor(0, new_first_bb);
 
@@ -930,7 +921,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           lifted_block_map.size());
       for (auto &[_adr, t_bb] : lifted_block_map) {
         br_i->addDestination(t_bb);
-        // (FIXME!)
+        // (FIXME!) should be accessed by at() not operator[].
         virtual_regs_opt->bb_parents[t_bb].insert(
             new_first_bb);  // Update Parent-child relationship.
       }
@@ -945,9 +936,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           {new_first_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
     }
 
-    // Add StoreInst for the every semantics functions.
-    // if the lifted function is `indirectbr_block` or `!vrp_opt_mode`, we must store the return values of semantics functions to the registers.
+
     if (indirectbr_block || !vrp_opt_mode) {
+      // Add StoreInst for the every semantics functions.
+      // if the lifted function is `indirectbr_block` or `!vrp_opt_mode`, we must store the return values of semantics functions to the registers.
       auto &inst_lifter = inst.GetLifter();
       for (auto &bb : *func) {
         auto inst = &*bb.begin();
@@ -956,7 +948,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto call_inst = llvm::dyn_cast<llvm::CallInst>(inst);
           inst = inst->getNextNode();
           if (t_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
-
 #if defined(OPT_REAL_REGS_DEBUG)
             auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
             auto sema_pc = t_bb_reg_info_node->sema_func_pc_map.at(call_inst);
@@ -964,7 +955,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
                 debug_llvmir_u64_fn,
                 {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), sema_pc)}, "", call_inst);
 #endif
-
             auto &write_regs = t_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
             auto call_next_inst = call_inst->getNextNode();
 
@@ -1009,6 +999,26 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           }
         }
       }
+
+      // Make various global data array of the basic block addresses for indirect jump.
+      // Add all basic block addresses of the lifted instructions.
+      for (auto &[_vma, _bb] : lifted_block_map) {
+        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
+        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), _vma));
+      }
+      // Append the list to the global data.
+      g_bb_addrs = SetGblArrayIr(llvm::Type::getInt64PtrTy(context), bb_addrs,
+                                 func->getName() + ".bb_addrs");
+      g_bb_addr_vmas = SetGblArrayIr(llvm::Type::getInt64Ty(context), bb_addr_vmas,
+                                     func->getName() + ".bb_addr_vmas");
+      manager.g_block_address_ptrs_array.push_back(
+          llvm::ConstantExpr::getBitCast(g_bb_addrs, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_vmas_array.push_back(
+          llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_size_array.push_back(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
+      manager.g_block_address_fn_vma_array.push_back(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
     }
 
     // If the lifted function doesn't have the indirect jump instruction or is not noopt target function, we optimize it.
@@ -1030,6 +1040,25 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     }
 
     virtual_regs_opt->block_num = lifted_block_map.size();
+
+    // LOG or debug functions for noopt mode.
+    if (!vrp_opt_mode) {
+      manager.noopt_lift_fin_cnt++;
+      std::cout << "\r[\033[32mINFO\033[0m] NoOpt Lifting [" << manager.noopt_lift_fin_cnt << "/"
+                << manager.GetFuncNums() << "]" << std::flush;
+      if (manager.noopt_lift_fin_cnt == manager.GetFuncNums()) {
+        std::cout << std::endl;
+      }
+#if defined(CALLED_FUNC_NAME)
+      auto &entry_bb_start_inst = *func->getEntryBlock().begin();
+      auto debug_string_fn = module->getFunction("debug_string");
+      auto fun_name_val = llvm::ConstantDataArray::getString(context, func->getName().str(), true);
+      auto fun_name_gvar = new llvm::GlobalVariable(
+          *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage,
+          fun_name_val, func->getName().str() + "debug_name");
+      llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
+#endif
+    }
   }
 
   return true;

@@ -49,9 +49,9 @@ void MainLifter::SetLiftedFunPtrTable(
 }
 
 void MainLifter::SetLiftedNoOptFunPtrTable(
-    std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map, bool is_stripped) {
+    std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map, bool able_vrp_opt) {
   static_cast<WrapImpl *>(impl.get())
-      ->SetLiftedNoOptFunPtrTable(addr_noopt_fun_name_map, is_stripped);
+      ->SetLiftedNoOptFunPtrTable(addr_noopt_fun_name_map, able_vrp_opt);
 }
 
 /* Set block address data */
@@ -64,19 +64,19 @@ void MainLifter::SetBlockAddressData(std::vector<llvm::Constant *> &block_addres
                             block_address_sizes_array, block_address_fn_vma_array);
 }
 
+void MainLifter::SetOptMode(bool able_vrp_opt) {
+  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt);
+}
+
 /* Declare helper function used in lifted LLVM bitcode */
 void MainLifter::DeclareHelperFunction() {
   static_cast<WrapImpl *>(impl.get())->DeclareHelperFunction();
 }
 
 // Set noopt vma and basic blocks
-void MainLifter::SetNoOptVmaBBLists(bool is_stripped) {
+void MainLifter::SetNoOptVmaBBLists(bool able_vrp_opt) {
   static_cast<WrapImpl *>(impl.get())
-      ->SetNoOptVmaBBLists(impl.get()->noopt_all_vma_bbs, is_stripped);
-}
-
-void MainLifter::SetStrippedFlag(bool is_stripped) {
-  static_cast<WrapImpl *>(impl.get())->SetStrippedFlag(is_stripped);
+      ->SetNoOptVmaBBLists(impl.get()->noopt_all_vma_bbs, able_vrp_opt);
 }
 
 // Optimize the generated LLVM IR.
@@ -112,7 +112,7 @@ void MainLifter::SetCommonMetaData() {
              target_manager->elf_obj.e_ph);
   SetEntryPC(target_manager->entry_point);
   SetDataSections(target_manager->elf_obj.sections);
-  // SetStrippedFlag(target_manager->elf_obj.is_stripped);
+  SetOptMode(target_manager->elf_obj.able_vrp_opt);
 
   if (target_manager->target_arch == "aarch64") {
     SetPlatform("aarch64");
@@ -132,7 +132,7 @@ void MainLifter::SetCommonMetaData() {
 void MainLifter::SubseqOfLifting(
     std::unordered_map<uint64_t, const char *> &addr_opt_fun_name_map) {
   AArch64TraceManager *target_manager = static_cast<AArch64TraceManager *>(&impl.get()->manager);
-  CHECK(!addr_opt_fun_name_map.empty() && !target_manager->elf_obj.is_stripped);
+  CHECK(!addr_opt_fun_name_map.empty() && target_manager->elf_obj.able_vrp_opt);
 
   SetEntryPoint(target_manager->entry_func_lifted_name);
   SetLiftedFunPtrTable(addr_opt_fun_name_map);
@@ -151,13 +151,13 @@ void MainLifter::SubseqOfLifting(
 void MainLifter::SubseqForNoOptLifting(
     std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map) {
   AArch64TraceManager *target_manager = static_cast<AArch64TraceManager *>(&impl.get()->manager);
-  CHECK(!addr_noopt_fun_name_map.empty() && target_manager->elf_obj.is_stripped);
+  CHECK(!addr_noopt_fun_name_map.empty() && !target_manager->elf_obj.able_vrp_opt);
 
   SetEntryPoint(target_manager->entry_func_lifted_name);
   SetLiftedFunPtrTable(addr_noopt_fun_name_map);
   // In the current implementation, we cannot use linear bascic block address array
   // because some instructions may be lifted on multiple times.
-  // SetNoOptVmaBBLists(target_manager->elf_obj.is_stripped);
+  // SetNoOptVmaBBLists(target_manager->elf_obj.able_vrp_opt);
 
   SetBlockAddressData(
       target_manager->g_block_address_ptrs_array, target_manager->g_block_address_vmas_array,
@@ -308,11 +308,11 @@ void MainLifter::WrapImpl::SetLiftedFunPtrTable(
 
 // is not used now.
 void MainLifter::WrapImpl::SetLiftedNoOptFunPtrTable(
-    std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map, bool is_stripped) {
+    std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map, bool able_vrp_otp) {
 
   std::vector<llvm::Constant *> addr_list, fn_ptr_list;
 
-  if (is_stripped) {
+  if (!able_vrp_otp) {
     for (auto &[addr, fun_name] : addr_noopt_fun_name_map) {
       auto lifted_fun = module->getFunction(fun_name);
       if (!lifted_fun) {
@@ -350,6 +350,10 @@ void MainLifter::WrapImpl::SetBlockAddressData(
                 ecv_block_address_fn_vma_array_name);
 }
 
+void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt) {
+  vrp_opt_mode = able_vrp_opt;
+}
+
 /* Global variable array definition helper */
 llvm::GlobalVariable *MainLifter::WrapImpl::SetGblArrayIr(
     llvm::Type *elem_type, std::vector<llvm::Constant *> &constant_array, const llvm::Twine &Name,
@@ -362,11 +366,11 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetGblArrayIr(
 
 // is not used now.
 void MainLifter::WrapImpl::SetNoOptVmaBBLists(
-    std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs, bool is_stripped) {
+    std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs, bool able_vrp_opt) {
 
   std::vector<llvm::Constant *> vmas, bb_addrs;
 
-  if (is_stripped) {
+  if (!able_vrp_opt) {
     std::sort(noopt_all_vma_bbs.begin(), noopt_all_vma_bbs.end());
     for (auto &[vma, bb_addr] : noopt_all_vma_bbs) {
       vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), vma));
@@ -383,14 +387,6 @@ void MainLifter::WrapImpl::SetNoOptVmaBBLists(
       *module, llvm::Type::getInt64Ty(context), true, llvm::GlobalValue::ExternalLinkage,
       llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), noopt_all_vma_bbs.size()),
       "_ecv_noopt_vmabbs_size");
-}
-
-// is not used now.
-void MainLifter::WrapImpl::SetStrippedFlag(bool is_stripped) {
-  uint8_t num = is_stripped ? 1 : 0;
-  new llvm::GlobalVariable(
-      *module, llvm::Type::getInt8Ty(context), true, llvm::GlobalValue::ExternalLinkage,
-      llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), num), "_ecv_is_stripped");
 }
 
 /* declare helper function in the lifted LLVM bitcode */

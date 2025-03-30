@@ -6,6 +6,8 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <libdwarf/dwarf.h>
+#include <libdwarf/libdwarf.h>
 #include <libelf.h>
 #include <list>
 #include <map>
@@ -97,6 +99,9 @@ class ELFObject {
   void SetCodeSection();
   asection *GetIncludedSection(uint64_t vma);
   void R2Detect();
+  int GetSblFromEhFrame();
+  int ParseEhFrame(Dwarf_Debug dbg);
+  void GetFuncFromEhFrame(uint64_t *_entry, size_t *_size, Dwarf_Debug dbg, Dwarf_Fde fde);
   void DebugSections();
   void DebugStaticSymbols();
   void DebugBinary();
@@ -125,6 +130,7 @@ class ELFObject {
   uint8_t *e_ph;
 
   bool is_stripped;
+  bool able_vrp_opt;
 
  private:
   void OpenELF();
