@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+GREEN="\033[32m"
+RED="\033[31m"
+NC="\033[0m"
+
 setting() {
 
   BIN_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -9,13 +13,17 @@ setting() {
   BUILD_DIR=${ROOT_DIR}/build
   BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
   OPTFLAGS="-O3"
+  CXX=clang++-16
+  CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDKCC=${WASI_SDK_PATH}/bin/clang++
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
   WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
-  ELFCONV_MACROS="-DTARGET_IS_BROWSER=1"
+  RUNTIME_MACRO=''
   ELFPATH=$( realpath "$1" )
+  HOST_CPU=$(uname -p)
+  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
 
 }
 
@@ -24,48 +32,75 @@ main() {
   setting "$1"
 
   if [ $# -eq 0 ]; then
-    echo "[ERROR] target ELF binary is not specified (lift.sh)."
+    echo "[${RED}ERROR${NC}] target ELF binary is not specified."
     echo $#
     exit 1
   fi
 
-  # setting for WASI
-  wasi32_target_arch=''
-  if [ "$TARGET" = "Wasi" ]; then
-    wasi32_target_arch='wasi32'
+  # Setting for WASI
+  target_arch=$HOST_CPU
+  if [ "$TARGET" = "*-wasi32" ]; then
+    target_arch='wasi32'
   fi
 
-  # ELF -> LLVM bitcode
+  # input ELF CPU architecture
+  arch_name=${TARGET%%-*}
+
+  # `elflift` is generated in ${BUILD_LIFTER_DIR} so copy it in ${BIN_DIR}.
   cp -p "${BUILD_LIFTER_DIR}/elflift" "${BIN_DIR}/"
-  echo -e "[\033[32mINFO\033[0m] ELF -> LLVM bitcode..."
+
+  # Set some environment variables depending on CPU architecture.
+  case "$TARGET" in
+    aarch64-*)
+      RUNTIME_MACRO="$RUNTIME_MACRO -DELF_IS_AARCH64"
+      ;;
+    amd64-*)
+      RUNTIME_MACRO="$RUNTIME_MACRO -DELF_IS_AMD64"
+      ;;
+    *)
+      echo -e "Unsupported architecture of ELF: $TARGET."
+      ;;
+  esac
+  
+  # ELF -> LLVM bitcode
+  # --arch: CPU architecture of the input ELF binary. elfconv supports only aarch64 (x86-64 is in progress).
+  # --bc_out: generated LLVM bitcode file path.
+  # --target_elf: input ELF binary path.
+  # --dbg_fun_cfg: used to show the detail of the lifted function (for Debug).
+  # --target_arch: conversion target architecture
+  echo -e "[${GREEN}INFO${NC}] ELF -> LLVM bitcode..."
     cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
     ./elflift \
-    --arch aarch64 \
+    --arch $arch_name \
     --bc_out lift.bc \
     --target_elf "$ELFPATH" \
     --dbg_fun_cfg "$2" \
-    --target_arch "$wasi32_target_arch"
-  echo -e "[\033[32mINFO\033[0m] LLVM bitcode (lift.bc) was generated."
+    --target_arch "$target_arch"
+  echo -e "[${GREEN}INFO${NC}] LLVM bitcode (lift.bc) was generated."
 
   # LLVM bc -> target file
   case "$TARGET" in
-    Browser)
-      # We use https://github.com/mame/xterm-pty for the console on the browser.
-      ELFCONV_MACROS="-DTARGET_IS_BROWSER=1 -DELF_IS_AARCH64"
-      echo -e "[\033[32mINFO\033[0m] Compiling to Wasm and Js (for Browser)... "
-      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
-        $EMCC $EMCCFLAGS $ELFCONV_MACROS -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-            -o exe.js lift.bc ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp \
-            ${UTILS_DIR}/elfconv.cpp ${UTILS_DIR}/Util.cpp
-      echo -e "[\033[32mINFO\033[0m] exe.wasm and exe.js were generated."
+    *-native)
+      echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for $HOST_CPU)... "
+      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.bc $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+      echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
+      return 0
     ;;
-    Wasi)
-      echo -e "[\033[32mINFO\033[0m] Compiling to Wasm (for WASI)... "
-      ELFCONV_MACROS="-DTARGET_IS_WASI=1 -DELF_IS_AARCH64"
+    *-wasm)
+      RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
+      echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
+      # We use https://github.com/mame/xterm-pty for the console on the browser.
       cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $ELFCONV_MACROS -o exe.wasm lift.bc ${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp \
-          ${UTILS_DIR}/elfconv.cpp ${UTILS_DIR}/Util.cpp
-      echo -e "[\033[32mINFO\033[0m] exe.wasm was generated."
+        $EMCC $EMCCFLAGS $RUNTIME_MACRO -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+            -o exe.js lift.bc $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+      echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
+    ;;
+    *-wasi32)
+      echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
+      RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
+      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.bc $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      echo -e "[${GREEN}INFO${NC}] exe.wasm was generated."
     ;;
   esac
 

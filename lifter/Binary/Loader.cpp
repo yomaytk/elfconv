@@ -160,6 +160,8 @@ void ELFObject::LoadELFBFD() {
       // elfconv uses `radare2` reverse engineering framework to detect many functions.
       // However, this method possibly has miss detection, so it is difficult to execute VRP optimization.
       able_vrp_opt = false;
+      elfconv_runtime_error(
+          "elfconv cannot convert the ELF binary if it is stripped and doesn't have `eh_frame` section because elfconv has some bugs. Please see the issues of the repository.");
       R2Detect();
     }
   } else {
@@ -319,8 +321,8 @@ int ELFObject::GetSblFromEhFrame() {
   // libdwarf init.
   if ((dwarf_res = dwarf_init(elf_fd, /*DW_DLC_REA*/ 0, errhand, errarg, &dbg, &error)) !=
       DW_DLV_OK) {
-    fprintf(stderr, "dwarf_init() failed\n");
-    exit(EXIT_FAILURE);
+    LOG(INFO) << "[INFO] dwarf_init() failed.\n";
+    return -1;
   }
 
   // Set various meta data of Dwarf_dbg.
