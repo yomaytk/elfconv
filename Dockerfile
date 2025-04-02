@@ -66,7 +66,6 @@ RUN git config --global user.email "41898282+github-actions[bot]@users.noreply.g
 WORKDIR ${ROOT_DIR}
 COPY ./ ./
 RUN ./scripts/build.sh
-RUN make -C  ~/elfconv/examples/eratosthenes_sieve
-RUN make -C  ~/elfconv/examples/hello
+RUN make -C  ~/elfconv/examples/hello/c
 ENTRYPOINT ["/bin/bash", "--login", "-c"]
 CMD ["/bin/bash"]

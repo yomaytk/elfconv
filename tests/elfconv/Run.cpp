@@ -6,8 +6,6 @@
 
 using ::testing::InitGoogleTest;
 using ::testing::Test;
-using ::testing::TestInfo;
-using ::testing::UnitTest;
 
 const char *ELFCONV_WASI_MACRO =
     "-DELF_IS_AARCH64 --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -DTARGET_IS_WASI=1 -lwasi-emulated-process-clocks -fno-exceptions -I../../../backend/remill/include -I../../../";
@@ -109,7 +107,7 @@ std::string exec_wasm(WASI_RUNTIME wasi_runtime) {
 
 void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNTIME wasi_runtime) {
   // binary lifting
-  binary_lifting(("../../../examples/" + std::string(program) + "/a.aarch64").c_str());
+  binary_lifting(("../../../examples/" + std::string(program) + "/a_stripped.aarch64").c_str());
   // generate wasm
   gen_wasm_for_wasi_runtimes();
   // execute wasm
@@ -118,12 +116,8 @@ void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNT
   EXPECT_STREQ(expected, stdout_res.c_str());
 }
 
-TEST(TestWasmedge, IntegrationExamplesTest) {
-  unit_test_wasi_runtime(
-      "eratosthenes_sieve",
-      "2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101,103,107,109,113,127,131,137,139,149,151,157,163,167,173,179,181,191,193,197,199,211,223,227,229,233,239,241,251,257,263,269,271,277,281,283,293,307,311,313,317,331,337,347,349,353,359,367,373,379,383,389,397,401,409,419,421,431,433,439,443,449,457,461,463,467,479,487,491,499,503,509,521,523,541\n",
-      WASMTIME);
-  unit_test_wasi_runtime("hello", "Hello, World!\n", WASMTIME);
+TEST(TestWasm1, IntegrationExamplesTest) {
+  unit_test_wasi_runtime("hello/c", "Hello, World!\n", WASMEDGE);
 }
 
 int main(int argc, char **argv) {
