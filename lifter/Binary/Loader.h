@@ -6,6 +6,8 @@
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <libdwarf/dwarf.h>
+#include <libdwarf/libdwarf.h>
 #include <libelf.h>
 #include <list>
 #include <map>
@@ -29,13 +31,16 @@ class ELFSymbol {
     SYM_TYPE_UNKNOWN = 4,
   };
 
-  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr)
+  ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr,
+            bfd_section *__in_section)
       : sym_type(__sym_type),
         sym_name(__sym_name),
-        addr(__addr) {}
+        addr(__addr),
+        in_section(__in_section) {}
   ELFSymbol::SymbolType sym_type;
   std::string sym_name;
   uintptr_t addr;
+  bfd_section *in_section;
 };
 
 class ELFSection {
@@ -73,19 +78,10 @@ class ELFObject {
   };
   enum BinaryArch : uint8_t {
     ARCH_AARCH64 = 0,
-    ARCH_UNKNOWN = 1,
+    ARCH_AMD64 = 1,
+    ARCH_UNKNOWN = 2,
   };
 
-  struct FuncEntry {
-    uintptr_t entry;
-    std::string func_name;
-    FuncEntry(uintptr_t __entry, std::string __func_name)
-        : entry(__entry),
-          func_name(__func_name) {}
-    bool operator<(const FuncEntry &rhs) {
-      return entry < rhs.entry;
-    }
-  };
   struct CodeSection {
     std::string sec_name;
     uintptr_t vma;
@@ -101,13 +97,18 @@ class ELFObject {
 
   void LoadELF();
   void SetCodeSection();
-  std::vector<FuncEntry> GetFuncEntry();
+  asection *GetIncludedSection(uint64_t vma);
+  void R2Detect();
+  int GetSblFromEhFrame();
+  int ParseEhFrame(Dwarf_Debug dbg);
+  void GetFuncFromEhFrame(uint64_t *_entry, size_t *_size, Dwarf_Debug dbg, Dwarf_Fde fde);
   void DebugSections();
   void DebugStaticSymbols();
   void DebugBinary();
 
-  ELFObject(std::string __file_name) : file_name(__file_name), bfd_inited(false) {}
-  ELFObject() {}
+  ELFObject(std::string __file_name) : file_name(__file_name), bfd_inited(false) {
+    is_stripped = false;
+  }
 
   std::string file_name;
   bool bfd_inited;
@@ -120,12 +121,16 @@ class ELFObject {
   uint32_t bits;
   uintptr_t entry;
   std::vector<ELFSection> sections;
-  std::vector<ELFSymbol> symbols;
+  std::vector<ELFSymbol> func_symbols;
   std::unordered_map<std::string, CodeSection> code_sections;
+  unsigned long symbol_table_size;
 
   uint64_t e_phent;
   uint64_t e_phnum;
   uint8_t *e_ph;
+
+  bool is_stripped;
+  bool able_vrp_opt;
 
  private:
   void OpenELF();

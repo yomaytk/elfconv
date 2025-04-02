@@ -2,6 +2,7 @@
 #include "Binary/Loader.h"
 
 #include <algorithm>
+#include <bfd.h>
 #include <cstdint>
 #include <fstream>
 #include <gflags/gflags.h>
@@ -50,22 +51,34 @@ class AArch64TraceManager : public remill::TraceManager {
   void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
   llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
+  void SetLiftedOptFuncTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
+  llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr);
+  llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr);
   bool TryReadExecutableByte(uint64_t addr, uint8_t *byte);
-  std::string GetLiftedFuncName(uint64_t addr);
+  std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode);
   std::string GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s);
   bool isFunctionEntry(uint64_t addr);
   bool isWithinFunction(uint64_t trace_addr, uint64_t inst_addr);
   uint64_t GetFuncVMA_E(uint64_t vma_s);
+  uint64_t GetFuncNums();
 
   void SetELFData();
+
+  void SetCommonVariousData();
 
   BinaryLoader::ELFObject elf_obj;
   std::unordered_map<uintptr_t, uint8_t> memory;
   std::unordered_map<uintptr_t, llvm::Function *> traces;
+  std::unordered_map<uintptr_t, llvm::Function *> opt_fun_traces;
   std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
+
+  std::unordered_map<asection *, std::map<uint64_t, BinaryLoader::ELFSymbol>> sec_symbol_mp;
+
   std::string entry_func_lifted_name;
   std::string panic_plt_jmp_fun_name;
+
   uintptr_t entry_point;
+  std::string target_arch;
 
  private:
   uint64_t unique_i64;

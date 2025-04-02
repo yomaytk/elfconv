@@ -1,16 +1,13 @@
 #pragma once
 
 #include "Memory.h"
+#include "remill/Arch/Runtime/Types.h"
 
 class RuntimeManager {
  public:
-  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__mapped_stack,
-                 MappedMemory *__mapped_heap, MappedMemory *__memory_arena)
+  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__memory_arena)
       : mapped_memorys(__mapped_memorys),
-        stack_memory(__mapped_stack),
-        heap_memory(__mapped_heap),
-        memory_arena(__memory_arena),
-        addr_fn_map({}) {}
+        memory_arena(__memory_arena) {}
   RuntimeManager() {}
   ~RuntimeManager() {
     for (auto memory : mapped_memorys)
@@ -28,12 +25,10 @@ class RuntimeManager {
   void SVCNativeCall();  // for native
 
   std::vector<MappedMemory *> mapped_memorys;
-  MappedMemory *stack_memory;
-  MappedMemory *heap_memory;
   MappedMemory *memory_arena;
-  std::unordered_map<addr_t, LiftedFunc> addr_fn_map;
-  std::unordered_map<addr_t, const char *> addr_fn_symbol_map;
-  std::map<addr_t, std::map<uint64_t, uint64_t *>> addr_block_addrs_map;
+  std::vector<std::pair<addr_t, LiftedFunc>> addr_funptr_srt_list;
+  std::unordered_map<addr_t, const char *> addr_fun_symbol_map;
+  std::map<addr_t, std::map<uint64_t, uint64_t *>> fun_bb_addr_map;
   std::vector<addr_t> call_stacks;
 
   int cnt = 0;

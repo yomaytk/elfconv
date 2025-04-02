@@ -32,9 +32,9 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[],
 
   /* Initialize AT_PHDR */
   /* FIXME: this shouldn't be on the stack? */
-  auto e_ph_size = __g_e_phent * __g_e_phnum;
+  auto e_ph_size = _ecv_e_phent * _ecv_e_phnum;
   sp -= e_ph_size;
-  memcpy(bytes + (sp - MEMORY_ARENA_VMA), __g_e_ph, e_ph_size);
+  memcpy(bytes + (sp - MEMORY_ARENA_VMA), _ecv_e_ph, e_ph_size);
   _ecv_reg64_t phdr = sp;
 
   /* auxv */
@@ -46,10 +46,10 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[],
   } _ecv_auxv64[] = {
 #if defined(TARGET_IS_WASI)
     {3 /* AT_PHDR */, phdr},
-    {4 /* AT_PHENT */, __g_e_phent},
-    {5 /* AT_PHNUM */, __g_e_phnum},
+    {4 /* AT_PHENT */, _ecv_e_phent},
+    {5 /* AT_PHNUM */, _ecv_e_phnum},
     {6 /* AT_PAGESZ */, 4096},
-    {9 /* AT_ENTRY */, __g_entry_pc},
+    {9 /* AT_ENTRY */, _ecv_entry_pc},
     {11 /* AT_UID */, 42},
     {12 /* AT_EUID */, 42},
     {13 /* AT_GID */, 42},
@@ -58,18 +58,18 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[],
     {25 /* AT_RANDOM */, randomp},
     {0 /* AT_NULL */, 0},
 #else
-    {3 /* AT_PHDR */, phdr},
-    {4 /* AT_PHENT */, __g_e_phent},
-    {5 /* AT_PHNUM */, __g_e_phnum},
-    {6 /* AT_PAGESZ */, 4096},
-    {9 /* AT_ENTRY */, __g_entry_pc},
-    {11 /* AT_UID */, getuid()},
-    {12 /* AT_EUID */, geteuid()},
-    {13 /* AT_GID */, getgid()},
-    {14 /* AT_EGID */, getegid()},
-    {23 /* AT_SECURE */, 0},
-    {25 /* AT_RANDOM */, randomp},
-    {0 /* AT_NULL */, 0},
+    {3 /* AT_PHDR */, {phdr}},
+    {4 /* AT_PHENT */, {_ecv_e_phent}},
+    {5 /* AT_PHNUM */, {_ecv_e_phnum}},
+    {6 /* AT_PAGESZ */, {4096}},
+    {9 /* AT_ENTRY */, {_ecv_entry_pc}},
+    {11 /* AT_UID */, {getuid()}},
+    {12 /* AT_EUID */, {geteuid()}},
+    {13 /* AT_GID */, {getgid()}},
+    {14 /* AT_EGID */, {getegid()}},
+    {23 /* AT_SECURE */, {0}},
+    {25 /* AT_RANDOM */, {randomp}},
+    {0 /* AT_NULL */, {0}},
 #endif
   };
   sp -= sizeof(_ecv_auxv64);

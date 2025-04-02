@@ -20,7 +20,10 @@
 #include "remill/BC/Lifter.h"
 
 #include <functional>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
 #include <queue>
+#include <tuple>
 #include <unordered_map>
 
 namespace remill {
@@ -49,6 +52,8 @@ class TraceManager {
   // The derived class is expected to do something useful with this.
   virtual void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
 
+  virtual void SetLiftedOptFuncTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
+
   // Get a declaration for a lifted trace. The idea here is that a derived
   // class might have additional global info available to them that lets
   // them declare traces ahead of time. In order to distinguish between
@@ -61,6 +66,8 @@ class TraceManager {
   //       lifted function form.
   virtual llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
 
+  virtual llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr) = 0;
+
   // Get a definition for a lifted trace.
   //
   // NOTE: This is permitted to return a function from an arbitrary module.
@@ -70,8 +77,10 @@ class TraceManager {
   //       it is checking if some trace has already been lifted.
   virtual llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
 
+  virtual llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr) = 0;
+
   /* get lifted function name of the target address */
-  virtual std::string GetLiftedFuncName(uint64_t addr) = 0;
+  virtual std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) = 0;
 
   /* get whether or not addr is entry of function */
   virtual bool isFunctionEntry(uint64_t addr) = 0;
@@ -96,6 +105,8 @@ class TraceManager {
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 
+  virtual uint64_t GetFuncNums() = 0;
+
   /* global array of block address various data */
   std::vector<llvm::Constant *> g_block_address_ptrs_array;
   std::vector<llvm::Constant *> g_block_address_vmas_array;
@@ -103,6 +114,7 @@ class TraceManager {
   std::vector<llvm::Constant *> g_block_address_fn_vma_array;
 
   uint64_t _io_file_xsputn_vma = 0;
+  uint64_t noopt_lift_fin_cnt = 0;
 };
 
 class BBBag {
@@ -281,7 +293,8 @@ class TraceLifter::Impl {
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
         runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
-        g_get_indirectbr_block_address_func_name("__g_get_indirectbr_block_address"),
+        g_get_indirectbr_block_address_func_name("_ecv_get_indirectbr_block_address"),
+        _ecv_noopt_get_bb_name("_ecv_noopt_get_bb"),
         debug_memory_value_change_name("debug_memory_value_change"),
         debug_insn_name("debug_insn"),
         debug_call_stack_push_name("debug_call_stack_push"),
@@ -307,12 +320,16 @@ class TraceLifter::Impl {
   //       within `module`.
   llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
 
+  llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr);
+
   // Return an already lifted trace starting with the code at address
   // `addr`.
   //
   // NOTE: This is guaranteed to return either `nullptr`, or a function
   //       within `module`.
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
+
+  llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr);
 
   llvm::BasicBlock *GetOrCreateBlock(uint64_t block_pc);
 
@@ -329,10 +346,10 @@ class TraceLifter::Impl {
   uint64_t PopInstructionAddress(void);
 
   /* Global variable array definition helper (need override) */
-  virtual llvm::GlobalVariable *GenGlobalArrayHelper(
-      llvm::Type *, std::vector<llvm::Constant *> &, const llvm::Twine &Name = "",
-      bool isConstant = true,
-      llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage);
+  virtual llvm::GlobalVariable *
+  SetGblArrayIr(llvm::Type *, std::vector<llvm::Constant *> &, const llvm::Twine &Name = "",
+                bool isConstant = true,
+                llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage);
 
   /* Declare global helper function called by lifted llvm bitcode (need override) */
   virtual void DeclareHelperFunction();
@@ -376,19 +393,24 @@ class TraceLifter::Impl {
   DecoderWorkList trace_work_list;
   DecoderWorkList inst_work_list;
   DecoderWorkList dead_inst_work_list;
-  uint64_t __trace_addr;
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
-  std::set<llvm::Function *> no_indirect_lifted_funcs;
+  bool vrp_opt_mode;
+
+  std::set<llvm::Function *> opt_target_funcs;
   std::set<llvm::Function *> lifted_funcs;
 
   std::unordered_map<llvm::CallInst *, std::vector<std::pair<EcvReg, ERC>>> sema_func_args_regs_map;
+
+  std::vector<std::pair<uint64_t, llvm::Constant *>> noopt_all_vma_bbs;
 
   std::string runtime_manager_name;
 
   std::string indirectbr_block_name;
   std::string g_get_indirectbr_block_address_func_name;
+  std::string _ecv_noopt_get_bb_name;
+
   std::string debug_memory_value_change_name;
   std::string debug_insn_name;
   std::string debug_call_stack_push_name;

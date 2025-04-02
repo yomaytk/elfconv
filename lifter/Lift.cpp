@@ -15,6 +15,8 @@
  */
 
 #include "remill/BC/Util.h"
+
+#include <cstdint>
 #if defined(__linux__)
 #  include <signal.h>
 #  include <utils/Util.h>
@@ -73,6 +75,7 @@ int main(int argc, char *argv[]) {
 
   AArch64TraceManager manager(FLAGS_target_elf);
   manager.SetELFData();
+  manager.target_arch = FLAGS_target_arch;
 
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
@@ -84,62 +87,8 @@ int main(int argc, char *argv[]) {
                     ? remill::LoadArchSemantics(arch.get())
                     : remill::LoadArchSemantics(arch.get(), {FLAGS_bitcode_path.c_str()});
 
-  remill::IntrinsicTable intrinsics(module.get());
-  MainLifter main_lifter(arch.get(), &manager);
-  main_lifter.SetRuntimeManagerClass();
-
-  std::unordered_map<uint64_t, const char *> addr_fn_map;
-
-  /* declare debug function */
-  main_lifter.DeclareDebugFunction();
-  /* declare helper function for lifted LLVM bitcode */
-  main_lifter.DeclareHelperFunction();
-  // set global register names
-  main_lifter.SetRegisterNames();
-
-  /* lift every disassembled function */
-  for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-    if (!main_lifter.Lift(dasm_func.vma, dasm_func.func_name.c_str()))
-      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", dasm_func.func_name.c_str());
-    addr_fn_map[addr] = dasm_func.func_name.c_str();
-    /* set function attributes */
-    auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
-    lifted_fn->setName(dasm_func.func_name.c_str());
-  }
-
-  // Optimize the generated LLVM IR.
-  main_lifter.Optimize();
-
-  /* set entry function of lifted function */
-  if (manager.entry_func_lifted_name.empty())
-    elfconv_runtime_error("[ERROR] We couldn't find entry function.\n");
-  else
-    main_lifter.SetEntryPoint(manager.entry_func_lifted_name);
-  /* set ELF header info */
-  main_lifter.SetELFPhdr(manager.elf_obj.e_phent, manager.elf_obj.e_phnum, manager.elf_obj.e_ph);
-  /* set lifted function pointer table (necessary for indirect call) */
-  main_lifter.SetLiftedFunPtrTable(addr_fn_map);
-#if defined(LIFT_CALLSTACK_DEBUG)
-  /* debug call stack */
-  main_lifter.SetFuncSymbolNameTable(addr_fn_map);
-#endif
-  /* set Platform name (FIXME) */
-  main_lifter.SetPlatform("aarch64");
-  /* set entry point */
-  main_lifter.SetEntryPC(manager.entry_point);
-  /* set data section */
-  main_lifter.SetDataSections(manager.elf_obj.sections);
-  /* set block address data */
-  main_lifter.SetBlockAddressData(
-      manager.g_block_address_ptrs_array, manager.g_block_address_vmas_array,
-      manager.g_block_address_size_array, manager.g_block_address_fn_vma_array);
-
-  /* generate LLVM bitcode file */
-  auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
-  host_arch->PrepareModule(module.get());
-
   // Set wasm32-unknown-wasi and wasm32 data layout if necessary.
-  if (FLAGS_target_arch == "wasi32") {
+  if (manager.target_arch == "wasi32") {
     auto wasm32_dl =
         llvm::DataLayout("e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-n32:64-S128-ni:1:10:20");
     module->setDataLayout(wasm32_dl.getStringRepresentation());
@@ -150,6 +99,37 @@ int main(int argc, char *argv[]) {
     module->setTargetTriple(wasm32_triple.str());
   }
 
+  remill::IntrinsicTable intrinsics(module.get());
+  MainLifter main_lifter(arch.get(), &manager);
+
+  // Set various common metadata not depending on whether the ELF binary is not stripped or not.
+  // entry point, program header, every data sections, etc.
+  main_lifter.SetCommonMetaData();
+
+  // Lift every function.
+  std::unordered_map<uint64_t, const char *> addr_fun_name_map;
+  for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
+    addr_fun_name_map[addr] = dasm_func.func_name.c_str();
+    auto &noopt_fun_name = addr_fun_name_map[addr];
+    if (!main_lifter.Lift(dasm_func.vma, noopt_fun_name)) {
+      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", noopt_fun_name);
+    }
+    // Set function name
+    auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
+    lifted_fn->setName(noopt_fun_name);
+  }
+
+  // Subsequence process of lifting.
+  if (manager.elf_obj.able_vrp_opt) {
+    main_lifter.SubseqOfLifting(addr_fun_name_map);
+  } else {
+    main_lifter.SubseqForNoOptLifting(addr_fun_name_map);
+  }
+
+  // Prepare and validate the LLVM Module.
+  auto host_arch = remill::Arch::Build(&context, os_name, remill::GetArchName(REMILL_ARCH));
+  host_arch->PrepareModule(module.get());
+  // Make LLVM bitcode file.
   remill::StoreModuleToFile(module.get(), FLAGS_bc_out);
 
   return 0;
