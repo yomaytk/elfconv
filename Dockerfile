@@ -28,7 +28,7 @@ RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
 # several install
 RUN apt-get update && apt-get install -qqy --no-install-recommends file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
   clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} ninja-build pixz xz-utils make rpm curl unzip tar git zip pkg-config vim openssh-client \
-  libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache binutils-dev libelf-dev libiberty-dev qemu-user-binfmt && \
+  libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache binutils-dev libelf-dev libiberty-dev qemu-user-binfmt lifdwarf1 lifdwarf-dev && \
   apt-get upgrade --yes && apt-get clean --yes && \
   rm -rf /var/lib/apt/lists/*
 
