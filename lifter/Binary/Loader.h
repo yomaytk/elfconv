@@ -14,6 +14,7 @@
 #include <memory>
 #include <queue>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace BinaryLoader {
