@@ -36,6 +36,7 @@ compile_commands.json
 *.data
 .clangd
 *.aarch64
+*.amd64
 *.x86-64
 examples/assets/**
 
