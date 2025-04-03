@@ -35,6 +35,9 @@ compile_commands.json
 *.memo
 *.data
 .clangd
+*.aarch64
+*.x86-64
+examples/assets/**
 
 third_party/*
 build/*
