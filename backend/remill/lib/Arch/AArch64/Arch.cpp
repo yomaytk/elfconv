@@ -3329,7 +3329,7 @@ bool TryDecodeUCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // UCVTF  <Sd>, <Wn>
 bool TryDecodeUCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegS, kRegW);
   return true;
 }
@@ -3365,7 +3365,7 @@ bool TryDecodeUCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // UCVTF  <V><d>, <V><n>
 bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   RegClass rclass;
   if (1 == data.sz) {
     inst.function += "_64";
@@ -3379,7 +3379,7 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
 
 // FRINTA  <Dd>, <Dn>
 bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   return true;
@@ -3398,7 +3398,7 @@ bool IsUnallocatedFloatEncoding(const InstData &data) {
 
 // FCVT  <Dd>, <Sn>
 bool TryDecodeFCVT_DS_FLOATDP1(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data) || data.opc == 2) {
     return false;
   }
@@ -3415,7 +3415,7 @@ bool TryDecodeFCVT_HD_FLOATDP1(const InstData &data, Instruction &inst) {
 
 // FCVT  <Sd>, <Dn>
 bool TryDecodeFCVT_SD_FLOATDP1(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data) || data.opc == 2) {
     return false;
   }
@@ -3426,7 +3426,7 @@ bool TryDecodeFCVT_SD_FLOATDP1(const InstData &data, Instruction &inst) {
 
 // FCVTZS  <Wd>, <Sn>
 bool TryDecodeFCVTZS_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3448,7 +3448,7 @@ bool TryDecodeFCVTZS_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZS  <Wd>, <Dn>
 bool TryDecodeFCVTZS_32D_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3459,7 +3459,7 @@ bool TryDecodeFCVTZS_32D_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZS  <Xd>, <Dn>
 bool TryDecodeFCVTZS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3470,7 +3470,7 @@ bool TryDecodeFCVTZS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTAS  <Xd>, <Dn>
 bool TryDecodeFCVTAS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   return true;
@@ -3500,7 +3500,7 @@ bool TryDecodeFCVTZU_32D_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZU  <Xd>, <Sn>
 bool TryDecodeFCVTZU_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -5258,7 +5258,7 @@ bool TryDecodeSMAX_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
 
 // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMLA_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   uint64_t total_size, elem_size;
   total_size = data.Q ? 128 : 64;
   if (0b00001 /* half-precistion */ == data.opcode) {
@@ -5279,7 +5279,7 @@ bool TryDecodeFMLA_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
 
 // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 bool TryDecodeFMLA_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   uint64_t total_size, elem_size, index;
   total_size = data.Q ? 128 : 64;
   if (0b011111 /* (single | double)-precision */ == data.opcode) {
@@ -5307,7 +5307,7 @@ bool TryDecodeFMLA_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
 
 // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFADD_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   uint64_t total_size, elem_size;
   total_size = data.Q ? 128 : 64;
   if (0b00010 /* half-precision */ == data.opcode) {
@@ -5342,7 +5342,7 @@ bool TryDecodeFSUB_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeFMUL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   uint64_t total_size, elem_size;
   total_size = data.Q ? 128 : 64;
   if (0b00011 /* half-precision */ == data.opcode) {
@@ -5363,7 +5363,7 @@ bool TryDecodeFMUL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 bool TryDecodeFMUL_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   int index;
   uint64_t total_size, elem_size;
   total_size = data.Q ? 128 : 64;
@@ -5509,13 +5509,13 @@ bool TryDecodeSCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // SCVTF  <Sd>, <Wn>
 bool TryDecodeSCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegS, kRegW);
 }
 
 // SCVTF  <Dd>, <Wn>
 bool TryDecodeSCVTF_D32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegD, kRegW);
 }
 
@@ -5526,19 +5526,19 @@ bool TryDecodeSCVTF_H64_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // SCVTF  <Sd>, <Xn>
 bool TryDecodeSCVTF_S64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegS, kRegX);
 }
 
 // SCVTF  <Dd>, <Xn>
 bool TryDecodeSCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegD, kRegX);
 }
 
 // SCVTF  <V><d>, <V><n>
 bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   RegClass rclass;
   if (1 == data.sz) {
     inst.function += "_64";
@@ -5552,7 +5552,7 @@ bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
 
 // SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
 bool TryDecodeSCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   uint64_t total_size, elem_size;
   total_size = data.Q ? 128 : 64;
   elem_size = data.sz ? 64 : 32;

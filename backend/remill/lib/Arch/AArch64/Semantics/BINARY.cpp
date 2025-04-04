@@ -293,22 +293,22 @@ namespace {
 
 // FADD  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FADD_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FAdd32, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FAdd32, Read(src1), Read(src2));
 }
 
 // FADD  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FADD_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FAdd64, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FAdd64, Read(src1), Read(src2));
 }
 
 // FSUB  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FSUB_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FSub32, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FSub32, Read(src1), Read(src2));
 }
 
 // FSUB  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FSUB_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FSub64, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FSub64, Read(src1), Read(src2));
 }
 
 // FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
@@ -320,17 +320,17 @@ DEF_SEM_T(FSUB_Vector32, S src1, S src2) {
 
 // FMUL  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FMUL_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FMul32, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FMul32, Read(src1), Read(src2));
 }
 
 // FMUL  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FMUL_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FMul64, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FMul64, Read(src1), Read(src2));
 }
 
 // FDIV  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FDIV_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FDiv32, Read(src1), Read(src2));
+  return CheckedFloatBinOp(state, FDiv32, Read(src1), Read(src2));
 }
 
 // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
@@ -339,23 +339,23 @@ DEF_SEM_F32_STATE(FMADD_S, RF32 src1, RF32 src2, RF32 src3) {
   float32_t factor2 = Read(src2);
   float32_t add = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
+  auto old_underflow = ECV_UFC;
 
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto prod = FMul32(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
   auto res = FAdd32(prod, add);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(add)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -368,23 +368,23 @@ DEF_SEM_F64_STATE(FMADD_D, RF64 src1, RF64 src2, RF64 src3) {
   float64_t factor2 = Read(src2);
   float64_t add = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
+  auto old_underflow = ECV_UFC;
 
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto prod = FMul64(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
   auto res = FAdd64(prod, add);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(add)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -397,23 +397,23 @@ DEF_SEM_F32_STATE(FMSUB_S, RF32 src1, RF32 src2, RF32 src3) {
   float32_t factor2 = Read(src2);
   float32_t factora = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
+  auto old_underflow = ECV_UFC;
 
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto prod = FMul32(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
   auto res = FSub32(factora, prod);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -426,23 +426,23 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
   auto factor2 = Read(src2);
   auto factora = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
+  auto old_underflow = ECV_UFC;
 
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto prod = FMul64(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
   auto res = FSub64(factora, prod);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -453,7 +453,7 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
 DEF_SEM_F64_STATE(FDIV_Scalar64, RF64 src1, RF64 src2) {
   auto val1 = Read(src1);
   auto val2 = Read(src2);
-  return CheckedFloatBinOp(FDiv64, val1, val2);
+  return CheckedFloatBinOp(state, FDiv64, val1, val2);
 }
 
 // FDIV  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)

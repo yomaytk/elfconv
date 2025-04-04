@@ -88,9 +88,24 @@ State __remill_state;
 
 #define FLAG_ECV_NZCV state.ecv_nzcv  // new system register flag of nzcv
 
+#define ECV_IDC (state.ecv_fpsr & 0b1000'0000) << 7
+#define ECV_IXC (state.ecv_fpsr & 0b0001'0000) << 4
+#define ECV_UFC (state.ecv_fpsr & 0b0000'1000) << 3
+#define ECV_OFC (state.ecv_fpsr & 0b0000'0100) << 2
+#define ECV_DZC (state.ecv_fpsr & 0b0000'0010) << 1
+#define ECV_IOC (state.ecv_fpsr & 0b0000'0001) << 7
+
 #define HYPER_CALL state.hyper_call
 #define INTERRUPT_VECTOR state.hyper_call_vector
 #define HYPER_CALL_VECTOR state.hyper_call_vector
+
+#define __remill_fpu_exception_test_and_clear_macro(state, read_mask, clear_mask) \
+  ({ \
+    auto except = state.ecv_fpsr & read_mask; \
+    state.ecv_fpsr &= ~clear_mask; \
+    except; \
+  })
+
 
 namespace {
 

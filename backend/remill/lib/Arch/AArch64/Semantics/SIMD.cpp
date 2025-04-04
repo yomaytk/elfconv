@@ -938,7 +938,7 @@ namespace {
 
 #define MAKE_FTWICEOP_ASIMDSAME_ONLY(prefix, elem_size, op1, op2) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_V##elem_size, V dst_src, V src1, V src2) { \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size, V dst_src, V src1, V src2) { \
     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto dst_src_v = FReadVI##elem_size(dst_src); \
     auto srcv1 = FReadVI##elem_size(src1); \
@@ -946,12 +946,12 @@ namespace {
     V res = {}; \
     /* res = Vn op1 Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+      res[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
                                  FExtractVI##elem_size(srcv2, i)); \
     } \
     /* res = res op2 Vd */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
-      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+      res[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
                                  FExtractVI##elem_size(res, i)); \
     } \
     return res; \
@@ -976,7 +976,7 @@ namespace {
 
 #define MAKE_FTWICEOP_ASIMDELEM_R_SD(prefix, elem_size, op1, op2) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_ELEM_V##elem_size, V dst_src, V src1, V src2, I64 index) { \
+  DEF_SEM_T_STATE(F##prefix##_ELEM_V##elem_size, V dst_src, V src1, V src2, I64 index) { \
     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto dst_src_v = FReadVI##elem_size(dst_src); \
     auto srcv1 = FReadVI##elem_size(src1); \
@@ -985,12 +985,12 @@ namespace {
     V res = {}; \
     /* res = Vn op1 Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+      res[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
                                  FExtractVI##elem_size(srcv2, id)); \
     } \
     /* res = res op2 Vd */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
-      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+      res[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
                                  FExtractVI##elem_size(res, i)); \
     } \
     return res; \
@@ -1016,14 +1016,14 @@ namespace {
 
 #define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_V##elem_size, V src1, V src2) { \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size, V src1, V src2) { \
     /* it might be good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto srcv1 = FReadVI##elem_size(src1); \
     auto srcv2 = FReadVI##elem_size(src2); \
     V res = {}; \
     /* res = Vn op Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), \
+      res[i] = CheckedFloatBinOp(state, F##op##elem_size, FExtractVI##elem_size(srcv1, i), \
                                  FExtractVI##elem_size(srcv2, i)); \
     } \
     return res; \
@@ -1053,7 +1053,7 @@ DEF_ISEL(FADD_ASIMDSAME_ONLY_2D) = FADD_V64<VIf64v2>;  // FADD  <Vd>.<T>, <Vn>.<
 namespace {
 #define MAKE_FONCEOP_ASIMD_INDEX(prefix, elem_size, op) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##ID_V##elem_size, V src1, V src2, I32 imm) { \
+  DEF_SEM_T_STATE(F##prefix##ID_V##elem_size, V src1, V src2, I32 imm) { \
     auto index = Read(imm); \
     auto srcv1 = FReadVI##elem_size(src1); \
     auto srcv2 = FReadVI##elem_size(src2); \
@@ -1061,7 +1061,8 @@ namespace {
     auto v2_val = FExtractVI##elem_size(srcv2, index); \
     /* res = Vn + Vm[<index>] */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), v2_val); \
+      res[i] = \
+          CheckedFloatBinOp(state, F##op##elem_size, FExtractVI##elem_size(srcv1, i), v2_val); \
     } \
     return res; \
   }  // namespace
@@ -1125,11 +1126,11 @@ DEF_ISEL(USHLL_ASIMDSHF_L_2D4S) = USHLL2_32<VIu64v2, VIu32v4>;
 namespace {
 #define MAKE_SCVTF_VECTOR(elem_size) \
   template <typename S, typename D> \
-  DEF_SEM_T(SCVTF_Vector##elem_size, S src) { \
+  DEF_SEM_T_STATE(SCVTF_Vector##elem_size, S src) { \
     auto srcv = SReadVI##elem_size(src); \
     D res{}; \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
-      res[i] = CheckedCast<int##elem_size##_t, float##elem_size##_t>(srcv[i]); \
+      res[i] = CheckedCast<int##elem_size##_t, float##elem_size##_t>(state, srcv[i]); \
     } \
     return res; \
   }

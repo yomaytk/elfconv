@@ -15,6 +15,7 @@
  */
 
 #include "FLAGS.h"
+#include "remill/Arch/AArch64/Runtime/AArch64Definitions.h"
 #include "remill/Arch/AArch64/Runtime/Operators.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/AArch64/Runtime/Types.h"
@@ -27,77 +28,78 @@
 namespace {
 
 template <typename S, typename D>
-ALWAYS_INLINE static D CheckedCast(S src) {
-  return CheckedFloatUnaryOp([](S v) { return static_cast<D>(v); }, src);
+ALWAYS_INLINE static D CheckedCast(State &state, S src) {
+  return CheckedFloatUnaryOp(
+      state, [](S v) { return static_cast<D>(v); }, src);
 }
 
 // UCVTF  <Sd>, <Wn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T(UCVTF_UIntToFloat, S src) {
-  return CheckedCast<SB, DB>(Read(src));
+DEF_SEM_T_STATE(UCVTF_UIntToFloat, S src) {
+  return CheckedCast<SB, DB>(state, Read(src));
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_T(UCVTF_Uint32ToFloat32_FROMV, VIu32v4 src) {
+DEF_SEM_T_STATE(UCVTF_Uint32ToFloat32_FROMV, VIu32v4 src) {
   _ecv_f32v4_t res = {};
   auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
-    res[i] = CheckedCast<uint32_t, float32_t>(UExtractVI32(UReadVI32(src), i));
+    res[i] = CheckedCast<uint32_t, float32_t>(state, UExtractVI32(UReadVI32(src), i));
   }
   return res;
 }
 
 // UCVTF  <V><d>, <V><n>
-DEF_SEM_T(UCVTF_Uint64ToFloat64_FROMV, VIu64v2 src) {
+DEF_SEM_T_STATE(UCVTF_Uint64ToFloat64_FROMV, VIu64v2 src) {
   _ecv_f64v2_t res = {};
   auto elems_num = GetVectorElemsNum(res);
   _Pragma("unroll") for (size_t i = 0; i < elems_num; i++) {
-    res[i] = CheckedCast<uint64_t, float64_t>(UExtractVI64(UReadVI64(src), i));
+    res[i] = CheckedCast<uint64_t, float64_t>(state, UExtractVI64(UReadVI64(src), i));
   }
   return res;
 }
 
 // FCVTZU  <Xd>, <Sn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T(FCVTZU_FloatToUInt, S src) {
-  return CheckedCast<SB, DB>(Read(src));
+DEF_SEM_T_STATE(FCVTZU_FloatToUInt, S src) {
+  return CheckedCast<SB, DB>(state, Read(src));
 }
 
 // FCVTZS  <Wd>, <Sn>
-DEF_SEM_U32(FCVTZS_Float32ToSInt32, RF32 src) {
-  return CheckedCast<float32_t, int32_t>(Read(src));
+DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt32, RF32 src) {
+  return CheckedCast<float32_t, int32_t>(state, Read(src));
 }
 
 // FCVTZS  <Wd>, <Dn>
-DEF_SEM_U32(FCVTZS_Float64ToSInt32, RF64 src) {
-  return CheckedCast<float64_t, int32_t>(Read(src));
+DEF_SEM_U32_STATE(FCVTZS_Float64ToSInt32, RF64 src) {
+  return CheckedCast<float64_t, int32_t>(state, Read(src));
 }
 
 // FCVTZS  <Xd>, <Dn>
-DEF_SEM_U64(FCVTZS_Float64ToSInt64, RF64 src) {
-  return CheckedCast<float64_t, int64_t>(Read(src));
+DEF_SEM_U64_STATE(FCVTZS_Float64ToSInt64, RF64 src) {
+  return CheckedCast<float64_t, int64_t>(state, Read(src));
 }
 
 // FCVTAS  <Xd>, <Dn>
 // (FIXME) not using rounding to nearest with ties to Away
-DEF_SEM_U64(FCVTAS_Float64ToSInt64, RF64 src) {
-  return CheckedCast<float64_t, int64_t>(Read(src));
+DEF_SEM_U64_STATE(FCVTAS_Float64ToSInt64, RF64 src) {
+  return CheckedCast<float64_t, int64_t>(state, Read(src));
 }
 
 // FCVT  <Dd>, <Sn>
-DEF_SEM_F64(FCVT_Float32ToFloat64, RF32 src) {
-  return CheckedCast<float32_t, float64_t>(Read(src));
+DEF_SEM_F64_STATE(FCVT_Float32ToFloat64, RF32 src) {
+  return CheckedCast<float32_t, float64_t>(state, Read(src));
 }
 
 // FCVT  <Sd>, <Dn>
-DEF_SEM_F32(FCVT_Float64ToFloat32, RF64 src) {
-  return CheckedCast<float64_t, float32_t>(Read(src));
+DEF_SEM_F32_STATE(FCVT_Float64ToFloat32, RF64 src) {
+  return CheckedCast<float64_t, float32_t>(state, Read(src));
 }
 
 // FRINTA  <Dd>, <Dn>
 // (FIXME) not using rounding to nearest with ties to Away
-DEF_SEM_F64(FRINTA_Float64ToSInt64, RF64 src) {
-  return CheckedCast<int64_t, float64_t>(CheckedCast<float64_t, int64_t>(Read(src)));
+DEF_SEM_F64_STATE(FRINTA_Float64ToSInt64, RF64 src) {
+  return CheckedCast<int64_t, float64_t>(state, CheckedCast<float64_t, int64_t>(state, Read(src)));
 }
 
 }  // namespace
@@ -137,24 +139,24 @@ namespace {
 
 // SCVTF  <Sd>, <Wn>
 template <typename DB, typename S, typename SB>
-DEF_SEM_T(SCVTF_IntToFloat, S src) {
-  return CheckedCast<SB, DB>(Signed(Read(src)));
+DEF_SEM_T_STATE(SCVTF_IntToFloat, S src) {
+  return CheckedCast<SB, DB>(state, Signed(Read(src)));
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_T(SCVTF_Int32ToFloat32_FROMV, VIi32v4 src) {
+DEF_SEM_T_STATE(SCVTF_Int32ToFloat32_FROMV, VIi32v4 src) {
   _ecv_f32v4_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
-    res[i] = CheckedCast<int32_t, float32_t>(SExtractVI32(SReadVI32(src), i));
+    res[i] = CheckedCast<int32_t, float32_t>(state, SExtractVI32(SReadVI32(src), i));
   }
   return res;
 }
 
 // SCVTF  <V><d>, <V><n>
-DEF_SEM_T(SCVTF_Int64ToFloat64_FROMV, VIi64v2 src) {
+DEF_SEM_T_STATE(SCVTF_Int64ToFloat64_FROMV, VIi64v2 src) {
   _ecv_f64v2_t res = {};
   _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) {
-    res[i] = CheckedCast<int64_t, float64_t>(SExtractVI64(SReadVI64(src), i));
+    res[i] = CheckedCast<int64_t, float64_t>(state, SExtractVI64(SReadVI64(src), i));
   }
   return res;
 }

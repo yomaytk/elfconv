@@ -1832,6 +1832,8 @@ ALWAYS_INLINE static constexpr T _ZeroVI(void) {
     __remill_barrier_store_store(runtime_manager); \
   } while (false)
 
+#define REMILL_BARRIER_AS_NOP
+
 #ifdef REMILL_BARRIER_AS_NOP
 
 // The 'compiler' barrier is generating inline assembly which is inconvenient for KLEE
@@ -1841,6 +1843,7 @@ ALWAYS_INLINE static constexpr T _ZeroVI(void) {
 
 #else
 
+#  error BarrierReorder is not used at elfconv defaut mode in the terms of performances.
 // A 'compiler' barrier that prevents reordering of instructions across the
 // barrier. A thorough explanation can be found here:
 // http://preshing.com/20120625/memory-ordering-at-compile-time/
