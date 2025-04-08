@@ -59,6 +59,23 @@ DEF_SEM_T_STATE(UCVTF_Uint64ToFloat64_FROMV, VIu64v2 src) {
   return res;
 }
 
+// UCVTF  <Vd>.<T>, <Vn>.<T>
+#define MAKE_UCVTF_VECTOR(elem_size) \
+  template <typename S> \
+  DEF_SEM_T_STATE(UCVTF_Vector_##elem_size, S srcn) { \
+    S res{}; \
+    auto srcn_v = UReadVI##elem_size(srcn); \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcn); i++) { \
+      res[i] = CheckedCast<uint##elem_size##_t, float##elem_size##_t>(state, srcn_v[i]); \
+    } \
+    return res; \
+  }
+
+MAKE_UCVTF_VECTOR(32)
+MAKE_UCVTF_VECTOR(64)
+
+#undef MAKE_UCVTF_VECTOR
+
 // FCVTZU  <Xd>, <Sn>
 template <typename DB, typename S, typename SB>
 DEF_SEM_T_STATE(FCVTZU_FloatToUInt, S src) {
@@ -114,6 +131,10 @@ DEF_ISEL(UCVTF_D64_FLOAT2INT) = UCVTF_UIntToFloat<float64_t, R64, uint64_t>;  //
 
 DEF_ISEL(UCVTF_ASISDMISC_R_32) = UCVTF_Uint32ToFloat32_FROMV;  // UCVTF  <V><d>, <V><n>
 DEF_ISEL(UCVTF_ASISDMISC_R_64) = UCVTF_Uint64ToFloat64_FROMV;  // UCVTF  <V><d>, <V><n>
+
+DEF_ISEL(UCVTF_ASIMDMISC_R_2S) = UCVTF_Vector_32<VIu32v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(UCVTF_ASIMDMISC_R_4S) = UCVTF_Vector_32<VIu32v4>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(UCVTF_ASIMDMISC_R_2D) = UCVTF_Vector_64<VIu64v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
 
 DEF_ISEL(FCVTZU_64S_FLOAT2INT) =
     FCVTZU_FloatToUInt<uint64_t, RF32, float32_t>;  // FCVTZU  <Xd>, <Sn>

@@ -3377,6 +3377,21 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
   return TryDecodeUCVTF_Un_FLOAT2INT(data, inst, rclass, rclass);
 }
 
+// UCVTF  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeUCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  if (data.sz && !data.Q) {
+    return false;
+  }
+  auto total_size = data.Q ? 128 : 64;
+  auto elem_size = 32 << data.sz;
+  auto t_rclass = ArrangementRegClass(total_size, elem_size);
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, t_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, t_rclass, kUseAsValue, data.Rn);
+  return true;
+}
+
 // FRINTA  <Dd>, <Dn>
 bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
@@ -6253,6 +6268,18 @@ bool TryDecodeCNT_ASIMDMISC_R(const InstData &data, Instruction &inst) {
 bool TryDecodeDC_SYS_CR_SYSTEM(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::StateRuntime;
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
+  return true;
+}
+
+// TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+bool TryDecodeTBL_ASIMDTBL_L1_1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  auto ta_rclass = data.Q ? kReg16B : kReg8B;
+  auto ta_total_size = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, ta_total_size, 8);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rm);
   return true;
 }
 
