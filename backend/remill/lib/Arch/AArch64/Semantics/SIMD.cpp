@@ -932,13 +932,13 @@ DEF_ISEL(EXT_ASIMDEXT_ONLY_16B) = EXT<VIu8v16, 16>;  // EXT  <Vd>.<T>, <Vn>.<T>,
 
 // DEF_ISEL(USHR_ASISDSHF_R) = USHR_64B;  // USHR  <V><d>, <V><n>, #<shift>
 
-// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> twice operation
+// FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 // FMLA_ASIMDSAME_ONLY
 namespace {
 
 #define MAKE_FTWICEOP_ASIMDSAME_ONLY(prefix, elem_size, op1, op2) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_V##elem_size, V dst_src, V src1, V src2) { \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size, V dst_src, V src1, V src2) { \
     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto dst_src_v = FReadVI##elem_size(dst_src); \
     auto srcv1 = FReadVI##elem_size(src1); \
@@ -946,13 +946,13 @@ namespace {
     V res = {}; \
     /* res = Vn op1 Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
-                                 FExtractVI##elem_size(srcv2, i)); \
+      res[i] = \
+          F##op1##elem_size(FExtractVI##elem_size(srcv1, i), FExtractVI##elem_size(srcv2, i)); \
     } \
     /* res = res op2 Vd */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
-      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
-                                 FExtractVI##elem_size(res, i)); \
+      res[i] = \
+          F##op2##elem_size(FExtractVI##elem_size(dst_src_v, i), FExtractVI##elem_size(res, i)); \
     } \
     return res; \
   }
@@ -963,12 +963,46 @@ MAKE_FTWICEOP_ASIMDSAME_ONLY(MLA, 64, Mul, Add);
 
 #undef MAKE_FTWICEOP_ASIMDSAME_ONLY
 
+#define MAKE_FTWICEOP_ASIMDSAME_ONLY_FPSRSTATUS(prefix, elem_size, op1, op2) \
+  template <typename V> \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size##_FPSRStatus, V dst_src, V src1, V src2) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto dst_src_v = FReadVI##elem_size(dst_src); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    /* res = Vn op1 Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, i)); \
+    } \
+    /* res = res op2 Vd */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
+      res[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+                                 FExtractVI##elem_size(res, i)); \
+    } \
+    return res; \
+  }
+
+// no support of float16
+MAKE_FTWICEOP_ASIMDSAME_ONLY_FPSRSTATUS(MLA, 32, Mul, Add);
+MAKE_FTWICEOP_ASIMDSAME_ONLY_FPSRSTATUS(MLA, 64, Mul, Add);
+
+#undef MAKE_FTWICEOP_ASIMDSAME_ONLY_FPSRSTATUS
+
 }  // namespace
 
 // no support of float16
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S) = FMLA_V32<VIf32v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S) = FMLA_V32<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D) = FMLA_V64<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+// FPSR
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2S_FPSRSTATUS) =
+    FMLA_V32_FPSRStatus<VIf32v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_4S_FPSRSTATUS) =
+    FMLA_V32_FPSRStatus<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMLA_ASIMDSAME_ONLY_2D_FPSRSTATUS) =
+    FMLA_V64_FPSRStatus<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 // FMLA_ASIMDELEM_R_SD
@@ -976,7 +1010,7 @@ namespace {
 
 #define MAKE_FTWICEOP_ASIMDELEM_R_SD(prefix, elem_size, op1, op2) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_ELEM_V##elem_size, V dst_src, V src1, V src2, I64 index) { \
+  DEF_SEM_T_STATE(F##prefix##_ELEM_V##elem_size, V dst_src, V src1, V src2, I64 index) { \
     /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto dst_src_v = FReadVI##elem_size(dst_src); \
     auto srcv1 = FReadVI##elem_size(src1); \
@@ -985,13 +1019,13 @@ namespace {
     V res = {}; \
     /* res = Vn op1 Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
-                                 FExtractVI##elem_size(srcv2, id)); \
+      res[i] = \
+          F##op1##elem_size(FExtractVI##elem_size(srcv1, i), FExtractVI##elem_size(srcv2, id)); \
     } \
     /* res = res op2 Vd */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
-      res[i] = CheckedFloatBinOp(F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
-                                 FExtractVI##elem_size(res, i)); \
+      res[i] = \
+          F##op2##elem_size(FExtractVI##elem_size(dst_src_v, i), FExtractVI##elem_size(res, i)); \
     } \
     return res; \
   }
@@ -1001,6 +1035,34 @@ MAKE_FTWICEOP_ASIMDELEM_R_SD(MLA, 64, Mul, Add);
 
 #undef MAKE_FTWICEOP_ASIMDELEM_R_SD
 
+#define MAKE_FTWICEOP_ASIMDELEM_R_SD_FPSRSTATUS(prefix, elem_size, op1, op2) \
+  template <typename V> \
+  DEF_SEM_T_STATE(F##prefix##_ELEM_V##elem_size##_FPSRStatus, V dst_src, V src1, V src2, \
+                  I64 index) { \
+    /* it might good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto dst_src_v = FReadVI##elem_size(dst_src); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    auto id = Read(index); \
+    V res = {}; \
+    /* res = Vn op1 Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(state, F##op1##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, id)); \
+    } \
+    /* res = res op2 Vd */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(dst_src_v); i++) { \
+      res[i] = CheckedFloatBinOp(state, F##op2##elem_size, FExtractVI##elem_size(dst_src_v, i), \
+                                 FExtractVI##elem_size(res, i)); \
+    } \
+    return res; \
+  }
+
+MAKE_FTWICEOP_ASIMDELEM_R_SD_FPSRSTATUS(MLA, 32, Mul, Add);
+MAKE_FTWICEOP_ASIMDELEM_R_SD_FPSRSTATUS(MLA, 64, Mul, Add);
+
+#undef MAKE_FTWICEOP_ASIMDELEM_R_SD_FPSRSTATUS
+
 }  // namespace
 
 DEF_ISEL(FMLA_ASIMDELEM_R_SD_2S) =
@@ -1009,22 +1071,28 @@ DEF_ISEL(FMLA_ASIMDELEM_R_SD_4S) =
     FMLA_ELEM_V32<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMLA_ASIMDELEM_R_SD_2D) =
     FMLA_ELEM_V64<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+// FPSR
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_2S_FPSRSTATUS) =
+    FMLA_ELEM_V32_FPSRStatus<VIf32v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_4S_FPSRSTATUS) =
+    FMLA_ELEM_V32_FPSRStatus<VIf32v4>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMLA_ASIMDELEM_R_SD_2D_FPSRSTATUS) =
+    FMLA_ELEM_V64_FPSRStatus<VIf64v2>;  // FMLA  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 
-// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> once operation
+// FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 // FMUL_ASIMDSAME_ONLY
 namespace {
 
 #define MAKE_FONCEOP_ASIMDSAME_ONLY(prefix, elem_size, op) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##_V##elem_size, V src1, V src2) { \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size, V src1, V src2) { \
     /* it might be good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
     auto srcv1 = FReadVI##elem_size(src1); \
     auto srcv2 = FReadVI##elem_size(src2); \
     V res = {}; \
     /* res = Vn op Vm */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), \
-                                 FExtractVI##elem_size(srcv2, i)); \
+      res[i] = F##op##elem_size(FExtractVI##elem_size(srcv1, i), FExtractVI##elem_size(srcv2, i)); \
     } \
     return res; \
   }  // namespace
@@ -1038,6 +1106,30 @@ MAKE_FONCEOP_ASIMDSAME_ONLY(ADD, 64, Add);
 
 #undef MAKE_FONCEOP_ASIMDSAME_ONLY
 
+#define MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS(prefix, elem_size, op) \
+  template <typename V> \
+  DEF_SEM_T_STATE(F##prefix##_V##elem_size##_FPSRStatus, V src1, V src2) { \
+    /* it might be good to use F##binop##V##elem_size (e.g. FAddV32)*/ \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    /* res = Vn op Vm */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = CheckedFloatBinOp(state, F##op##elem_size, FExtractVI##elem_size(srcv1, i), \
+                                 FExtractVI##elem_size(srcv2, i)); \
+    } \
+    return res; \
+  }  // namespace
+
+// no support of float16
+MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS(MUL, 64, Mul);
+
+MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS(ADD, 32, Add);
+MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS(ADD, 64, Add);
+
+#undef MAKE_FONCEOP_ASIMDSAME_ONLY_FPSRSTATUS
+
 }  // namespace
 
 // no support of float16
@@ -1048,12 +1140,26 @@ DEF_ISEL(FMUL_ASIMDSAME_ONLY_2D) = FMUL_V64<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<
 DEF_ISEL(FADD_ASIMDSAME_ONLY_2S) = FADD_V32<VIf32v2>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FADD_ASIMDSAME_ONLY_4S) = FADD_V32<VIf32v4>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FADD_ASIMDSAME_ONLY_2D) = FADD_V64<VIf64v2>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+// FPSR
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2S_FPSRSTATUS) =
+    FMUL_V32_FPSRStatus<VIf32v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_4S_FPSRSTATUS) =
+    FMUL_V32_FPSRStatus<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FMUL_ASIMDSAME_ONLY_2D_FPSRSTATUS) =
+    FMUL_V64_FPSRStatus<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2S_FPSRSTATUS) =
+    FADD_V32_FPSRStatus<VIf32v2>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FADD_ASIMDSAME_ONLY_4S_FPSRSTATUS) =
+    FADD_V32_FPSRStatus<VIf32v4>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FADD_ASIMDSAME_ONLY_2D_FPSRSTATUS) =
+    FADD_V64_FPSRStatus<VIf64v2>;  // FADD  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 namespace {
 #define MAKE_FONCEOP_ASIMD_INDEX(prefix, elem_size, op) \
   template <typename V> \
-  DEF_SEM_T(F##prefix##ID_V##elem_size, V src1, V src2, I32 imm) { \
+  DEF_SEM_T_STATE(F##prefix##ID_V##elem_size, V src1, V src2, I32 imm) { \
     auto index = Read(imm); \
     auto srcv1 = FReadVI##elem_size(src1); \
     auto srcv2 = FReadVI##elem_size(src2); \
@@ -1061,7 +1167,7 @@ namespace {
     auto v2_val = FExtractVI##elem_size(srcv2, index); \
     /* res = Vn + Vm[<index>] */ \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
-      res[i] = CheckedFloatBinOp(F##op##elem_size, FExtractVI##elem_size(srcv1, i), v2_val); \
+      res[i] = F##op##elem_size(FExtractVI##elem_size(srcv1, i), v2_val); \
     } \
     return res; \
   }  // namespace
@@ -1072,6 +1178,28 @@ MAKE_FONCEOP_ASIMD_INDEX(MUL, 64, Mul);
 
 #undef MAKE_FONCEOP_ASIMD_INDEX
 
+#define MAKE_FONCEOP_ASIMD_INDEX_FPSRSTATUS(prefix, elem_size, op) \
+  template <typename V> \
+  DEF_SEM_T_STATE(F##prefix##ID_V##elem_size##_FPSRStatus, V src1, V src2, I32 imm) { \
+    auto index = Read(imm); \
+    auto srcv1 = FReadVI##elem_size(src1); \
+    auto srcv2 = FReadVI##elem_size(src2); \
+    V res = {}; \
+    auto v2_val = FExtractVI##elem_size(srcv2, index); \
+    /* res = Vn + Vm[<index>] */ \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv1); i++) { \
+      res[i] = \
+          CheckedFloatBinOp(state, F##op##elem_size, FExtractVI##elem_size(srcv1, i), v2_val); \
+    } \
+    return res; \
+  }  // namespace
+
+// no support of float16
+MAKE_FONCEOP_ASIMD_INDEX_FPSRSTATUS(MUL, 32, Mul);
+MAKE_FONCEOP_ASIMD_INDEX_FPSRSTATUS(MUL, 64, Mul);
+
+#undef MAKE_FONCEOP_ASIMD_INDEX_FPSRSTATUS
+
 }  // namespace
 
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S) =
@@ -1080,6 +1208,13 @@ DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) =
     FMULID_V32<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) =
     FMULID_V64<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+// FPSR
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S_FPSRSTATUS) =
+    FMULID_V32_FPSRStatus<VIf32v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S_FPSRSTATUS) =
+    FMULID_V32_FPSRStatus<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D_FPSRSTATUS) =
+    FMULID_V64_FPSRStatus<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 
 // USHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
 namespace {
@@ -1125,11 +1260,11 @@ DEF_ISEL(USHLL_ASIMDSHF_L_2D4S) = USHLL2_32<VIu64v2, VIu32v4>;
 namespace {
 #define MAKE_SCVTF_VECTOR(elem_size) \
   template <typename S, typename D> \
-  DEF_SEM_T(SCVTF_Vector##elem_size, S src) { \
+  DEF_SEM_T_STATE(SCVTF_Vector##elem_size, S src) { \
     auto srcv = SReadVI##elem_size(src); \
     D res{}; \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
-      res[i] = CheckedCast<int##elem_size##_t, float##elem_size##_t>(srcv[i]); \
+      res[i] = CheckedCast<int##elem_size##_t, float##elem_size##_t>(state, srcv[i]); \
     } \
     return res; \
   }
@@ -1139,11 +1274,31 @@ MAKE_SCVTF_VECTOR(64);
 
 #undef MAKE_SCVTF_VECTOR
 
+#define MAKE_SCVTF_VECTOR_FPSRSTATUS(elem_size) \
+  template <typename S, typename D> \
+  DEF_SEM_T_STATE(SCVTF_Vector##elem_size##_FPSRStatus, S src) { \
+    auto srcv = SReadVI##elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
+      res[i] = CheckedCastFPSRStatus<int##elem_size##_t, float##elem_size##_t>(state, srcv[i]); \
+    } \
+    return res; \
+  }
+
+MAKE_SCVTF_VECTOR_FPSRSTATUS(32);
+MAKE_SCVTF_VECTOR_FPSRSTATUS(64);
+
+#undef MAKE_SCVTF_VECTOR_FPSRSTATUS
+
 }  // namespace
 
 DEF_ISEL(SCVTF_ASIMDMISC_R_2S) = SCVTF_Vector32<VIi32v2, VIf32v2>;
 DEF_ISEL(SCVTF_ASIMDMISC_R_4S) = SCVTF_Vector32<VIi32v4, VIf32v4>;
 DEF_ISEL(SCVTF_ASIMDMISC_R_2D) = SCVTF_Vector64<VIi64v2, VIf64v2>;
+// FPSR
+DEF_ISEL(SCVTF_ASIMDMISC_R_2S_FPSRSTATUS) = SCVTF_Vector32_FPSRStatus<VIi32v2, VIf32v2>;
+DEF_ISEL(SCVTF_ASIMDMISC_R_4S_FPSRSTATUS) = SCVTF_Vector32_FPSRStatus<VIi32v4, VIf32v4>;
+DEF_ISEL(SCVTF_ASIMDMISC_R_2D_FPSRSTATUS) = SCVTF_Vector64_FPSRStatus<VIi64v2, VIf64v2>;
 
 // REV32  <Vd>.<T>, <Vn>.<T>
 namespace {

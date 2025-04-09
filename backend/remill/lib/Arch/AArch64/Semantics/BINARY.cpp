@@ -293,44 +293,77 @@ namespace {
 
 // FADD  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FADD_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FAdd32, Read(src1), Read(src2));
+  return FAdd32(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F32_STATE(FADD_Scalar32_FPSRStatus, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(state, FAdd32, Read(src1), Read(src2));
 }
 
 // FADD  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FADD_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FAdd64, Read(src1), Read(src2));
+  return FAdd64(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F64_STATE(FADD_Scalar64_FPSRStatus, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(state, FAdd64, Read(src1), Read(src2));
 }
 
 // FSUB  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FSUB_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FSub32, Read(src1), Read(src2));
+  return FSub32(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F32_STATE(FSUB_Scalar32_FPSRStatus, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(state, FSub32, Read(src1), Read(src2));
 }
 
 // FSUB  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FSUB_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FSub64, Read(src1), Read(src2));
+  return FSub64(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F64_STATE(FSUB_Scalar64_FPSRStatus, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(state, FSub64, Read(src1), Read(src2));
 }
 
-// FSUB <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+// FSUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 template <typename S>
 DEF_SEM_T(FSUB_Vector32, S src1, S src2) {
-  // (FIXME?) should use CheckedFloatBinOp?
+  return FSubVI32(FReadVI32(src1), FReadVI32(src2));
+}
+// FPSR
+template <typename S>
+DEF_SEM_T(FSUB_Vector32_FPSRStatus, S src1, S src2) {
+  // (FIXME) should use CheckedFloatBinOp
   return FSubVI32(FReadVI32(src1), FReadVI32(src2));
 }
 
 // FMUL  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FMUL_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FMul32, Read(src1), Read(src2));
+  return FMul32(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F32_STATE(FMUL_Scalar32_FPSRStatus, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(state, FMul32, Read(src1), Read(src2));
 }
 
 // FMUL  <Dd>, <Dn>, <Dm>
 DEF_SEM_F64_STATE(FMUL_Scalar64, RF64 src1, RF64 src2) {
-  return CheckedFloatBinOp(FMul64, Read(src1), Read(src2));
+  return FMul64(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F64_STATE(FMUL_Scalar64_FPSRStatus, RF64 src1, RF64 src2) {
+  return CheckedFloatBinOp(state, FMul64, Read(src1), Read(src2));
 }
 
 // FDIV  <Sd>, <Sn>, <Sm>
 DEF_SEM_F32_STATE(FDIV_Scalar32, RF32 src1, RF32 src2) {
-  return CheckedFloatBinOp(FDiv32, Read(src1), Read(src2));
+  return FDiv32(Read(src1), Read(src2));
+}
+// FPSR
+DEF_SEM_F32_STATE(FDIV_Scalar32_FPSRStatus, RF32 src1, RF32 src2) {
+  return CheckedFloatBinOp(state, FDiv32, Read(src1), Read(src2));
 }
 
 // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
@@ -339,23 +372,34 @@ DEF_SEM_F32_STATE(FMADD_S, RF32 src1, RF32 src2, RF32 src3) {
   float32_t factor2 = Read(src2);
   float32_t add = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
-
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
   auto prod = FMul32(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
   auto res = FAdd32(prod, add);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+
+  return res;
+}
+// FPSR
+DEF_SEM_F32_STATE(FMADD_S_FPSRStatus, RF32 src1, RF32 src2, RF32 src3) {
+  float32_t factor1 = Read(src1);
+  float32_t factor2 = Read(src2);
+  float32_t add = Read(src3);
+
+  auto old_underflow = ECV_UFC;
+
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul32(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FAdd32(prod, add);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(add)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -368,23 +412,34 @@ DEF_SEM_F64_STATE(FMADD_D, RF64 src1, RF64 src2, RF64 src3) {
   float64_t factor2 = Read(src2);
   float64_t add = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
-
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
   auto prod = FMul64(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
   auto res = FAdd64(prod, add);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+
+  return res;
+}
+// FPSR
+DEF_SEM_F64_STATE(FMADD_D_FPSRStatus, RF64 src1, RF64 src2, RF64 src3) {
+  float64_t factor1 = Read(src1);
+  float64_t factor2 = Read(src2);
+  float64_t add = Read(src3);
+
+  auto old_underflow = ECV_UFC;
+
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul64(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FAdd64(prod, add);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(add)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -397,23 +452,34 @@ DEF_SEM_F32_STATE(FMSUB_S, RF32 src1, RF32 src2, RF32 src3) {
   float32_t factor2 = Read(src2);
   float32_t factora = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
-
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
   auto prod = FMul32(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
   auto res = FSub32(factora, prod);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+
+  return res;
+}
+// FPSR
+DEF_SEM_F32_STATE(FMSUB_S_FPSRStatus, RF32 src1, RF32 src2, RF32 src3) {
+  float32_t factor1 = Read(src1);
+  float32_t factor2 = Read(src2);
+  float32_t factora = Read(src3);
+
+  auto old_underflow = ECV_UFC;
+
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul32(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FSub32(factora, prod);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for 0x3fffffff, 0x1 but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -426,23 +492,34 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
   auto factor2 = Read(src2);
   auto factora = Read(src3);
 
-  auto old_underflow = state.sr.ufc;
-
-  // auto zero = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
   auto prod = FMul64(factor1, factor2);
-  // BarrierReorder();
-  // auto except_mul = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, zero);
-  // BarrierReorder();
   auto res = FSub64(factora, prod);
-  // BarrierReorder();
-  // auto except_add = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, except_mul);
-  // SetFPSRStatusFlags(state, FE_ALL_EXCEPT);
+
+  return res;
+}
+// FPSR
+DEF_SEM_F64_STATE(FMSUB_D_FPSRStatus, RF64 src1, RF64 src2, RF64 src3) {
+  auto factor1 = Read(src1);
+  auto factor2 = Read(src2);
+  auto factora = Read(src3);
+
+  auto old_underflow = ECV_UFC;
+
+  auto zero = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
+  auto prod = FMul64(factor1, factor2);
+  BarrierReorder();
+  auto except_mul = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, zero);
+  BarrierReorder();
+  auto res = FSub64(factora, prod);
+  BarrierReorder();
+  auto except_add = __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, except_mul);
+  SetFPSRStatusFlags(state, except_add);
 
   // Sets underflow for test case (0x3fffffffffffffff, 0x1) but native doesn't.
-  if (state.sr.ufc && !old_underflow) {
+  if (ECV_UFC && !old_underflow) {
     if (IsDenormal(factor1) || IsDenormal(factor2) || IsDenormal(factora)) {
-      state.sr.ufc = old_underflow;
+      state.ecv_fpsr &= (0b1111'0111 | old_underflow);
     }
   }
 
@@ -453,13 +530,23 @@ DEF_SEM_F64_STATE(FMSUB_D, RF64 src1, RF64 src2, RF64 src3) {
 DEF_SEM_F64_STATE(FDIV_Scalar64, RF64 src1, RF64 src2) {
   auto val1 = Read(src1);
   auto val2 = Read(src2);
-  return CheckedFloatBinOp(FDiv64, val1, val2);
+  return FDiv64(val1, val2);
+}
+// FPSR
+DEF_SEM_F64_STATE(FDIV_Scalar64_FPSRStatus, RF64 src1, RF64 src2) {
+  auto val1 = Read(src1);
+  auto val2 = Read(src2);
+  return CheckedFloatBinOp(state, FDiv64, val1, val2);
 }
 
 // FDIV  <Vd>.<T>, <Vn>.<T>, <Vm>.<T> (only 32bit or 64bit)
 template <typename S>
 DEF_SEM_T(FDIV_Vector32, S src1, S src2) {
-  // (FIXME?) should use CheckedFloatBinOp?
+  return FDivVI32(FReadVI32(src1), FReadVI32(src2));
+}
+template <typename S>
+DEF_SEM_T(FDIV_Vector32_FPSRStatus, S src1, S src2) {
+  // (FIXME) should use CheckedFloatBinOp
   return FDivVI32(FReadVI32(src1), FReadVI32(src2));
 }
 
@@ -584,27 +671,55 @@ DEF_SEM_F64(FNEG_D, RF64 src) {
 
 DEF_ISEL(FSUB_S_FLOATDP2) = FSUB_Scalar32;  // FSUB  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FSUB_D_FLOATDP2) = FSUB_Scalar64;  // FSUB  <Dd>, <Dn>, <Dm>
+// FPSR
+DEF_ISEL(FSUB_S_FLOATDP2_FPSRSTATUS) = FSUB_Scalar32_FPSRStatus;  // FSUB  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FSUB_D_FLOATDP2_FPSRSTATUS) = FSUB_Scalar64_FPSRStatus;  // FSUB  <Dd>, <Dn>, <Dm>
 
 DEF_ISEL(FSUB_ASIMDSAME_ONLY_2SF) = FSUB_Vector32<VIf32v2>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FSUB_ASIMDSAME_ONLY_4SF) = FSUB_Vector32<VIf32v4>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+// FPSR
+DEF_ISEL(FSUB_ASIMDSAME_ONLY_2SF_FPSRSTATUS) =
+    FSUB_Vector32_FPSRStatus<VIf32v2>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FSUB_ASIMDSAME_ONLY_4SF_FPSRSTATUS) =
+    FSUB_Vector32_FPSRStatus<VIf32v4>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 DEF_ISEL(FADD_S_FLOATDP2) = FADD_Scalar32;  // FADD  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FADD_D_FLOATDP2) = FADD_Scalar64;  // FADD  <Dd>, <Dn>, <Dm>
+// FPSR
+DEF_ISEL(FADD_S_FLOATDP2_FPSRSTATUS) = FADD_Scalar32_FPSRStatus;  // FADD  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FADD_D_FLOATDP2_FPSRSTATUS) = FADD_Scalar64_FPSRStatus;  // FADD  <Dd>, <Dn>, <Dm>
 
 DEF_ISEL(FMUL_S_FLOATDP2) = FMUL_Scalar32;  // FMUL  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FMUL_D_FLOATDP2) = FMUL_Scalar64;  // FMUL  <Dd>, <Dn>, <Dm>
+// FPSR
+DEF_ISEL(FMUL_S_FLOATDP2_FPSRSTATUS) = FMUL_Scalar32_FPSRStatus;  // FMUL  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FMUL_D_FLOATDP2_FPSRSTATUS) = FMUL_Scalar64_FPSRStatus;  // FMUL  <Dd>, <Dn>, <Dm>
 
 DEF_ISEL(FMADD_S_FLOATDP3) = FMADD_S;  // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
 DEF_ISEL(FMADD_D_FLOATDP3) = FMADD_D;  // FMADD  <Dd>, <Dn>, <Dm>, <Da>
+// FPSR
+DEF_ISEL(FMADD_S_FLOATDP3_FPSRSTATUS) = FMADD_S_FPSRStatus;  // FMADD  <Sd>, <Sn>, <Sm>, <Sa>
+DEF_ISEL(FMADD_D_FLOATDP3_FPSRSTATUS) = FMADD_D_FPSRStatus;  // FMADD  <Dd>, <Dn>, <Dm>, <Da>
 
 DEF_ISEL(FMSUB_S_FLOATDP3) = FMSUB_S;  // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
 DEF_ISEL(FMSUB_D_FLOATDP3) = FMSUB_D;  // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
+// FPSR
+DEF_ISEL(FMSUB_S_FLOATDP3_FPSRSTATUS) = FMSUB_S_FPSRStatus;  // FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+DEF_ISEL(FMSUB_D_FLOATDP3_FPSRSTATUS) = FMSUB_D_FPSRStatus;  // FMSUB  <Dd>, <Dn>, <Dm>, <Da>
 
 DEF_ISEL(FDIV_S_FLOATDP2) = FDIV_Scalar32;  // FDIV  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FDIV_D_FLOATDP2) = FDIV_Scalar64;  // FDIV  <Dd>, <Dn>, <Dm>
+// FPSR
+DEF_ISEL(FDIV_S_FLOATDP2_FPSRSTATUS) = FDIV_Scalar32_FPSRStatus;  // FDIV  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FDIV_D_FLOATDP2_FPSRSTATUS) = FDIV_Scalar64_FPSRStatus;  // FDIV  <Dd>, <Dn>, <Dm>
 
 DEF_ISEL(FDIV_ASIMDSAME_ONLY_2SF) = FDIV_Vector32<VIf32v2>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(FDIV_ASIMDSAME_ONLY_4SF) = FDIV_Vector32<VIf32v4>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+// FPSR
+DEF_ISEL(FDIV_ASIMDSAME_ONLY_2SF_FPSRSTATUS) =
+    FDIV_Vector32_FPSRStatus<VIf32v2>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(FDIV_ASIMDSAME_ONLY_4SF_FPSRSTATUS) =
+    FDIV_Vector32_FPSRStatus<VIf32v4>;  // FDIV <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 DEF_ISEL(FABS_S_FLOATDP1) = FABS_S;  // FABS  <Sd>, <Sn>
 DEF_ISEL(FABS_D_FLOATDP1) = FABS_D;  // FABS  <Dd>, <Dn>

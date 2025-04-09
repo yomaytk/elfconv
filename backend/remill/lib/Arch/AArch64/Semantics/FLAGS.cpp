@@ -164,35 +164,39 @@ struct Carry<tag_sub> {
 };
 
 ALWAYS_INLINE void SetFPSRStatusFlags(State &state, int mask) {
-  state.sr.ixc |= static_cast<uint8_t>(0 != (mask & FE_INEXACT));
-  state.sr.ofc |= static_cast<uint8_t>(0 != (mask & FE_OVERFLOW));
-  state.sr.ufc |= static_cast<uint8_t>(0 != (mask & FE_UNDERFLOW));
-  state.sr.ioc |= static_cast<uint64_t>(0 != (mask & FE_INVALID));
+  state.ecv_fpsr =
+      (state.ecv_fpsr & 0b1110'0000) |
+      /* IXC */ ((0 != (mask & FE_INEXACT)) << 4) | /* UFC */ ((0 != (mask & FE_UNDERFLOW)) << 3) |
+      /* OFC */ ((0 != (mask & FE_OVERFLOW)) << 2) | /* DZC */ ((0 != (mask & FE_DIVBYZERO)) << 1) |
+      /* IOC */ (0 != (mask & FE_INVALID));
 }
 
 template <typename F, typename T>
-ALWAYS_INLINE auto CheckedFloatUnaryOp(F func, T arg1) -> decltype(func(arg1)) {
+ALWAYS_INLINE auto CheckedFloatUnaryOp(State &state, F func, T arg1) -> decltype(func(arg1)) {
 
-  //state.sr.idc |= IsDenormal(arg1);
-  // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  // state.ecv_fpsr |= IsDenormal(arg1);
+  auto old_except = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto res = func(arg1);
-  // BarrierReorder();
-  // auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
-  // SetFPSRStatusFlags(state, 0);
+  BarrierReorder();
+  auto new_except =
+      __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, old_except /* zero */);
+  SetFPSRStatusFlags(state, new_except);
   return res;
 }
 
 template <typename F, typename T>
-ALWAYS_INLINE auto CheckedFloatBinOp(F func, T arg1, T arg2) -> decltype(func(arg1, arg2)) {
+ALWAYS_INLINE auto CheckedFloatBinOp(State &state, F func, T arg1, T arg2)
+    -> decltype(func(arg1, arg2)) {
 
-  //state.sr.idc |= IsDenormal(arg1) | IsDenormal(arg2);
-  // auto old_except = __remill_fpu_exception_test_and_clear(0, FE_ALL_EXCEPT);
-  // BarrierReorder();
+  // state.ecv_fpsr |= IsDenormal(arg1) | IsDenormal(arg2);
+  auto old_except = __remill_fpu_exception_test_and_clear_macro(state, 0, FE_ALL_EXCEPT);
+  BarrierReorder();
   auto res = func(arg1, arg2);
-  // BarrierReorder();
-  // auto new_except = __remill_fpu_exception_test_and_clear(FE_ALL_EXCEPT, old_except /* zero */);
-  // SetFPSRStatusFlags(state, 0);
+  BarrierReorder();
+  auto new_except =
+      __remill_fpu_exception_test_and_clear_macro(state, FE_ALL_EXCEPT, old_except /* zero */);
+  SetFPSRStatusFlags(state, new_except);
   return res;
 }
 

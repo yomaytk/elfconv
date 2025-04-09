@@ -32,6 +32,7 @@ setting() {
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
+  FLOAT_STATUS_FLAG='off'
 
   if [ -n "$DEBUG" ]; then
     RUNTIME_MACRO="${RUNTIME_MACRO} -DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
@@ -76,7 +77,8 @@ lifting() {
   --target_elf "$elf_path" \
   --dbg_fun_cfg "$3" \
   --bitcode_path "$4" \
-  --target_arch "$target_arch"
+  --target_arch "$target_arch" \
+  --float_exception "$FLOAT_STATUS_FLAG"
  
   echo -e "[${GREEN}INFO${NC}] lift.bc was generated."
   
@@ -100,6 +102,11 @@ main() {
   if [ -n "$AARCH64_TEST" ]; then
     aarch64_test
     return 0
+  fi
+
+  # floating-point exception
+  if [ -n "$FLOAT_STATUS" ]; then
+    FLOAT_STATUS_FLAG='on'
   fi
 
   # ELF -> LLVM bc

@@ -323,13 +323,21 @@ struct alignas(16) AArch64State : public ArchState {
   SleighFlagState sleigh_flags;  // 24 bytes.
 
   uint64_t ecv_nzcv;
+  // FPSR register
+  // IDC: Input Denormal
+  // IXC: Inexact
+  // UFC: Underflow
+  // OFC: Overflow
+  // DZC: Divide by Zero
+  // IOC: Invalid Operation
+  uint64_t ecv_fpsr;  // [8:0] = {7: IDC, [6:5]: Reserved 4: IXC, 3: UFC, 2: OFC, 1: DZC, 0: IOC}
 
-  // uint8_t padding[8];
+  uint8_t padding[8];
 
 } __attribute__((packed));
 
 static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ +
-               8 /* ecv_nzcv */) == sizeof(AArch64State),
+               8 /* ecv_nzcv */ + /* ecv_fpsr */ 8 + /* padding */ 8) == sizeof(AArch64State),
               "Invalid packing of `struct State`");
 
 struct State : public AArch64State {};
