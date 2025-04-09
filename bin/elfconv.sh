@@ -24,6 +24,7 @@ setting() {
   ELFPATH=$( realpath "$1" )
   HOST_CPU=$(uname -p)
   ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
+  FLOAT_STATUS_FLAG='off'
 
 }
 
@@ -41,6 +42,11 @@ main() {
   target_arch=$HOST_CPU
   if [ "$TARGET" = "*-wasi32" ]; then
     target_arch='wasi32'
+  fi
+
+  # floating-point exception
+  if [ -n "$FLOAT_STATUS" ]; then
+    FLOAT_STATUS_FLAG='on'
   fi
 
   # input ELF CPU architecture
@@ -75,7 +81,8 @@ main() {
     --bc_out lift.bc \
     --target_elf "$ELFPATH" \
     --dbg_fun_cfg "$2" \
-    --target_arch "$target_arch"
+    --target_arch "$target_arch" \
+    --float_exception "$FLOAT_STATUS_FLAG"
   echo -e "[${GREEN}INFO${NC}] LLVM bitcode (lift.bc) was generated."
 
   # LLVM bc -> target file
