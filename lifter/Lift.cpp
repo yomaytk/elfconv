@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
   google::InitGoogleLogging(argv[0]);
 
   // floating-point exception status setting
-  __FLOAT_STATUS_ON = FLAGS_float_status == "on";
+  __FLOAT_STATUS_ON = FLAGS_float_exception == "on";
 
   AArch64TraceManager manager(FLAGS_target_elf);
   manager.SetELFData();
