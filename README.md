@@ -58,7 +58,7 @@ $ docker run -it --name <container-name> <image-name>
 # You can test elfconv using `bin/elfconv.sh`
 ~/elfconv# cd bin
 ~/elfconv/bin# TARGET=aarch64-wasi32 ./elfconv.sh /path/to/ELF # e.g. ../examples/hello/c/a.aarch64
-~/elfconv/bin# Wasmtime exe.wasm # Wasmtime is preinstalled
+~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
 ```
 ## Source code build
 ### 1. Dev Container
@@ -103,12 +103,12 @@ You can compile the ELF binary to the Wasm binary using [`scripts/dev.sh`](https
 ~/elfconv/build# ./exe.${HOST_CPU}
 ------------------------
 ### Browser (use xterm-pty (https://github.com/mame/xterm-pty))
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-Wasm ../scripts/dev.sh path/to/ELF # generate the Wasm binary under the elfconv/build/lifter
+~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasm ../scripts/dev.sh path/to/ELF # generate the Wasm binary under the elfconv/build/lifter
 ~/elfconv/build# emrun --no_browser --port 8080 ../examples/browser/exe.html # execute the generated Wasm binary with emscripten
 ------------------------
 ### Host (WASI Runtimes)
 ~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
-~/elfconv/build# Wasmedge ./exe.wasm # or Wasmedge ./exe_o3.Wasm
+~/elfconv/build# wasmedge ./exe.wasm # or wasmedge ./exe_o3.wasm
 ```
 ## Acknowledgement
 elfconv uses or references some projects as follows. Great thanks to all its developers!
