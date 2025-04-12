@@ -179,7 +179,7 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
       return {EcvReg(RegKind::Special, DSBASE_ORDER), ERC::RegX};
     } else if ("RETURN_PC" == _reg_name) {
       return {EcvReg(RegKind::Special, RETURN_PC_ORDER), ERC::RegX};
-    } else if("NEXT_PC" == _reg_name) {
+    } else if ("NEXT_PC" == _reg_name) {
       return {EcvReg(RegKind::Special, NEXT_PC_ORDER), ERC::RegX};
     } else {
       LOG(FATAL) << "Unsupported x86-64 register: " << _reg_name;
@@ -730,10 +730,11 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
         //   CHECK(op.addr.index_reg.name.empty())
         //       << "[Bug] addr.index_reg must not be added to operands list.";
         // }
-        if (31 != t_reg->number || "SP" == t_reg->name) {
-          load_reg_map.insert({e_r, e_r_c});
-        } else {
+        // Ignore `XZR` and `WZR` at load register counting.
+        if ((31 == t_reg->number && ("XZR" == t_reg->name || "WZR" == t_reg->name))) {
           e_r_c = ERC::RegNULL;
+        } else {
+          load_reg_map.insert({e_r, e_r_c});
         }
       } else {
         LOG(FATAL) << "Operand::Action::kActionInvalid is unexpedted on LiftIntoBlock.";
@@ -1444,10 +1445,10 @@ llvm::Value *InstructionLifter::LiftAddressOperand(Instruction &inst, llvm::Basi
   }
 
   if ("RIP" == arch_addr.base_reg.name) {
-    return llvm::ConstantInt::get(
-      word_type, static_cast<uint64_t>(inst.pc + arch_addr.displacement));
+    return llvm::ConstantInt::get(word_type,
+                                  static_cast<uint64_t>(inst.pc + arch_addr.displacement));
   }
-    
+
   // x86-64 RIP addressing mode uses the next instruction RIP.
   if ("NEXT_PC" == arch_addr.base_reg.name) {
     return llvm::ConstantInt::get(
