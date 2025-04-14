@@ -1,7 +1,11 @@
 # Overview
+> [!WARNING]
+> This document is used for the contributors to elfconv, but it is not enough.
+> If you have any questions or if you’d like to discuss contributions, please feel free to open an issue!
 
 The three main modules are `remill`, `elfconv/lifter`, and `elfconv/runtime`.  
-<img width="1051" alt="Screenshot 2025-02-12 13 47 01" src="https://github.com/user-attachments/assets/014c930f-f163-4d15-b995-b1c172b8569b" />
+<img width="1020" alt="スクリーンショット 2025-04-14 12 48 47" src="https://github.com/user-attachments/assets/f310b03f-9000-4cc3-81c7-cd748cb08945" />
+
 
 ### **Process to convert ELF to LLVM IR**
   - Two programs are involved: [`lifter/`](https://github.com/yomaytk/elfconv/tree/main/lifter) and [`remill`](https://github.com/yomaytk/elfconv/tree/main/backend/remill).
