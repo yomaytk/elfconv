@@ -131,6 +131,10 @@ void AArch64TraceManager::SetELFData() {
         entry_func_lifted_name = lifted_func_name;
       }
 
+      if (lifted_func_name.starts_with("_IO_file_xsputn")) {
+        _io_file_xsputn_vma = func_symbols[i].addr;
+      }
+
       if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
         disasm_funcs.emplace(func_symbols[i].addr,
                              DisasmFunc(lifted_func_name, func_symbols[i].addr,
@@ -195,6 +199,9 @@ void AArch64TraceManager::SetELFData() {
             elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
           }
           entry_func_lifted_name = lifted_func_name;
+        }
+        if (lifted_func_name.starts_with("_IO_file_xsputn")) {
+          _io_file_xsputn_vma = symbol.addr;
         }
         sym_it++;
       }

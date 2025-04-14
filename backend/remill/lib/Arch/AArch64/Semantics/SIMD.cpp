@@ -1332,3 +1332,27 @@ DEF_ISEL(REV32_ASIMDMISC_R_16B) = REV32_VectorB<VIu8v16>;
 
 DEF_ISEL(REV32_ASIMDMISC_R_4H) = REV32_VectorH<VIu16v4>;
 DEF_ISEL(REV32_ASIMDMISC_R_8H) = REV32_VectorH<VIu16v8>;
+
+
+// TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+namespace {
+#define MAKE_TBL_L1_1(elem_num) \
+  template <typename S> \
+  DEF_SEM_T(TBL_L1_1_##elem_num##B, VIu8v16 srcn, S srcm) { \
+    auto idx_v = UReadVI8(srcm); \
+    auto srcn_v = UReadVI8(srcn); \
+    S res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < elem_num; i++) { \
+      res[i] = idx_v[i] < elem_num ? srcn_v[idx_v[i]] : 0; \
+    } \
+    return res; \
+  }
+
+MAKE_TBL_L1_1(8)
+MAKE_TBL_L1_1(16)
+
+#undef MAKE_TBL_L1_1
+}  // namespace
+
+DEF_ISEL(TBL_ASIMDTBL_L1_1_8B) = TBL_L1_1_8B<VIu8v8>;  // TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+DEF_ISEL(TBL_ASIMDTBL_L1_1_16B) = TBL_L1_1_16B<VIu8v16>;  // TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>

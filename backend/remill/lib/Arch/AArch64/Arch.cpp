@@ -899,9 +899,13 @@ bool AArch64Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_
     return false;
   } else if (!aarch64::TryExtract(bytes, dinst)) {
     inst.category = Instruction::kCategoryInvalid;
+    if (*(uint32_t *) (inst_bytes.data()) != 0) {
+      // 4 bytes '00000000' is invalid instruction. the function bytes is often followed by the byte '00000000'.
 #if defined(WARNING_OUTPUT)
-    printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryExtract)\n", address);
+      printf("[WARNING] Unsupported instruction at address: 0x%08lx (TryExtract) size: %ld\n",
+             address, inst_bytes.size());
 #endif
+    }
     return false;
   }
 
@@ -3386,6 +3390,21 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
   return TryDecodeUCVTF_Un_FLOAT2INT(data, inst, rclass, rclass);
 }
 
+// UCVTF  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeUCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  if (data.sz && !data.Q) {
+    return false;
+  }
+  auto total_size = data.Q ? 128 : 64;
+  auto elem_size = 32 << data.sz;
+  auto t_rclass = ArrangementRegClass(total_size, elem_size);
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, t_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, t_rclass, kUseAsValue, data.Rn);
+  return true;
+}
+
 // FRINTA  <Dd>, <Dn>
 bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
@@ -3394,6 +3413,18 @@ bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
   if (__FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
+  return true;
+}
+
+// TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
+bool TryDecodeTBL_ASIMDTBL_L1_1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  auto ta_rclass = data.Q ? kReg16B : kReg8B;
+  auto ta_total_size = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, ta_total_size, 8);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rm);
   return true;
 }
 
@@ -3993,6 +4024,24 @@ bool TryDecodeFNEG_D_FLOATDP1(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  return true;
+}
+
+// FMAX  <Sd>, <Sn>, <Sm>
+bool TryDecodeFMAX_S_FLOATDP2(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rm);
+  return true;
+}
+
+// FMAX  <Dd>, <Dn>, <Dm>
+bool TryDecodeFMAX_D_FLOATDP2(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
   return true;
 }
 
