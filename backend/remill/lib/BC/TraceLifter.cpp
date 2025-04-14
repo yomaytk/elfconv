@@ -490,7 +490,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       if (kLiftedInstruction != lift_status) {
         // LOG(FATAL) << "lifted_status is invalid at: " << inst.function;
-        AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
+        AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr,
+                               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
 #if defined(WARNING_OUTPUT)
         if (manager.isWithinFunction(trace_addr, inst.next_pc)) {
           DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
@@ -507,7 +508,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             !arch->DecodeDelayedInstruction(inst.delayed_pc, inst_bytes, delayed_inst,
                                             this->arch->CreateInitialContext())) {
           LOG(ERROR) << "Couldn't read delayed inst " << delayed_inst.Serialize();
-          AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
+          AddTerminatingTailCall(
+              block, intrinsics->error, *intrinsics, trace_addr,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           continue;
         }
       }
@@ -525,7 +528,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // lift_status = delayed_inst.GetLifter()->LiftIntoBlock(delayed_inst, into_block, state_ptr,
         //                                                       true /* is_delayed */);
         // if (kLiftedInstruction != lift_status) {
-        //   AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
+        //   AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
         // }
       };
 
@@ -533,7 +536,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       switch (inst.category) {
         case Instruction::kCategoryInvalid:
         case Instruction::kCategoryError:
-          AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr);
+          AddTerminatingTailCall(
+              block, intrinsics->error, *intrinsics, trace_addr,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           break;
 
         case Instruction::kCategoryNormal:

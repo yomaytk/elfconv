@@ -3382,44 +3382,6 @@ bool TryDecodeUCVTF_ASIMDMISCFP16_R(const InstData &, Instruction &) {
   return false;
 }
 
-// UCVTF UCVTF_asimdmisc_R:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 1 opcode   0
-//  13 0 opcode   1
-//  14 1 opcode   2
-//  15 1 opcode   3
-//  16 1 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x sz       0
-//  23 0
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 1 U        0
-//  30 x Q        0
-//  31 0
-// UCVTF  <Vd>.<T>, <Vn>.<T>
-bool TryDecodeUCVTF_ASIMDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
-
 // SQDMULH SQDMULH_asisdsame_only:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -9424,82 +9386,6 @@ bool TryDecodeFMAX_H_FLOATDP2(const InstData &, Instruction &) {
   return false;
 }
 
-// FMAX FMAX_S_floatdp2:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 0 op       0
-//  13 0 op       1
-//  14 1
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 0 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FMAX  <Sd>, <Sn>, <Sm>
-bool TryDecodeFMAX_S_FLOATDP2(const InstData &, Instruction &) {
-  return false;
-}
-
-// FMAX FMAX_D_floatdp2:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 0 op       0
-//  13 0 op       1
-//  14 1
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 1 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FMAX  <Dd>, <Dn>, <Dm>
-bool TryDecodeFMAX_D_FLOATDP2(const InstData &, Instruction &) {
-  return false;
-}
-
 // AESD AESD_B_cryptoaes:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -14779,44 +14665,6 @@ bool TryDecodeTBL_ASIMDTBL_L3_3(const InstData &, Instruction &) {
 //  31 0
 // TBL  <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B, <Vn+2>.16B, <Vn+3>.16B }, <Vm>.<Ta>
 bool TryDecodeTBL_ASIMDTBL_L4_4(const InstData &, Instruction &) {
-  return false;
-}
-
-// TBL TBL_asimdtbl_L1_1:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0 op       0
-//  13 0 len      0
-//  14 0 len      1
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 0
-//  22 0 op2      0
-//  23 0 op2      1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0
-//  30 x Q        0
-//  31 0
-// TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
-bool TryDecodeTBL_ASIMDTBL_L1_1(const InstData &, Instruction &) {
   return false;
 }
 

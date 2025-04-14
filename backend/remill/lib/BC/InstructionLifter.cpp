@@ -22,6 +22,7 @@
 #include "remill/BC/InstructionLifter.h"
 
 #include <cstdint>
+#include <glog/logging.h>
 #include <type_traits>
 
 extern remill::ArchName TARGET_ELF_ARCH;
@@ -584,7 +585,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
                                             bool is_delayed) {
   llvm::Function *const func = block->getParent();
   llvm::Module *const module = func->getParent();
-  auto &context = func->getContext();
   llvm::Function *isel_func = nullptr;
   auto status = kLiftedInstruction;
 
@@ -777,17 +777,17 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   auto sema_inst = ir.CreateCall(isel_func, args);
   bb_reg_info_node->sema_func_args_reg_map.insert({sema_inst, std::move(sema_func_args_regs)});
   Sema_func_vma_map.insert({sema_inst, arch_inst.pc});
-  if (auto struct_ty = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
-    CHECK(struct_ty->getNumElements() == write_regs.size());
-  } else if (auto array_ty = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
-    CHECK(array_ty->getNumElements() == write_regs.size());
-  } else if (auto vector_ty = llvm::dyn_cast<llvm::VectorType>(sema_inst->getType());
-             vector_ty &&
-             /* <2 x i128> */ (2 == vector_ty->getElementCount().getFixedValue() &&
-                               llvm::Type::getInt128Ty(context) == vector_ty->getElementType())) {
-    CHECK(vector_ty->getElementCount().getFixedValue() == write_regs.size());
-  } else if (!sema_inst->getType()->isVoidTy()) {
-    CHECK(write_regs.size() == 1);
+
+  // Check the number of return values if the semantics function returns multiple values.
+  if (write_regs.size() > 1) {
+    if (auto struct_ty = llvm::dyn_cast<llvm::StructType>(sema_inst->getType())) {
+      CHECK(struct_ty->getNumElements() == write_regs.size());
+    } else if (auto array_ty = llvm::dyn_cast<llvm::ArrayType>(sema_inst->getType())) {
+      CHECK(array_ty->getNumElements() == write_regs.size());
+    } else if (auto vector_ty = llvm::dyn_cast<llvm::VectorType>(sema_inst->getType());
+               vector_ty && (2 == vector_ty->getElementCount().getFixedValue())) {
+      CHECK(vector_ty->getElementCount().getFixedValue() == write_regs.size());
+    }
   }
 
   // Insert the instruction which explains the latest specified register.

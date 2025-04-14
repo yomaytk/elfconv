@@ -667,6 +667,28 @@ DEF_SEM_F64(FNEG_D, RF64 src) {
   return result;
 }
 
+// FMAX  <Sd>, <Sn>, <Sm>
+DEF_SEM_F32(FMAX_S, RF32 src1, RF32 src2) {
+  auto sn = Read(src1);
+  auto sm = Read(src2);
+  if (sn <= sm) {
+    return sm;
+  } else {
+    return sn;
+  }
+}
+
+// FMAX  <Dd>, <Dn>, <Dm>
+DEF_SEM_F64(FMAX_D, RF64 src1, RF64 src2) {
+  auto sn = Read(src1);
+  auto sm = Read(src2);
+  if (sn <= sm) {
+    return sm;
+  } else {
+    return sn;
+  }
+}
+
 }  // namespace
 
 DEF_ISEL(FSUB_S_FLOATDP2) = FSUB_Scalar32;  // FSUB  <Sd>, <Sn>, <Sm>
@@ -736,3 +758,6 @@ DEF_ISEL(FCMPE_D_FLOATCMP) = FCMPE_D;  // FCMPE  <Dn>, <Dm>
 DEF_ISEL(FCMPE_DZ_FLOATCMP) = FCMPE_DZ;  // FCMPE  <Dn>, #0.0
 DEF_ISEL(FCMP_D_FLOATCMP) = FCMP_D;  // FCMP  <Dn>, <Dm>
 DEF_ISEL(FCMP_DZ_FLOATCMP) = FCMP_DZ;  // FCMP  <Dn>, #0.0
+
+DEF_ISEL(FMAX_S_FLOATDP2) = FMAX_S; // FMAX  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FMAX_D_FLOATDP2) = FMAX_D; // FMAX  <Dd>, <Dn>, <Dm>
