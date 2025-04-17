@@ -156,7 +156,7 @@ elfconv sets up a large memory area called the `ARENA` for the data in these dat
 ### Adding Machine Code
 We describe the general steps for adding new instructions for each CPU architecture.
 1. **AArch64 Instruction**
-    - document: [`docs/Add-AArch64-Instruction.md`](https://github.com/yomaytk/elfconv/new/main/docs/Add-AArch64-Instruction.md)
+    - document: [`docs/Add-AArch64-Instruction.md`](https://github.com/yomaytk/elfconv/blob/main/docs/Add-AArch64-Instruction.md)
 2. **x86-64 Instruction**
     - 🚧
 
