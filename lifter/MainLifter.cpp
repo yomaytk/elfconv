@@ -1,6 +1,7 @@
 #include "MainLifter.h"
 
 #include "lifter/TraceManager.h"
+#include "remill/BC/TraceLifter.h"
 
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
@@ -64,8 +65,8 @@ void MainLifter::SetBlockAddressData(std::vector<llvm::Constant *> &block_addres
                             block_address_sizes_array, block_address_fn_vma_array);
 }
 
-void MainLifter::SetOptMode(bool able_vrp_opt) {
-  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt);
+void MainLifter::SetOptMode(bool able_vrp_opt, bool test_mode) {
+  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt, test_mode);
 }
 
 /* Declare helper function used in lifted LLVM bitcode */
@@ -103,7 +104,7 @@ void MainLifter::WrapImpl::SetRuntimeManagerClass() {
   llvm::StructType::create(context, runtime_manager_name);
 }
 
-void MainLifter::SetCommonMetaData() {
+void MainLifter::SetCommonMetaData(LiftConfig lift_config) {
   AArch64TraceManager *target_manager = static_cast<AArch64TraceManager *>(&impl.get()->manager);
 
   SetRuntimeManagerClass();
@@ -112,7 +113,7 @@ void MainLifter::SetCommonMetaData() {
              target_manager->elf_obj.e_ph);
   SetEntryPC(target_manager->entry_point);
   SetDataSections(target_manager->elf_obj.sections);
-  SetOptMode(target_manager->elf_obj.able_vrp_opt);
+  SetOptMode(target_manager->elf_obj.able_vrp_opt, lift_config.test_mode);
 
   if (target_manager->target_arch == "aarch64") {
     SetPlatform("aarch64");
@@ -350,8 +351,15 @@ void MainLifter::WrapImpl::SetBlockAddressData(
                 ecv_block_address_fn_vma_array_name);
 }
 
-void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt) {
-  vrp_opt_mode = able_vrp_opt;
+void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt, bool __test_mode) {
+  // vrp_opt always be disabled if the test_mode on.
+  if (__test_mode) {
+    test_mode = true;
+    vrp_opt_mode = false;
+  } else {
+    test_mode = false;
+    vrp_opt_mode = able_vrp_opt;
+  }
 }
 
 /* Global variable array definition helper */

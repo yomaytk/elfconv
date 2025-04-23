@@ -51,7 +51,7 @@
 
 // clang-format on
 
-extern bool __FLOAT_STATUS_ON;
+extern bool FLOAT_STATUS_ON;
 
 namespace remill {
 namespace {
@@ -3310,14 +3310,16 @@ bool TryDecodeSBC_64_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
 bool TryDecodeSBCS_32_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   TryDecodeSBC_32_ADDSUB_CARRY(data, inst);
-  AddEcvNZCVOperand(inst, kActionRead);
+  AddEcvNZCVOperand(inst, kActionWrite);
   return true;
 }
 
 // SBCS  <Xd>, <Xn>, <Xm>
 bool TryDecodeSBCS_64_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
-  return TryDecodeSBC_64_ADDSUB_CARRY(data, inst);
+  TryDecodeSBC_64_ADDSUB_CARRY(data, inst);
+  AddEcvNZCVOperand(inst, kActionWrite);
+  return true;
 }
 
 static bool TryDecodeUCVTF_Un_FLOAT2INT(const InstData &data, Instruction &inst,
@@ -3329,7 +3331,7 @@ static bool TryDecodeUCVTF_Un_FLOAT2INT(const InstData &data, Instruction &inst,
 
 // UCVTF  <Hd>, <Wn>
 bool TryDecodeUCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegH, kRegW);
   return true;
 }
@@ -3338,7 +3340,7 @@ bool TryDecodeUCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
 bool TryDecodeUCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegS, kRegW);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3346,14 +3348,14 @@ bool TryDecodeUCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // UCVTF  <Dd>, <Wn>
 bool TryDecodeUCVTF_D32_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegD, kRegW);
   return true;
 }
 
 // UCVTF  <Hd>, <Xn>
 bool TryDecodeUCVTF_H64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegH, kRegX);
 
   return true;
@@ -3361,14 +3363,14 @@ bool TryDecodeUCVTF_H64_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // UCVTF  <Sd>, <Xn>
 bool TryDecodeUCVTF_S64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegS, kRegX);
   return true;
 }
 
 // UCVTF  <Dd>, <Xn>
 bool TryDecodeUCVTF_D64_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   TryDecodeUCVTF_Un_FLOAT2INT(data, inst, kRegD, kRegX);
   return true;
 }
@@ -3384,13 +3386,13 @@ bool TryDecodeUCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
     inst.function += "_32";
     rclass = kReg4S;
   }
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeUCVTF_Un_FLOAT2INT(data, inst, rclass, rclass);
 }
 
-// UCVTF  <Vd>.<T>, <Vn>.<T>
+// UCVTF  <Vd>.<T>, <Vn>.<T> (32 or 64 bit)
 bool TryDecodeUCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
   if (data.sz && !data.Q) {
@@ -3410,7 +3412,7 @@ bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3447,7 +3449,7 @@ bool TryDecodeFCVT_DS_FLOATDP1(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3467,7 +3469,7 @@ bool TryDecodeFCVT_SD_FLOATDP1(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3481,7 +3483,7 @@ bool TryDecodeFCVTZS_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3495,7 +3497,7 @@ bool TryDecodeFCVTZS_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3509,7 +3511,7 @@ bool TryDecodeFCVTZS_32D_FLOAT2INT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3523,7 +3525,7 @@ bool TryDecodeFCVTZS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3534,7 +3536,7 @@ bool TryDecodeFCVTAS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3542,7 +3544,7 @@ bool TryDecodeFCVTAS_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZU  <Wd>, <Sn>
 bool TryDecodeFCVTZU_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3553,7 +3555,7 @@ bool TryDecodeFCVTZU_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZU  <Wd>, <Dn>
 bool TryDecodeFCVTZU_32D_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3570,7 +3572,7 @@ bool TryDecodeFCVTZU_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
   }
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3578,7 +3580,7 @@ bool TryDecodeFCVTZU_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZU  <Xd>, <Dn>
 bool TryDecodeFCVTZU_64D_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -3694,7 +3696,7 @@ bool TryDecodeFMOV_V64I_FLOAT2INT(const InstData &data, Instruction &inst) {
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
-  AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionReadWrite, kReg2D, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
   return true;
 }
@@ -3746,7 +3748,7 @@ bool TryDecodeFADD_H_FLOATDP2(const InstData &data, Instruction &inst) {
 // FADD  <Sd>, <Sn>, <Sm>
 bool TryDecodeFADD_S_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegS);
@@ -3755,7 +3757,7 @@ bool TryDecodeFADD_S_FLOATDP2(const InstData &data, Instruction &inst) {
 // FADD  <Dd>, <Dn>, <Dm>
 bool TryDecodeFADD_D_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegD);
@@ -3770,7 +3772,7 @@ bool TryDecodeFMUL_H_FLOATDP2(const InstData &data, Instruction &inst) {
 // FMUL  <Sd>, <Sn>, <Sm>
 bool TryDecodeFMUL_S_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegS);
@@ -3779,7 +3781,7 @@ bool TryDecodeFMUL_S_FLOATDP2(const InstData &data, Instruction &inst) {
 // FMUL  <Dd>, <Dn>, <Dm>
 bool TryDecodeFMUL_D_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegD);
@@ -3794,7 +3796,7 @@ bool TryDecodeFDIV_H_FLOATDP2(const InstData &data, Instruction &inst) {
 // FDIV  <Sd>, <Sn>, <Sm>
 bool TryDecodeFDIV_S_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegS);
@@ -3803,7 +3805,7 @@ bool TryDecodeFDIV_S_FLOATDP2(const InstData &data, Instruction &inst) {
 // FDIV  <Dd>, <Dn>, <Dm>
 bool TryDecodeFDIV_D_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegD);
@@ -3820,7 +3822,7 @@ bool TryDecodeFDIV_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   elem_size = 32 << data.sz;
   AddArrangementSpecifierFloat(inst, total_size, elem_size);
   auto rclass = ArrangementRegClass(total_size, elem_size, true);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeRdW_Rn_Rm(data, inst, rclass);
@@ -3835,7 +3837,7 @@ bool TryDecodeFSUB_H_FLOATDP2(const InstData &data, Instruction &inst) {
 // FSUB  <Sd>, <Sn>, <Sm>
 bool TryDecodeFSUB_S_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegS);
@@ -3844,7 +3846,7 @@ bool TryDecodeFSUB_S_FLOATDP2(const InstData &data, Instruction &inst) {
 // FSUB  <Dd>, <Dn>, <Dm>
 bool TryDecodeFSUB_D_FLOATDP2(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeFdW_Fn_Fm(data, inst, kRegD);
@@ -3860,7 +3862,7 @@ bool TryDecodeFMADD_S_FLOATDP3(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rm);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Ra);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3876,7 +3878,7 @@ bool TryDecodeFMADD_D_FLOATDP3(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Ra);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3892,7 +3894,7 @@ bool TryDecodeFMSUB_S_FLOATDP3(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rm);
   AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Ra);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -3908,7 +3910,7 @@ bool TryDecodeFMSUB_D_FLOATDP3(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Ra);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -5031,7 +5033,7 @@ bool TryDecodeSTn(const InstData &data, Instruction &inst, uint64_t *total_num_b
   auto num_regs = static_cast<uint8_t>(rpt * selem);
   for (uint8_t i = 0; i < num_regs; ++i) {
     auto tt = static_cast<aarch64::RegNum>((t + i) % 32);
-    AddRegOperand(inst, kActionWrite, data.Q ? K_REG_Q : kRegD, kUseAsValue, tt);
+    AddRegOperand(inst, kActionRead, ArrangementRegClass(data_size, esize), kUseAsValue, tt);
   }
   return true;
 }
@@ -5405,7 +5407,7 @@ bool TryDecodeFMLA_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionReadWrite, rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -5436,7 +5438,7 @@ bool TryDecodeFMLA_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
   AddImmOperand(inst, index, kUnsigned, 64);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -5474,7 +5476,7 @@ bool TryDecodeFSUB_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   elem_size = 32 << data.sz;
   AddArrangementSpecifierFloat(inst, total_size, elem_size);
   auto rclass = ArrangementRegClass(total_size, elem_size, true);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeRdW_Rn_Rm(data, inst, rclass);
@@ -5498,7 +5500,7 @@ bool TryDecodeFMUL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -5525,7 +5527,7 @@ bool TryDecodeFMUL_ASIMDELEM_R_SD(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
   AddImmOperand(inst, index, kUnsigned, 32);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;
@@ -5656,7 +5658,7 @@ bool TryDecodeSCVTF_H32_FLOAT2INT(const InstData &data, Instruction &inst) {
 // SCVTF  <Sd>, <Wn>
 bool TryDecodeSCVTF_S32_FLOAT2INT(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, kRegS, kRegW);
@@ -5696,7 +5698,7 @@ bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
     inst.function += "_32";
     rclass = kReg4S;
   }
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, rclass, rclass);
@@ -5712,7 +5714,7 @@ bool TryDecodeSCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
   auto rclass = ArrangementRegClass(total_size, elem_size);
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
-  if (__FLOAT_STATUS_ON) {
+  if (FLOAT_STATUS_ON) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return true;

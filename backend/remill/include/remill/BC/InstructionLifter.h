@@ -100,6 +100,9 @@ class OperandLifter {
 #define MONITOR_ORDER 40
 #define WZR_ORDER 41  // Actually, not used
 #define XZR_ORDER 42  // Actually, not used
+#define WSP_ORDER 43
+#define FPSR_ORDER 44
+#define FPCR_ORDER 45
 
 // shared
 #define BRANCH_TAKEN_ORDER 36
@@ -154,6 +157,7 @@ class EcvReg {
  public:
   RegKind reg_kind;
   uint32_t number;
+  static ArchName target_elf_arch;
 
   EcvReg() {}
   EcvReg(RegKind __reg_kind, uint32_t __number) : reg_kind(__reg_kind), number(__number) {}

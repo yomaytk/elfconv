@@ -26,6 +26,9 @@
 
 #include <cassert>
 
+#define MAKE_ECV_NZCV(n, z, c, v) \
+  ((uint64_t(n) << 31) | (uint64_t(z) << 30) | (uint64_t(c) << 29) | (uint64_t(v) << 28))
+
 namespace {
 
 // SUB  <Wd|WSP>, <Wn|WSP>, #<imm>{, <shift>}
@@ -73,7 +76,7 @@ namespace {
     uint64_t flag_c = UCmpNeq(ZExt(result), unsigned_result); \
     uint64_t flag_v = __remill_flag_computation_overflow(SCmpNeq(SExt(result), signed_result), \
                                                          lhs, actual_rhs, result); \
-    uint64_t flag_nzcv = uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v); \
+    uint64_t flag_nzcv = MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v); \
     return U##res_size##U64{result, flag_nzcv}; \
   }
 
@@ -238,34 +241,32 @@ DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;  // MSUB  <Xd>, <Xn>, <Xm>, <Xa>
 
 namespace {
 
+#define READ_ECV_C (Read(ecv_nzcv) & 0x2000'0000) >> 29
+
 // SBC  <Wd>, <Wn>, <Wm>
 template <typename S>
 DEF_SEM_T(SBC, S src1, S src2, I64 ecv_nzcv) {
-  uint64_t flag = Read(ecv_nzcv);
-  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
+  auto carry = S(READ_ECV_C);
   return UAdd(UAdd(Read(src1), UNot(Read(src2))), carry);
 }
 
 // SBCS  <Wd>, <Wn>, <Wm>
 template <typename S>
 DEF_SEM_T(SBCS32, S src1, S src2, I64 ecv_nzcv) {
-  uint64_t flag = Read(ecv_nzcv);
-  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
+  auto carry = S(READ_ECV_C);
   return AddWithCarryNZCV32(Read(src1), UNot(Read(src2)), Read(src2), carry);
 }
 
 template <typename S>
 DEF_SEM_T(SBCS64, S src1, S src2, I64 ecv_nzcv) {
-  uint64_t flag = Read(ecv_nzcv);
-  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
+  auto carry = S(READ_ECV_C);
   return AddWithCarryNZCV64(Read(src1), UNot(Read(src2)), Read(src2), carry);
 }
 
 // ADC  <Wd>, <Wn>, <Wm>
 template <typename S>
 DEF_SEM_T(ADC, S src1, S src2, I64 ecv_nzcv) {
-  uint64_t flag = Read(ecv_nzcv);
-  auto carry = S((Read(ecv_nzcv) & 0b10) >> 1);
+  auto carry = S(READ_ECV_C);
   return UAdd(UAdd(Read(src1), Read(src2)), carry);
 }
 
@@ -596,7 +597,7 @@ uint64_t FCompare(State &state, S val1, S val2, bool signal = true) {
     }
   }
 
-  return uint64_t(flag_n << 3 | flag_z << 2 | flag_c << 1 | flag_v);
+  return MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v);
 }
 
 // FCMPE  <Sn>, <Sm>
@@ -759,5 +760,5 @@ DEF_ISEL(FCMPE_DZ_FLOATCMP) = FCMPE_DZ;  // FCMPE  <Dn>, #0.0
 DEF_ISEL(FCMP_D_FLOATCMP) = FCMP_D;  // FCMP  <Dn>, <Dm>
 DEF_ISEL(FCMP_DZ_FLOATCMP) = FCMP_DZ;  // FCMP  <Dn>, #0.0
 
-DEF_ISEL(FMAX_S_FLOATDP2) = FMAX_S; // FMAX  <Sd>, <Sn>, <Sm>
-DEF_ISEL(FMAX_D_FLOATDP2) = FMAX_D; // FMAX  <Dd>, <Dn>, <Dm>
+DEF_ISEL(FMAX_S_FLOATDP2) = FMAX_S;  // FMAX  <Sd>, <Sn>, <Sm>
+DEF_ISEL(FMAX_D_FLOATDP2) = FMAX_D;  // FMAX  <Dd>, <Dn>, <Dm>

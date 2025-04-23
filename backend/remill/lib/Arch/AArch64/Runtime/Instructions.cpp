@@ -99,6 +99,9 @@ State __remill_state;
 #define INTERRUPT_VECTOR state.hyper_call_vector
 #define HYPER_CALL_VECTOR state.hyper_call_vector
 
+#define MAKE_ECV_NZCV(n, z, c, v) \
+  ((uint64_t(n) << 31) | (uint64_t(z) << 30) | (uint64_t(c) << 29) | (uint64_t(v) << 28))
+
 #define __remill_fpu_exception_test_and_clear_macro(state, read_mask, clear_mask) \
   ({ \
     auto except = state.ecv_fpsr & read_mask; \

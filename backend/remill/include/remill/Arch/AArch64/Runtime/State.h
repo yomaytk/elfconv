@@ -323,6 +323,7 @@ struct alignas(16) AArch64State : public ArchState {
   SleighFlagState sleigh_flags;  // 24 bytes.
 
   uint64_t ecv_nzcv;
+
   // FPSR register
   // IDC: Input Denormal
   // IXC: Inexact

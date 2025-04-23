@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include "Test.h"
 #include "remill/Arch/Arch.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
+#include "remill/BC/InstructionLifter.h"
 #include "remill/BC/IntrinsicTable.h"
 #include "remill/BC/Lifter.h"
 #include "remill/BC/Util.h"
 #include "remill/OS/OS.h"
+#include "tests/AArch64/Test.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -57,9 +58,22 @@ DEFINE_string(arch, REMILL_ARCH,
 
 namespace {
 
-class TestTraceManager : public remill::TraceManager {
+class DisasmFunc {
  public:
-  virtual ~TestTraceManager(void) = default;
+  DisasmFunc(std::string __func_name, uintptr_t __vma, uint64_t __func_size)
+      : func_name(__func_name),
+        vma(__vma),
+        func_size(__func_size) {}
+  DisasmFunc() {}
+
+  std::string func_name;
+  uintptr_t vma;
+  uint64_t func_size;
+};
+
+class AArch64TestTraceManager : public remill::TraceManager {
+ public:
+  virtual ~AArch64TestTraceManager(void) = default;
 
   void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) override {
     traces[addr] = lifted_func;
@@ -88,12 +102,59 @@ class TestTraceManager : public remill::TraceManager {
     }
   }
 
+  std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) override {
+    if (disasm_funcs.count(addr) == 1) {
+      return disasm_funcs[addr].func_name;
+    } else {
+      abort();
+    }
+  }
+
+  bool isFunctionEntry(uint64_t addr) override {
+    return disasm_funcs.count(addr) == 1;
+  }
+
+  std::string GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s) {
+    std::__throw_runtime_error(
+        "[ERROR] GetUniqueLiftedFuncName is not implemented in AArch64TestTraceManager.");
+  }
+
+  bool isWithinFunction(uint64_t trace_addr, uint64_t target_addr) override {
+    if (disasm_funcs.count(trace_addr) == 1) {
+      if (trace_addr <= target_addr &&
+          target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      abort();
+    }
+  }
+
+  uint64_t GetFuncVMA_E(uint64_t vma_s) override {
+    if (disasm_funcs.count(vma_s) == 1) {
+      return vma_s + disasm_funcs[vma_s].func_size;
+    } else {
+      abort();
+    }
+  }
+
+  uint64_t GetFuncNums() override {
+    return disasm_funcs.size();
+  }
+
  public:
   std::unordered_map<uint64_t, uint8_t> memory;
   std::unordered_map<uint64_t, llvm::Function *> traces;
+  std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
 };
 
 }  // namespace
+
+// (FIXME) seems to should make the init program for every CPU architecture.
+bool FLOAT_STATUS_ON;
+remill::ArchName remill::EcvReg::target_elf_arch;
 
 extern "C" int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -110,13 +171,18 @@ extern "C" int main(int argc, char *argv[]) {
     tests.push_back(&test);
   }
 
-  TestTraceManager manager;
+  AArch64TestTraceManager manager;
 
   // Add all code byts from the test cases to the memory.
   for (auto test : tests) {
     for (auto addr = test->test_begin; addr < test->test_end; ++addr) {
       manager.memory[addr] = *reinterpret_cast<uint8_t *>(addr);
     }
+    // Make all disasmbled functions.
+    std::stringstream ss;
+    ss << SYMBOL_PREFIX << test->test_name << "_lifted";
+    manager.disasm_funcs.emplace(test->test_begin, DisasmFunc(ss.str(), test->test_begin,
+                                                              test->test_end - test->test_begin));
   }
 
   llvm::LLVMContext context;
@@ -125,8 +191,16 @@ extern "C" int main(int argc, char *argv[]) {
   auto arch = remill::Arch::Build(&context, os_name, arch_name);
   auto module = remill::LoadArchSemantics(arch.get());
 
+  remill::LiftConfig lift_config = {.float_exception_enabled = false,
+                                    .test_mode = true,
+                                    .target_elf_arch = remill::kArchAArch64LittleEndian};
+  FLOAT_STATUS_ON = lift_config.float_exception_enabled;
+  remill::EcvReg::target_elf_arch = lift_config.target_elf_arch;
+
   remill::IntrinsicTable intrinsics(module.get());
-  remill::TraceLifter trace_lifter(arch.get(), manager);
+  remill::TraceLifter trace_lifter(arch.get(), manager, lift_config);
+  trace_lifter.impl->test_mode = true;
+  trace_lifter.impl->vrp_opt_mode = false;
 
   for (auto test : tests) {
     if (!trace_lifter.Lift(test->test_begin)) {

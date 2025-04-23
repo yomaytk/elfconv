@@ -15,6 +15,7 @@
  */
 
 // Disable the "loop not unrolled warnings"
+#include "remill/Arch/AArch64/Runtime/AArch64Definitions.h"
 #include "remill/Arch/AArch64/Runtime/Types.h"
 #include "remill/Arch/Runtime/Definitions.h"
 #include "remill/Arch/Runtime/Types.h"
@@ -103,10 +104,12 @@ DEF_SEM_U64(FMOV_VectorToUInt64, VIu64v2 src) {
   return val;
 }
 
-DEF_SEM_F64(FMOV_UInt64ToVector, R64 src) {
+DEF_SEM_U128V1(FMOV_UInt64ToVector, VIu64v2 dst_src, R64 src) {
   auto val = Read(src);
-  auto float_valp = (float64_t *) (&val);
-  return *float_valp;
+  _ecv_u64v2_t res = {};
+  res[0] = UReadVI64(dst_src)[0];
+  res[1] = val;
+  return *reinterpret_cast<_ecv_u128v1_t *>(&res);
 }
 }  // namespace
 
@@ -1343,7 +1346,7 @@ namespace {
     auto srcn_v = UReadVI8(srcn); \
     S res{}; \
     _Pragma("unroll") for (size_t i = 0; i < elem_num; i++) { \
-      res[i] = idx_v[i] < elem_num ? srcn_v[idx_v[i]] : 0; \
+      res[i] = idx_v[i] < 16 ? srcn_v[idx_v[i]] : 0; \
     } \
     return res; \
   }

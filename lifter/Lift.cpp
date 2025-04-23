@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "remill/BC/TraceLifter.h"
 #include "remill/BC/Util.h"
 
 #include <cstdint>
@@ -49,9 +50,11 @@ DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
 DEFINE_string(float_exception, "off", "Whether the floating-point exception status is set or not");
+DEFINE_string(test_mode, "off", "Whether the test mode is on or off");
 
-ArchName TARGET_ELF_ARCH;
-bool __FLOAT_STATUS_ON = false;
+// (FIXME) seems to should make the init program for every CPU architecture.
+bool FLOAT_STATUS_ON;
+ArchName remill::EcvReg::target_elf_arch;
 
 extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
   std::cout << remill::ECV_DEBUG_STREAM.str();
@@ -76,9 +79,6 @@ int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
-  // floating-point exception status setting
-  __FLOAT_STATUS_ON = FLAGS_float_exception == "on";
-
   AArch64TraceManager manager(FLAGS_target_elf);
   manager.SetELFData();
   manager.target_arch = FLAGS_target_arch;
@@ -86,9 +86,8 @@ int main(int argc, char *argv[]) {
   llvm::LLVMContext context;
   auto os_name = remill::GetOSName(REMILL_OS);
   auto arch_name = remill::GetArchName(FLAGS_arch);
-  TARGET_ELF_ARCH = arch_name;
-  auto arch =
-      remill::Arch::Build(&context, os_name, arch_name);  // arch = std::unique_ptr<AArch64Arch>
+  auto arch = remill::Arch::Build(&context, os_name,
+                                  arch_name);  // e.g., arch = std::unique_ptr<AArch64Arch>
   auto module = FLAGS_bitcode_path.empty()
                     ? remill::LoadArchSemantics(arch.get())
                     : remill::LoadArchSemantics(arch.get(), {FLAGS_bitcode_path.c_str()});
@@ -105,24 +104,30 @@ int main(int argc, char *argv[]) {
     module->setTargetTriple(wasm32_triple.str());
   }
 
+  // Set various lifting config.
+  LiftConfig lift_config = {.float_exception_enabled = FLAGS_float_exception == "on",
+                            .test_mode = FLAGS_test_mode == "on",
+                            .target_elf_arch = arch_name};
+  FLOAT_STATUS_ON = FLAGS_float_exception == "on";
+  remill::EcvReg::target_elf_arch = arch_name;
   remill::IntrinsicTable intrinsics(module.get());
-  MainLifter main_lifter(arch.get(), &manager);
+  MainLifter main_lifter(arch.get(), &manager, lift_config);
 
   // Set various common metadata not depending on whether the ELF binary is not stripped or not.
   // entry point, program header, every data sections, etc.
-  main_lifter.SetCommonMetaData();
+  main_lifter.SetCommonMetaData(lift_config);
 
   // Lift every function.
   std::unordered_map<uint64_t, const char *> addr_fun_name_map;
   for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
     addr_fun_name_map[addr] = dasm_func.func_name.c_str();
-    auto &noopt_fun_name = addr_fun_name_map[addr];
-    if (!main_lifter.Lift(dasm_func.vma, noopt_fun_name)) {
-      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", noopt_fun_name);
+    auto &lifted_fun_name = addr_fun_name_map[addr];
+    if (!main_lifter.Lift(dasm_func.vma, lifted_fun_name)) {
+      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", lifted_fun_name);
     }
     // Set function name
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
-    lifted_fn->setName(noopt_fun_name);
+    lifted_fn->setName(lifted_fun_name);
   }
 
   // Subsequence process of lifting.

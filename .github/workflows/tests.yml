@@ -15,7 +15,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-22.04-arm
     name: Build-and-Run
     steps:
     - name: Checkout

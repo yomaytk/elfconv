@@ -19,6 +19,7 @@
 #include "remill/Arch/Arch.h"
 #include "remill/BC/Lifter.h"
 
+#include <cstdint>
 #include <functional>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
@@ -52,8 +53,6 @@ class TraceManager {
   // The derived class is expected to do something useful with this.
   virtual void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
 
-  virtual void SetLiftedOptFuncTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
-
   // Get a declaration for a lifted trace. The idea here is that a derived
   // class might have additional global info available to them that lets
   // them declare traces ahead of time. In order to distinguish between
@@ -66,8 +65,6 @@ class TraceManager {
   //       lifted function form.
   virtual llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
 
-  virtual llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr) = 0;
-
   // Get a definition for a lifted trace.
   //
   // NOTE: This is permitted to return a function from an arbitrary module.
@@ -76,8 +73,6 @@ class TraceManager {
   //       type. The trace lifter only invokes this function when
   //       it is checking if some trace has already been lifted.
   virtual llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
-
-  virtual llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr) = 0;
 
   /* get lifted function name of the target address */
   virtual std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) = 0;
@@ -183,6 +178,12 @@ class BBBag {
   bool is_loop;
 };
 
+struct LiftConfig {
+  bool float_exception_enabled;
+  bool test_mode;
+  ArchName target_elf_arch;
+};
+
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
  public:
@@ -192,9 +193,10 @@ class TraceLifter {
  public:
   ~TraceLifter(void);
 
-  inline TraceLifter(const Arch *arch_, TraceManager &manager_) : TraceLifter(arch_, &manager_) {}
+  inline TraceLifter(const Arch *arch_, TraceManager &manager_, LiftConfig lift_config_)
+      : TraceLifter(arch_, &manager_, lift_config_) {}
 
-  TraceLifter(const Arch *arch_, TraceManager *manager_);
+  TraceLifter(const Arch *arch_, TraceManager *manager_, LiftConfig lift_config_);
 
   /* called derived class */
   TraceLifter(Impl *impl_) : impl(impl_) {}
@@ -278,7 +280,7 @@ class VirtualRegsOpt {
 
 class TraceLifter::Impl {
  public:
-  Impl(const Arch *arch_, TraceManager *manager_)
+  Impl(const Arch *arch_, TraceManager *manager_, LiftConfig lift_config_)
       : arch(arch_),
         intrinsics(arch->GetInstrinsicTable()),
         word_type(arch->AddressType()),
@@ -291,6 +293,7 @@ class TraceLifter::Impl {
         bb_reg_info_node(nullptr),
         // TODO(Ian): The trace lifter is not supporting contexts
         max_inst_bytes(arch->MaxInstructionSize(arch->CreateInitialContext())),
+        lift_config(lift_config_),
         runtime_manager_name("RuntimeManager"),
         indirectbr_block_name("L_indirectbr"),
         g_get_indirectbr_block_address_func_name("_ecv_get_indirectbr_block_address"),
@@ -320,16 +323,12 @@ class TraceLifter::Impl {
   //       within `module`.
   llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
 
-  llvm::Function *GetLiftedOptFuncTraceDeclaration(uint64_t addr);
-
   // Return an already lifted trace starting with the code at address
   // `addr`.
   //
   // NOTE: This is guaranteed to return either `nullptr`, or a function
   //       within `module`.
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
-
-  llvm::Function *GetLiftedOptFuncTraceDefinition(uint64_t addr);
 
   llvm::BasicBlock *GetOrCreateBlock(uint64_t block_pc);
 
@@ -396,7 +395,13 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
+  LiftConfig lift_config;
+
+  // In the latest implementation, we don't use this because we can apply VPR optimization to the almost Linux/ELF binary.
+  // Then, we occur the exception when we enter the process of the `not` VRP optimization, or comment out the relevant functions.
   bool vrp_opt_mode;
+
+  bool test_mode;
 
   std::set<llvm::Function *> opt_target_funcs;
   std::set<llvm::Function *> lifted_funcs;

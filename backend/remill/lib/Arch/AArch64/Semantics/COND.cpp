@@ -130,7 +130,7 @@ namespace {
       uint64_t flag_c = UCmpNeq(UAnd(nzcv_val, T(2)), T(0)); \
       uint64_t flag_z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0)); \
       uint64_t flag_n = UCmpNeq(UAnd(nzcv_val, T(8)), T(0)); \
-      return (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v; \
+      return MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v); \
     } \
   }
 
@@ -154,7 +154,7 @@ MAKE_CCMP(64)
       uint64_t flag_c = UCmpNeq(UAnd(nzcv_val, T(2)), T(0)); \
       uint64_t flag_z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0)); \
       uint64_t flag_n = UCmpNeq(UAnd(nzcv_val, T(8)), T(0)); \
-      return (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v; \
+      return MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v); \
     } \
   }
 

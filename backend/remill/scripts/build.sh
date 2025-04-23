@@ -420,7 +420,7 @@ function main
   mkdir -p "${BUILD_DIR}"
   cd "${BUILD_DIR}" || exit 1
 
-  if ! (DownloadLibraries && Configure && Build && Package ); then
+  if ! (DownloadLibraries && Configure && Build && Package); then
     echo "[x] Build aborted."
     exit 1
   fi
