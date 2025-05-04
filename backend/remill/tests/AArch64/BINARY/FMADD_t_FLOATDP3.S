@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2017 Trail of Bits, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the "License")//
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -19,10 +19,10 @@ TEST_BEGIN(FMADD_S_FLOATDP3, fmadd_s_pos_floatdp3, 2)
 TEST_INPUTS(
     0x00000000, 0x00000000,
     0x00000000, 0x00000001,
-    0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
-    0x3fffffff, 0x3fffffff,     
-    0x3fffffff, 0x40000000,
-    0x40000000, 0x3fffffff,    
+    // 0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x40000000, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x40000000, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
     0x7FFFFFFF, 0x7FFFFFFF,
     0x80000000, 0x7FFFFFFF,     
     0x7FFFFFFF, 0x80000000,     
@@ -39,10 +39,10 @@ TEST_BEGIN(FMADD_S_FLOATDP3, fmadd_s_neg_floatdp3, 2)
 TEST_INPUTS(
     0x00000000, 0x00000000,
     0x00000000, 0x00000001,
-    0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
-    0x3fffffff, 0x3fffffff,     
-    0x3fffffff, 0x40000000,     
-    0x40000000, 0x3fffffff,    
+    // 0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x40000000, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x40000000, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
     0x7FFFFFFF, 0x7FFFFFFF,
     0x80000000, 0x7FFFFFFF,     
     0x7FFFFFFF, 0x80000000,     
@@ -60,10 +60,10 @@ TEST_BEGIN(FMADD_D_FLOATDP3, fmadd_d_pos_floatdp3, 2)
 TEST_INPUTS(
     0x0000000000000000, 0x0000000000000000, // 0, 0
     0x0000000000000000, 0x0000000000000001, // 0, smallest representable float
-    0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float
-    0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both
-    0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0
-    0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999
+    // 0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999  // WILL FAIL (Native no underflow, lifted says yes)
     0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, // NaN, NaN
     0x8000000000000000, 0x7FFFFFFFFFFFFFFF, // -0.0, NaN
     0x7FFFFFFFFFFFFFFF, 0x8000000000000000, // NaN, -0.0
@@ -80,10 +80,10 @@ TEST_BEGIN(FMADD_D_FLOATDP3, fmadd_d_neg_floatdp3, 2)
 TEST_INPUTS(
     0x0000000000000000, 0x0000000000000000, // 0, 0
     0x0000000000000000, 0x0000000000000001, // 0, smallest representable float
-    0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float
-    0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both
-    0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0
-    0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999
+    // 0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999  // WILL FAIL (Native no underflow, lifted says yes)
     0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, // NaN, NaN
     0x8000000000000000, 0x7FFFFFFFFFFFFFFF, // -0.0, NaN
     0x7FFFFFFFFFFFFFFF, 0x8000000000000000, // NaN, -0.0

@@ -44,11 +44,18 @@ int main(void) {
   printf("str x2, [x28, #%lu]\n", offsetof(State, nzcv));
   printf("msr nzcv, x2\n");
 
+  // Sync `nzcv` between native and lifted for ecv_nzcv.
+  printf("str x2, [x28, #%lu]\n", offsetof(State, ecv_nzcv));
+  printf("msr nzcv, x2\n");
+
   // Floating point condition register.
   printf("ldr x1, [x28, #%lu]\n", offsetof(State, fpcr));
 
   // Floating point status register.
   printf("ldr x1, [x28, #%lu]\n", offsetof(State, fpsr));
+
+  // Floating point status register.
+  printf("ldr x1, [x28, #%lu]\n", offsetof(State, ecv_fpsr));
 
   // Extract the cumulative invalid operation flag from the SR into the FPSR.
   printf("ldrb w2, [x28, #%lu]\n", offsetof(State, sr.ioc));
@@ -81,44 +88,44 @@ int main(void) {
   // Secondary user space thread pointer register is read-only.
 
   // SIMD regs.
-  auto base = offsetof(State, simd.v[0].dqwords);
+  auto base = offsetof(State, simd.v[0]);
   printf("add x1, x28, #%lu\n", base);
 
-  printf("ldur q0, [x1, #%lu]\n", offsetof(State, simd.v[0].dqwords) - base);
-  printf("ldur q1, [x1, #%lu]\n", offsetof(State, simd.v[1].dqwords) - base);
-  printf("ldur q2, [x1, #%lu]\n", offsetof(State, simd.v[2].dqwords) - base);
-  printf("ldur q3, [x1, #%lu]\n", offsetof(State, simd.v[3].dqwords) - base);
-  printf("ldur q4, [x1, #%lu]\n", offsetof(State, simd.v[4].dqwords) - base);
-  printf("ldur q5, [x1, #%lu]\n", offsetof(State, simd.v[5].dqwords) - base);
-  printf("ldur q6, [x1, #%lu]\n", offsetof(State, simd.v[6].dqwords) - base);
-  printf("ldur q7, [x1, #%lu]\n", offsetof(State, simd.v[7].dqwords) - base);
-  printf("ldur q8, [x1, #%lu]\n", offsetof(State, simd.v[8].dqwords) - base);
-  printf("ldur q9, [x1, #%lu]\n", offsetof(State, simd.v[9].dqwords) - base);
-  printf("ldur q10, [x1, #%lu]\n", offsetof(State, simd.v[10].dqwords) - base);
-  printf("ldur q11, [x1, #%lu]\n", offsetof(State, simd.v[11].dqwords) - base);
-  printf("ldur q12, [x1, #%lu]\n", offsetof(State, simd.v[12].dqwords) - base);
-  printf("ldur q13, [x1, #%lu]\n", offsetof(State, simd.v[13].dqwords) - base);
-  printf("ldur q14, [x1, #%lu]\n", offsetof(State, simd.v[14].dqwords) - base);
-  printf("ldur q15, [x1, #%lu]\n", offsetof(State, simd.v[15].dqwords) - base);
+  printf("ldur q0, [x1, #%lu]\n", offsetof(State, simd.v[0]) - base);
+  printf("ldur q1, [x1, #%lu]\n", offsetof(State, simd.v[1]) - base);
+  printf("ldur q2, [x1, #%lu]\n", offsetof(State, simd.v[2]) - base);
+  printf("ldur q3, [x1, #%lu]\n", offsetof(State, simd.v[3]) - base);
+  printf("ldur q4, [x1, #%lu]\n", offsetof(State, simd.v[4]) - base);
+  printf("ldur q5, [x1, #%lu]\n", offsetof(State, simd.v[5]) - base);
+  printf("ldur q6, [x1, #%lu]\n", offsetof(State, simd.v[6]) - base);
+  printf("ldur q7, [x1, #%lu]\n", offsetof(State, simd.v[7]) - base);
+  printf("ldur q8, [x1, #%lu]\n", offsetof(State, simd.v[8]) - base);
+  printf("ldur q9, [x1, #%lu]\n", offsetof(State, simd.v[9]) - base);
+  printf("ldur q10, [x1, #%lu]\n", offsetof(State, simd.v[10]) - base);
+  printf("ldur q11, [x1, #%lu]\n", offsetof(State, simd.v[11]) - base);
+  printf("ldur q12, [x1, #%lu]\n", offsetof(State, simd.v[12]) - base);
+  printf("ldur q13, [x1, #%lu]\n", offsetof(State, simd.v[13]) - base);
+  printf("ldur q14, [x1, #%lu]\n", offsetof(State, simd.v[14]) - base);
+  printf("ldur q15, [x1, #%lu]\n", offsetof(State, simd.v[15]) - base);
 
-  base = offsetof(State, simd.v[16].dqwords);
+  base = offsetof(State, simd.v[16]);
   printf("add x1, x28, #%lu\n", base);
-  printf("ldur q16, [x1, #%lu]\n", offsetof(State, simd.v[16].dqwords) - base);
-  printf("ldur q17, [x1, #%lu]\n", offsetof(State, simd.v[17].dqwords) - base);
-  printf("ldur q18, [x1, #%lu]\n", offsetof(State, simd.v[18].dqwords) - base);
-  printf("ldur q19, [x1, #%lu]\n", offsetof(State, simd.v[19].dqwords) - base);
-  printf("ldur q20, [x1, #%lu]\n", offsetof(State, simd.v[20].dqwords) - base);
-  printf("ldur q21, [x1, #%lu]\n", offsetof(State, simd.v[21].dqwords) - base);
-  printf("ldur q22, [x1, #%lu]\n", offsetof(State, simd.v[22].dqwords) - base);
-  printf("ldur q23, [x1, #%lu]\n", offsetof(State, simd.v[23].dqwords) - base);
-  printf("ldur q24, [x1, #%lu]\n", offsetof(State, simd.v[24].dqwords) - base);
-  printf("ldur q25, [x1, #%lu]\n", offsetof(State, simd.v[25].dqwords) - base);
-  printf("ldur q26, [x1, #%lu]\n", offsetof(State, simd.v[26].dqwords) - base);
-  printf("ldur q27, [x1, #%lu]\n", offsetof(State, simd.v[27].dqwords) - base);
-  printf("ldur q28, [x1, #%lu]\n", offsetof(State, simd.v[28].dqwords) - base);
-  printf("ldur q29, [x1, #%lu]\n", offsetof(State, simd.v[29].dqwords) - base);
-  printf("ldur q30, [x1, #%lu]\n", offsetof(State, simd.v[30].dqwords) - base);
-  printf("ldur q31, [x1, #%lu]\n", offsetof(State, simd.v[31].dqwords) - base);
+  printf("ldur q16, [x1, #%lu]\n", offsetof(State, simd.v[16]) - base);
+  printf("ldur q17, [x1, #%lu]\n", offsetof(State, simd.v[17]) - base);
+  printf("ldur q18, [x1, #%lu]\n", offsetof(State, simd.v[18]) - base);
+  printf("ldur q19, [x1, #%lu]\n", offsetof(State, simd.v[19]) - base);
+  printf("ldur q20, [x1, #%lu]\n", offsetof(State, simd.v[20]) - base);
+  printf("ldur q21, [x1, #%lu]\n", offsetof(State, simd.v[21]) - base);
+  printf("ldur q22, [x1, #%lu]\n", offsetof(State, simd.v[22]) - base);
+  printf("ldur q23, [x1, #%lu]\n", offsetof(State, simd.v[23]) - base);
+  printf("ldur q24, [x1, #%lu]\n", offsetof(State, simd.v[24]) - base);
+  printf("ldur q25, [x1, #%lu]\n", offsetof(State, simd.v[25]) - base);
+  printf("ldur q26, [x1, #%lu]\n", offsetof(State, simd.v[26]) - base);
+  printf("ldur q27, [x1, #%lu]\n", offsetof(State, simd.v[27]) - base);
+  printf("ldur q28, [x1, #%lu]\n", offsetof(State, simd.v[28]) - base);
+  printf("ldur q29, [x1, #%lu]\n", offsetof(State, simd.v[29]) - base);
+  printf("ldur q30, [x1, #%lu]\n", offsetof(State, simd.v[30]) - base);
+  printf("ldur q31, [x1, #%lu]\n", offsetof(State, simd.v[31]) - base);
 
   // General purpose regs (except x28, which contains State *).
   printf("ldr x0, [x28, #%lu]\n", offsetof(State, gpr.x0));

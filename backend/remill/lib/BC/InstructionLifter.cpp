@@ -25,8 +25,6 @@
 #include <glog/logging.h>
 #include <type_traits>
 
-extern remill::ArchName TARGET_ELF_ARCH;
-
 namespace remill {
 
 namespace {
@@ -61,7 +59,7 @@ std::unordered_map<llvm::Value *, uint64_t> Sema_func_vma_map = {};
 
 // get ERC from the register name.
 std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
-  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+  if (kArchAArch64LittleEndian == target_elf_arch) {
     auto c0 = _reg_name[0];
     auto c1 = _reg_name[1];
     // vector type register (e.g. 16B8, 4S20, 2DF30)
@@ -117,11 +115,13 @@ std::pair<EcvReg, ERC> EcvReg::GetRegInfo(const std::string &_reg_name) {
         return std::make_pair(EcvReg(RegKind::Special, WZR_ORDER), ERC::RegW);
       } else if ("XZR" == _reg_name) {
         return std::make_pair(EcvReg(RegKind::Special, XZR_ORDER), ERC::RegX);
+      } else if ("WSP" == _reg_name) {
+        return std::make_pair(EcvReg(RegKind::Special, WSP_ORDER), ERC::RegW);
       }
     }
 
     LOG(FATAL) << "Unexpected register name at GetRegInfo. reg_name: " << _reg_name;
-  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+  } else if (kArchAMD64 == target_elf_arch) {
     if ("RAX" == _reg_name) {
       return {EcvReg(RegKind::General, 0), ERC::RegX};
     } else if ("EAX" == _reg_name) {
@@ -217,7 +217,7 @@ static std::unordered_map<std::pair<uint32_t, ERC>, std::string, amd64_er_hash1>
         {{15, ERC::RegX}, "R15"}};
 
 std::string EcvReg::GetWideRegName() const {
-  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+  if (kArchAArch64LittleEndian == target_elf_arch) {
     if (number <= 31) {
       std::string reg_name;
       switch (reg_kind) {
@@ -253,7 +253,7 @@ std::string EcvReg::GetWideRegName() const {
     } else {
       LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetWideRegName.";
     }
-  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+  } else if (kArchAMD64 == target_elf_arch) {
     if (0 == number) {
       return "RAX";
     } else if (1 == number) {
@@ -298,7 +298,7 @@ std::string EcvReg::GetWideRegName() const {
 }
 
 std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
-  if (kArchAArch64LittleEndian == TARGET_ELF_ARCH) {
+  if (kArchAArch64LittleEndian == target_elf_arch) {
     // General or Vector register.
     if (number <= 31) {
       auto reg_name = AArch64EcvRegClassRegNameMap[ecv_reg_class];
@@ -331,7 +331,7 @@ std::string EcvReg::GetRegName(ERC ecv_reg_class) const {
     }
 
     LOG(FATAL) << "[Bug]: Reach the unreachable code at EcvReg::GetRegName.";
-  } else if (kArchAMD64 == TARGET_ELF_ARCH) {
+  } else if (kArchAMD64 == target_elf_arch) {
     if (0 == number) {
       switch (ecv_reg_class) {
         case ERC::RegW: return "EAX"; break;

@@ -15,6 +15,7 @@
  */
 
 #include "FLAGS.h"
+#include "remill/Arch/AArch64/Runtime/AArch64Definitions.h"
 #include "remill/Arch/AArch64/Runtime/Operators.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
 #include "remill/Arch/AArch64/Runtime/Types.h"
@@ -484,13 +485,13 @@ DEF_ISEL(STXR_SR64_LDSTEXCL) = STXR<R64, M64W>;  // STXR  <Ws>, <Xt>, [<Xn|SP>{,
 
 namespace {
 
-template <typename S, typename InterType>  // e.g. LoadSExt<M8, int32_t>
+template <typename S, typename InterType>  // e.g. LoadSExt32<M8, int32_t>
 DEF_SEM_U32_RUN(LoadSExt32, S src_mem) {
   return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(src_mem)));
 }
 
-template <typename S, typename InterType>  // e.g. LoadSExt<M8, int32_t>
-DEF_SEM_U64_RUN(LoadSExt, S src_mem) {
+template <typename S, typename InterType>  // e.g. LoadSExt64<M8, int32_t>
+DEF_SEM_U64_RUN(LoadSExt64, S src_mem) {
   return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(src_mem)));
 }
 
@@ -516,13 +517,13 @@ DEF_SEM_U64_RUN(LoadSExtFromOffset64, M base, ADDR offset) {
 
 }  // namespace
 
-DEF_ISEL(LDURSB_32_LDST_UNSCALED) = LoadSExt<M8, int32_t>;  // LDURSB  <Wt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDURSH_32_LDST_UNSCALED) = LoadSExt<M16, int32_t>;  // LDURSH  <Wt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDURSH_64_LDST_UNSCALED) = LoadSExt<M16, int64_t>;  // LDURSH  <Xt>, [<Xn|SP>{, #<simm>}]
-DEF_ISEL(LDURSW_64_LDST_UNSCALED) = LoadSExt<M32, int64_t>;  // LDURSW  <Xt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURSB_32_LDST_UNSCALED) = LoadSExt32<M8, int32_t>;  // LDURSB  <Wt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURSH_32_LDST_UNSCALED) = LoadSExt32<M16, int32_t>;  // LDURSH  <Wt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURSH_64_LDST_UNSCALED) = LoadSExt64<M16, int64_t>;  // LDURSH  <Xt>, [<Xn|SP>{, #<simm>}]
+DEF_ISEL(LDURSW_64_LDST_UNSCALED) = LoadSExt64<M32, int64_t>;  // LDURSW  <Xt>, [<Xn|SP>{, #<simm>}]
 
-DEF_ISEL(LDRSB_32_LDST_POS) = LoadSExt<M8, int32_t>;  // LDRSB  <Wt>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(LDRSB_64_LDST_POS) = LoadSExt<M8, int64_t>;  // LDRSB  <Xt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRSB_32_LDST_POS) = LoadSExt32<M8, int32_t>;  // LDRSB  <Wt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRSB_64_LDST_POS) = LoadSExt64<M8, int64_t>;  // LDRSB  <Xt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDRSB_32_LDST_IMMPOST) =
     LoadSExtUpdateIndex32<M8, int32_t>;  // LDRSB  <Wt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDRSB_64_LDST_IMMPOST) =
@@ -540,8 +541,8 @@ DEF_ISEL(LDRSB_64B_LDST_REGOFF) =
 DEF_ISEL(LDRSB_64BL_LDST_REGOFF) =
     LoadSExtFromOffset64<M8, int64_t>;  // LDRSB  <Xt>, [<Xn|SP>, <Xm>{, LSL <amount>}]
 
-DEF_ISEL(LDRSH_32_LDST_POS) = LoadSExt<M16, int32_t>;  // LDRH  <Wt>, [<Xn|SP>{, #<pimm>}]
-DEF_ISEL(LDRSH_64_LDST_POS) = LoadSExt<M16, int64_t>;  // LDRSH  <Xt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRSH_32_LDST_POS) = LoadSExt32<M16, int32_t>;  // LDRSH  <Wt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRSH_64_LDST_POS) = LoadSExt64<M16, int64_t>;  // LDRSH  <Xt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDRSH_32_LDST_IMMPOST) =
     LoadSExtUpdateIndex32<M16, int32_t>;  // LDRH  <Wt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDRSH_64_LDST_IMMPOST) =
@@ -555,14 +556,14 @@ DEF_ISEL(LDRSH_32_LDST_REGOFF) = LoadSExtFromOffset32<
 DEF_ISEL(LDRSH_64_LDST_REGOFF) = LoadSExtFromOffset64<
     M16, int64_t>;  // LDRSH  <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
 
-DEF_ISEL(LDRSW_64_LDST_POS) = LoadSExt<M32, int64_t>;  // LDRSW  <Xt>, [<Xn|SP>{, #<pimm>}]
+DEF_ISEL(LDRSW_64_LDST_POS) = LoadSExt64<M32, int64_t>;  // LDRSW  <Xt>, [<Xn|SP>{, #<pimm>}]
 DEF_ISEL(LDRSW_64_LDST_IMMPOST) =
     LoadSExtUpdateIndex64<M32, int64_t>;  // LDRSW  <Xt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDRSW_64_LDST_IMMPRE) =
     LoadSExtUpdateIndex64<M32, int64_t>;  // LDRSW  <Xt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDRSW_64_LDST_REGOFF) = LoadSExtFromOffset64<
     M32, int64_t>;  // LDRSW  <Xt>, [<Xn|SP>, (<Wm>|<Xm>){, <extend> {<amount>}}]
-DEF_ISEL(LDRSW_64_LOADLIT) = LoadSExt<M32, int64_t>;  // LDRSW  <Xt>, <label>
+DEF_ISEL(LDRSW_64_LOADLIT) = LoadSExt64<M32, int64_t>;  // LDRSW  <Xt>, <label>
 
 namespace {
 
@@ -676,15 +677,13 @@ DEF_SEM_U128V1_RUN(LDR_Q, MVI128 src_mem) {
   return UReadMVI128(src_mem);
 }
 
-// DEF_SEM(LDR_B_UpdateIndex, VI128 dst, MVI8 src, ADDR next_addr) {
-//   UWriteVI8(dst, UReadVI8(src));
-//   Write(dst_reg, Read(next_addr));
-// }
+DEF_SEM_U8_RUN(LDR_B_UpdateIndex, MVI8 src_mem) {
+  return UReadMVI8(src_mem)[0];
+}
 
-// DEF_SEM(LDR_H_UpdateIndex, VI128 dst, MVI16 src, ADDR next_addr) {
-//   UWriteVI16(dst, UReadVI16(src));
-//   Write(dst_reg, Read(next_addr));
-// }
+DEF_SEM_U16_RUN(LDR_H_UpdateIndex, MVI16 src_mem) {
+  return UReadMVI16(src_mem)[0];
+}
 
 DEF_SEM_F32_RUN(LDR_S_UpdateIndex, MVI32 src_mem) {
   return FReadMVI32(src_mem)[0];
@@ -702,9 +701,9 @@ DEF_SEM_U8_RUN(LDR_B_FromOffset, MVI8 src, ADDR offset) {
   return UReadMVI8(DisplaceAddress(src, Read(offset)))[0];
 }
 
-// DEF_SEM(LDR_H_FromOffset, VI128 dst, MVI16 src, ADDR offset) {
-//   UWriteVI16(dst, UReadVI16(DisplaceAddress(src, Read(offset))));
-// }
+DEF_SEM_U16_RUN(LDR_H_FromOffset, MVI16 src_mem, ADDR offset) {
+  return UReadMVI16(DisplaceAddress(src_mem, Read(offset)))[0];
+}
 
 DEF_SEM_F32_RUN(LDR_S_FromOffset, MVI32 src_mem, ADDR offset) {
   return FReadMVI32(DisplaceAddress(src_mem, Read(offset)))[0];
@@ -736,14 +735,14 @@ DEF_ISEL(LDR_S_LOADLIT) = LDR_S;  // LDR  <St>, <label>
 DEF_ISEL(LDR_D_LOADLIT) = LDR_D;  // LDR  <Dt>, <label>
 DEF_ISEL(LDR_Q_LOADLIT) = LDR_Q;  // LDR  <Qt>, <label>
 
-// DEF_ISEL(LDR_B_LDST_IMMPRE) = LDR_B_UpdateIndex;  // LDR  <Bt>, [<Xn|SP>, #<simm>]!
-// DEF_ISEL(LDR_H_LDST_IMMPRE) = LDR_H_UpdateIndex;  // LDR  <Ht>, [<Xn|SP>, #<simm>]!
+DEF_ISEL(LDR_B_LDST_IMMPRE) = LDR_B_UpdateIndex;  // LDR  <Bt>, [<Xn|SP>, #<simm>]!
+DEF_ISEL(LDR_H_LDST_IMMPRE) = LDR_H_UpdateIndex;  // LDR  <Ht>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDR_S_LDST_IMMPRE) = LDR_S_UpdateIndex;  // LDR  <St>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDR_D_LDST_IMMPRE) = LDR_D_UpdateIndex;  // LDR  <Dt>, [<Xn|SP>, #<simm>]!
 DEF_ISEL(LDR_Q_LDST_IMMPRE) = LDR_Q_UpdateIndex;  // LDR  <Qt>, [<Xn|SP>, #<simm>]!
 
-// DEF_ISEL(LDR_B_LDST_IMMPOST) = LDR_B_UpdateIndex;  // LDR  <Bt>, [<Xn|SP>], #<simm>
-// DEF_ISEL(LDR_H_LDST_IMMPOST) = LDR_H_UpdateIndex;  // LDR  <Ht>, [<Xn|SP>], #<simm>
+DEF_ISEL(LDR_B_LDST_IMMPOST) = LDR_B_UpdateIndex;  // LDR  <Bt>, [<Xn|SP>], #<simm>
+DEF_ISEL(LDR_H_LDST_IMMPOST) = LDR_H_UpdateIndex;  // LDR  <Ht>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_S_LDST_IMMPOST) = LDR_S_UpdateIndex;  // LDR  <St>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_D_LDST_IMMPOST) = LDR_D_UpdateIndex;  // LDR  <Dt>, [<Xn|SP>], #<simm>
 DEF_ISEL(LDR_Q_LDST_IMMPOST) = LDR_Q_UpdateIndex;  // LDR  <Qt>, [<Xn|SP>], #<simm>
@@ -752,8 +751,8 @@ DEF_ISEL(LDR_B_LDST_REGOFF) =
     LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 DEF_ISEL(LDR_BL_LDST_REGOFF) =
     LDR_B_FromOffset;  // LDR  <Bt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
-// DEF_ISEL(LDR_H_LDST_REGOFF) =
-//     LDR_H_FromOffset;  // LDR  <Ht>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
+DEF_ISEL(LDR_H_LDST_REGOFF) =
+    LDR_H_FromOffset;  // LDR  <Ht>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 DEF_ISEL(LDR_S_LDST_REGOFF) =
     LDR_S_FromOffset;  // LDR  <St>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}]
 DEF_ISEL(LDR_D_LDST_REGOFF) =

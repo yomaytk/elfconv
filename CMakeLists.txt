@@ -25,8 +25,5 @@ add_subdirectory(backend/remill)
 # lifter build
 add_subdirectory(lifter)
 
-# tests
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-  add_subdirectory(tests/aarch64)
-endif()
+# elfconv integration tests
 add_subdirectory(tests/elfconv)

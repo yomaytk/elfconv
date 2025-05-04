@@ -61,6 +61,8 @@ message(STATUS "LLVM Libraries: ${llvm_libs}")
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
+include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})
+
 string(REPLACE "." ";" LLVM_VERSION_LIST ${LLVM_PACKAGE_VERSION})
 list(GET LLVM_VERSION_LIST 0 LLVM_MAJOR_VERSION)
 list(GET LLVM_VERSION_LIST 1 LLVM_MINOR_VERSION)
@@ -292,12 +294,14 @@ target_link_libraries(remill INTERFACE
 # add semantics target
 add_custom_target(semantics)
 
-# tests (no tests now)
-if(REMILL_ENABLE_TESTING)
+# # tests (no tests now)
+# if(REMILL_ENABLE_TESTING)
   # Tests require enabling exports on binaries
   # https://cmake.org/cmake/help/latest/variable/CMAKE_ENABLE_EXPORTS.html#variable:CMAKE_ENABLE_EXPORTS
   set(CMAKE_ENABLE_EXPORTS ON)
 
   find_package(Threads REQUIRED)
   add_custom_target(test_dependencies)
-endif()
+
+  add_subdirectory(tests/AArch64)
+# endif()

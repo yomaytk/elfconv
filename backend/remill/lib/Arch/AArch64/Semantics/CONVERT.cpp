@@ -32,7 +32,8 @@ namespace {
 
 template <typename S, typename D>
 ALWAYS_INLINE static D CheckedCastFPSRStatus(State &state, S src) {
-  return CheckedFloatUnaryOp(state, [](S v) { return static_cast<D>(v); }, src);
+  return CheckedFloatUnaryOp(
+      state, [](S v) { return static_cast<D>(v); }, src);
 }
 
 template <typename S, typename D>
@@ -97,6 +98,15 @@ DEF_SEM_T_STATE(UCVTF_Uint64ToFloat64_FROMV_FPSRStatus, VIu64v2 src) {
     auto srcn_v = UReadVI##elem_size(srcn); \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcn); i++) { \
       res[i] = CheckedCast<uint##elem_size##_t, float##elem_size##_t>(state, srcn_v[i]); \
+    } \
+    return res; \
+  } \
+  template <typename S> \
+  DEF_SEM_T_STATE(UCVTF_Vector_FPSRStatus_##elem_size, S srcn) { \
+    S res{}; \
+    auto srcn_v = UReadVI##elem_size(srcn); \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcn); i++) { \
+      res[i] = CheckedCastFPSRStatus<uint##elem_size##_t, float##elem_size##_t>(state, srcn_v[i]); \
     } \
     return res; \
   }
@@ -223,6 +233,13 @@ DEF_ISEL(UCVTF_ASISDMISC_R_64_FPSRSTATUS) =
 DEF_ISEL(UCVTF_ASIMDMISC_R_2S) = UCVTF_Vector_32<VIu32v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
 DEF_ISEL(UCVTF_ASIMDMISC_R_4S) = UCVTF_Vector_32<VIu32v4>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
 DEF_ISEL(UCVTF_ASIMDMISC_R_2D) = UCVTF_Vector_64<VIu64v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
+// FPSR
+DEF_ISEL(UCVTF_ASIMDMISC_R_2S_FPSRSTATUS) =
+    UCVTF_Vector_FPSRStatus_32<VIu32v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(UCVTF_ASIMDMISC_R_4S_FPSRSTATUS) =
+    UCVTF_Vector_FPSRStatus_32<VIu32v4>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(UCVTF_ASIMDMISC_R_2D_FPSRSTATUS) =
+    UCVTF_Vector_FPSRStatus_64<VIu64v2>;  // UCVTF  <Vd>.<T>, <Vn>.<T>
 
 DEF_ISEL(FCVTZU_64S_FLOAT2INT) =
     FCVTZU_FloatToUInt<RF32, float32_t, uint64_t>;  // FCVTZU  <Xd>, <Sn>

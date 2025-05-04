@@ -53,7 +53,7 @@ DEF_SEM_U32U64(BICS_32, R32 src1, I32 src2) {
   flag_z = ZeroFlag(res, src1, src2);
   flag_c = false;
   flag_v = false;
-  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  uint64_t nzcv = MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v);
   return {res, nzcv};
 }
 
@@ -64,7 +64,7 @@ DEF_SEM_U64U64(BICS_64, R64 src1, I64 src2) {
   flag_z = ZeroFlag(res, src1, src2);
   flag_c = false;
   flag_v = false;
-  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  uint64_t nzcv = MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v);
   return {res, nzcv};
 }
 
@@ -107,7 +107,7 @@ DEF_SEM_U32U64(ANDS_32, R32 src1, I32 src2) {
   flag_z = ZeroFlag(res, src1, src2);
   flag_c = false;
   flag_v = false;
-  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  uint64_t nzcv = MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v);
   return {res, nzcv};
 }
 
@@ -118,7 +118,7 @@ DEF_SEM_U64U64(ANDS_64, R64 src1, I64 src2) {
   flag_z = ZeroFlag(res, src1, src2);
   flag_c = false;
   flag_v = false;
-  uint64_t nzcv = (flag_n << 3) | (flag_z << 2) | (flag_c << 1) | flag_v;
+  uint64_t nzcv = MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v);
   return {res, nzcv};
 }
 

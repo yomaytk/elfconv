@@ -11,8 +11,8 @@ class MainLifter : public TraceLifter {
  protected:
   class WrapImpl : public TraceLifter::Impl {
    public:
-    WrapImpl(const Arch *__arch, TraceManager *__manager)
-        : TraceLifter::Impl(__arch, __manager),
+    WrapImpl(const Arch *arch_, TraceManager *manager_, LiftConfig lift_config_)
+        : TraceLifter::Impl(arch_, manager_, lift_config_),
           /* these symbols are declared or defined in the lifted LLVM bitcode */
           ecv_entry_func_name("_ecv_entry_func"),
           ecv_entry_pc_name("_ecv_entry_pc"),
@@ -102,7 +102,7 @@ class MainLifter : public TraceLifter {
                              std::vector<llvm::Constant *> &block_address_fn_vma_array);
 
     // If the ELF is stripped, we set opt mode on. Otherwise, we set it off.
-    void SetOptMode(bool able_vrp_opt);
+    void SetOptMode(bool able_vrp_opt, bool test_mode);
 
     //  Global variable array definition helper function
     llvm::GlobalVariable *SetGblArrayIr(
@@ -137,8 +137,9 @@ class MainLifter : public TraceLifter {
   };
 
  public:
-  inline MainLifter(const Arch *arch_, TraceManager *manager_)
-      : TraceLifter(static_cast<TraceLifter::Impl *>(new WrapImpl(arch_, manager_))) {}
+  inline MainLifter(const Arch *arch_, TraceManager *manager_, LiftConfig lift_config_)
+      : TraceLifter(static_cast<TraceLifter::Impl *>(new WrapImpl(arch_, manager_, lift_config_))) {
+  }
 
   //  Called derived class
   MainLifter(WrapImpl *__wrap_impl) : TraceLifter(static_cast<TraceLifter::Impl *>(__wrap_impl)) {}
@@ -157,7 +158,7 @@ class MainLifter : public TraceLifter {
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
-  void SetOptMode(bool able_vrp_opt);
+  void SetOptMode(bool able_vrp_opt, bool test_mode);
   virtual void DeclareHelperFunction();
 
   void Optimize();
@@ -166,7 +167,7 @@ class MainLifter : public TraceLifter {
   void SetNoOptVmaBBLists(bool able_vrp_opt);
 
   // Set common metadata of the ELF whether it is stripped or not.
-  void SetCommonMetaData();
+  void SetCommonMetaData(LiftConfig lift_config);
 
   void SubseqOfLifting(std::unordered_map<uint64_t, const char *> &addr_opt_fun_name_map);
   void SubseqForNoOptLifting(std::unordered_map<uint64_t, const char *> &addr_noopt_fun_name_map);

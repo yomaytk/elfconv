@@ -56,7 +56,7 @@ DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_FPCR) {
   return fpcr.flat;
 }
 
-DEF_SEM_VOID_STATE_RUN(DoMSR_SR_SYSTEM_FPCR, R64 src) {
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_FPCR, R64 src) {
   FPCR fpcr;
   WriteZExt(fpcr.flat, Read(src));
   fpcr._res0 = 0;

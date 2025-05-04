@@ -285,6 +285,14 @@ function GetLLVMVersion
   esac
 }
 
+# make remill/generated directory.
+function TestSetup
+{
+  ${REMILL_DIR}/scripts/aarch64/print_save_state_asm.sh
+
+  return $?
+}
+
 function Help
 {
   echo "Beginner build script to get started"
@@ -393,7 +401,7 @@ function main
   mkdir -p "${BUILD_DIR}"
   cd "${BUILD_DIR}" || exit 1
 
-  if ! (DownloadLibraries && Configure && Build); then
+  if ! (DownloadLibraries && TestSetup && Configure && Build); then
     echo "[x] Build aborted."
     exit 1
   fi

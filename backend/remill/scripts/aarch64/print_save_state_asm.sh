@@ -29,7 +29,7 @@ ${CXX} \
     -Wno-nested-anon-types -Wno-variadic-macros -Wno-extended-offsetof \
     -Wno-invalid-offsetof \
     -Wno-return-type-c-linkage \
-    -I${DIR} \
+    -I"${DIR}/include" \
     -DADDRESS_SIZE_BITS=64 \
     $DIR/tests/AArch64/PrintSaveState.cpp
 
@@ -41,7 +41,7 @@ ${CXX} \
     -Wno-nested-anon-types -Wno-variadic-macros -Wno-extended-offsetof \
     -Wno-invalid-offsetof \
     -Wno-return-type-c-linkage \
-    -I${DIR} \
+    -I"${DIR}/include" \
     -DADDRESS_SIZE_BITS=64 \
     $DIR/tests/AArch64/PrintRestoreState.cpp
 

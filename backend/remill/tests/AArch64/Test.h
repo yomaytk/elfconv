@@ -17,11 +17,15 @@
 #pragma once
 
 struct State;
-struct Memory;
 
 namespace test {
 
-enum : size_t { kPageSize = 4096, kMaxInstrLen = 4 };
+typedef unsigned long addr_t;
+typedef unsigned long size_t;
+typedef unsigned long uintptr_t;
+typedef unsigned long uint64_t;
+
+enum : unsigned long { kPageSize = 4096, kMaxInstrLen = 4 };
 
 struct alignas(128) TestInfo {
   const uintptr_t test_begin;

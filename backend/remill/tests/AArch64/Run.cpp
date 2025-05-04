@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
-#define _XOPEN_SOURCE
-
+// clang-format off
+#include <glog/logging.h>
+#include <gtest/gtest.h>
+// clang-format on
 #include "Test.h"
 #include "remill/Arch/AArch64/Runtime/State.h"
+#include "remill/Arch/Name.h"
+#include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/Runtime/Runtime.h"
+#include "remill/BC/InstructionLifter.h"
 
 #include <cfenv>
 #include <cmath>
@@ -27,8 +32,6 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <gtest/gtest.h>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -113,42 +116,42 @@ uint64_t gStackSaveSlots[2] = {0, 0};
 extern void InvokeTestCase(uint64_t, uint64_t, uint64_t);
 
 #define MAKE_RW_MEMORY(size) \
-  NEVER_INLINE uint##size##_t __remill_read_memory_##size(Memory *, addr_t addr) { \
+  NEVER_INLINE uint##size##_t __remill_read_memory_##size(RuntimeManager *, addr_t addr) { \
     return AccessMemory<uint##size##_t>(addr); \
   } \
-  NEVER_INLINE Memory *__remill_write_memory_##size(Memory *, addr_t addr, \
-                                                    const uint##size##_t in) { \
+  NEVER_INLINE void __remill_write_memory_##size(RuntimeManager *, addr_t addr, \
+                                                 const uint##size##_t in) { \
     AccessMemory<uint##size##_t>(addr) = in; \
-    return nullptr; \
   }
 
 #define MAKE_RW_FP_MEMORY(size) \
-  NEVER_INLINE float##size##_t __remill_read_memory_f##size(Memory *, addr_t addr) { \
+  NEVER_INLINE float##size##_t __remill_read_memory_f##size(RuntimeManager *, addr_t addr) { \
     return AccessMemory<float##size##_t>(addr); \
   } \
-  NEVER_INLINE Memory *__remill_write_memory_f##size(Memory *, addr_t addr, float##size##_t in) { \
+  NEVER_INLINE void __remill_write_memory_f##size(RuntimeManager *, addr_t addr, \
+                                                  float##size##_t in) { \
     AccessMemory<float##size##_t>(addr) = in; \
-    return nullptr; \
   }
 
 MAKE_RW_MEMORY(8)
 MAKE_RW_MEMORY(16)
 MAKE_RW_MEMORY(32)
 MAKE_RW_MEMORY(64)
+MAKE_RW_MEMORY(128)
 
 MAKE_RW_FP_MEMORY(32)
 MAKE_RW_FP_MEMORY(64)
 MAKE_RW_FP_MEMORY(128)
 
-NEVER_INLINE Memory *__remill_read_memory_f80(Memory *, addr_t addr, native_float80_t &out) {
-  out = AccessMemory<native_float80_t>(addr);
-  return nullptr;
-}
+// NEVER_INLINE Memory *__remill_read_memory_f80(Memory *, addr_t addr, native_float80_t &out) {
+//   out = AccessMemory<native_float80_t>(addr);
+//   return nullptr;
+// }
 
-NEVER_INLINE Memory *__remill_write_memory_f80(Memory *, addr_t addr, const native_float80_t &in) {
-  AccessMemory<native_float80_t>(addr) = in;
-  return nullptr;
-}
+// NEVER_INLINE Memory *__remill_write_memory_f80(Memory *, addr_t addr, const native_float80_t &in) {
+//   AccessMemory<native_float80_t>(addr) = in;
+//   return nullptr;
+// }
 
 Memory *__remill_compare_exchange_memory_8(Memory *memory, addr_t addr, uint8_t &expected,
                                            uint8_t desired) {
@@ -216,24 +219,12 @@ int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
   return except;
 }
 
-Memory *__remill_barrier_load_load(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_load_store(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_load(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_store(Memory *) {
-  return nullptr;
-}
-Memory *__remill_atomic_begin(Memory *) {
-  return nullptr;
-}
-Memory *__remill_atomic_end(Memory *) {
-  return nullptr;
-}
+void __remill_barrier_load_load(RuntimeManager *) {}
+void __remill_barrier_load_store(RuntimeManager *) {}
+void __remill_barrier_store_load(RuntimeManager *) {}
+void __remill_barrier_store_store(RuntimeManager *) {}
+void __remill_atomic_begin(RuntimeManager *) {}
+void __remill_atomic_end(RuntimeManager *) {}
 
 Memory *__remill_delay_slot_begin(Memory *) {
   return nullptr;
@@ -244,13 +235,11 @@ Memory *__remill_delay_slot_end(Memory *) {
 
 void __remill_defer_inlining(void) {}
 
-Memory *__remill_error(State &, addr_t, Memory *) {
+void __remill_error(State &, addr_t, RuntimeManager *) {
   siglongjmp(gJmpBuf, 0);
 }
 
-Memory *__remill_missing_block(State &, addr_t, Memory *memory) {
-  return memory;
-}
+void __remill_missing_block(State &, addr_t, RuntimeManager *) {}
 
 // Read/write to I/O ports.
 uint8_t __remill_read_io_port_8(Memory *, addr_t) {
@@ -277,19 +266,24 @@ Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
   abort();
 }
 
-Memory *__remill_function_call(State &, addr_t, Memory *) {
+void __remill_function_call(State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-Memory *__remill_function_return(State &, addr_t, Memory *) {
+void __remill_function_return(State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-Memory *__remill_jump(State &, addr_t, Memory *) {
+void __remill_jump(State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-Memory *__remill_async_hyper_call(State &, addr_t, Memory *) {
+void __remill_async_hyper_call(State &, addr_t, RuntimeManager *) {
+  abort();
+}
+
+void __remill_syscall_tranpoline_call(State &state, RuntimeManager *) {
+  printf("[ERROR] syscall_tranpoline_call is undefined.\n");
   abort();
 }
 
@@ -319,16 +313,16 @@ float64_t __remill_undefined_f64(void) {
 
 #if 1
 float64_t __remill_undefined_f80(void) {
-  return {0};
+  return 0;
 }
 #else
 float80_t __remill_undefined_f80(void) {
-  return {0};
+  return 0;
 }
 #endif
 
 float128_t __remill_undefined_f128(void) {
-  return {0};
+  return 0;
 }
 
 
@@ -461,7 +455,7 @@ Memory *__remill_amd64_set_control_reg_8(Memory *) {
   abort();
 }
 
-Memory *__remill_aarch64_emulate_instruction(Memory *) {
+void __remill_aarch64_emulate_instruction(RuntimeManager *) {
   abort();
 }
 
@@ -570,10 +564,8 @@ void __remill_mark_as_used(void *mem) {
 
 }  // extern C
 
-typedef Memory *(LiftedFunc) (State &, addr_t, Memory *);
-
 // Mapping of test name to translated function.
-static std::map<uint64_t, LiftedFunc *> gTranslatedFuncs;
+static std::map<uint64_t, LiftedFunc> gTranslatedFuncs;
 
 static std::vector<const test::TestInfo *> gTests;
 }  // namespace
@@ -589,6 +581,10 @@ template <typename T>
 inline static bool operator!=(const T &a, const T &b) {
   return !!memcmp(&a, &b, sizeof(a));
 }
+
+bool FLOAT_STATUS_ON;
+remill::ArchName remill::EcvReg::target_elf_arch = kArchAArch64LittleEndian;
+extern "C" const uint8_t *memory_arena_ptr = nullptr;
 
 static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string desc, uint64_t arg1,
                          uint64_t arg2, uint64_t arg3) {
@@ -639,13 +635,15 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
   if (!sigsetjmp(gJmpBuf, true)) {
     std::fesetenv(FE_DFL_ENV);
     gInNativeTest = false;
-    (void) lifted_func(*lifted_state, lifted_state->gpr.pc.aword, nullptr);
+    (void) lifted_func(lifted_state, lifted_state->gpr.pc.aword, nullptr);
   } else {
     EXPECT_TRUE(native_test_faulted);
   }
 
   // The native test doesn't update
-  native_state->gpr.pc.qword = info->test_end;
+  // elfconv skip the update of program counter.
+  native_state->gpr.pc.qword = info->test_begin;
+  lifted_state->gpr.pc.qword = info->test_begin;
 
   // Used in the test cases to hold the `State *`.
   lifted_state->gpr.x28.qword = 0;
@@ -670,6 +668,29 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
   lifted_state->fpcr.flat = 0;
   native_state->fpsr.flat = 0;
   lifted_state->fpsr.flat = 0;
+  native_state->ecv_fpsr = 0;
+  lifted_state->ecv_fpsr = 0;
+
+  // elfconv doesn't use sr.ixc, sr.ofc, ..., sr.n, ..., sr.v
+  lifted_state->sr.ixc = 0;
+  native_state->sr.ixc = 0;
+  lifted_state->sr.ofc = 0;
+  native_state->sr.ofc = 0;
+  lifted_state->sr.ufc = 0;
+  native_state->sr.ufc = 0;
+  lifted_state->sr.idc = 0;
+  native_state->sr.idc = 0;
+  lifted_state->sr.ioc = 0;
+  native_state->sr.ioc = 0;
+
+  lifted_state->sr.n = 0;
+  native_state->sr.n = 0;
+  lifted_state->sr.z = 0;
+  native_state->sr.z = 0;
+  lifted_state->sr.c = 0;
+  native_state->sr.c = 0;
+  lifted_state->sr.v = 0;
+  native_state->sr.v = 0;
 
   if (gLiftedState != gNativeState) {
     LOG(ERROR) << "States did not match for " << desc;
@@ -720,12 +741,18 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
     DIFF(C, sr.c);
     DIFF(V, sr.v);
 
+    DIFF(ECV_NZCV, ecv_nzcv);
+    DIFF(ECV_FPSR, ecv_fpsr);
+
     auto lifted_state_bytes = reinterpret_cast<uint8_t *>(lifted_state);
     auto native_state_bytes = reinterpret_cast<uint8_t *>(native_state);
 
     for (size_t i = 0; i < sizeof(State); ++i) {
       LOG_IF(ERROR, lifted_state_bytes[i] != native_state_bytes[i])
-          << "Bytes at offset " << i << " are different";
+          << "Bytes at offset " << i << " are different "
+          << " lifted_state_bytes[" << i << "]: 0x" << std::hex << (uint64_t) lifted_state_bytes[i]
+          << ", native_state_bytes[" << std::dec << i << "]: 0x" << (uint64_t) native_state_bytes[i]
+          << std::endl;
     }
   }
 
@@ -742,8 +769,6 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
     }
 
     EXPECT_TRUE(!"Lifted and native stacks did not match.");
-  } else {
-    EXPECT_TRUE(!"gLifteStack is equal to the gNativeStack!!!!!!!!");
   }
 }
 
@@ -770,7 +795,8 @@ TEST_P(InstrTest, SemanticsMatchNative) {
 
       std::stringstream ss2;
       ss2 << desc << " and N=" << flags.n << ", Z=" << flags.z << ", C=" << flags.c
-          << ", V=" << flags.v;
+          << ", V=" << flags.v << ", arg[0]=0x" << std::hex << args[0] << ", arg[1]=0x" << args[1]
+          << ", arg[2]=0x" << args[2];
 
       RunWithFlags(info, flags, ss2.str(), args[0], args[1], args[2]);
     }
@@ -922,7 +948,7 @@ int main(int argc, char **argv) {
 
     CHECK(nullptr != sym_func) << "Could not find code for test case " << test.test_name;
 
-    auto lifted_func = reinterpret_cast<LiftedFunc *>(sym_func);
+    auto lifted_func = reinterpret_cast<LiftedFunc>(sym_func);
     gTranslatedFuncs[test.test_begin] = lifted_func;
   }
 

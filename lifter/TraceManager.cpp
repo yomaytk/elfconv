@@ -26,24 +26,6 @@ llvm::Function *AArch64TraceManager::GetLiftedTraceDefinition(uint64_t addr) {
   return GetLiftedTraceDeclaration(addr);
 }
 
-void AArch64TraceManager::SetLiftedOptFuncTraceDefinition(uint64_t addr,
-                                                          llvm::Function *lifted_func) {
-  opt_fun_traces[addr] = lifted_func;
-}
-
-llvm::Function *AArch64TraceManager::GetLiftedOptFuncTraceDeclaration(uint64_t addr) {
-  auto trace_it = opt_fun_traces.find(addr);
-  if (trace_it != traces.end()) {
-    return trace_it->second;
-  } else {
-    return nullptr;
-  }
-}
-
-llvm::Function *AArch64TraceManager::GetLiftedOptFuncTraceDefinition(uint64_t addr) {
-  return GetLiftedOptFuncTraceDeclaration(addr);
-}
-
 bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
 
   auto byte_it = memory.find(addr);

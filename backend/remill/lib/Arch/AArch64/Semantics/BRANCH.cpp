@@ -27,10 +27,10 @@
 
 namespace {
 
-#define SR_ECV_NZCV__N ((ecv_nzcv & 0b1000) >> 3)
-#define SR_ECV_NZCV__Z ((ecv_nzcv & 0b100) >> 2)
-#define SR_ECV_NZCV__C ((ecv_nzcv & 0b10) >> 1)
-#define SR_ECV_NZCV__V (ecv_nzcv & 0b1)
+#define SR_ECV_NZCV__N ((ecv_nzcv & 0x8000'0000) >> 31)  // 31-index bit
+#define SR_ECV_NZCV__Z ((ecv_nzcv & 0x4000'0000) >> 30)  // 30-index bit
+#define SR_ECV_NZCV__C ((ecv_nzcv & 0x2000'0000) >> 29)  // 29-index bit
+#define SR_ECV_NZCV__V ((ecv_nzcv & 0x1000'0000) >> 28)  // 28-index bit
 
 // when '101' result = (PSTATE.N == PSTATE.V); // GE or LT
 inline uint64_t CondGE(uint64_t ecv_nzcv) {
