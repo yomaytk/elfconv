@@ -82,7 +82,7 @@ class MappedMemory {
     free(bytes);
   }
 
-  static MappedMemory *MemoryArenaInit(int argc, char *argv[],
+  static MappedMemory *MemoryArenaInit(int argc, char *argv[], char *envp[],
                                        State &state /* start stack pointer */);
 
   MemoryAreaType memory_area_type;

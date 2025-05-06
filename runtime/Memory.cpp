@@ -1,43 +1,87 @@
 #include "Memory.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <iomanip>
 #include <iostream>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
 #if defined(ELF_IS_AARCH64)
-#  define SPREG state.gpr.sp.qword
+#  define SP_REG state.gpr.sp.qword
 #elif defined(ELF_IS_AMD64)
-#  define SPREG state.gpr.rsp.qword
+#  define SP_REG state.gpr.rsp.qword
 #else
-#  define SPREG state.gpr.sp.qword
+#  define SP_REG state.gpr.sp.qword
 #endif
 
-MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[],
-                                            State &state /* start stack pointer */) {
-  // init stack
+#define SP_REAL_ADDR bytes + (sp - MEMORY_ARENA_VMA)
+
+MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
+
+  /* Initialize Stack */
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
   memset(bytes, 0, MEMORY_ARENA_SIZE);
-
-  // Initialize stack
   sp = STACK_START_VMA + STACK_SIZE;
 
-  // Initialize AT_RANDOM
-  /* FIXME: this shouldn't be on the stack? */
+  /* Initialize AT_RANDOM */
+  _ecv_reg64_t randomp;
   sp -= 16;
   // getentropy(bytes + (sp - vma), 16);
-  memset(bytes + (sp - MEMORY_ARENA_VMA), 1, 16);
-  _ecv_reg64_t randomp = sp;
+  memset(SP_REAL_ADDR, 1, 16);
+  randomp = sp;
 
   /* Initialize AT_PHDR */
-  /* FIXME: this shouldn't be on the stack? */
+  _ecv_reg64_t phdr;
   auto e_ph_size = _ecv_e_phent * _ecv_e_phnum;
   sp -= e_ph_size;
-  memcpy(bytes + (sp - MEMORY_ARENA_VMA), _ecv_e_ph, e_ph_size);
-  _ecv_reg64_t phdr = sp;
+  memcpy(SP_REAL_ADDR, _ecv_e_ph, e_ph_size);
+  phdr = sp;
 
-  /* auxv */
+  /* Initialize env and argv contents */
+  size_t envc = 0, envp_size = 0, argv_size = 0;
+  size_t env_0_sp, argv_0_sp;
+  size_t env_i_sp, argv_i_sp;
+
+  for (size_t i = 0; envp[i]; i++) {
+    envc++;
+    envp_size += strlen(envp[i]) + 1;
+  }
+  for (size_t i = 0; i < (size_t) argc; i++) {
+    argv_size += strlen(argv[i]) + 1;
+  }
+
+  sp -= envp_size + argv_size;
+
+  env_0_sp = sp - envp_size;
+  argv_0_sp = env_0_sp - argv_size;
+
+  // env contents settings
+  env_i_sp = env_0_sp;
+  for (size_t i = 0; i < envc; i++) {
+    memcpy(bytes + (env_i_sp - MEMORY_ARENA_VMA), envp[i], strlen(envp[i]) + 1);
+    if (i == 21) {
+      for (size_t j = 0; j < 30; j++) {
+        printf("%lx", (unsigned long) (envp[i][j]));
+        if (j < 29) {
+          printf(",");
+        } else if (j == 29) {
+          printf("\n");
+        }
+      }
+    }
+    env_i_sp += strlen(envp[i]) + 1;
+  }
+
+  // argv contents settings
+  argv_i_sp = argv_0_sp;
+  for (size_t i = 0; i < (size_t) argc; i++) {
+    memcpy(bytes + (argv_i_sp - MEMORY_ARENA_VMA), argv[i], strlen(argv[i]) + 1);
+    argv_i_sp += strlen(argv[i]) + 1;
+  }
+
+  /* Initialize auxv */
   struct {
     _ecv_reg64_t _ecv_a_type;
     union {
@@ -73,25 +117,36 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[],
 #endif
   };
   sp -= sizeof(_ecv_auxv64);
-  memcpy(bytes + (sp - MEMORY_ARENA_VMA), _ecv_auxv64, sizeof(_ecv_auxv64));
+  memcpy(SP_REAL_ADDR, _ecv_auxv64, sizeof(_ecv_auxv64));
 
-  /* envp (FIXME) */
-  sp -= sizeof(_ecv_reg64_t);
+  /* Initialize envp and argv pointers */
+  sp -= sizeof(_ecv_reg64_t) * (envc + 1);
+  env_i_sp = env_0_sp;
+  for (size_t i = 0; i < envc; i++) {
+    *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * i) = env_i_sp;
+    env_i_sp += strlen(envp[i]) + 1;
+  }
+  // NULL for the head of envp
+  *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * envc) = (_ecv_reg64_t) NULL;
 
-  /* argv (FIXME) */
-  // auto arg = argv;
-  // while(*arg)
-  //   arg++;
-  // sp -= (arg - argv) + sizeof(addr_t);
-  // memcpy(bytes + (sp - vma), (uint8_t*)argv, arg - argv);
+  // argv poiner settings
   sp -= sizeof(_ecv_reg64_t) * (argc + 1);
+  argv_i_sp = argv_0_sp;
+  for (size_t i = 0; i < (size_t) argc; i++) {
+    *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * i) = argv_i_sp;
+    argv_i_sp += strlen(argv[i]) + 1;
+  }
+  // NULL for the head of argv
+  *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * argc) = (_ecv_reg64_t) NULL;
 
-  /* argc */
+  // argc settings
   sp -= sizeof(_ecv_reg64_t);
-  auto argc64 = (_ecv_reg64_t) argc;
-  memcpy(bytes + (sp - MEMORY_ARENA_VMA), &argc64, sizeof(_ecv_reg64_t));
+  *(_ecv_reg64_t *) (SP_REAL_ADDR) = argc;
 
-  SPREG = sp;
+  // start stack pointer indicates the pointer of `argc`.
+  SP_REG = sp;
+
+  // printf("start sp: 0x%lx\n", sp);
 
   return new MappedMemory(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
                           bytes, HEAPS_START_VMA);
