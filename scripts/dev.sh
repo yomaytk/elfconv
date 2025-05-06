@@ -70,6 +70,11 @@ lifting() {
   if [ "$TARGET" = "*-wasi32" ]; then
     target_arch='wasi32'
   fi
+
+  test_mode="off"
+  if [ "$TEST_MODE" = "on" ]; then
+    test_mode="on"
+  fi
   
   ${BUILD_LIFTER_DIR}/elflift \
   --arch "$2" \
@@ -78,7 +83,8 @@ lifting() {
   --dbg_fun_cfg "$3" \
   --bitcode_path "$4" \
   --target_arch "$target_arch" \
-  --float_exception "$FLOAT_STATUS_FLAG"
+  --float_exception "$FLOAT_STATUS_FLAG" \
+  --test_mode "$test_mode"
  
   echo -e "[${GREEN}INFO${NC}] lift.bc was generated."
   
