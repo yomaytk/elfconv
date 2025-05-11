@@ -19,7 +19,7 @@
 const size_t MEMORY_ARENA_SIZE = 512 * 1024 * 1024; /* 512 MiB */
 const addr_t MEMORY_ARENA_VMA = 0;
 const size_t STACK_SIZE = 4 * 1024 * 1024; /* 4 MiB */
-const addr_t STACK_START_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
+const addr_t STACK_LOWEST_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
 const size_t HEAP_UNIT_SIZE = 252 * 1024 * 1024; /* 252 MiB */
 const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
 

@@ -23,8 +23,10 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
   memset(bytes, 0, MEMORY_ARENA_SIZE);
-  sp = STACK_START_VMA + STACK_SIZE;
+  sp = STACK_LOWEST_VMA + STACK_SIZE;
 
+  // AT_RANDOM and AT_PHDR are not placed in the stack for the original execution of ELF binary.
+  // Therefore, we handle the end point of the AT_PHDR as the stack bottom (actually, a little different by 16 bit alignment).
   /* Initialize AT_RANDOM */
   _ecv_reg64_t randomp;
   sp -= 16;
@@ -39,6 +41,12 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   memcpy(SP_REAL_ADDR, _ecv_e_ph, e_ph_size);
   phdr = sp;
 
+  sp -= sp & 0xf;  // This sp points to the stack bottom (16 bit align).
+
+  // end marker
+  sp -= sizeof(_ecv_reg64_t);
+  *(_ecv_reg64_t *) (SP_REAL_ADDR) = (_ecv_reg64_t) NULL;
+
   /* Initialize env and argv contents */
   size_t envc = 0, envp_size = 0, argv_size = 0;
   size_t env_0_sp, argv_0_sp;
@@ -52,25 +60,15 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
     argv_size += strlen(argv[i]) + 1;
   }
 
-  sp -= envp_size + argv_size;
-
   env_0_sp = sp - envp_size;
   argv_0_sp = env_0_sp - argv_size;
+
+  sp -= envp_size + argv_size;
 
   // env contents settings
   env_i_sp = env_0_sp;
   for (size_t i = 0; i < envc; i++) {
     memcpy(bytes + (env_i_sp - MEMORY_ARENA_VMA), envp[i], strlen(envp[i]) + 1);
-    if (i == 21) {
-      for (size_t j = 0; j < 30; j++) {
-        printf("%lx", (unsigned long) (envp[i][j]));
-        if (j < 29) {
-          printf(",");
-        } else if (j == 29) {
-          printf("\n");
-        }
-      }
-    }
     env_i_sp += strlen(envp[i]) + 1;
   }
 
@@ -80,6 +78,9 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
     memcpy(bytes + (argv_i_sp - MEMORY_ARENA_VMA), argv[i], strlen(argv[i]) + 1);
     argv_i_sp += strlen(argv[i]) + 1;
   }
+
+  // padding
+  sp -= sp & 0xf;  // 16 bit align.
 
   /* Initialize auxv */
   struct {
@@ -143,10 +144,8 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   sp -= sizeof(_ecv_reg64_t);
   *(_ecv_reg64_t *) (SP_REAL_ADDR) = argc;
 
-  // start stack pointer indicates the pointer of `argc`.
+  // starting stack pointer indicates the pointer of `argc`.
   SP_REG = sp;
-
-  // printf("start sp: 0x%lx\n", sp);
 
   return new MappedMemory(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
                           bytes, HEAPS_START_VMA);
