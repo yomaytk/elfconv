@@ -1786,82 +1786,6 @@ bool TryDecodeFSQRT_H_FLOATDP1(const InstData &, Instruction &) {
   return false;
 }
 
-// FSQRT FSQRT_S_floatdp1:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0
-//  13 0
-//  14 1
-//  15 1 opc      0
-//  16 1 opc      1
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 0 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FSQRT  <Sd>, <Sn>
-bool TryDecodeFSQRT_S_FLOATDP1(const InstData &, Instruction &) {
-  return false;
-}
-
-// FSQRT FSQRT_D_floatdp1:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0
-//  13 0
-//  14 1
-//  15 1 opc      0
-//  16 1 opc      1
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 1 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FSQRT  <Dd>, <Dn>
-bool TryDecodeFSQRT_D_FLOATDP1(const InstData &, Instruction &) {
-  return false;
-}
-
 // LDEORA LDEORA_32_memop:
 //   0 x Rt       0
 //   1 x Rt       1
@@ -4215,44 +4139,6 @@ bool TryDecodeST1_ASISDLSEP_R4_R4(const InstData &, Instruction &) {
 //  31 0
 // AESIMC  <Vd>.16B, <Vn>.16B
 bool TryDecodeAESIMC_B_CRYPTOAES(const InstData &, Instruction &) {
-  return false;
-}
-
-// UADDW UADDW_asimddiff_W:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 1
-//  13 0 o1       0
-//  14 0
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 1 U        0
-//  30 x Q        0
-//  31 0
-// UADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
-bool TryDecodeUADDW_ASIMDDIFF_W(const InstData &, Instruction &) {
   return false;
 }
 
@@ -11818,44 +11704,6 @@ bool TryDecodeSADDL_ASIMDDIFF_L(const InstData &, Instruction &) {
   return false;
 }
 
-// ADDP ADDP_asisdpair_only:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 1 opcode   0
-//  13 1 opcode   1
-//  14 0 opcode   2
-//  15 1 opcode   3
-//  16 1 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 1
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 U        0
-//  30 1
-//  31 0
-// ADDP  <V><d>, <Vn>.<T>
-bool TryDecodeADDP_ASISDPAIR_ONLY(const InstData &, Instruction &) {
-  return false;
-}
-
 // LDSETAB LDSETAB_32_memop:
 //   0 x Rt       0
 //   1 x Rt       1
@@ -13338,44 +13186,6 @@ bool TryDecodeLDEORLH_32_MEMOP(const InstData &, Instruction &) {
   return false;
 }
 
-// XTN XTN_asimdmisc_N:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 0 opcode   0
-//  13 1 opcode   1
-//  14 0 opcode   2
-//  15 0 opcode   3
-//  16 1 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0 U        0
-//  30 x Q        0
-//  31 0
-// XTN{2}  <Vd>.<Tb>, <Vn>.<Ta>
-bool TryDecodeXTN_ASIMDMISC_N(const InstData &, Instruction &) {
-  return false;
-}
-
 // USQADD USQADD_asisdmisc_R:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -13791,82 +13601,6 @@ bool TryDecodeUQADD_ASIMDSAME_ONLY(const InstData &, Instruction &) {
 //  31 0 M        0
 // FNMSUB  <Hd>, <Hn>, <Hm>, <Ha>
 bool TryDecodeFNMSUB_H_FLOATDP3(const InstData &, Instruction &) {
-  return false;
-}
-
-// FNMSUB FNMSUB_S_floatdp3:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 x Ra       0
-//  11 x Ra       1
-//  12 x Ra       2
-//  13 x Ra       3
-//  14 x Ra       4
-//  15 1 o0       0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1 o1       0
-//  22 0 type     0
-//  23 0 type     1
-//  24 1
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FNMSUB  <Sd>, <Sn>, <Sm>, <Sa>
-bool TryDecodeFNMSUB_S_FLOATDP3(const InstData &, Instruction &) {
-  return false;
-}
-
-// FNMSUB FNMSUB_D_floatdp3:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 x Ra       0
-//  11 x Ra       1
-//  12 x Ra       2
-//  13 x Ra       3
-//  14 x Ra       4
-//  15 1 o0       0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1 o1       0
-//  22 1 type     0
-//  23 0 type     1
-//  24 1
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FNMSUB  <Dd>, <Dn>, <Dm>, <Da>
-bool TryDecodeFNMSUB_D_FLOATDP3(const InstData &, Instruction &) {
   return false;
 }
 
@@ -14551,44 +14285,6 @@ bool TryDecodeFCVTZU_64D_FLOAT2FIX(const InstData &, Instruction &) {
 //  31 0
 // SHA1P  <Qd>, <Sn>, <Vm>.4S
 bool TryDecodeSHA1P_QSV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
-
-// TBL TBL_asimdtbl_L2_2:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0 op       0
-//  13 1 len      0
-//  14 0 len      1
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 0
-//  22 0 op2      0
-//  23 0 op2      1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0
-//  30 x Q        0
-//  31 0
-// TBL  <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B }, <Vm>.<Ta>
-bool TryDecodeTBL_ASIMDTBL_L2_2(const InstData &, Instruction &) {
   return false;
 }
 
@@ -20023,82 +19719,6 @@ bool TryDecodeSQDMLAL_ASISDELEM_L(const InstData &, Instruction &) {
 //  31 0
 // SQDMLAL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Ts>[<index>]
 bool TryDecodeSQDMLAL_ASIMDELEM_L(const InstData &, Instruction &) {
-  return false;
-}
-
-// SHL SHL_asisdshf_R:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0 opcode   0
-//  12 1 opcode   1
-//  13 0 opcode   2
-//  14 1 opcode   3
-//  15 0 opcode   4
-//  16 x immb     0
-//  17 x immb     1
-//  18 x immb     2
-//  19 x immh     0
-//  20 x immh     1
-//  21 x immh     2
-//  22 x immh     3
-//  23 0
-//  24 1
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 U        0
-//  30 1
-//  31 0
-// SHL  <V><d>, <V><n>, #<shift>
-bool TryDecodeSHL_ASISDSHF_R(const InstData &, Instruction &) {
-  return false;
-}
-
-// SHL SHL_asimdshf_R:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0 opcode   0
-//  12 1 opcode   1
-//  13 0 opcode   2
-//  14 1 opcode   3
-//  15 0 opcode   4
-//  16 x immb     0
-//  17 x immb     1
-//  18 x immb     2
-//  19 x immh     0
-//  20 x immh     1
-//  21 x immh     2
-//  22 x immh     3
-//  23 0
-//  24 1
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0 U        0
-//  30 x Q        0
-//  31 0
-// SHL  <Vd>.<T>, <Vn>.<T>, #<shift>
-bool TryDecodeSHL_ASIMDSHF_R(const InstData &, Instruction &) {
   return false;
 }
 
@@ -37773,44 +37393,6 @@ bool TryDecodeCMTST_ASISDSAME_ONLY(const InstData &, Instruction &) {
   return false;
 }
 
-// UADDL UADDL_asimddiff_L:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 0
-//  13 0 o1       0
-//  14 0
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 1 U        0
-//  30 x Q        0
-//  31 0
-// UADDL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
-bool TryDecodeUADDL_ASIMDDIFF_L(const InstData &, Instruction &) {
-  return false;
-}
-
 // TRN2 TRN2_asimdperm_only:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -38150,82 +37732,6 @@ bool TryDecodeFNMADD_D_FLOATDP3(const InstData &, Instruction &) {
 //  31 0 M        0
 // FCCMP  <Hn>, <Hm>, #<nzcv>, <cond>
 bool TryDecodeFCCMP_H_FLOATCCMP(const InstData &, Instruction &) {
-  return false;
-}
-
-// FCCMP FCCMP_S_floatccmp:
-//   0 x nzcv     0
-//   1 x nzcv     1
-//   2 x nzcv     2
-//   3 x nzcv     3
-//   4 0 op       0
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0
-//  12 x cond     0
-//  13 x cond     1
-//  14 x cond     2
-//  15 x cond     3
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 0 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FCCMP  <Sn>, <Sm>, #<nzcv>, <cond>
-bool TryDecodeFCCMP_S_FLOATCCMP(const InstData &, Instruction &) {
-  return false;
-}
-
-// FCCMP FCCMP_D_floatccmp:
-//   0 x nzcv     0
-//   1 x nzcv     1
-//   2 x nzcv     2
-//   3 x nzcv     3
-//   4 0 op       0
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0
-//  12 x cond     0
-//  13 x cond     1
-//  14 x cond     2
-//  15 x cond     3
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 1 type     0
-//  23 0 type     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 S        0
-//  30 0
-//  31 0 M        0
-// FCCMP  <Dn>, <Dm>, #<nzcv>, <cond>
-bool TryDecodeFCCMP_D_FLOATCCMP(const InstData &, Instruction &) {
   return false;
 }
 

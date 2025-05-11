@@ -762,3 +762,27 @@ DEF_ISEL(FCMP_DZ_FLOATCMP) = FCMP_DZ;  // FCMP  <Dn>, #0.0
 
 DEF_ISEL(FMAX_S_FLOATDP2) = FMAX_S;  // FMAX  <Sd>, <Sn>, <Sm>
 DEF_ISEL(FMAX_D_FLOATDP2) = FMAX_D;  // FMAX  <Dd>, <Dn>, <Dm>
+
+// FNMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+// FNMSUB  <Dd>, <Dn>, <Dm>, <Da>
+namespace {
+
+#define MAKE_FNMSUB(esize) \
+  DEF_SEM_F##esize##_STATE(FNMSUB_##esize, RF##esize src1, RF##esize src2, RF##esize src3) { \
+    auto factor1 = Read(src1); \
+    auto factor2 = Read(src2); \
+    auto factora = Read(src3); \
+    auto prod = FMul##esize(factor1, factor2); \
+    auto res = FSub##esize(prod, factora); \
+    return res; \
+  }
+
+MAKE_FNMSUB(32);
+MAKE_FNMSUB(64);
+
+#undef MAKE_FNMSUB
+
+}  // namespace
+
+DEF_ISEL(FNMSUB_S_FLOATDP3) = FNMSUB_32;
+DEF_ISEL(FNMSUB_D_FLOATDP3) = FNMSUB_64;

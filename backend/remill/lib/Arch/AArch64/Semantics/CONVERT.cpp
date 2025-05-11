@@ -27,6 +27,7 @@
 #include "remill/Arch/Runtime/Types.h"
 
 #include <cstdint>
+#include <math.h>
 
 namespace {
 
@@ -361,3 +362,18 @@ DEF_ISEL(SCVTF_ASISDMISC_R_32_FPSRSTATUS) =
     SCVTF_Int32ToFloat32_FROMV_FPSRStatus;  // SCVTF  <V><d>, <V><n>
 DEF_ISEL(SCVTF_ASISDMISC_R_64_FPSRSTATUS) =
     SCVTF_Int64ToFloat64_FROMV_FPSRStatus;  // SCVTF  <V><d>, <V><n>
+
+// FSQRT  <Sd>, <Sn>
+// FSQRT  <Dd>, <Dn>
+namespace {
+DEF_SEM_F32(FSQRT_32, RF32 src) {
+  return sqrt(Read(src));
+}
+DEF_SEM_F64(FSQRT_64, RF64 src) {
+  return sqrt(Read(src));
+}
+}  // namespace
+
+// DEF_ISEL(FSQRT_H_FLOATDP1) = FSQRT_16;
+DEF_ISEL(FSQRT_S_FLOATDP1) = FSQRT_32;
+DEF_ISEL(FSQRT_D_FLOATDP1) = FSQRT_64;

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "remill/Arch/Runtime/Types.h"
 typedef Rn<uint8_t> R8;
 typedef Rn<uint16_t> R16;
 typedef Rn<uint32_t> R32;
@@ -64,6 +65,12 @@ typedef VI<_ecv_i128v1_t> VIi128v1;
 // float
 typedef VI<_ecv_f32v4_t> VIf32v4;
 typedef VI<_ecv_f64v2_t> VIf64v2;
+
+// 256bit vector
+// unsigned
+typedef VI<_ecv_u8v32_t> VIu8v32;
+// signed
+typedef VI<_ecv_i8v32_t> VIi8v32;
 
 typedef MVI<_ecv_u8v1_t> MVI8;
 typedef MVI<_ecv_u16v1_t> MVI16;
