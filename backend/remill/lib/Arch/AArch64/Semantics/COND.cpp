@@ -173,3 +173,35 @@ DEF_COND_ISEL(CCMP_64_CONDCMP_REG, CCMP64, R64, R64)  // CCMP  <Xn>, <Xm>, #<nzc
 
 DEF_COND_ISEL(CCMN_32_CONDCMP_IMM, CCMN32, R32, I32)  // CCMN  <Wn>, #<imm>, #<nzcv>, <cond>
 DEF_COND_ISEL(CCMN_64_CONDCMP_IMM, CCMN64, R64, I64)  // CCMN  <Xn>, #<imm>, #<nzcv>, <cond>
+
+namespace {
+
+// FCCMP  <Dn>, <Dm>, #<nzcv>, <cond>
+#define MAKE_FCCMP(esize) \
+  template <uint64_t (*check_cond)(uint64_t ecv_nzcv)> \
+  DEF_SEM_U64_STATE(FCCMP##esize, RF##esize src1, RF##esize src2, R64 nzcv, R64 ecv_nzcv_src) { \
+    using T = typename BaseType<RF##esize>::BT; \
+    static_assert(sizeof(T) == esize / 8); \
+    if (check_cond(Read(ecv_nzcv_src))) { \
+      return FCompare(state, Read(src1), Read(src2), false); \
+    } else { \
+      auto nzcv_val = Read(nzcv); \
+      uint64_t flag_v = UCmpNeq(UAnd(nzcv_val, T(1)), T(0)); \
+      uint64_t flag_c = UCmpNeq(UAnd(nzcv_val, T(2)), T(0)); \
+      uint64_t flag_z = UCmpNeq(UAnd(nzcv_val, T(4)), T(0)); \
+      uint64_t flag_n = UCmpNeq(UAnd(nzcv_val, T(8)), T(0)); \
+      return MAKE_ECV_NZCV(flag_n, flag_z, flag_c, flag_v); \
+    } \
+  }
+
+// MAKE_FCCMP(16);
+MAKE_FCCMP(32);
+MAKE_FCCMP(64);
+
+#undef MAKE_FCCMP
+
+}  // namespace
+
+// DEF_COND_ISEL(FCCMP_H_FLOATCCMP, FCCMP16, F16);  // FCCMP  <Hn>, <Hm>, #<nzcv>, <cond>
+DEF_COND_ISEL(FCCMP_S_FLOATCCMP, FCCMP32);  // FCCMP  <Dn>, <Dm>, #<nzcv>, <cond>
+DEF_COND_ISEL(FCCMP_D_FLOATCCMP, FCCMP64);  // FCCMP  <Dn>, <Dm>, #<nzcv>, <cond>

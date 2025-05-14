@@ -19,6 +19,14 @@
 
 MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
 
+  char *env_ptr[1000];
+#if defined(__wasm__)
+  env_ptr[0] = NULL;
+#else
+  for (size_t i = 0; envp[i]; i++) {
+    env_ptr[i] = envp[i];
+  }
+#endif
   /* Initialize Stack */
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
@@ -52,9 +60,9 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   size_t env_0_sp, argv_0_sp;
   size_t env_i_sp, argv_i_sp;
 
-  for (size_t i = 0; envp[i]; i++) {
+  for (size_t i = 0; env_ptr[i]; i++) {
     envc++;
-    envp_size += strlen(envp[i]) + 1;
+    envp_size += strlen(env_ptr[i]) + 1;
   }
   for (size_t i = 0; i < (size_t) argc; i++) {
     argv_size += strlen(argv[i]) + 1;
@@ -68,8 +76,8 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   // env contents settings
   env_i_sp = env_0_sp;
   for (size_t i = 0; i < envc; i++) {
-    memcpy(bytes + (env_i_sp - MEMORY_ARENA_VMA), envp[i], strlen(envp[i]) + 1);
-    env_i_sp += strlen(envp[i]) + 1;
+    memcpy(bytes + (env_i_sp - MEMORY_ARENA_VMA), env_ptr[i], strlen(env_ptr[i]) + 1);
+    env_i_sp += strlen(env_ptr[i]) + 1;
   }
 
   // argv contents settings
@@ -120,14 +128,14 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   sp -= sizeof(_ecv_auxv64);
   memcpy(SP_REAL_ADDR, _ecv_auxv64, sizeof(_ecv_auxv64));
 
-  /* Initialize envp and argv pointers */
+  /* Initialize env_ptr and argv pointers */
   sp -= sizeof(_ecv_reg64_t) * (envc + 1);
   env_i_sp = env_0_sp;
   for (size_t i = 0; i < envc; i++) {
     *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * i) = env_i_sp;
-    env_i_sp += strlen(envp[i]) + 1;
+    env_i_sp += strlen(env_ptr[i]) + 1;
   }
-  // NULL for the head of envp
+  // NULL for the head of env_ptr
   *(_ecv_reg64_t *) (SP_REAL_ADDR + sizeof(_ecv_reg64_t) * envc) = (_ecv_reg64_t) NULL;
 
   // argv poiner settings

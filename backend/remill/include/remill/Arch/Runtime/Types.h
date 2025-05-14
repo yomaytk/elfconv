@@ -544,8 +544,10 @@ typedef float64_t _ecv_f64v2_t __attribute__((vector_size(16)));
 // 256bit (only base type of 128bit)
 // signed
 typedef int128_t _ecv_i128v2_t __attribute__((vector_size(32)));
+typedef int8_t _ecv_i8v32_t __attribute__((vector_size(32)));
 // unsigned
 typedef uint128_t _ecv_u128v2_t __attribute__((vector_size(32)));
+typedef uint8_t _ecv_u8v32_t __attribute__((vector_size(32)));
 
 // 8bit
 // signed

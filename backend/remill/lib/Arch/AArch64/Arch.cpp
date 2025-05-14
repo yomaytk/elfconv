@@ -32,6 +32,7 @@
 #include <remill/BC/HelperMacro.h>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 #define REMILL_AARCH_STRICT_REGNUM
 
@@ -3430,6 +3431,21 @@ bool TryDecodeTBL_ASIMDTBL_L1_1(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// TBL  <Vd>.<Ta>, { <Vn>.16B, <Vn+1>.16B }, <Vm>.<Ta>
+bool TryDecodeTBL_ASIMDTBL_L2_2(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  auto ta_rclass = data.Q ? kReg16B : kReg8B;
+  auto ta_total_size = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, ta_total_size, 8);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, data.Rn);
+  aarch64::RegNum rn_plus_1 =
+      static_cast<aarch64::RegNum>(std::underlying_type<aarch64::RegNum>::type(data.Rn) + 1);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, rn_plus_1);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
 bool IsUnallocatedFloatEncoding(const InstData &data) {
 
   // when type `10` UnallocatedEncoding()
@@ -3916,6 +3932,16 @@ bool TryDecodeFMSUB_D_FLOATDP3(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// FNMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+bool TryDecodeFNMSUB_S_FLOATDP3(const InstData &data, Instruction &inst) {
+  return TryDecodeFMSUB_S_FLOATDP3(data, inst);
+}
+
+// FNMSUB  <Dd>, <Dn>, <Dm>, <Da>
+bool TryDecodeFNMSUB_D_FLOATDP3(const InstData &data, Instruction &inst) {
+  return TryDecodeFMSUB_D_FLOATDP3(data, inst);
+}
+
 // FCMPE  <Sn>, <Sm>
 bool TryDecodeFCMPE_S_FLOATCMP(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;
@@ -4044,6 +4070,22 @@ bool TryDecodeFMAX_D_FLOATDP2(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
+  return true;
+}
+
+// FSQRT  <Sd>, <Sn>
+bool TryDecodeFSQRT_S_FLOATDP1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  return true;
+}
+
+// FSQRT  <Dd>, <Dn>
+bool TryDecodeFSQRT_D_FLOATDP1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   return true;
 }
 
@@ -4579,6 +4621,28 @@ bool TryDecodeFCSEL_D_FLOATSEL(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   DecodeConditionalRegSelect(data, inst, kRegD, 3);
   AddEcvNZCVOperand(inst, kActionRead);
+  return true;
+}
+
+// FCCMP  <Sn>, <Sm>, #<nzcv>, <cond>
+bool TryDecodeFCCMP_S_FLOATCCMP(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  SetConditionalFunctionName(data, inst);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rm);
+  AddImmOperand(inst, data.nzcv);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
+  return true;
+}
+
+// FCCMP  <Dn>, <Dm>, #<nzcv>, <cond>
+bool TryDecodeFCCMP_D_FLOATCCMP(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  SetConditionalFunctionName(data, inst);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rm);
+  AddImmOperand(inst, data.nzcv);
+  AddEcvNZCVOperand(inst, kActionReadWrite);
   return true;
 }
 
@@ -5851,6 +5915,17 @@ bool TryDecodeFMINV_ASIMDALL_ONLY_SD(const InstData &data, Instruction &inst) {
   return TryDecodeFMAXV_ASIMDALL_ONLY_SD(data, inst);
 }
 
+// ADDP  <V><d>, <Vn>.<T>
+bool TryDecodeADDP_ASISDPAIR_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (data.size != 0b11) {
+    LOG(FATAL) << "data.size is invalid at ADDP  <V><d>, <Vn>.<T>";
+  }
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);
+  return true;
+}
+
 // UADDLV  <V><d>, <Vn>.<T>
 bool TryDecodeUADDLV_ASIMDALL_ONLY(const InstData &, Instruction &) {
   return false;
@@ -6268,9 +6343,52 @@ bool TryDecodeUSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
   // AddArrangementSpecifier(inst, 128, 8UL << data.size);
 
   uint64_t shift = (esize * 2) - ((data.immh.uimm << 3) + data.immb.uimm);
-  AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);  // (FIXME) not used now
-  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);  // (FIXME) not used now
+  AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);
   AddImmOperand(inst, shift);
+  return true;
+}
+
+// SHL  <V><d>, <V><n>, #<shift>
+bool TryDecodeSHL_ASISDSHF_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t shift_val;
+  if (data.immh.uimm & 0b1000) {
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 64;
+  } else {
+    LOG(FATAL) << "data.immh is invalid for SHL  <V><d>, <V><n>, #<shift>";
+  }
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift_val);
+  return true;
+}
+
+// SHL  <Vd>.<T>, <Vn>.<T>, #<shift>
+bool TryDecodeSHL_ASIMDSHF_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t total_size, elem_size, shift_val;
+  total_size = data.Q ? 128 : 64;
+  if (data.immh.uimm & 0b0001) {
+    elem_size = 8;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 8;
+  } else if (data.immh.uimm & 0b0010) {
+    elem_size = 16;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 16;
+  } else if (data.immh.uimm & 0b0100) {
+    elem_size = 32;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 32;
+  } else if (data.immh.uimm & 0b1000) {
+    elem_size = 64;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 64;
+  } else {
+    LOG(FATAL) << "data.immh is invalid at SHL instruction";
+  }
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  auto r_class = ArrangementRegClass(total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift_val);
   return true;
 }
 
@@ -6282,13 +6400,13 @@ bool TryDecodeUSHLL_ASIMDSHF_L(const InstData &data, Instruction &inst) {
   s_total_size = data.Q ? 128 : 64;
   if (data.immh.uimm & 0b0001) {
     s_elem_size = 8;
-    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 0b1000;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 8;
   } else if (data.immh.uimm & 0b0010) {
     s_elem_size = 16;
-    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 0b1'0000;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 16;
   } else if (data.immh.uimm & 0b0100) {
     s_elem_size = 32;
-    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 0b10'0000;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 32;
   } else {
     LOG(FATAL) << "data.immh is invalid at USHLL instruction at 0x" << std::hex << inst.pc;
   }
@@ -6299,6 +6417,59 @@ bool TryDecodeUSHLL_ASIMDSHF_L(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
   AddImmOperand(inst, shift_val);
+  return true;
+}
+
+// XTN{2}  <Vd>.<Tb>, <Vn>.<Ta>
+bool TryDecodeXTN_ASIMDMISC_N(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t d_total_size, s_total_size, d_elem_size, s_elem_size;
+  s_total_size = 128;
+  d_total_size = data.Q ? 128 : 64;
+  s_elem_size = 16 << data.size;
+  d_elem_size = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
+  auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
+  auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
+  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  return true;
+}
+
+// UADDL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+bool TryDecodeUADDL_ASIMDDIFF_L(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t d_tsize, s_tsize, d_esize, s_esize;
+  d_tsize = 128;
+  s_tsize = data.Q ? 128 : 64;
+  d_esize = 16 << data.size;
+  s_esize = 8 << data.size;
+  if (data.size == 0b11) {
+    LOG(FATAL) << "data.size is invalid at UADDL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>";
+  }
+  AddArrangementSpecifierUSHLL(inst, d_tsize, d_esize, s_tsize, s_esize);
+  auto d_rclass = ArrangementRegClass(d_tsize, d_esize);
+  auto s_rclass = ArrangementRegClass(s_tsize, s_esize);
+  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// UADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
+bool TryDecodeUADDW_ASIMDDIFF_W(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t ta_tsize, ta_esize, tb_tsize, tb_esize;
+  ta_tsize = 128;
+  tb_tsize = data.Q ? 128 : 64;
+  ta_esize = 16 << data.size;
+  tb_esize = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, ta_tsize, ta_esize, tb_tsize, tb_esize);
+  auto ta_rclass = ArrangementRegClass(ta_tsize, ta_esize);
+  auto tb_rclass = ArrangementRegClass(tb_tsize, tb_esize);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, tb_rclass, kUseAsValue, data.Rm);
   return true;
 }
 
