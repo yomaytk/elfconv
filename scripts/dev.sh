@@ -72,7 +72,7 @@ lifting() {
   fi
 
   test_mode="off"
-  if [ "$TEST_MODE" = "on" ]; then
+  if [ "$TEST_MODE" = "on" ] || [ "$DEBUG_QEMU" = "on" ]; then
     test_mode="on"
   fi
   
@@ -119,6 +119,11 @@ main() {
   if [ -z "$NOT_LIFTED" ]; then
     arch_name=${TARGET%%-*}
     lifting "$1" "$arch_name" "$2" "$3"
+  fi
+
+  if [ -n "$DEBUG_QEMU" ]; then
+    ELFCONV_SHARED_RUNTIMES="$ELFCONV_SHARED_RUNTIMES ${ROOT_DIR}/debugs/generated/qemulog2c.c"
+    RUNTIME_MACRO="$RUNTIME_MACRO -DDEBUG_WITH_QEMU=1"
   fi
 
   case "$TARGET" in

@@ -156,5 +156,5 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   SP_REG = sp;
 
   return new MappedMemory(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
-                          bytes, HEAPS_START_VMA);
+                          bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
 }

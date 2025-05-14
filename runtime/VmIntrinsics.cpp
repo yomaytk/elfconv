@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -274,17 +275,17 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
 }
 
 // observe the value change of runtime memory
-extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
+extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager, uint64_t pc) {
   // step 1. set target vma
-  static uint64_t target_vma = 0x491030;
+  static uint64_t target_vma = 0x1fffe58c;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = __remill_read_memory_64(runtime_manager, target_vma);
+  auto cur_value = *(uint64_t *) runtime_manager->TranslateVMA(target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
-              << "\tcurrent value: 0x" << cur_value << std::endl;
+              << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
     old_value = cur_value;
   }
 }
@@ -427,6 +428,112 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
   va_end(args);
 }
+
+#if defined(DEBUG_WITH_QEMU)
+
+#  include <debugs/generated/qemulog2c.h>
+
+static uint64_t INSN_COUNT = 0;
+static uint64_t MISSED_INST_COUNT = 0;
+
+extern const QemuState QemuStates[];
+extern const uint64_t BRK_MIN, BRK_MAX;
+
+#  define QEMU_STACK_VMA QemuStates[0].sp - runtime_manager->memory_arena->stack_init_diff
+#  define XREG_CHECK(i) \
+    do { \
+      if (gpr.x##i.qword != QemuStates[INSN_COUNT].x[i]) { \
+        /* heap check */ \
+        if (HEAPS_START_VMA <= gpr.x##i.qword && \
+            gpr.x##i.qword <= runtime_manager->memory_arena->heap_cur && \
+            BRK_MIN <= QemuStates[INSN_COUNT].x[i] && QemuStates[INSN_COUNT].x[i] <= BRK_MAX) { \
+          break; \
+        } \
+        /* stack check */ \
+        if (STACK_LOWEST_VMA <= gpr.x##i.qword && \
+            gpr.x##i.qword <= STACK_LOWEST_VMA + STACK_SIZE && \
+            QEMU_STACK_VMA <= QemuStates[INSN_COUNT].x[i] && \
+            QemuStates[INSN_COUNT].x[i] <= QEMU_STACK_VMA + STACK_SIZE) { \
+          break; \
+        } \
+        printf("x%d not equal. expected: 0x%lx, actual: 0x%lx. ", i, QemuStates[INSN_COUNT].pc, \
+               gpr.x##i.qword); \
+        missed = true; \
+      } \
+    } while (0)
+
+extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uint64_t pc) {
+  auto gpr = CPUState.gpr;
+  uint8_t missed = false;
+  // pc
+  // gpr.pc.qword is not saved even if on TEST_MODE.
+  if (pc != QemuStates[INSN_COUNT].pc) {
+    printf("PC not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].pc, pc);
+    missed = true;
+  }
+  // sp
+  if (gpr.sp.qword != QemuStates[INSN_COUNT].sp) {
+    /* stack check */
+    if (!(STACK_LOWEST_VMA <= gpr.sp.qword && gpr.sp.qword <= STACK_LOWEST_VMA + STACK_SIZE &&
+          QEMU_STACK_VMA <= QemuStates[INSN_COUNT].sp &&
+          QemuStates[INSN_COUNT].sp <= QEMU_STACK_VMA + STACK_SIZE)) {
+      printf("SP not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].sp,
+             gpr.sp.qword);
+      missed = true;
+    }
+  }
+  // NZCV
+  auto ecv_nzcv = CPUState.ecv_nzcv;
+  if (ecv_nzcv != QemuStates[INSN_COUNT].pstate) {
+    printf("NZCV not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].pstate,
+           ecv_nzcv);
+    missed = true;
+  }
+  // x0~x30
+  XREG_CHECK(0);
+  XREG_CHECK(1);
+  XREG_CHECK(2);
+  XREG_CHECK(3);
+  XREG_CHECK(4);
+  XREG_CHECK(5);
+  XREG_CHECK(6);
+  XREG_CHECK(7);
+  XREG_CHECK(8);
+  XREG_CHECK(9);
+  XREG_CHECK(10);
+  XREG_CHECK(11);
+  XREG_CHECK(12);
+  XREG_CHECK(13);
+  XREG_CHECK(14);
+  XREG_CHECK(15);
+  XREG_CHECK(16);
+  XREG_CHECK(17);
+  XREG_CHECK(18);
+  XREG_CHECK(19);
+  XREG_CHECK(20);
+  XREG_CHECK(21);
+  XREG_CHECK(22);
+  XREG_CHECK(23);
+  XREG_CHECK(24);
+  XREG_CHECK(25);
+  XREG_CHECK(26);
+  XREG_CHECK(27);
+  XREG_CHECK(28);
+  XREG_CHECK(29);
+  XREG_CHECK(30);
+
+  if (missed) {
+    MISSED_INST_COUNT++;
+    printf("\n-----------wrong instruction. PC: 0x%ld, INSN_COUNT: %ld-----------\n\n", pc,
+           INSN_COUNT);
+    if (MISSED_INST_COUNT == 5) {
+      elfconv_runtime_error("Too many missed instruction are found.");
+    }
+  }
+
+  INSN_COUNT++;
+}
+#endif
 
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {

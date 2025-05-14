@@ -47,6 +47,10 @@ int main(int argc, char *argv[], char *envp[]) {
   CPUState.sr.midr_el1 = {.qword = 0xf0510};
   CPUState.sr.ctr_el0 = {.qword = 0x80038003};
   CPUState.sr.dczid_el0 = {.qword = 0x4};
+#  if defined(DEBUG_WITH_QEMU)
+  // QEMU seems to init PSTATE as the Z flag is raised.
+  CPUState.ecv_nzcv = 0x40000000;
+#  endif
 #endif
   auto runtime_manager = new RuntimeManager(mapped_memorys, memory_arena);
 

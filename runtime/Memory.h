@@ -18,7 +18,7 @@
 
 const size_t MEMORY_ARENA_SIZE = 512 * 1024 * 1024; /* 512 MiB */
 const addr_t MEMORY_ARENA_VMA = 0;
-const size_t STACK_SIZE = 4 * 1024 * 1024; /* 4 MiB */
+const size_t STACK_SIZE = 8 * 1024 * 1024; /* 8 MiB */
 const addr_t STACK_LOWEST_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
 const size_t HEAP_UNIT_SIZE = 252 * 1024 * 1024; /* 252 MiB */
 const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
@@ -70,13 +70,14 @@ class MappedMemory {
 
  public:
   MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-               uint8_t *__bytes, addr_t __heap_cur)
+               uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
         len(__len),
         bytes(__bytes),
-        heap_cur(__heap_cur) {}
+        heap_cur(__heap_cur),
+        stack_init_diff(__stack_init_diff) {}
   MappedMemory() {}
   ~MappedMemory() {
     free(bytes);
@@ -91,4 +92,5 @@ class MappedMemory {
   uint64_t len;
   uint8_t *bytes;
   uint64_t heap_cur; /* for Heap */
+  uint64_t stack_init_diff;
 };

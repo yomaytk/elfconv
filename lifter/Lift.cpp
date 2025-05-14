@@ -140,6 +140,13 @@ int main(int argc, char *argv[]) {
     main_lifter.SubseqOfLifting(addr_fun_name_map);
   } else {
     main_lifter.SubseqForNoOptLifting(addr_fun_name_map);
+#if defined(OPT_REAL_REGS_DEBUG)
+    for (auto lifted_func : main_lifter.impl->lifted_funcs) {
+      auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
+      auto debug_state_machine_fun = module->getFunction("debug_state_machine");
+      llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
+    }
+#endif
   }
 
   // Prepare and validate the LLVM Module.
