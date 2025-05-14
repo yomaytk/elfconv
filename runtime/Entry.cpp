@@ -15,12 +15,12 @@ State CPUState = State();
 // memory_arena_ptr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
 extern "C" uint8_t *memory_arena_ptr = nullptr;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[], char *envp[]) {
 
   std::vector<MappedMemory *> mapped_memorys;
 
   //  Allocate memorys.
-  auto memory_arena = MappedMemory::MemoryArenaInit(argc, argv, CPUState);
+  auto memory_arena = MappedMemory::MemoryArenaInit(argc, argv, envp, CPUState);
   memory_arena_ptr = memory_arena->bytes;
   for (size_t i = 0; i < _ecv_data_sec_num; i++) {
     // remove covered section

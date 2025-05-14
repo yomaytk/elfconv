@@ -16,7 +16,7 @@ class RuntimeManager {
 
   // translates vma_addr to the address of the memory arena
   void *TranslateVMA(addr_t vma_addr) {
-    return memory_arena->bytes + vma_addr;
+    return memory_arena->bytes + (vma_addr - MEMORY_ARENA_VMA);
   };
 
   // Linux system calls emulation

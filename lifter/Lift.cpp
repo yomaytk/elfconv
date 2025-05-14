@@ -50,7 +50,9 @@ DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
 DEFINE_string(float_exception, "off", "Whether the floating-point exception status is set or not");
-DEFINE_string(test_mode, "off", "Whether the test mode is on or off");
+DEFINE_string(
+    test_mode, "off",
+    "Whether the test mode is on or off");  // We use `test_mode` for not only test mode but also `no VRP` mode.
 
 // (FIXME) seems to should make the init program for every CPU architecture.
 bool FLOAT_STATUS_ON;
@@ -129,6 +131,9 @@ int main(int argc, char *argv[]) {
     auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
     lifted_fn->setName(lifted_fun_name);
   }
+
+  // If we lift with `test_mode`, we should disable `able_vrp_opt`.
+  manager.elf_obj.able_vrp_opt = !lift_config.test_mode;
 
   // Subsequence process of lifting.
   if (manager.elf_obj.able_vrp_opt) {
