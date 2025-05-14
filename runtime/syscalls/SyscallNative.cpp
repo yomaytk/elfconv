@@ -1,13 +1,16 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
 #include <remill/BC/HelperMacro.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -110,28 +113,8 @@ void RuntimeManager::SVCNativeCall(void) {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
-      switch (cmd) {
-        case _ECV_TCGETS: {
-          struct termios t_host;
-          int rc = tcgetattr(fd, &t_host);
-          if (rc == 0) {
-            struct _ecv_termios t;
-            memset(&t, 0, sizeof(_ecv_termios));
-            t.c_iflag = t_host.c_iflag;
-            t.c_oflag = t_host.c_oflag;
-            t.c_cflag = t_host.c_cflag;
-            t.c_lflag = t_host.c_lflag;
-            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ECV_NCCS));
-            memcpy(TranslateVMA(arg), &t, sizeof(_ecv_termios));
-            X0_Q = 0;
-          } else {
-            X0_Q = -1;
-          }
-          break;
-        }
-        default: break;
-      }
-    }
+      X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+    } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
@@ -157,9 +140,6 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       char *filepath = (char *) TranslateVMA(X1_Q);
       X0_D = openat(X0_D, filepath, X2_D, X3_D);
-      if (-1 == X0_D) {
-        perror("openat error!");
-      }
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
@@ -293,6 +273,14 @@ void RuntimeManager::SVCNativeCall(void) {
         }
       }
       NOP_SYSCALL(ECV_SYS_MMAP);
+      break;
+    case ECV_SYS_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
+      X0_Q = syscall(ECV_SYS_CLONE, X0_Q, X1_Q, (int *) TranslateVMA(X2_Q),
+                     (int *) TranslateVMA(X3_Q), X4_Q);
+      break;
+    case ECV_SYS_EXECVE: /* execve (const char *file_name, const char *const *argv, const char *const *envp) */
+      X0_Q = execve((const char *) TranslateVMA(X0_Q), (char *const *) TranslateVMA(X1_Q),
+                    (char *const *) TranslateVMA(X2_Q));
       break;
     case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       X0_Q = 0;

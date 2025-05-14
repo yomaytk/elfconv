@@ -289,6 +289,7 @@ SYMBOL(__aarch64_test_table_begin):
 #include "tests/AArch64/BINARY/FABS_t_FLOATDP1.S"
 #include "tests/AArch64/BINARY/FNEG_t_FLOATDP1.S"
 #include "tests/AArch64/BINARY/FMADD_t_FLOATDP3.S"
+#include "tests/AArch64/BINARY/FMSUB_t_FLOATDP3.S"
 
 #include "tests/AArch64/BITBYTE/BFM_nM_BITFIELD.S"
 #include "tests/AArch64/BITBYTE/CLZ_n_DP_1SRC.S"

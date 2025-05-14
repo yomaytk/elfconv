@@ -6,3 +6,6 @@
 	path = xterm-pty
 	url = https://github.com/mame/xterm-pty
 	ignore = dirty
+[submodule "examples/busybox"]
+	path = examples/busybox
+	url = https://github.com/mirror/busybox

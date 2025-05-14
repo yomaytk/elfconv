@@ -462,8 +462,9 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
       llvm::FunctionType::get(void_ty, {runtime_manager_ptr_type, u64_ty}, false), extern_link,
       debug_call_stack_pop_name, *module);
   // void debug_memory_value_change()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {runtime_manager_ptr_type}, false),
-                         extern_link, debug_memory_value_change_name, *module);
+  llvm::Function::Create(
+      llvm::FunctionType::get(void_ty, {runtime_manager_ptr_type, u64_ty}, false), extern_link,
+      debug_memory_value_change_name, *module);
   // void debug_memory_value()
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {runtime_manager_ptr_type}, false),
                          extern_link, debug_memory_value_name, *module);

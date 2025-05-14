@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -274,17 +275,17 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
 }
 
 // observe the value change of runtime memory
-extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager) {
+extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager, uint64_t pc) {
   // step 1. set target vma
-  static uint64_t target_vma = 0x491030;
+  static uint64_t target_vma = 0x1fffe58c;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = __remill_read_memory_64(runtime_manager, target_vma);
+  auto cur_value = *(uint64_t *) runtime_manager->TranslateVMA(target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
-              << "\tcurrent value: 0x" << cur_value << std::endl;
+              << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
     old_value = cur_value;
   }
 }

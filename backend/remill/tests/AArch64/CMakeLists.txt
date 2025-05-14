@@ -21,6 +21,7 @@ enable_language(ASM)
 include_directories("/usr/lib/llvm-15/include")
 
 add_executable(lift-aarch64-tests
+  EXCLUDE_FROM_ALL
   Lift.cpp
   Tests.S
 )
@@ -48,6 +49,7 @@ target_include_directories(lift-aarch64-tests PRIVATE "${CMAKE_SOURCE_DIR}/backe
 target_include_directories(lift-aarch64-tests PRIVATE "${CMAKE_SOURCE_DIR}")
 
 add_executable(run-aarch64-tests
+  EXCLUDE_FROM_ALL
   Run.cpp
   Tests.S
   tests_aarch64.S

@@ -1,0 +1,97 @@
+/*
+ * Copyright (c) 2017 Trail of Bits, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License")//
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// FMSUB  <Sd>, <Sn>, <Sm>, <Sa>
+TEST_BEGIN(FMSUB_S_FLOATDP3, fmsub_s_pos_floatdp3, 2)
+TEST_INPUTS(
+    0x00000000, 0x00000000,
+    0x00000000, 0x00000001,
+    // 0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x40000000, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x40000000, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    0x7FFFFFFF, 0x7FFFFFFF,
+    0x80000000, 0x7FFFFFFF,     
+    0x7FFFFFFF, 0x80000000,     
+    0x80000000, 0x80000000,
+    0xffffffff, 0xffffffff)
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmov s2, #0x22
+    fmsub s3, s0, s1, s2
+TEST_END
+
+TEST_BEGIN(FMSUB_S_FLOATDP3, fmsub_s_neg_floatdp3, 2)
+TEST_INPUTS(
+    0x00000000, 0x00000000,
+    0x00000000, 0x00000001,
+    // 0x3fffffff, 0x00000001, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffff, 0x40000000, // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x40000000, 0x3fffffff, // WILL FAIL (Native no underflow, lifted says yes)
+    0x7FFFFFFF, 0x7FFFFFFF,
+    0x80000000, 0x7FFFFFFF,     
+    0x7FFFFFFF, 0x80000000,     
+    0x80000000, 0x80000000,
+    0xffffffff, 0xffffffff)
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmov s2, -#0x22
+    fmsub s3, s0, s1, s2
+TEST_END
+
+// FMSUB  <Dd>, <Dn>, <Dm>, <Da>
+TEST_BEGIN(FMSUB_D_FLOATDP3, fmsub_d_pos_floatdp3, 2)
+TEST_INPUTS(
+    0x0000000000000000, 0x0000000000000000, // 0, 0
+    0x0000000000000000, 0x0000000000000001, // 0, smallest representable float
+    // 0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999  // WILL FAIL (Native no underflow, lifted says yes)
+    0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, // NaN, NaN
+    0x8000000000000000, 0x7FFFFFFFFFFFFFFF, // -0.0, NaN
+    0x7FFFFFFFFFFFFFFF, 0x8000000000000000, // NaN, -0.0
+    0x8000000000000000, 0x8000000000000000, // -0.0, -0.0
+    0xffffffffffffffff, 0xffffffffffffffff) // -NaN, -NaN
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmov d2, #0x22
+    fmsub d3, d0, d1, d2
+TEST_END
+
+TEST_BEGIN(FMSUB_D_FLOATDP3, fmsub_d_neg_floatdp3, 2)
+TEST_INPUTS(
+    0x0000000000000000, 0x0000000000000000, // 0, 0
+    0x0000000000000000, 0x0000000000000001, // 0, smallest representable float
+    // 0x3fffffffffffffff, 0x0000000000000001, // 1.999999999999999, small float  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x3fffffffffffffff, // 1.999999999999999 for both  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x3fffffffffffffff, 0x4000000000000000, // 1.999999999999999, 2.0  // WILL FAIL (Native no underflow, lifted says yes)
+    // 0x4000000000000000, 0x3fffffffffffffff, // 2.0, 1.999999999999999  // WILL FAIL (Native no underflow, lifted says yes)
+    0x7FFFFFFFFFFFFFFF, 0x7FFFFFFFFFFFFFFF, // NaN, NaN
+    0x8000000000000000, 0x7FFFFFFFFFFFFFFF, // -0.0, NaN
+    0x7FFFFFFFFFFFFFFF, 0x8000000000000000, // NaN, -0.0
+    0x8000000000000000, 0x8000000000000000, // -0.0, -0.0
+    0xffffffffffffffff, 0xffffffffffffffff) // -NaN, -NaN
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmov d2, -#0x22
+    fmsub d3, d0, d1, d2
+TEST_END

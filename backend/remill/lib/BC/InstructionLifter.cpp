@@ -588,7 +588,6 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   llvm::Function *isel_func = nullptr;
   auto status = kLiftedInstruction;
 
-
   // Cache invalidation.
   if (func != impl->last_func) {
     impl->reg_ptr_cache.clear();
@@ -858,9 +857,10 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   llvm::IRBuilder<> __debug_ir(block);
   auto _debug_memory_value_change_fn = module->getFunction(debug_memory_value_change_name);
   auto [runtime_manager_ptr, _] = LoadRegAddress(block, state_ptr, kRuntimeVariableName);
-  __debug_ir.CreateCall(_debug_memory_value_change_fn,
-                        {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()),
-                                               runtime_manager_ptr)});
+  __debug_ir.CreateCall(
+      _debug_memory_value_change_fn,
+      {__debug_ir.CreateLoad(llvm::Type::getInt64PtrTy(module->getContext()), runtime_manager_ptr),
+       llvm::ConstantInt::get(llvm::Type::getInt64Ty(module->getContext()), arch_inst.pc)});
 #endif
 
   return status;
