@@ -10,3 +10,4 @@
 // #define OPT_GEN_IR_DEBUG 1
 // #define OPT_CALL_FUNC_DEBUG 1
 // #define OPT_REAL_REGS_DEBUG 1
+// #define DEBUG_WITH_QEMU 1  // TEST_MODE should be enabled too.

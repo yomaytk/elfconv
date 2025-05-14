@@ -250,6 +250,9 @@ function Configure
 # Compile the code.
 function Build
 {
+  # make debugs/generated for debugging.
+  mkdir -p debugs/generated
+  
   if [[ "$OSTYPE" == "darwin"* ]]; then
     NPROC=$( sysctl -n hw.ncpu )
   else

@@ -20,6 +20,7 @@
 #include <glog/logging.h>
 #include <iostream>
 #include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/Instruction.h>
@@ -446,9 +447,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       inst.Reset();
 
+
       // TODO(Ian): not passing context around in trace lifter
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
+
+#if defined(DEBUG_WITH_QEMU)
+      llvm::IRBuilder<> ir2(block);
+      auto check_fun = module->getFunction("debug_check_state_with_qemu");
+      ir2.CreateCall(check_fun, {runtime_ptr,
+                                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
+#endif
 
       // Lift instruction
       auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);

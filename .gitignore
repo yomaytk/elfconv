@@ -46,6 +46,7 @@ remill-build/*
 generated/*
 gtest_build/*
 build*/
+debugs/generated
 
 tools/build/*
 tools/dist/*
