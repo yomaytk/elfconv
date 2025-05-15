@@ -11,6 +11,7 @@
 #include <iostream>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
+#include <set>
 #include <sstream>
 #include <unordered_map>
 #include <utils/Util.h>
@@ -435,6 +436,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
 static uint64_t INSN_COUNT = 0;
 static uint64_t MISSED_INST_COUNT = 0;
+static std::set<std::pair<uint64_t, uint64_t>> differed_reg_set;
 
 extern const QemuState QemuStates[];
 extern const uint64_t BRK_MIN, BRK_MAX;
@@ -442,52 +444,57 @@ extern const uint64_t BRK_MIN, BRK_MAX;
 #  define QEMU_STACK_VMA QemuStates[0].sp - runtime_manager->memory_arena->stack_init_diff
 #  define XREG_CHECK(i) \
     do { \
-      if (gpr.x##i.qword != QemuStates[INSN_COUNT].x[i]) { \
+      uint64_t qemu_xi = QemuStates[INSN_COUNT].x[i]; \
+      uint64_t xi = gpr.x##i.qword; \
+      if (xi != qemu_xi) { \
         /* heap check */ \
-        if (HEAPS_START_VMA <= gpr.x##i.qword && \
-            gpr.x##i.qword <= runtime_manager->memory_arena->heap_cur && \
-            BRK_MIN <= QemuStates[INSN_COUNT].x[i] && QemuStates[INSN_COUNT].x[i] <= BRK_MAX) { \
+        if (HEAPS_START_VMA <= xi && xi <= runtime_manager->memory_arena->heap_cur && \
+            BRK_MIN <= qemu_xi && qemu_xi <= BRK_MAX) { \
           break; \
         } \
         /* stack check */ \
-        if (STACK_LOWEST_VMA <= gpr.x##i.qword && \
-            gpr.x##i.qword <= STACK_LOWEST_VMA + STACK_SIZE && \
-            QEMU_STACK_VMA <= QemuStates[INSN_COUNT].x[i] && \
-            QemuStates[INSN_COUNT].x[i] <= QEMU_STACK_VMA + STACK_SIZE) { \
+        if (STACK_LOWEST_VMA <= xi && xi <= STACK_LOWEST_VMA + STACK_SIZE && \
+            QEMU_STACK_VMA <= qemu_xi && qemu_xi <= QEMU_STACK_VMA + STACK_SIZE) { \
           break; \
         } \
-        printf("x%d not equal. expected: 0x%lx, actual: 0x%lx. ", i, QemuStates[INSN_COUNT].pc, \
-               gpr.x##i.qword); \
-        missed = true; \
+        if (!differed_reg_set.contains({qemu_xi, xi})) { \
+          printf("X%02d not equal. expected: 0x%lx, actual: 0x%lx. ", i, qemu_xi, xi); \
+          missed = true; \
+          differed_reg_set.insert({qemu_xi, xi}); \
+        } \
       } \
     } while (0)
 
 extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uint64_t pc) {
   auto gpr = CPUState.gpr;
+  auto &qemu_state = QemuStates[INSN_COUNT];
+  uint64_t sp, ecv_nzcv;
   uint8_t missed = false;
+
   // pc
   // gpr.pc.qword is not saved even if on TEST_MODE.
-  if (pc != QemuStates[INSN_COUNT].pc) {
-    printf("PC not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].pc, pc);
+  if (pc != qemu_state.pc && !differed_reg_set.contains({qemu_state.pc, pc})) {
+    printf("PC not equal. expected: 0x%lx, actual: 0x%lx. ", qemu_state.pc, pc);
     missed = true;
+    differed_reg_set.insert({qemu_state.pc, pc});
   }
   // sp
-  if (gpr.sp.qword != QemuStates[INSN_COUNT].sp) {
+  sp = gpr.sp.qword;
+  if (sp != qemu_state.sp && !differed_reg_set.contains({qemu_state.sp, sp})) {
     /* stack check */
-    if (!(STACK_LOWEST_VMA <= gpr.sp.qword && gpr.sp.qword <= STACK_LOWEST_VMA + STACK_SIZE &&
-          QEMU_STACK_VMA <= QemuStates[INSN_COUNT].sp &&
-          QemuStates[INSN_COUNT].sp <= QEMU_STACK_VMA + STACK_SIZE)) {
-      printf("SP not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].sp,
-             gpr.sp.qword);
+    if (!(STACK_LOWEST_VMA <= sp && sp <= STACK_LOWEST_VMA + STACK_SIZE &&
+          QEMU_STACK_VMA <= qemu_state.sp && qemu_state.sp <= QEMU_STACK_VMA + STACK_SIZE)) {
+      printf("SP not equal. expected: 0x%lx, actual: 0x%lx. ", qemu_state.sp, sp);
       missed = true;
+      differed_reg_set.insert({qemu_state.sp, sp});
     }
   }
   // NZCV
-  auto ecv_nzcv = CPUState.ecv_nzcv;
-  if (ecv_nzcv != QemuStates[INSN_COUNT].pstate) {
-    printf("NZCV not equal. expected: 0x%lx, actual: 0x%lx. ", QemuStates[INSN_COUNT].pstate,
-           ecv_nzcv);
+  ecv_nzcv = CPUState.ecv_nzcv;
+  if (ecv_nzcv != qemu_state.pstate && !differed_reg_set.contains({qemu_state.pstate, ecv_nzcv})) {
+    printf("NZCV not equal. expected: 0x%lx, actual: 0x%lx. ", qemu_state.pstate, ecv_nzcv);
     missed = true;
+    differed_reg_set.insert({qemu_state.pstate, ecv_nzcv});
   }
   // x0~x30
   XREG_CHECK(0);
@@ -524,9 +531,9 @@ extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uin
 
   if (missed) {
     MISSED_INST_COUNT++;
-    printf("\n-----------wrong instruction. PC: 0x%ld, INSN_COUNT: %ld-----------\n\n", pc,
+    printf("\n-----------wrong instruction. PC: 0x%lx, INSN_COUNT: %ld-----------\n\n", pc,
            INSN_COUNT);
-    if (MISSED_INST_COUNT == 5) {
+    if (MISSED_INST_COUNT == 5 /* threshold = 5 */) {
       elfconv_runtime_error("Too many missed instruction are found.");
     }
   }
