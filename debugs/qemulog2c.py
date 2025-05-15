@@ -46,15 +46,15 @@ def parse_log(file_path):
 
 # Generate C source with trace data and brk stats
 
-def generate_c(entries, brk_nums, outc_path):
+def generate_c(entries, brk_nums, out_c_path):
     """
-    Generate C source and header into 'generated/' directory:
-    - outc_path: filename for .c (header has same base .h)
+    Generate C source and header into 'debugs/generated/' directory:
+    - out_c_path: filename for .c (header has same base .h)
     """
     regs = ['PC'] + [f"X{i:02d}" for i in range(31)] + ['SP', 'PSTATE']
     os.makedirs('generated', exist_ok=True)
-    base, _ = os.path.splitext(outc_path)
-    src_path = os.path.join('generated', outc_path)
+    base, _ = os.path.splitext(out_c_path)
+    src_path = os.path.join('generated', out_c_path)
     hdr_path = base + '.h'
     hdr_full = os.path.join('generated', hdr_path)
 
@@ -83,17 +83,23 @@ def generate_c(entries, brk_nums, outc_path):
         f.write(f'#include "debugs/generated/{hdr_path}"\n\n')
         if brk_nums:
             f.write('/* brk syscall argument and return value statistics */\n')
-            f.write(f'extern "C" const unsigned long BRK_MIN = 0x{brk_min:016x}ULL;\n')
-            f.write(f'extern "C" const unsigned long BRK_MAX = 0x{brk_max:016x}ULL;\n\n')
+            f.write(f'extern "C" const unsigned long BRK_MIN = 0x{brk_min:016x};\n')
+            f.write(f'extern "C" const unsigned long BRK_MAX = 0x{brk_max:016x};\n\n')
         f.write('extern "C" const QemuState QemuStates[] = {\n')
+        cnt = 0
         for e in entries:
             xs = [e.get(f'X{i:02d}', '0') for i in range(31)]
             sp = e.get('SP', '0')
             ps = e.get('PSTATE', '0')
             pc = e.get('PC', '0')
+            # prepare ordered fields
+            regs = ['PC'] + [f'X{i:02d}' for i in range(31)] + ['SP', 'PSTATE']
             values = [pc] + xs + [sp, ps]
-            hex_vals = [f'0x{v}ULL' for v in values]
-            f.write('    { ' + ', '.join(hex_vals) + ' },\n')
+            # annotate each value with its register name
+            annotated = [f'/* {reg} */ 0x{int(val,16):x}' for reg, val in zip(regs, values)]
+            f.write(f'\t/* {cnt} */ ')
+            f.write('    { ' + ', '.join(annotated) + ' },\n')
+            cnt += 1
         f.write('};\n')
 
 
