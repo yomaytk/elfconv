@@ -458,6 +458,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       ir2.CreateCall(check_fun, {runtime_ptr,
                                  llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
 #endif
+#if defined(NOOPT_REAL_REGS_DEBUG)
+      llvm::IRBuilder<> ir3(block);
+      auto check_fun = module->getFunction("debug_gprs_nzcv");
+      ir3.CreateCall(check_fun, {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
+#endif
 
       // Lift instruction
       auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);

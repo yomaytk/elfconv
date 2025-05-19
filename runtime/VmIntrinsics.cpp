@@ -533,7 +533,7 @@ extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uin
     MISSED_INST_COUNT++;
     printf("\n-----------wrong instruction. PC: 0x%lx, INSN_COUNT: %ld-----------\n\n", pc,
            INSN_COUNT);
-    if (MISSED_INST_COUNT == 5 /* threshold = 5 */) {
+    if (MISSED_INST_COUNT == 10 /* threshold = 10 */) {
       elfconv_runtime_error("Too many missed instruction are found.");
     }
   }
