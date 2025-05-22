@@ -7,10 +7,29 @@
 #include <algorithm>
 #include <bfd.h>
 #include <cstdint>
+#include <functional>
 #include <utils/Util.h>
 
 void AArch64TraceManager::SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) {
   traces[addr] = lifted_func;
+}
+
+std::string AArch64TraceManager::AddRestDisasmFunc(uint64_t addr) {
+  auto rest_fun_name = GetUniqueLiftedFuncName("_ecv_rest_fun", addr);
+  auto upper_addr_1 = disasm_funcs.upper_bound(addr);
+  auto upper_addr_2 = rest_disasm_funcs.upper_bound(addr);
+  size_t rest_func_size;
+  if (upper_addr_1 != disasm_funcs.end() && upper_addr_2 != rest_disasm_funcs.end()) {
+    rest_func_size = (uint64_t) std::max(upper_addr_1->first, upper_addr_2->first);
+  } else if (upper_addr_1 != disasm_funcs.end()) {
+    rest_func_size = upper_addr_1->first;
+  } else if (upper_addr_2 != disasm_funcs.end()) {
+    rest_func_size = upper_addr_2->first;
+  } else {
+    LOG(FATAL) << "[Bug] does not handle the pattern of having last rest_disasm_func.";
+  }
+  rest_disasm_funcs.insert({addr, DisasmFunc(rest_fun_name, addr, rest_func_size)});
+  return rest_fun_name;
 }
 
 llvm::Function *AArch64TraceManager::GetLiftedTraceDeclaration(uint64_t addr) {
@@ -37,16 +56,18 @@ bool AArch64TraceManager::TryReadExecutableByte(uint64_t addr, uint8_t *byte) {
   }
 }
 
-std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) {
+std::string AArch64TraceManager::GetLiftedFuncName(uint64_t addr) {
   if (disasm_funcs.count(addr) == 1) {
     return disasm_funcs[addr].func_name;
+  } else if (rest_disasm_funcs.count(addr) == 1) {
+    return rest_disasm_funcs[addr].func_name;
   } else {
     elfconv_runtime_error("[ERROR] addr (0x%lx) doesn't indicate the entry of function.\n", addr);
   }
 }
 
 bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
-  return disasm_funcs.count(addr) == 1;
+  return disasm_funcs.count(addr) == 1 || rest_disasm_funcs.count(addr) == 1;
 }
 
 std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s) {
@@ -63,6 +84,13 @@ bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_
     } else {
       return false;
     }
+  } else if (rest_disasm_funcs.count(trace_addr) == 1) {
+    if (trace_addr <= target_addr &&
+        target_addr < trace_addr + rest_disasm_funcs[trace_addr].func_size) {
+      return true;
+    } else {
+      return false;
+    }
   } else {
     elfconv_runtime_error(
         "[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", trace_addr,
@@ -73,13 +101,15 @@ bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_
 uint64_t AArch64TraceManager::GetFuncVMA_E(uint64_t vma_s) {
   if (disasm_funcs.count(vma_s) == 1) {
     return vma_s + disasm_funcs[vma_s].func_size;
+  } else if (rest_disasm_funcs.count(vma_s) == 1) {
+    return vma_s + rest_disasm_funcs[vma_s].func_size;
   } else {
     elfconv_runtime_error("[ERROR] vma_s (%ld) is not a start address of function.\n", vma_s);
   }
 }
 
 uint64_t AArch64TraceManager::GetFuncNums() {
-  return disasm_funcs.size();
+  return disasm_funcs.size() || rest_disasm_funcs.size();
 }
 
 void AArch64TraceManager::SetELFData() {
@@ -101,8 +131,6 @@ void AArch64TraceManager::SetELFData() {
   if (elf_obj.able_vrp_opt) {
 
     auto &func_symbols = elf_obj.func_symbols;
-    std::sort(func_symbols.begin(), func_symbols.end(),
-              [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
 
     for (size_t i = 0; i < func_symbols.size() - 1; i++) {
       auto lifted_func_name =
@@ -142,52 +170,8 @@ void AArch64TraceManager::SetELFData() {
 
   } else {
 
-    for (auto fun_symbol : elf_obj.func_symbols) {
-      if (sec_symbol_mp.contains(fun_symbol.in_section)) {
-        sec_symbol_mp[fun_symbol.in_section].insert({fun_symbol.addr, fun_symbol});
-      } else {
-        sec_symbol_mp[fun_symbol.in_section] = {{fun_symbol.addr, fun_symbol}};
-      }
-    }
-
-    // Make DisasmFunc for the every detected function entry and empty segment spaces.
-    for (auto &[code_sec, func_symbol_mp] : sec_symbol_mp) {
-
-      bfd_vma sec_vma = bfd_section_vma(code_sec);
-      bfd_size_type sec_size = bfd_section_size(code_sec);
-
-      auto sym_it = func_symbol_mp.begin();
-
-      // Add the head of the section as one function.
-      if (sym_it->first != sec_vma) {
-        auto head_lifted_func_name = GetUniqueLiftedFuncName("_ecv_firstsec_", sec_vma);
-        disasm_funcs.emplace(sec_vma,
-                             DisasmFunc(head_lifted_func_name, sec_vma, sym_it->first - sec_vma));
-      }
-
-      // Add the every function of the code section.
-      while (sym_it != func_symbol_mp.end()) {
-        // Detected function by r2.
-        auto symbol = sym_it->second;
-        auto addr_end = sym_it == std::prev(func_symbol_mp.end()) ? sec_vma + sec_size
-                                                                  : std::next(sym_it)->second.addr;
-        auto lifted_func_name = GetUniqueLiftedFuncName(symbol.sym_name, symbol.addr);
-        disasm_funcs.emplace(symbol.addr,
-                             DisasmFunc(lifted_func_name, symbol.addr, addr_end - symbol.addr));
-
-        // Set program entry point function if applicapable.
-        if (entry_point == symbol.addr) {
-          if (!entry_func_lifted_name.empty()) {
-            elfconv_runtime_error("[ERROR] multiple entrypoints are found.\n");
-          }
-          entry_func_lifted_name = lifted_func_name;
-        }
-        if (lifted_func_name.starts_with("_IO_file_xsputn")) {
-          _io_file_xsputn_vma = symbol.addr;
-        }
-        sym_it++;
-      }
-    }
+    elfconv_runtime_error("Now not supported for ELF with no eh_frame section.\n");
+    // This code block is removed at the next commit of `7363fcd`.
   }
 
   if (entry_func_lifted_name.empty()) {

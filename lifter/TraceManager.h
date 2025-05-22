@@ -49,10 +49,12 @@ class AArch64TraceManager : public remill::TraceManager {
         unique_i64(0) {}
 
   void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func);
+  std::string AddRestDisasmFunc(uint64_t addr);
+
   llvm::Function *GetLiftedTraceDeclaration(uint64_t addr);
   llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
   bool TryReadExecutableByte(uint64_t addr, uint8_t *byte);
-  std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode);
+  std::string GetLiftedFuncName(uint64_t addr);
   std::string GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s);
   bool isFunctionEntry(uint64_t addr);
   bool isWithinFunction(uint64_t trace_addr, uint64_t inst_addr);
@@ -66,7 +68,8 @@ class AArch64TraceManager : public remill::TraceManager {
   BinaryLoader::ELFObject elf_obj;
   std::unordered_map<uintptr_t, uint8_t> memory;
   std::unordered_map<uintptr_t, llvm::Function *> traces;
-  std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
+  std::map<uintptr_t, DisasmFunc> disasm_funcs;
+  std::map<uintptr_t, DisasmFunc> rest_disasm_funcs;
 
   std::unordered_map<asection *, std::map<uint64_t, BinaryLoader::ELFSymbol>> sec_symbol_mp;
 

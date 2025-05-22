@@ -483,6 +483,9 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   // void debug_check_state_with_qemu()
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, true), extern_link,
                          "debug_check_state_with_qemu", *module);
+  // void debug_gprs_nzcv()
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty}, true), extern_link,
+                         "debug_gprs_nzcv", *module);
   return nullptr;
 }
 

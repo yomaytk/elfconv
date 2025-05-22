@@ -137,18 +137,18 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
 void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
   auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
-  if (auto jmp_fun_it =
-          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
-                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      jmp_fun_it != addr_funptr_srt_list.end()) {
+  auto jmp_fun_it =
+      std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
+                       [](auto const &lhs, addr_t value) { return lhs.first < value; });
+  if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_vma;
     jmp_fun_it->second(&state, t_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
-        "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BLR) at %ld."
-        "PC: 0x%lx\n",
-        t_vma, __LINE__, PCREG);
+        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_function_call`."
+        "found vma on lower_bound: 0x%lx\n",
+        t_vma, jmp_fun_it->first);
   }
 }
 
@@ -156,18 +156,18 @@ void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_
 void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
   auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
-  if (auto jmp_fun_it =
-          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
-                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      jmp_fun_it != addr_funptr_srt_list.end()) {
+  auto jmp_fun_it =
+      std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
+                       [](auto const &lhs, addr_t value) { return lhs.first < value; });
+  if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_vma;
     jmp_fun_it->second(&state, t_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
-        "[ERROR] vma 0x%016llx is not included in the lifted function pointer table (BR) at %ld."
-        "PC: 0x%lx\n",
-        t_vma, __LINE__, PCREG);
+        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
+        "found vma on lower_bound: 0x%lx\n",
+        t_vma, jmp_fun_it->first);
   }
 }
 
@@ -533,7 +533,7 @@ extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uin
     MISSED_INST_COUNT++;
     printf("\n-----------wrong instruction. PC: 0x%lx, INSN_COUNT: %ld-----------\n\n", pc,
            INSN_COUNT);
-    if (MISSED_INST_COUNT == 5 /* threshold = 5 */) {
+    if (MISSED_INST_COUNT == 10 /* threshold = 10 */) {
       elfconv_runtime_error("Too many missed instruction are found.");
     }
   }

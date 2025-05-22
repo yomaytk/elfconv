@@ -53,6 +53,7 @@ class TraceManager {
   // The derived class is expected to do something useful with this.
   virtual void SetLiftedTraceDefinition(uint64_t addr, llvm::Function *lifted_func) = 0;
 
+  virtual std::string AddRestDisasmFunc(uint64_t addr) = 0;
   // Get a declaration for a lifted trace. The idea here is that a derived
   // class might have additional global info available to them that lets
   // them declare traces ahead of time. In order to distinguish between
@@ -75,7 +76,7 @@ class TraceManager {
   virtual llvm::Function *GetLiftedTraceDefinition(uint64_t addr);
 
   /* get lifted function name of the target address */
-  virtual std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) = 0;
+  virtual std::string GetLiftedFuncName(uint64_t addr) = 0;
 
   /* get whether or not addr is entry of function */
   virtual bool isFunctionEntry(uint64_t addr) = 0;

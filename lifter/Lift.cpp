@@ -121,16 +121,28 @@ int main(int argc, char *argv[]) {
 
   // Lift every function.
   std::unordered_map<uint64_t, const char *> addr_fun_name_map;
-  for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
-    addr_fun_name_map[addr] = dasm_func.func_name.c_str();
-    auto &lifted_fun_name = addr_fun_name_map[addr];
-    if (!main_lifter.Lift(dasm_func.vma, lifted_fun_name)) {
-      elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", lifted_fun_name);
+  std::set<uint64_t> fin_addrs;
+
+  do {
+    manager.rest_disasm_funcs.clear();
+    for (const auto &[addr, dasm_func] : manager.disasm_funcs) {
+      if (fin_addrs.contains(addr)) {
+        continue;
+      }
+      addr_fun_name_map[addr] = dasm_func.func_name.c_str();
+      auto &lifted_fun_name = addr_fun_name_map[addr];
+      if (!main_lifter.Lift(dasm_func.vma, lifted_fun_name)) {
+        elfconv_runtime_error("[ERROR] Failed to Lift \"%s\"\n", lifted_fun_name);
+      }
+      // Set function name
+      auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
+      lifted_fn->setName(lifted_fun_name);
+      fin_addrs.insert(addr);
     }
-    // Set function name
-    auto lifted_fn = manager.GetLiftedTraceDefinition(dasm_func.vma);
-    lifted_fn->setName(lifted_fun_name);
-  }
+    for (auto &[rest_addr, disasm_func] : manager.rest_disasm_funcs) {
+      manager.disasm_funcs.insert({rest_addr, disasm_func});
+    }
+  } while (!manager.rest_disasm_funcs.empty());
 
   // If we lift with `test_mode`, we should disable `able_vrp_opt`.
   manager.elf_obj.able_vrp_opt = !lift_config.test_mode;
@@ -140,11 +152,28 @@ int main(int argc, char *argv[]) {
     main_lifter.SubseqOfLifting(addr_fun_name_map);
   } else {
     main_lifter.SubseqForNoOptLifting(addr_fun_name_map);
+    printf("[\x1b[32mINFO\x1b[0m] detected funcs num: %ld\n", addr_fun_name_map.size());
+/* Debug functions */
+// Insert `debug_state_machine` to the every instruction.
 #if defined(OPT_REAL_REGS_DEBUG)
     for (auto lifted_func : main_lifter.impl->lifted_funcs) {
       auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
       auto debug_state_machine_fun = module->getFunction("debug_state_machine");
       llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
+    }
+#endif
+// Insert `debug_string (func_name)` for the every function start.
+#if defined(CALLED_FUNC_NAME)
+    for (auto lifted_func : main_lifter.impl->lifted_funcs) {
+      auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
+      auto debug_string_fn = module->getFunction("debug_string");
+      // define func name byte arrays global variable.
+      auto fun_name_val =
+          llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
+      auto fun_name_gvar = new llvm::GlobalVariable(
+          *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage,
+          fun_name_val, lifted_func->getName().str() + "debug_name");
+      llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
     }
 #endif
   }

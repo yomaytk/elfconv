@@ -14,7 +14,7 @@
 #endif
 
 #define PRINT_GPR(index) \
-  std::cout << std::hex << "x" << #index << ": 0x" << CPUState.gpr.x##index.qword << std::endl;
+  std::cout << std::hex << "X" << #index << ": 0x" << CPUState.gpr.x##index.qword << " ";
 
 extern State CPUState;
 
@@ -26,9 +26,7 @@ extern State CPUState;
 /* debug func */
 extern "C" void debug_state_machine() {
 #if !defined(ELF_IS_AMD64)
-  std::cout << "[Debug] State Machine. Program Counter: 0x" << std::hex << std::setw(16)
-            << std::setfill('0') << CPUState.gpr.pc.qword << std::endl;
-  std::cout << "State.GPR:" << std::endl;
+  std::cout << "PC: 0x" << std::hex << CPUState.gpr.pc.qword << " ";
   PRINT_GPR(0);
   PRINT_GPR(1);
   PRINT_GPR(2);
@@ -60,7 +58,7 @@ extern "C" void debug_state_machine() {
   PRINT_GPR(28);
   PRINT_GPR(29);
   PRINT_GPR(30);
-  std::cout << std::hex << "sp: 0x" << CPUState.gpr.sp.qword << ", pc: 0x" << CPUState.gpr.pc.qword
+  std::cout << std::hex << "SP: 0x" << CPUState.gpr.sp.qword << ". PC: 0x" << CPUState.gpr.pc.qword
             << std::endl;
   auto sr = CPUState.sr;
   auto ecv_nzcv = CPUState.ecv_nzcv;
@@ -74,6 +72,43 @@ extern "C" void debug_state_machine() {
             << ", ufc: " << (uint64_t) sr.ufc << ", idc: " << (uint64_t) sr.idc
             << ", ioc: " << (uint64_t) sr.ioc << std::endl;
 #endif
+}
+
+extern "C" void debug_gprs_nzcv(uint64_t pc) {
+  std::cout << "PC: 0x" << std::hex << pc << " ";
+  PRINT_GPR(0);
+  PRINT_GPR(1);
+  PRINT_GPR(2);
+  PRINT_GPR(3);
+  PRINT_GPR(4);
+  PRINT_GPR(5);
+  PRINT_GPR(6);
+  PRINT_GPR(7);
+  PRINT_GPR(8);
+  PRINT_GPR(9);
+  PRINT_GPR(10);
+  PRINT_GPR(11);
+  PRINT_GPR(12);
+  PRINT_GPR(13);
+  PRINT_GPR(14);
+  PRINT_GPR(15);
+  PRINT_GPR(16);
+  PRINT_GPR(17);
+  PRINT_GPR(18);
+  PRINT_GPR(19);
+  PRINT_GPR(20);
+  PRINT_GPR(21);
+  PRINT_GPR(22);
+  PRINT_GPR(23);
+  PRINT_GPR(24);
+  PRINT_GPR(25);
+  PRINT_GPR(26);
+  PRINT_GPR(27);
+  PRINT_GPR(28);
+  PRINT_GPR(29);
+  PRINT_GPR(30);
+  std::cout << std::hex << "SP: 0x" << CPUState.gpr.sp.qword << " PC: 0x" << pc << " ";
+  std::cout << "ECV_NZCV: 0x" << CPUState.ecv_nzcv << std::endl;
 }
 
 extern "C" void debug_state_machine_vectors() {

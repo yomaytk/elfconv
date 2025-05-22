@@ -144,6 +144,9 @@ main() {
       echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for $HOST_CPU)... "
       $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
+      if [ -n "$OUT_EXE" ]; then
+        mv "exe.${HOST_CPU}" "$OUT_EXE"
+      fi
       return 0
     ;;
     *-wasm)
