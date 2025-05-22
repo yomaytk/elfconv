@@ -8,11 +8,15 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
+#include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -110,28 +114,8 @@ void RuntimeManager::SVCNativeCall(void) {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
-      switch (cmd) {
-        case _ECV_TCGETS: {
-          struct termios t_host;
-          int rc = tcgetattr(fd, &t_host);
-          if (rc == 0) {
-            struct _ecv_termios t;
-            memset(&t, 0, sizeof(_ecv_termios));
-            t.c_iflag = t_host.c_iflag;
-            t.c_oflag = t_host.c_oflag;
-            t.c_cflag = t_host.c_cflag;
-            t.c_lflag = t_host.c_lflag;
-            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ECV_NCCS));
-            memcpy(TranslateVMA(arg), &t, sizeof(_ecv_termios));
-            X0_Q = 0;
-          } else {
-            X0_Q = -1;
-          }
-          break;
-        }
-        default: break;
-      }
-    }
+      X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+    } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
@@ -163,6 +147,12 @@ void RuntimeManager::SVCNativeCall(void) {
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
+      X0_Q = syscall(ECV_SYS_GETDENTS64, X0_D, TranslateVMA(X1_Q), X2_Q);
+      if (X0_Q < 0) {
+        errno = -X0_Q;
+      }
+      break;
     case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
@@ -186,14 +176,16 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
+    case ECV_SYS_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
+      X0_Q = sendfile(X0_D, X1_D, (off_t *) TranslateVMA(X2_Q), X3_Q);
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
     case ECV_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_NEWFSTATAT);
-      errno = _ECV_EACCESS;
+      X0_Q = syscall(ECV_SYS_NEWFSTATAT, X0_D, TranslateVMA(X1_Q), TranslateVMA(X2_Q), X3_D);
+      if (X0_Q < 0) {
+        errno = -X0_Q;
+      }
       break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
@@ -206,15 +198,12 @@ void RuntimeManager::SVCNativeCall(void) {
       *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
       X0_Q = tid;
     } break;
-    case ECV_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
-      /* TODO */
-      if ((X1_D & 0x7F) == 0) {
-        /* FUTEX_WAIT */
-        X0_Q = 0;
-      } else {
-        elfconv_runtime_error("Unknown futex op 0x%08u\n", X1_D);
+    case ECV_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u32 val3) */
+      X0_Q = syscall(ECV_SYS_FUTEX, TranslateVMA(X0_Q), X1_D, X2_D, TranslateVMA(X3_Q),
+                     TranslateVMA(X4_Q), X5_D);
+      if (X0_Q < 0) {
+        errno = -X0_Q;
       }
-      NOP_SYSCALL(ECV_SYS_FUTEX);
       break;
     case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
       X0_Q = 0;
@@ -232,14 +221,26 @@ void RuntimeManager::SVCNativeCall(void) {
     case ECV_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
       X0_Q = tgkill(X0_D, X1_D, X2_D);
       break;
-    case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
-      /* TODO */
-      X0_Q = 0;
-      EMPTY_SYSCALL(ECV_SYS_RT_SIGPROCMASK);
-      break;
     case ECV_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
                        (struct sigaction *) TranslateVMA(X2_Q));
+      break;
+    case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
+      X0_Q = syscall(ECV_SYS_RT_SIGPROCMASK, TranslateVMA(X1_Q), TranslateVMA(X2_Q), X3_D);
+      if (X0_Q < 0) {
+        errno = -X0_Q;
+      }
+      break;
+    case ECV_SYS_SETREGID: /* int setregid(gid_t rgid, gid_t egid) gid_t: unsigned int at /usr/aarch64-linux-gnu/include/sys/types.h */
+      X0_D = setregid(X0_D, X1_D);
+      break;
+    case ECV_SYS_SETGID: /* int setgid (gid_t gid) */ X0_D = setgid(X0_D); break;
+    case ECV_SYS_SETREUID: /* int setreuid(uid_t ruid, uid_t euid) uid_t: unsigned int at /usr/aarch64-linux-gnu/include/sys/types.h */
+      X0_D = setreuid(X0_D, X1_D);
+      break;
+    case ECV_SYS_SETUID: /* int setuid(uid_t uid) */ X0_D = setuid(X0_D); break;
+    case ECV_SYS_SETRESUID: /* int setresuid(uid_t ruid , uid_t euid , uid_t suid ) */
+      X0_D = setresuid(X0_D, X1_D, X2_D);
       break;
     case ECV_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
@@ -254,6 +255,15 @@ void RuntimeManager::SVCNativeCall(void) {
       break;
     case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+    case ECV_SYS_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
+    {
+      auto option = X0_D;
+      if (ECV_PR_GET_NAME == option) {
+        X0_D = prctl(option, X1_Q);
+      } else {
+        elfconv_runtime_error("prctl unknown option!: %d\n", option);
+      }
+    } break;
     case ECV_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = getuid(); break;
@@ -295,14 +305,18 @@ void RuntimeManager::SVCNativeCall(void) {
       NOP_SYSCALL(ECV_SYS_MMAP);
       break;
     case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
-      X0_Q = 0;
-      NOP_SYSCALL(ECV_SYS_MPROTECT);
+      X0_Q = syscall(ECV_SYS_MPROTECT, X0_D, X1_Q, X2_Q);
+      if (X0_Q < 0) {
+        errno = -X0_Q;
+      }
       break;
     case ECV_SYS_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
       X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
     case ECV_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
-      X0_Q = 0;
-      NOP_SYSCALL(ECV_SYS_PRLIMIT64);
+      X0_Q = syscall(ECV_SYS_PRLIMIT64, X0_D, X1_D, TranslateVMA(X2_Q), TranslateVMA(X3_Q));
+      if (X0_Q < 0) {
+        errno = -X0_Q;
+      }
       break;
     case ECV_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
@@ -346,4 +360,7 @@ void RuntimeManager::SVCNativeCall(void) {
       elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);
       break;
   }
+#if defined(NOOPT_REAL_REGS_DEBUG)
+  printf("Syscall Number: %ld, res(X0_Q): %ld\n", SYSNUMREG, X0_Q);
+#endif
 }

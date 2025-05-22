@@ -153,6 +153,9 @@ void ELFObject::LoadELFBFD() {
     // The ELF binary generated from gcc or clang has `eh_frame` section even if it is stripped,
     // and we can detect the function entry and length from the section if the section exists.
     int eh_frame_anal = GetSblFromEhFrame();
+#if defined(R2_ANALYSIS)
+    R2Detect();
+#endif
     if (eh_frame_anal == 0) {
       able_vrp_opt = true;
     } else {
@@ -162,7 +165,6 @@ void ELFObject::LoadELFBFD() {
       able_vrp_opt = false;
       elfconv_runtime_error(
           "elfconv cannot convert the ELF binary if it is stripped and doesn't have `eh_frame` section because elfconv has some bugs. Please see the issues of the repository.");
-      R2Detect();
     }
   } else {
     // we can detect all functions by watching the symbol table.
@@ -170,6 +172,13 @@ void ELFObject::LoadELFBFD() {
     is_stripped = false;
     able_vrp_opt = true;
   }
+
+  func_symbols.reserve(func_symbols_map.size());
+  for (auto &[_, symbol] : func_symbols_map) {
+    func_symbols.emplace_back(symbol);
+  }
+  std::sort(func_symbols.begin(), func_symbols.end(),
+            [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
 
   /* get every dynamic symbol table */
   // LoadDynamicSymbolsBFD(); /* FIXME */
@@ -183,7 +192,7 @@ asection *ELFObject::GetIncludedSection(uint64_t vma) {
       return sec;
     }
   }
-  elfconv_runtime_error("cannot find the included section.\n");
+  return nullptr;
 }
 
 void ELFObject::LoadStaticSymbolsBFD() {
@@ -385,8 +394,9 @@ int ELFObject::ParseEhFrame(Dwarf_Debug dbg) {
     GetFuncFromEhFrame(&ehf_fun_entry, &ehf_fun_size, dbg, fde_data[fdenum]);
     std::stringstream ehf_fun_name;
     ehf_fun_name << "_ecv_lifted_fun_0x" << std::hex << ehf_fun_entry;
-    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, ehf_fun_name.str(), ehf_fun_entry,
-                              GetIncludedSection(ehf_fun_entry));
+    func_symbols_map.insert({ehf_fun_entry,
+                             {ELFSymbol::SYM_TYPE_FUNC, ehf_fun_name.str(), ehf_fun_entry,
+                              GetIncludedSection(ehf_fun_entry)}});
   }
 
   // Destructor.
@@ -419,6 +429,7 @@ void ELFObject::GetFuncFromEhFrame(uint64_t *ehf_fun_entry, size_t *ehf_fun_size
 
 // In the current implementation, we use radare2 analysis only for noopt mode.
 void ELFObject::R2Detect() {
+  printf("[\x1b[33mINFO\x1b[0m] R2 analyzing function boundaries... ");
   std::string cmd = "r2 -q -c \"e anal.nopskip=true; e anal.hasnext=true;aaa; aflj\" " + file_name +
                     " > " + "/tmp/elfconv_func_detection.json";
 
@@ -438,17 +449,29 @@ void ELFObject::R2Detect() {
     offset = j_data["offset"].get<uint64_t>();
     minbound = j_data["minbound"].get<uint64_t>();
     fun_offset_name << "__r2fcn_0x" << std::hex << offset << "_noopt";
-    func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_offset_name.str(), offset,
-                              GetIncludedSection(offset));
+    auto inc_sec = GetIncludedSection(offset);
+    if (inc_sec) {
+      func_symbols_map.insert(
+          {offset, {ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_offset_name.str(), offset, inc_sec}});
+    } else {
+      printf("[WARN] r2 detect strange func entry: 0x%lx\n", offset);
+    }
 
     // There is the case whose offset is not equal to the minbound for the analysis results of radare2.
     // In the case, we make new function of the range of minbound to maxbound.
     if (minbound != offset) {
-      fun_minbound_name << "__r2fcn_minbound_0x" << std::hex << minbound << "_noopt";
-      func_symbols.emplace_back(ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_minbound_name.str(),
-                                minbound, GetIncludedSection(minbound));
+      auto inc_sec = GetIncludedSection(minbound);
+      if (inc_sec) {
+        fun_minbound_name << "__r2fcn_minbound_0x" << std::hex << minbound << "_noopt";
+        func_symbols_map.insert(
+            {minbound,
+             {ELFSymbol::SymbolType::SYM_TYPE_FUNC, fun_minbound_name.str(), minbound, inc_sec}});
+      } else {
+        printf("[WARN] r2 detect strage func entry: 0x%lx\n", minbound);
+      }
     }
   }
+  printf("finished.\n");
 }
 
 void ELFObject::DebugBinary() {

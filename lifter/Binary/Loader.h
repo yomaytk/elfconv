@@ -122,6 +122,7 @@ class ELFObject {
   uint32_t bits;
   uintptr_t entry;
   std::vector<ELFSection> sections;
+  std::unordered_map<uint64_t, ELFSymbol> func_symbols_map;
   std::vector<ELFSymbol> func_symbols;
   std::unordered_map<std::string, CodeSection> code_sections;
   unsigned long symbol_table_size;

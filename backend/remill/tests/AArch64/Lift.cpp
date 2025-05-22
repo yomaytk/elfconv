@@ -102,7 +102,7 @@ class AArch64TestTraceManager : public remill::TraceManager {
     }
   }
 
-  std::string GetLiftedFuncName(uint64_t addr, bool vrp_opt_mode) override {
+  std::string GetLiftedFuncName(uint64_t addr) override {
     if (disasm_funcs.count(addr) == 1) {
       return disasm_funcs[addr].func_name;
     } else {

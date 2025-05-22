@@ -890,17 +890,17 @@ DEF_ISEL(ADDP_ASISDPAIR_ONLY) = ADDP_SCALAR;
 
 namespace {
 
-// template <typename S>
-// DEF_SEM(NOT_8, VI128 dst, S src) {
-//   auto vec = UReadVI8(src);
-//   auto res = UNotV8(vec);
-//   UWriteV8(dst, res);
-// }
+template <typename S>
+DEF_SEM_T(NOT_8, S src) {
+  auto vec = UReadVI8(src);
+  auto res = UNotVI8(vec);
+  return res;
+}
 
 }  // namespace
 
-// DEF_ISEL(NOT_ASIMDMISC_R_8B) = NOT_8<VI64>;  // NOT  <Vd>.<T>, <Vn>.<T>
-// DEF_ISEL(NOT_ASIMDMISC_R_16B) = NOT_8<VI128>;  // NOT  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(NOT_ASIMDMISC_R_8B) = NOT_8<VIu8v8>;  // NOT  <Vd>.<T>, <Vn>.<T>
+DEF_ISEL(NOT_ASIMDMISC_R_16B) = NOT_8<VIu8v16>;  // NOT  <Vd>.<T>, <Vn>.<T>
 
 namespace {
 
