@@ -144,6 +144,10 @@ class AArch64TestTraceManager : public remill::TraceManager {
     return disasm_funcs.size();
   }
 
+  std::string AddRestDisasmFunc(uint64_t addr) override {
+    std::__throw_runtime_error("This function is no implemented at AArch64TestTraceManager.\n");
+  }
+
  public:
   std::unordered_map<uint64_t, uint8_t> memory;
   std::unordered_map<uint64_t, llvm::Function *> traces;
