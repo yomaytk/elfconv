@@ -25,4 +25,4 @@ jobs:
       run: docker build . -t elfconv-image
 
     - name: run integration test
-      run: docker run -w /root/elfconv/build elfconv-image ctest
+      run: docker run --rm -w /root/elfconv/build elfconv-image "ninja test_dependencies && ctest"
