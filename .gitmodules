@@ -1,7 +1,3 @@
-[submodule "examples/mnist-neural-network-plain-c"]
-	path = examples/mnist-neural-network-plain-c
-	url = https://github.com/AndrewCarterUK/mnist-neural-network-plain-c
-	ignore = dirty
 [submodule "xterm-pty"]
 	path = xterm-pty
 	url = https://github.com/mame/xterm-pty
