@@ -34,6 +34,8 @@ typedef uint64_t _ecv_long;
 typedef uint32_t _ecv_long;
 #endif
 
+extern _ecv_reg64_t TASK_STRUCT_VMA;
+
 /*
   for ioctl syscall
 */
@@ -290,6 +292,15 @@ void RuntimeManager::SVCWasiCall(void) {
       break;
     case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+    case ECV_SYS_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
+    {
+      uint32_t option = X0_D;
+      if (ECV_PR_GET_NAME == option) {
+        memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
+      } else {
+        elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
+      }
+    }
     case ECV_SYS_GETPID: /* getpid () */ X0_D = 42; break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = 42; break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = 42; break;

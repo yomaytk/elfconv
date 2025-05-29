@@ -109,6 +109,7 @@ void RuntimeManager::SVCNativeCall(void) {
 #endif
   switch (SYSNUMREG) {
     case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
+    case ECV_SYS_DUP3: /* dup (unsigned int fildes)*/ X0_D = dup3(X0_D, X1_D, X2_D);
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
@@ -259,7 +260,7 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       auto option = X0_D;
       if (ECV_PR_GET_NAME == option) {
-        X0_D = prctl(option, X1_Q);
+        X0_D = prctl(option, TranslateVMA(X1_Q));
       } else {
         elfconv_runtime_error("prctl unknown option!: %d\n", option);
       }
