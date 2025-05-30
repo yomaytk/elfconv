@@ -3,6 +3,8 @@ elfconv is a binary translator that translates a Linux ELF binary to the executa
 elfconv converts an original ELF binary to the LLVM bitcode using [Remill](https://github.com/lifting-bits/remill) (However, many parts have been modified to improve functionality and performance)
 and elfconv uses [Emscripten](https://github.com/emscripten-core/emscripten) (for browser) or [WASI-SDK](https://github.com/WebAssembly/wasi-sdk) (for WASI runtimes) to generate the Wasm binary from the LLVM bitcode file.
 
+[![FOSSA Status](https://app.fossa.com/api/projects/custom%2B54526%2Fgit%40github.com%3Ayomaytk%2Felfconv.git.svg?type=shield&issueType=license)](https://app.fossa.com/projects/custom%2B54526%2Fgit%40github.com%3Ayomaytk%2Felfconv.git?ref=badge_shield&issueType=license)
+
 ## Status
 > [!WARNING]
 > "**elfconv is WORK IN PROGRESS**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated Wasm binary. Current limitations are as follows. However, we will resolve these issues in the future.
