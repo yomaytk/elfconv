@@ -6,7 +6,15 @@
 #define _ECV_ENOSYS 38
 
 #if defined(ELF_IS_AARCH64)
+
+// prctl
 #  define ECV_PR_GET_NAME 16
+// fcntl
+#  define ECV_F_DUPFD 0
+#  define ECV_F_GETFD 1
+#  define ECV_F_SETFD 2
+#  define ECV_F_GETFL 3
+#  define ECV_F_SETFL 4
 
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #  define PCREG CPUState.gpr.pc.qword
@@ -24,8 +32,10 @@
 #  define X4_Q CPUState.gpr.x4.qword
 #  define X5_Q CPUState.gpr.x5.qword
 
+#  define ECV_SYS_GETCWD 17
 #  define ECV_SYS_DUP 23
 #  define ECV_SYS_DUP3 24
+#  define ECV_SYS_FCNTL 25
 #  define ECV_SYS_IOCTL 29
 #  define ECV_SYS_MKDIRAT 34
 #  define ECV_SYS_UNLINKAT 35
@@ -33,6 +43,7 @@
 #  define ECV_SYS_TRUNCATE 45
 #  define ECV_SYS_FTRUNCATE 46
 #  define ECV_SYS_FACCESSAT 48
+#  define ECV_SYS_CHDIR 49
 #  define ECV_SYS_OPENAT 56
 #  define ECV_SYS_CLOSE 57
 #  define ECV_SYS_GETDENTS64 61
@@ -44,6 +55,7 @@
 #  define ECV_SYS_READLINKAT 78
 #  define ECV_SYS_NEWFSTATAT 79
 #  define ECV_SYS_FSYNC 82
+#  define ECV_SYS_UTIMENSAT 88
 #  define ECV_SYS_EXIT 93
 #  define ECV_SYS_EXITGROUP 94
 #  define ECV_SYS_SET_TID_ADDRESS 96
