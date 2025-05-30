@@ -164,6 +164,7 @@ main() {
       if [ -n "$OUT_EXE" ]; then
         cp exe.wasm ${ROOT_DIR}/examples/browser/${OUT_EXE}
         sed -i "s/exe\.wasm/${OUT_EXE}/g" exe.js
+        sed -i "s/this\.program/${OUT_EXE}/g" exe.js
         cp exe.js ${ROOT_DIR}/examples/browser
       else
         cp exe.js ${ROOT_DIR}/examples/browser
