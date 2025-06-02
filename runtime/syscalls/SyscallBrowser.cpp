@@ -109,7 +109,22 @@ void RuntimeManager::SVCBrowserCall(void) {
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
   switch (SYSNUMREG) {
-    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
+    case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
+      getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      break;
+    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D); break;
+    case ECV_SYS_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
+      X0_D = dup3(X0_D, X1_D, X2_D);
+      break;
+    case ECV_SYS_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
+      if (X0_D == ECV_F_DUPFD || X0_D == ECV_F_SETFD || X0_D == ECV_F_SETFL) {
+        X0_D = fcntl(X0_D, X1_D, X2_D);
+      } else if (X0_D == ECV_F_GETFD || X0_D == ECV_F_GETFL) {
+        X0_D = fcntl(X0_D, X1_D);
+      } else {
+        elfconv_runtime_error("fcntl unknown cmd.\n");
+      }
+      break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
@@ -144,7 +159,6 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
     case ECV_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
-      // printf("")
       X0_D = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
       break;
     case ECV_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
@@ -153,11 +167,11 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
-    case ECV_SYS_FACCESSAT: /* int faccessat (int dfd, const char *filename, int mode) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_FACCESSAT);
-      errno = _ECV_EACCESS;
+    case ECV_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
+      X0_D = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      break;
+    case ECV_SYS_CHDIR: /* int chdir (const char * path) */
+      X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
@@ -169,6 +183,9 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
+      elfconv_runtime_error("getdents64 syscall is not implemented.\n");
+      break;
     case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
@@ -192,6 +209,9 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
+    case ECV_SYS_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
+      elfconv_runtime_error("sendfile must be implemented for Wasm browser.");
+      break;
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
@@ -202,6 +222,10 @@ void RuntimeManager::SVCBrowserCall(void) {
       errno = _ECV_EACCESS;
       break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case ECV_SYS_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
+      X0_D = utimensat(X0_D, (char *) TranslateVMA(X1_Q),
+                       (const struct timespec *) TranslateVMA(X2_Q), X3_D);
+      break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case ECV_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
       exit(X0_D);
@@ -264,7 +288,7 @@ void RuntimeManager::SVCBrowserCall(void) {
         char machine[65];
       } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
-                       "#0~elfconv", "aarch64"};
+                       "#0~elfconv", "Wasm Browser"};
       memcpy(TranslateVMA(X0_Q), &new_utsname, sizeof(new_utsname));
       X0_D = 0;
     } break;
