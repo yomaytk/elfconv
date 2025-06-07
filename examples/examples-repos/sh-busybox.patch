@@ -24,7 +24,7 @@ index cca33a177..a2e5ea5cc 100644
  void show_usage_if_dash_dash_help(int applet_no, char **argv) FAST_FUNC;
  #if defined(__linux__)
 diff --git a/libbb/appletlib.c b/libbb/appletlib.c
-index d5335d353..98b9596c2 100644
+index d5335d353..dad721914 100644
 --- a/libbb/appletlib.c
 +++ b/libbb/appletlib.c
 @@ -701,7 +701,7 @@ static void install_links(const char *busybox UNUSED_PARAM,
@@ -381,7 +381,7 @@ index d5335d353..98b9596c2 100644
  }
  # endif
  
-@@ -1032,6 +1319,30 @@ int lbb_main(char **argv)
+@@ -1032,6 +1319,32 @@ int lbb_main(char **argv)
  int main(int argc UNUSED_PARAM, char **argv)
  #endif
  {
@@ -394,6 +394,8 @@ index d5335d353..98b9596c2 100644
 +    lsh_status = 0;
 +
 +    printf("> ");
++    fflush(stdout);
++
 +    line = lsh_read_line();
 +    cmds = lsh_split_line(line);
 +    cmdc = 0;
@@ -412,7 +414,7 @@ index d5335d353..98b9596c2 100644
  #if 0
  	/* TODO: find a use for a block of memory between end of .bss
  	 * and end of page. For example, I'm getting "_end:0x812e698 2408 bytes"
-@@ -1070,41 +1381,41 @@ int main(int argc UNUSED_PARAM, char **argv)
+@@ -1070,41 +1383,41 @@ int main(int argc UNUSED_PARAM, char **argv)
  
  #if !BB_MMU
  	/* NOMMU re-exec trick sets high-order bit in first byte of name */
@@ -466,7 +468,7 @@ index d5335d353..98b9596c2 100644
  	if (applet_name[0] == '-')
  		applet_name++;
  	applet_name = bb_basename(applet_name);
-@@ -1125,7 +1436,15 @@ int main(int argc UNUSED_PARAM, char **argv)
+@@ -1125,7 +1438,15 @@ int main(int argc UNUSED_PARAM, char **argv)
  	}
  
  	parse_config_file(); /* ...maybe, if FEATURE_SUID_CONFIG */
