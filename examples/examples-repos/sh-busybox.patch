@@ -11,23 +11,54 @@ index 6c0bdf096..b935c8858 100644
 +  return 0;
  }
 diff --git a/include/libbb.h b/include/libbb.h
-index cca33a177..a2e5ea5cc 100644
+index cca33a177..f848fd542 100644
 --- a/include/libbb.h
 +++ b/include/libbb.h
-@@ -1269,7 +1269,7 @@ int run_nofork_applet(int applet_no, char **argv) FAST_FUNC;
+@@ -1269,9 +1269,9 @@ int run_nofork_applet(int applet_no, char **argv) FAST_FUNC;
  void run_noexec_applet_and_exit(int a, const char *name, char **argv) NORETURN FAST_FUNC;
  #ifndef BUILD_INDIVIDUAL
  int find_applet_by_name(const char *name) FAST_FUNC;
 -void run_applet_no_and_exit(int a, const char *name, char **argv) NORETURN FAST_FUNC;
 +int run_applet_no_and_exit(int a, const char *name, char **argv) FAST_FUNC;
  #endif
- void show_usage_if_dash_dash_help(int applet_no, char **argv) FAST_FUNC;
+-void show_usage_if_dash_dash_help(int applet_no, char **argv) FAST_FUNC;
++int show_usage_if_dash_dash_help(int applet_no, char **argv) FAST_FUNC;
  #if defined(__linux__)
+ int re_execed_comm(void) FAST_FUNC;
+ void set_task_comm(const char *comm) FAST_FUNC;
+@@ -1423,7 +1423,7 @@ extern smallint logmode;
+ extern uint8_t xfunc_error_retval;
+ extern void (*die_func)(void);
+ void xfunc_die(void) NORETURN FAST_FUNC;
+-void bb_show_usage(void) NORETURN FAST_FUNC;
++void bb_show_usage(void);
+ void bb_error_msg(const char *s, ...) __attribute__ ((format (printf, 1, 2))) FAST_FUNC;
+ void bb_simple_error_msg(const char *s) FAST_FUNC;
+ void bb_error_msg_and_die(const char *s, ...) __attribute__ ((noreturn, format (printf, 1, 2))) FAST_FUNC;
 diff --git a/libbb/appletlib.c b/libbb/appletlib.c
-index d5335d353..dad721914 100644
+index d5335d353..51e878172 100644
 --- a/libbb/appletlib.c
 +++ b/libbb/appletlib.c
-@@ -701,7 +701,7 @@ static void install_links(const char *busybox UNUSED_PARAM,
+@@ -124,7 +124,7 @@ static const char packed_usage[] ALIGN1 = { PACKED_USAGE };
+ #endif /* FEATURE_COMPRESS_USAGE */
+ 
+ 
+-void FAST_FUNC bb_show_usage(void)
++void bb_show_usage(void)
+ {
+ 	if (ENABLE_SHOW_USAGE) {
+ #ifdef SINGLE_APPLET_STR
+@@ -171,7 +171,8 @@ void FAST_FUNC bb_show_usage(void)
+ 			dealloc_usage_messages((char*)usage_string);
+ #endif
+ 	}
+-	xfunc_die();
++	// xfunc_die();
++  return;
+ }
+ 
+ int FAST_FUNC find_applet_by_name(const char *name)
+@@ -701,7 +702,7 @@ static void install_links(const char *busybox UNUSED_PARAM,
  # endif
  
  # if ENABLE_BUSYBOX || NUM_APPLETS > 0
@@ -36,7 +67,7 @@ index d5335d353..dad721914 100644
  #endif
  
  # if NUM_SCRIPTS > 0
-@@ -749,6 +749,291 @@ get_script_content(unsigned n)
+@@ -749,6 +750,291 @@ get_script_content(unsigned n)
  }
  # endif /* NUM_SCRIPTS > 0 */
  
@@ -328,8 +359,23 @@ index d5335d353..dad721914 100644
  # if ENABLE_BUSYBOX
  #  if ENABLE_FEATURE_SH_STANDALONE && ENABLE_FEATURE_TAB_COMPLETION
      /*
-@@ -950,7 +1235,7 @@ void FAST_FUNC show_usage_if_dash_dash_help(int applet_no, char **argv)
+@@ -918,7 +1204,7 @@ int busybox_main(int argc UNUSED_PARAM, char **argv)
+ # endif
+ 
+ # if NUM_APPLETS > 0
+-void FAST_FUNC show_usage_if_dash_dash_help(int applet_no, char **argv)
++int FAST_FUNC show_usage_if_dash_dash_help(int applet_no, char **argv)
+ {
+ 	/* Special case. POSIX says "test --help"
+ 	 * should be no different from e.g. "test --foo".
+@@ -946,11 +1232,13 @@ void FAST_FUNC show_usage_if_dash_dash_help(int applet_no, char **argv)
+ 			/* Make "foo --help [...]" exit with 0: */
+ 			xfunc_error_retval = 0;
+ 			bb_show_usage();
++      return 1;
+ 		}
  	}
++  return 0;
  }
  
 -void FAST_FUNC run_applet_no_and_exit(int applet_no, const char *name, char **argv)
@@ -337,7 +383,19 @@ index d5335d353..dad721914 100644
  {
  	int argc;
  
-@@ -967,25 +1252,27 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, const char *name, char **ar
+@@ -960,32 +1248,37 @@ void FAST_FUNC run_applet_no_and_exit(int applet_no, const char *name, char **ar
+ 	 */
+ 	applet_name = name;
+ 
+-	show_usage_if_dash_dash_help(applet_no, argv);
+-
++  int help_res = show_usage_if_dash_dash_help(applet_no, argv);
++	if (help_res) {
++    return 0;
++  }
++  
+ 	if (ENABLE_FEATURE_SUID)
+ 		check_suid(applet_no);
  
  	argc = string_array_len(argv);
  	xfunc_error_retval = applet_main[applet_no](argc, argv);
@@ -372,7 +430,7 @@ index d5335d353..dad721914 100644
  	}
  #  endif
  
-@@ -993,7 +1280,7 @@ static NORETURN void run_applet_and_exit(const char *name, char **argv)
+@@ -993,7 +1286,7 @@ static NORETURN void run_applet_and_exit(const char *name, char **argv)
  	full_write2_str(applet_name);
  	full_write2_str(": applet not found\n");
  	/* POSIX: "If a command is not found, the exit status shall be 127" */
@@ -381,7 +439,7 @@ index d5335d353..dad721914 100644
  }
  # endif
  
-@@ -1032,6 +1319,32 @@ int lbb_main(char **argv)
+@@ -1032,6 +1325,32 @@ int lbb_main(char **argv)
  int main(int argc UNUSED_PARAM, char **argv)
  #endif
  {
@@ -414,7 +472,7 @@ index d5335d353..dad721914 100644
  #if 0
  	/* TODO: find a use for a block of memory between end of .bss
  	 * and end of page. For example, I'm getting "_end:0x812e698 2408 bytes"
-@@ -1070,41 +1383,41 @@ int main(int argc UNUSED_PARAM, char **argv)
+@@ -1070,41 +1389,41 @@ int main(int argc UNUSED_PARAM, char **argv)
  
  #if !BB_MMU
  	/* NOMMU re-exec trick sets high-order bit in first byte of name */
@@ -468,7 +526,7 @@ index d5335d353..dad721914 100644
  	if (applet_name[0] == '-')
  		applet_name++;
  	applet_name = bb_basename(applet_name);
-@@ -1125,7 +1438,15 @@ int main(int argc UNUSED_PARAM, char **argv)
+@@ -1125,7 +1444,15 @@ int main(int argc UNUSED_PARAM, char **argv)
  	}
  
  	parse_config_file(); /* ...maybe, if FEATURE_SUID_CONFIG */

@@ -52,6 +52,7 @@
 #  define ECV_SYS_WRITE 64
 #  define ECV_SYS_WRITEV 66
 #  define ECV_SYS_SENDFILE 71
+#  define ECV_SYS_PPOLL 73
 #  define ECV_SYS_READLINKAT 78
 #  define ECV_SYS_NEWFSTATAT 79
 #  define ECV_SYS_FSYNC 82

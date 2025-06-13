@@ -1,12 +1,14 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <asm-generic/ioctls.h>
 #include <bits/types/struct_timespec.h>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <poll.h>
 #include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -41,22 +43,6 @@
 #define _ECV_ENOSYS 38
 
 typedef uint64_t _ecv_long;
-
-/*
-  for ioctl syscall
-*/
-#define _ECV_TCGETS 0x5401
-#define _ECV_NCCS 19
-typedef uint32_t _ecv_tcflag_t;
-typedef uint8_t _ecv_cc_t;
-struct _ecv_termios {
-  _ecv_tcflag_t c_iflag;
-  _ecv_tcflag_t c_oflag;
-  _ecv_tcflag_t c_cflag;
-  _ecv_tcflag_t c_lflag;
-  _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_ECV_NCCS];
-};
 
 /* 
   for statx 
@@ -110,7 +96,7 @@ void RuntimeManager::SVCNativeCall(void) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  printf("sysnum: %ld\n", SYSNUMREG);
+  // printf("sys num: %llu, pc: 0x%lx\n", SYSNUMREG, PCREG);
   switch (SYSNUMREG) {
     case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
       getcwd((char *) TranslateVMA(X0_Q), X1_Q);
@@ -133,7 +119,14 @@ void RuntimeManager::SVCNativeCall(void) {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
-      X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+      switch (cmd) {
+        case TCGETS:
+        case TCSETS:
+        case TIOCGWINSZ: {
+          X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+        } break;
+        default: elfconv_runtime_error("unknown cmd of ioctl.\n"); break;
+      }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
@@ -160,9 +153,6 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       char *filepath = (char *) TranslateVMA(X1_Q);
       X0_D = openat(X0_D, filepath, X2_D, X3_D);
-      if (-1 == X0_D) {
-        perror("openat error!");
-      }
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
@@ -197,6 +187,11 @@ void RuntimeManager::SVCNativeCall(void) {
     } break;
     case ECV_SYS_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
       X0_Q = sendfile(X0_D, X1_D, (off_t *) TranslateVMA(X2_Q), X3_Q);
+    case ECV_SYS_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
+      X0_D = ppoll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D,
+                   (const struct timespec *) TranslateVMA(X2_Q),
+                   (const sigset_t *) TranslateVMA(X3_Q));
+      break;
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;

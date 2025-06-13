@@ -15,6 +15,7 @@
  */
 
 #include "remill/Arch/Arch.h"
+#include "remill/BC/ABI.h"
 #include "remill/BC/InstructionLifter.h"
 
 #include <glog/logging.h>
@@ -458,6 +459,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 #endif
 #if defined(NOOPT_REAL_REGS_DEBUG)
       llvm::IRBuilder<> ir3(block);
+      auto [pc_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, kPCVariableName);
+      ir3.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc), pc_ptr);
       auto check_fun = module->getFunction("debug_gprs_nzcv");
       ir3.CreateCall(check_fun, {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
 #endif
