@@ -12,8 +12,6 @@
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
-#else
-#  include <remill/Arch/AArch64/Runtime/State.h>  // default
 #endif
 
 const size_t MEMORY_ARENA_SIZE = 512 * 1024 * 1024; /* 512 MiB */

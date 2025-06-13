@@ -1,13 +1,17 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
+#include <poll.h>
 #include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -35,23 +39,72 @@ typedef uint32_t _ecv_long;
 #elif defined(__wasm64__)
 typedef uint64_t _ecv_long;
 #else
-typedef uint32_t _ecv_long;
+typedef uint64_t _ecv_long;
 #endif
+
+extern _ecv_reg64_t TASK_STRUCT_VMA;
 
 /*
   for ioctl syscall
 */
-#define _ECV_TCGETS 0x5401
-#define _ECV_NCCS 19
+#define _ELFARM64_TCGETS 0x5401
+#define _ELFARM64_TIOCGWINSZ 0x5413
+#define _ELFARM64_NCCS 19
 typedef uint32_t _ecv_tcflag_t;
 typedef uint8_t _ecv_cc_t;
+
 struct _ecv_termios {
   _ecv_tcflag_t c_iflag;
   _ecv_tcflag_t c_oflag;
   _ecv_tcflag_t c_cflag;
   _ecv_tcflag_t c_lflag;
   _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_ECV_NCCS];
+  _ecv_cc_t c_cc[_ELFARM64_NCCS];
+};
+
+struct _elfarm64_winsize {
+  uint16_t ws_row;
+  uint16_t ws_col;
+  uint16_t ws_xpixel;
+  uint16_t ws_ypixel;
+};
+
+/* for stat */
+struct _elfarm64df_timespec {
+  int64_t tv_sec;
+  uint32_t tv_nsec;  // ??? #define __SLONGWORD_TYPE	long int
+};
+
+struct _elfarm64df_stat {
+  uint64_t st_dev;
+  uint64_t st_ino;
+  uint32_t st_mode;
+  uint32_t st_nlink;
+  uint32_t st_uid;
+  uint32_t st_gid;
+  uint64_t st_rdev;
+  uint64_t __pad1;
+  uint64_t st_size;
+  int st_blksize;  // ??? #define __SLONGWORD_TYPE	long int
+  int __pad2;
+  uint64_t st_blocks;
+  struct _elfarm64df_timespec st_atim;
+  struct _elfarm64df_timespec st_mtim;
+  struct _elfarm64df_timespec st_ctim;
+// #ifdef __USE_XOPEN2K8
+/* __USE_XOPEN2K8 is defined. */
+#define st_atime st_atim.tv_sec
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
+  // #else
+  // __time_t st_atime;			/* Time of last access.  */
+  // unsigned long int st_atimensec;	/* Nscecs of last access.  */
+  // __time_t st_mtime;			/* Time of last modification.  */
+  // unsigned long int st_mtimensec;	/* Nsecs of last modification.  */
+  // __time_t st_ctime;			/* Time of last status change.  */
+  // unsigned long int st_ctimensec;	/* Nsecs of last status change.  */
+  // #endif
+  int __glibc_reserved[2];
 };
 
 /* 
@@ -107,14 +160,29 @@ void RuntimeManager::SVCBrowserCall(void) {
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
   switch (SYSNUMREG) {
-    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
+    case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
+      getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      break;
+    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D); break;
+    case ECV_SYS_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
+      X0_D = dup3(X0_D, X1_D, X2_D);
+      break;
+    case ECV_SYS_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
+      if (X0_D == ECV_F_DUPFD || X0_D == ECV_F_SETFD || X0_D == ECV_F_SETFL) {
+        X0_D = fcntl(X0_D, X1_D, X2_D);
+      } else if (X0_D == ECV_F_GETFD || X0_D == ECV_F_GETFL) {
+        X0_D = fcntl(X0_D, X1_D);
+      } else {
+        elfconv_runtime_error("fcntl unknown cmd.\n");
+      }
+      break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
       switch (cmd) {
-        case _ECV_TCGETS: {
+        case _ELFARM64_TCGETS: {
           struct termios t_host;
           int rc = tcgetattr(fd, &t_host);
           if (rc == 0) {
@@ -124,7 +192,8 @@ void RuntimeManager::SVCBrowserCall(void) {
             t.c_oflag = t_host.c_oflag;
             t.c_cflag = t_host.c_cflag;
             t.c_lflag = t_host.c_lflag;
-            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ECV_NCCS));
+            t.c_line = t_host.c_line;
+            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ELFARM64_NCCS));
             memcpy(TranslateVMA(arg), &t, sizeof(_ecv_termios));
             X0_Q = 0;
           } else {
@@ -132,9 +201,12 @@ void RuntimeManager::SVCBrowserCall(void) {
           }
           break;
         }
-        default: break;
+        case _ELFARM64_TIOCGWINSZ: {
+
+        } break;
+        default: elfconv_runtime_error("unknown cmd for ioctl."); break;
       }
-    }
+    } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
@@ -142,7 +214,6 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
     case ECV_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
-      // printf("")
       X0_D = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
       break;
     case ECV_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
@@ -151,22 +222,22 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_SYS_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
-    case ECV_SYS_FACCESSAT: /* int faccessat (int dfd, const char *filename, int mode) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_FACCESSAT);
-      errno = _ECV_EACCESS;
+    case ECV_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
+      X0_D = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      break;
+    case ECV_SYS_CHDIR: /* int chdir (const char * path) */
+      X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
       char *filepath = (char *) TranslateVMA(X1_Q);
       X0_D = openat(X0_D, filepath, X2_D, X3_D);
-      if (-1 == X0_D) {
-        perror("openat error!");
-      }
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
+      X0_Q = getdents(X0_D, (struct dirent *) TranslateVMA(X1_Q), X2_Q);
+      break;
     case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
@@ -190,16 +261,61 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
+    case ECV_SYS_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
+      elfconv_runtime_error("sendfile must be implemented for Wasm browser.");
+      break;
+    case ECV_SYS_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
+      X0_D = poll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D, 60);
+      break;
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
     case ECV_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_NEWFSTATAT);
-      errno = _ECV_EACCESS;
-      break;
+    {
+      struct stat _tmp_wasm_stat;
+      int res = fstatat(X0_D, (const char *) TranslateVMA(X1_Q), &_tmp_wasm_stat, X3_D);
+      if (res == 0) {
+        struct _elfarm64df_stat _elf_stat;
+        memset(&_elf_stat, 0, sizeof(_elf_stat));
+        _elf_stat.st_dev = _tmp_wasm_stat.st_dev;
+        _elf_stat.st_ino = _tmp_wasm_stat.st_ino;
+        _elf_stat.st_mode = _tmp_wasm_stat.st_mode;
+        _elf_stat.st_nlink = _tmp_wasm_stat.st_nlink;
+        _elf_stat.st_uid = _tmp_wasm_stat.st_uid;
+        _elf_stat.st_gid = _tmp_wasm_stat.st_gid;
+        _elf_stat.st_rdev = _tmp_wasm_stat.st_rdev;
+        _elf_stat.st_size = _tmp_wasm_stat.st_size;
+        _elf_stat.st_blksize = _tmp_wasm_stat.st_blksize;
+        _elf_stat.st_blocks = _tmp_wasm_stat.st_blocks;
+        _elf_stat.st_atime = _tmp_wasm_stat.st_atim.tv_sec;
+        _elf_stat.st_mtime = _tmp_wasm_stat.st_mtim.tv_sec;
+        _elf_stat.st_ctime = _tmp_wasm_stat.st_ctim.tv_sec;
+        memcpy((struct _elfarm64df_stat *) TranslateVMA(X2_Q), &_elf_stat, sizeof(_elf_stat));
+        X0_D = 0;
+      } else {
+        X0_Q = -1;
+      }
+    } break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case ECV_SYS_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
+    {
+      struct timespec emu_tp[2];
+      int res = utimensat(X0_D, (char *) TranslateVMA(X1_Q), emu_tp, X3_D);
+      if (res == 0) {
+        struct _elfarm64df_timespec _elf_tp[2];
+        _elf_tp[0].tv_sec = emu_tp[0].tv_sec;
+        _elf_tp[0].tv_nsec = emu_tp[0].tv_nsec;
+        _elf_tp[1].tv_sec = emu_tp[1].tv_sec;
+        _elf_tp[1].tv_nsec = emu_tp[1].tv_nsec;
+        _elfarm64df_timespec *emu_tp_addr = (_elfarm64df_timespec *) TranslateVMA(X2_Q);
+        memcpy(emu_tp_addr, &emu_tp[0], sizeof(emu_tp[0]));
+        emu_tp_addr++;
+        memcpy(emu_tp_addr, &emu_tp[1], sizeof(emu_tp[1]));
+        X0_D = res;
+      } else {
+        X0_Q = -1;
+      }
+    } break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case ECV_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
       exit(X0_D);
@@ -260,9 +376,9 @@ void RuntimeManager::SVCBrowserCall(void) {
         char release[65];
         char version[65];
         char machine[65];
-      } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
+      } new_utsname = {"Linux", "wasm-host-01",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
-                       "#0~elfconv", "aarch64"};
+                       "#4 SMP PREEMPT Tue May 15 12:34:56 UTC 2025", "wasm32"};
       memcpy(TranslateVMA(X0_Q), &new_utsname, sizeof(new_utsname));
       X0_D = 0;
     } break;
@@ -272,6 +388,15 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+    case ECV_SYS_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
+    {
+      uint32_t option = X0_D;
+      if (ECV_PR_GET_NAME == option) {
+        memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
+      } else {
+        elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
+      }
+    }
     case ECV_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = getuid(); break;
@@ -331,8 +456,9 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
-      if ((flags & _ECV_AT_EMPTY_PATH) == 0)
+      if ((flags & _ECV_AT_EMPTY_PATH) == 0) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
+      }
       struct stat _stat;
       // execute fstat
       errno = fstat(dfd, &_stat);

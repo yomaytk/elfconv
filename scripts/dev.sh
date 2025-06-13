@@ -142,7 +142,10 @@ main() {
   case "$TARGET" in
     *-native)
       echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for $HOST_CPU)... "
-      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+      if [ -z "$NOT_LIFTED" ]; then
+        $CXX $CLANGFLAGS $RUNTIME_MACRO -c lift.ll -o lift.o
+      fi
+      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.o $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
       if [ -n "$OUT_EXE" ]; then
         mv "exe.${HOST_CPU}" "$OUT_EXE"
@@ -156,15 +159,29 @@ main() {
         PRELOAD="--preload-file ${MOUNT_DIR}"
       fi
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
+      if [ -z "$NOT_LIFTED" ]; then
+        $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
+      fi
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+                              lift.wasm.o $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
-      cp exe.js ${ROOT_DIR}/examples/browser
-      cp exe.wasm ${ROOT_DIR}/examples/browser
+      
+      # move generated files to `examples/browser`
+      if [ -n "$OUT_EXE" ]; then
+        cp exe.wasm ${ROOT_DIR}/examples/browser/${OUT_EXE}
+        sed -i "s/exe\.wasm/${OUT_EXE}/g" exe.js
+        sed -i "s/this\.program/${OUT_EXE}/g" exe.js
+        cp exe.js ${ROOT_DIR}/examples/browser
+      else
+        cp exe.js ${ROOT_DIR}/examples/browser
+        cp exe.wasm ${ROOT_DIR}/examples/browser
+      fi
+      
       # --preload-file generates the mapped data file `exe.data`.
       if [ -f "exe.data" ]; then
         cp exe.data ${ROOT_DIR}/examples/browser
       fi
+      
       return 0
     ;;
     *-wasi32)

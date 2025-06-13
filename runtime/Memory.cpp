@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <utils/Util.h>
@@ -11,11 +12,16 @@
 #  define SP_REG state.gpr.sp.qword
 #elif defined(ELF_IS_AMD64)
 #  define SP_REG state.gpr.rsp.qword
-#else
-#  define SP_REG state.gpr.sp.qword
 #endif
 
 #define SP_REAL_ADDR bytes + (sp - MEMORY_ARENA_VMA)
+
+#if defined(__wasm__)
+#  ifndef TASK_NAME
+#    define TASK_NAME "unknown"
+#  endif
+_ecv_reg64_t TASK_STRUCT_VMA;
+#endif
 
 MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
 
@@ -33,21 +39,36 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   memset(bytes, 0, MEMORY_ARENA_SIZE);
   sp = STACK_LOWEST_VMA + STACK_SIZE;
 
-  // AT_RANDOM and AT_PHDR are not placed in the stack for the original execution of ELF binary.
-  // Therefore, we handle the end point of the AT_PHDR as the stack bottom (actually, a little different by 16 bit alignment).
-  /* Initialize AT_RANDOM */
+  /* Initialize AT_RANDOM (placed on the stack temporarily) */
   _ecv_reg64_t randomp;
   sp -= 16;
   // getentropy(bytes + (sp - vma), 16);
   memset(SP_REAL_ADDR, 1, 16);
   randomp = sp;
 
-  /* Initialize AT_PHDR */
+  /* Initialize AT_PHDR (placed on the stack temporarily) */
   _ecv_reg64_t phdr;
   auto e_ph_size = _ecv_e_phent * _ecv_e_phnum;
   sp -= e_ph_size;
   memcpy(SP_REAL_ADDR, _ecv_e_ph, e_ph_size);
   phdr = sp;
+
+  /* Initialize psuedo task_struct for Wasm on the stack */
+#if defined(__wasm__)
+  struct {
+    char comm[16];
+  } _ecv_task_struct;
+
+  if (strlen(TASK_NAME) > 16) {
+    strncpy(_ecv_task_struct.comm, TASK_NAME, 16);
+  } else {
+    strcpy(_ecv_task_struct.comm, TASK_NAME);
+  }
+
+  sp -= sizeof(_ecv_task_struct);
+  TASK_STRUCT_VMA = sp;
+  memcpy(SP_REAL_ADDR, &_ecv_task_struct, sizeof(_ecv_task_struct));
+#endif
 
   sp -= sp & 0xf;  // This sp points to the stack bottom (16 bit align).
 

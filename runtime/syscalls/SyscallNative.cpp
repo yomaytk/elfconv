@@ -1,9 +1,14 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <asm-generic/ioctls.h>
+#include <bits/types/struct_timespec.h>
+#include <cerrno>
+#include <cstdio>
 #include <cstring>
 #include <fcntl.h>
 #include <iostream>
+#include <poll.h>
 #include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -38,22 +43,6 @@
 #define _ECV_ENOSYS 38
 
 typedef uint64_t _ecv_long;
-
-/*
-  for ioctl syscall
-*/
-#define _ECV_TCGETS 0x5401
-#define _ECV_NCCS 19
-typedef uint32_t _ecv_tcflag_t;
-typedef uint8_t _ecv_cc_t;
-struct _ecv_termios {
-  _ecv_tcflag_t c_iflag;
-  _ecv_tcflag_t c_oflag;
-  _ecv_tcflag_t c_cflag;
-  _ecv_tcflag_t c_lflag;
-  _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_ECV_NCCS];
-};
 
 /* 
   for statx 
@@ -107,14 +96,37 @@ void RuntimeManager::SVCNativeCall(void) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
+  // printf("sys num: %llu, pc: 0x%lx\n", SYSNUMREG, PCREG);
   switch (SYSNUMREG) {
-    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D);
+    case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
+      getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      break;
+    case ECV_SYS_DUP: /* int dup(int oldfd) */ X0_D = dup(X0_D); break;
+    case ECV_SYS_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
+      X0_D = dup3(X0_D, X1_D, X2_D);
+      break;
+    case ECV_SYS_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
+      if (X0_D == ECV_F_DUPFD || X0_D == ECV_F_SETFD || X0_D == ECV_F_SETFL) {
+        X0_D = fcntl(X0_D, X1_D, X2_D);
+      } else if (X0_D == ECV_F_GETFD || X0_D == ECV_F_GETFL) {
+        X0_D = fcntl(X0_D, X1_D);
+      } else {
+        elfconv_runtime_error("fcntl unknown cmd.\n");
+      }
+      break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
-      X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+      switch (cmd) {
+        case TCGETS:
+        case TCSETS:
+        case TIOCGWINSZ: {
+          X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+        } break;
+        default: elfconv_runtime_error("unknown cmd of ioctl.\n"); break;
+      }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
@@ -132,18 +144,15 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
     case ECV_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_FACCESSAT);
-      errno = _ECV_EACCESS;
+      X0_D = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      break;
+    case ECV_SYS_CHDIR: /* int chdir (const char * path) */
+      X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
       char *filepath = (char *) TranslateVMA(X1_Q);
       X0_D = openat(X0_D, filepath, X2_D, X3_D);
-      if (-1 == X0_D) {
-        perror("openat error!");
-      }
       break;
     }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
@@ -178,6 +187,11 @@ void RuntimeManager::SVCNativeCall(void) {
     } break;
     case ECV_SYS_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
       X0_Q = sendfile(X0_D, X1_D, (off_t *) TranslateVMA(X2_Q), X3_Q);
+    case ECV_SYS_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
+      X0_D = ppoll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D,
+                   (const struct timespec *) TranslateVMA(X2_Q),
+                   (const sigset_t *) TranslateVMA(X3_Q));
+      break;
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
@@ -188,6 +202,10 @@ void RuntimeManager::SVCNativeCall(void) {
       }
       break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case ECV_SYS_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
+      X0_D = utimensat(X0_D, (char *) TranslateVMA(X1_Q),
+                       (const struct timespec *) TranslateVMA(X2_Q), X3_D);
+      break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case ECV_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
       syscall(ECV_SYS_EXITGROUP, X0_D);
@@ -259,7 +277,7 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       auto option = X0_D;
       if (ECV_PR_GET_NAME == option) {
-        X0_D = prctl(option, X1_Q);
+        X0_D = prctl(option, TranslateVMA(X1_Q));
       } else {
         elfconv_runtime_error("prctl unknown option!: %d\n", option);
       }
