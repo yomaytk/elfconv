@@ -388,8 +388,6 @@ void RuntimeManager::SVCWasiCall(void) {
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default:
-      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);
-      break;
+    default: NOSYS_CODE(SYSNUMREG); break;
   }
 }

@@ -1,6 +1,7 @@
 #include "SysTable.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <dirent.h>
@@ -53,7 +54,7 @@ extern _ecv_reg64_t TASK_STRUCT_VMA;
 typedef uint32_t _ecv_tcflag_t;
 typedef uint8_t _ecv_cc_t;
 
-struct _ecv_termios {
+struct _elfarm64_termios {
   _ecv_tcflag_t c_iflag;
   _ecv_tcflag_t c_oflag;
   _ecv_tcflag_t c_cflag;
@@ -163,17 +164,17 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
       getcwd((char *) TranslateVMA(X0_Q), X1_Q);
       break;
-    case ECV_SYS_DUP: /* dup (unsigned int fildes)*/ X0_D = dup(X0_D); break;
+    case ECV_SYS_DUP: /* dup (unsigned int fildes) */ X0_D = dup(X0_D); break;
     case ECV_SYS_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
       X0_D = dup3(X0_D, X1_D, X2_D);
       break;
     case ECV_SYS_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
-      if (X0_D == ECV_F_DUPFD || X0_D == ECV_F_SETFD || X0_D == ECV_F_SETFL) {
+      if (X1_D == ECV_F_DUPFD || X1_D == ECV_F_SETFD || X1_D == ECV_F_SETFL) {
         X0_D = fcntl(X0_D, X1_D, X2_D);
-      } else if (X0_D == ECV_F_GETFD || X0_D == ECV_F_GETFL) {
+      } else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
         X0_D = fcntl(X0_D, X1_D);
       } else {
-        elfconv_runtime_error("fcntl unknown cmd.\n");
+        X0_Q = -_ECV_EINVAL;
       }
       break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -186,25 +187,23 @@ void RuntimeManager::SVCBrowserCall(void) {
           struct termios t_host;
           int rc = tcgetattr(fd, &t_host);
           if (rc == 0) {
-            struct _ecv_termios t;
-            memset(&t, 0, sizeof(_ecv_termios));
+            struct _elfarm64_termios t;
+            memset(&t, 0, sizeof(_elfarm64_termios));
             t.c_iflag = t_host.c_iflag;
             t.c_oflag = t_host.c_oflag;
             t.c_cflag = t_host.c_cflag;
             t.c_lflag = t_host.c_lflag;
             t.c_line = t_host.c_line;
             memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ELFARM64_NCCS));
-            memcpy(TranslateVMA(arg), &t, sizeof(_ecv_termios));
+            memcpy(TranslateVMA(arg), &t, sizeof(_elfarm64_termios));
             X0_Q = 0;
           } else {
-            X0_Q = -1;
+            X0_Q = -errno;
           }
           break;
         }
-        case _ELFARM64_TIOCGWINSZ: {
-
-        } break;
-        default: elfconv_runtime_error("unknown cmd for ioctl."); break;
+        case _ELFARM64_TIOCGWINSZ: X0_Q = -_ECV_ENOTTY; break;
+        default: X0_Q = -_ECV_ENOTTY; break;
       }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
@@ -229,11 +228,8 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-    {
-      char *filepath = (char *) TranslateVMA(X1_Q);
-      X0_D = openat(X0_D, filepath, X2_D, X3_D);
+      X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
       break;
-    }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
     case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
       X0_Q = getdents(X0_D, (struct dirent *) TranslateVMA(X1_Q), X2_Q);
@@ -293,7 +289,7 @@ void RuntimeManager::SVCBrowserCall(void) {
         memcpy((struct _elfarm64df_stat *) TranslateVMA(X2_Q), &_elf_stat, sizeof(_elf_stat));
         X0_D = 0;
       } else {
-        X0_Q = -1;
+        X0_Q = -errno;
       }
     } break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
@@ -313,13 +309,11 @@ void RuntimeManager::SVCBrowserCall(void) {
         memcpy(emu_tp_addr, &emu_tp[1], sizeof(emu_tp[1]));
         X0_D = res;
       } else {
-        X0_Q = -1;
+        X0_Q = -errno;
       }
     } break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
-    case ECV_SYS_EXITGROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
-      exit(X0_D);
-      break;
+    case ECV_SYS_EXITGROUP: /* exit_group (int error_code) */ exit(X0_D); break;
     case ECV_SYS_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
@@ -337,9 +331,8 @@ void RuntimeManager::SVCBrowserCall(void) {
       NOP_SYSCALL(ECV_SYS_FUTEX);
       break;
     case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
-      X0_Q = 0;
+      X0_Q = -_ECV_EACCESS;
       NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
-      errno = _ECV_EACCESS;
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
@@ -360,8 +353,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_Q = kill(X0_D, X1_D);
       break;
     case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
-      /* TODO */
-      X0_Q = 0;
+      X0_Q = -_ECV_EACCESS;
       EMPTY_SYSCALL(ECV_SYS_RT_SIGPROCMASK);
       break;
     case ECV_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
@@ -370,7 +362,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     case ECV_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
-      struct __my_utsname {
+      struct __elfarm64_utsname {
         char sysname[65];
         char nodename[65];
         char release[65];
@@ -391,12 +383,14 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_SYS_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       uint32_t option = X0_D;
-      if (ECV_PR_GET_NAME == option) {
-        memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
-      } else {
-        elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
+      switch (option) {
+        case ECV_PR_GET_NAME:
+          memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
+          X0_D = 0;
+          break;
+        default: X0_D = -_ECV_EINVAL; break;
       }
-    }
+    } break;
     case ECV_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = getuid(); break;
@@ -435,7 +429,6 @@ void RuntimeManager::SVCBrowserCall(void) {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
       }
-      NOP_SYSCALL(ECV_SYS_MMAP);
       break;
     case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       X0_Q = 0;
@@ -443,14 +436,15 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     case ECV_SYS_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
       X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
+      break;
     case ECV_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
-      X0_Q = 0;
+      NOSYS_CODE(ECV_SYS_PRLIMIT64)
       NOP_SYSCALL(ECV_SYS_PRLIMIT64);
       break;
     case ECV_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
       auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
-      X0_Q = 0 == res ? X1_Q : -1;
+      X0_Q = 0 == res ? X1_Q : -errno;
     } break;
     case ECV_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
@@ -478,16 +472,13 @@ void RuntimeManager::SVCBrowserCall(void) {
         memcpy(TranslateVMA(X4_Q), &_statx, sizeof(_statx));
         X0_Q = 0;
       } else {
-        X0_Q = -1;
+        X0_Q = -errno;
       }
     } break;
     case ECV_SYS_RSEQ:
-      /* TODO */
-      X0_Q = 0;
+      NOSYS_CODE(ECV_SYS_RSEQ);
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default:
-      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);
-      break;
+    default: NOSYS_CODE(SYSNUMREG); break;
   }
 }
