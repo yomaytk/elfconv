@@ -126,7 +126,7 @@ void __remill_missing_block(State &, addr_t, RuntimeManager *runtime_manager) {
 void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *runtime_manager) {}
 
 void __remill_error(State &, addr_t addr, RuntimeManager *) {
-  printf("[ERROR] Reached __remill_error. PC: 0x%lx\n", addr);
+  std::cout << "[ERROR] Reached __remill_error. PC: 0x" << std::hex << addr << std::endl;
   exit(EXIT_FAILURE);
 }
 
