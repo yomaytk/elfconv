@@ -4,6 +4,14 @@
 
 #define _ECV_EACCESS 13
 #define _ECV_ENOSYS 38
+#define _ECV_ENOTTY 25
+#define _ECV_EINVAL 22
+
+#if defined(NOSYS_EXIT)
+#  define NOSYS_CODE(sysnum) elfconv_runtime_error("Unimplemented syscall number: %ld\n", sysnum)
+#else
+#  define NOSYS_CODE(sysnum) X0_Q = -_ECV_ENOSYS
+#endif
 
 #if defined(ELF_IS_AARCH64)
 

@@ -138,6 +138,10 @@ main() {
       ;;
   esac
 
+  if [ -n "$NOSYS_EXIT" ]; then
+    RUNTIME_MACRO="$RUNTIME_MACRO -DNOSYS_EXIT"
+  fi
+
   # LLVM bc -> target file
   case "$TARGET" in
     *-native)

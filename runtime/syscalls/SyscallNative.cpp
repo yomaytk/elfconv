@@ -96,7 +96,6 @@ void RuntimeManager::SVCNativeCall(void) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  // printf("sys num: %llu, pc: 0x%lx\n", SYSNUMREG, PCREG);
   switch (SYSNUMREG) {
     case ECV_SYS_GETCWD: /* getcwd (char *buf, unsigned long size) */
       getcwd((char *) TranslateVMA(X0_Q), X1_Q);
@@ -106,12 +105,12 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_D = dup3(X0_D, X1_D, X2_D);
       break;
     case ECV_SYS_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
-      if (X0_D == ECV_F_DUPFD || X0_D == ECV_F_SETFD || X0_D == ECV_F_SETFL) {
+      if (X1_D == ECV_F_DUPFD || X1_D == ECV_F_SETFD || X1_D == ECV_F_SETFL) {
         X0_D = fcntl(X0_D, X1_D, X2_D);
-      } else if (X0_D == ECV_F_GETFD || X0_D == ECV_F_GETFL) {
+      } else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
         X0_D = fcntl(X0_D, X1_D);
       } else {
-        elfconv_runtime_error("fcntl unknown cmd.\n");
+        X0_Q = -_ECV_EINVAL;
       }
       break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -125,7 +124,7 @@ void RuntimeManager::SVCNativeCall(void) {
         case TIOCGWINSZ: {
           X0_D = ioctl(fd, cmd, TranslateVMA(arg));
         } break;
-        default: elfconv_runtime_error("unknown cmd of ioctl.\n"); break;
+        default: X0_Q = -_ECV_ENOTTY; break;
       }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
@@ -150,11 +149,8 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-    {
-      char *filepath = (char *) TranslateVMA(X1_Q);
-      X0_D = openat(X0_D, filepath, X2_D, X3_D);
+      X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
       break;
-    }
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
     case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
       X0_Q = syscall(ECV_SYS_GETDENTS64, X0_D, TranslateVMA(X1_Q), X2_Q);
@@ -374,11 +370,6 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default:
-      elfconv_runtime_error("Unknown syscall number: %llu, PC: 0x%llx\n", SYSNUMREG, PCREG);
-      break;
+    default: NOSYS_CODE(SYSNUMREG); break;
   }
-#if defined(NOOPT_REAL_REGS_DEBUG)
-  printf("Syscall Number: %ld, res(X0_Q): %ld\n", SYSNUMREG, X0_Q);
-#endif
 }
