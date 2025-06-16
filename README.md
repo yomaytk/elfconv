@@ -10,7 +10,7 @@ elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefi
 - **Without source codes**
   - Because you can port already-built applications directly, **elfconv can generate Wasm even when the source code isn’t available**. Furthermore, there’s no need to modify the source or rebuild the entire build environment to target Wasm.
 - **System-call compatibility layer**
-  - Existing Wasm system APIs (WASI, Emscripten, etc.) aren’t compatible with Linux syscalls and cover only a small subset (**about 45 in WASI preview 1 versus roughly 400 in current Linux**). elfconv emulates Linux syscalls in the Wasm environment, allowing unmodified Linux applications to run.
+  - Existing Wasm system APIs (WASI, Emscripten, etc.) aren’t compatible with Linux syscalls and cover only a small subset (**e.g., about *45* in [WASI preview 1](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md) versus roughly *400* in current Linux**). elfconv emulates Linux syscalls in the Wasm environment, allowing unmodified Linux applications to run.
 - **No dependence on language-community support**
   - Until now, generating Wasm required each language’s compiler to fully support Wasm output—demanding ongoing contributions from every language community. elfconv removes that requirement, so **no per-language community support is needed**.
 
