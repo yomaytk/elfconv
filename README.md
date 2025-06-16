@@ -1,16 +1,28 @@
 
 # elfconv
-elfconv is a binary translator that translates a Linux ELF binary to the executable binary for other platforms. elfconv mainly supports converting Linux/ELF binaries into WebAssembly or ELF for different CPU architectures.
-elfconv converts an original ELF binary to the LLVM bitcode using [Remill](https://github.com/lifting-bits/remill) (However, many parts have been modified to improve functionality and performance)
-and elfconv uses [Emscripten](https://github.com/emscripten-core/emscripten) (for browser) or [WASI-SDK](https://github.com/WebAssembly/wasi-sdk) (for WASI runtimes) to generate the Wasm binary from the LLVM bitcode file.
+This is an AOT binary translator that converts Linux apps to executable binaries for other environments (i.e., Linux/ELF → WebAssembly, ...).
 
 ▶️ Demo Page: https://yomaytk.github.io/elfconv-demo/
 
+## Why this project?
+elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefits.
+### 1. Easy Porting to Wasm
+- **Without source codes**
+  - Because you can port already-built applications directly, **elfconv can generate Wasm even when the source code isn’t available**. Furthermore, there’s no need to modify the source or rebuild the entire build environment to target Wasm.
+- **System-call compatibility layer**
+  - Existing Wasm system APIs (WASI, Emscripten, etc.) aren’t compatible with Linux syscalls and cover only a small subset (**about 45 in WASI preview 1 versus roughly 400 in current Linux**). elfconv emulates Linux syscalls in the Wasm environment, allowing unmodified Linux applications to run.
+- **No dependence on language-community support**
+  - Until now, generating Wasm required each language’s compiler to fully support Wasm output—demanding ongoing contributions from every language community. elfconv removes that requirement, so **no per-language community support is needed**.
+
+In the past, there have been many Wasm porting projects (e.g., [PostgreSQL on Wasm](https://pglite.dev/), [LibreOffice on Wasm](https://github.com/LibreOffice/core/blob/master/static/README.wasm.md)), but they were all large-scale undertakings.
+
+### 2. Low Performance Overhead
+- **AOT Compilation**
+  - There are existing projects that port Linux applications to Wasm by using CPU emulators such as [v86](https://github.com/copy/v86) and [container2wasm](https://github.com/container2wasm/container2wasm). However, these suffer from very poor performance—often slowing execution by tens of times or more. In contrast, elfconv uses ahead-of-time compilation, so its performance degradation is much smaller (please see the Benchmark below for details).
 ## Status
 > [!WARNING]
 > "**elfconv is WORK IN PROGRESS**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated Wasm binary. Current limitations are as follows. However, we will resolve these issues in the future.
-- Only support for aarch64 ELF binary as an input binary (the support for x86-64 is a work in progress)
-    - Furthermore, the implementation of the conversion for aarch64 is not enough. If your ELF binary's instruction is not supported, elfconv outputs the message (\[WARNING\] Unsupported instruction at 0x...) when you build with [`#define WARNING_OUTPUT 1`](https://github.com/yomaytk/elfconv/blob/deb2a42e1e3f155128f48010bac7c55a0b60b51f/backend/remill/include/remill/BC/HelperMacro.h#L8) being commented out.
+- Only support for AArch64 ELF binary as an input binary
 - No support for shared objects
 - Only a part of the Linux system calls are implemented (ref: [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
 
