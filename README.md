@@ -1,7 +1,6 @@
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/7638341e-1871-4e15-b366-31c39ae01d81" width="300" alt="elfconv-logo2" />
+<img width="300" alt="elfconv-touka" src="https://github.com/user-attachments/assets/13dda975-ae3d-48a1-adad-871d56a41896" />
 </p>
-
 
 # elfconv
 This is an AOT binary translator that converts Linux apps to executable binaries for other environments (i.e., Linux/ELF → WebAssembly, ...).
