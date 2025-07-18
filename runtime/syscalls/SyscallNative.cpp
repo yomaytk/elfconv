@@ -39,9 +39,6 @@
 #  define NOP_SYSCALL(sysnum) ;
 #endif
 
-#define _ECV_EACCESS 13
-#define _ECV_ENOSYS 38
-
 typedef uint64_t _ecv_long;
 
 /* 
@@ -77,9 +74,6 @@ struct _ecv_statx {
   uint64_t __spare3[12];
 };
 
-#define _ECV_AT_EMPTY_PATH 0x1000
-#define _ECV_STATX_BASIC_STATS 0x000007ffU
-
 /*
   syscall emulate function
   
@@ -110,7 +104,7 @@ void RuntimeManager::SVCNativeCall(void) {
       } else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
         X0_D = fcntl(X0_D, X1_D);
       } else {
-        X0_Q = -_ECV_EINVAL;
+        X0_Q = -_LINUX_EINVAL;
       }
       break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -124,7 +118,7 @@ void RuntimeManager::SVCNativeCall(void) {
         case TIOCGWINSZ: {
           X0_D = ioctl(fd, cmd, TranslateVMA(arg));
         } break;
-        default: X0_Q = -_ECV_ENOTTY; break;
+        default: X0_Q = -_LINUX_ENOTTY; break;
       }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
@@ -222,7 +216,7 @@ void RuntimeManager::SVCNativeCall(void) {
     case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
-      errno = _ECV_EACCESS;
+      errno = _LINUX_EACCES;
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
@@ -341,15 +335,16 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
-      if ((flags & _ECV_AT_EMPTY_PATH) == 0)
+      if ((flags & _LINUX_AT_EMPTY_PATH) == 0) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
+      }
       struct stat _stat;
       // execute fstat
       errno = fstat(dfd, &_stat);
       if (errno == 0) {
         struct _ecv_statx _statx;
         memset(&_statx, 0, sizeof(_statx));
-        _statx.stx_mask = _statx.stx_mask = _ECV_STATX_BASIC_STATS;
+        _statx.stx_mask = _statx.stx_mask = _LINUX_STATX_BASIC_STATS;
         _statx.stx_blksize = _stat.st_blksize;
         _statx.stx_attributes = 0;
         _statx.stx_nlink = _stat.st_nlink;
@@ -366,10 +361,10 @@ void RuntimeManager::SVCNativeCall(void) {
       }
     } break;
     case ECV_SYS_RSEQ:
-      /* TODO */
-      X0_Q = 0;
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default: NOSYS_CODE(SYSNUMREG); break;
+    default: X0_Q = -_LINUX_ENOSYS; break;
   }
 }

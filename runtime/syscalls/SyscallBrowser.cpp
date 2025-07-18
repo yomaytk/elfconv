@@ -48,9 +48,6 @@ extern _ecv_reg64_t TASK_STRUCT_VMA;
 /*
   for ioctl syscall
 */
-#define _ELFARM64_TCGETS 0x5401
-#define _ELFARM64_TIOCGWINSZ 0x5413
-#define _ELFARM64_NCCS 19
 typedef uint32_t _ecv_tcflag_t;
 typedef uint8_t _ecv_cc_t;
 
@@ -60,7 +57,7 @@ struct _elfarm64_termios {
   _ecv_tcflag_t c_cflag;
   _ecv_tcflag_t c_lflag;
   _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_ELFARM64_NCCS];
+  _ecv_cc_t c_cc[_LINUX_NCCS];
 };
 
 struct _elfarm64_winsize {
@@ -141,9 +138,6 @@ struct _ecv_statx {
   uint64_t __spare3[12];
 };
 
-#define _ECV_AT_EMPTY_PATH 0x1000
-#define _ECV_STATX_BASIC_STATS 0x000007ffU
-
 /*
   syscall emulate function
   
@@ -174,7 +168,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       } else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
         X0_D = fcntl(X0_D, X1_D);
       } else {
-        X0_Q = -_ECV_EINVAL;
+        X0_Q = -_LINUX_EINVAL;
       }
       break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
@@ -183,7 +177,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       unsigned int cmd = X1_D;
       unsigned long arg = X2_Q;
       switch (cmd) {
-        case _ELFARM64_TCGETS: {
+        case _LINUX_TCGETS: {
           struct termios t_host;
           int rc = tcgetattr(fd, &t_host);
           if (rc == 0) {
@@ -194,7 +188,7 @@ void RuntimeManager::SVCBrowserCall(void) {
             t.c_cflag = t_host.c_cflag;
             t.c_lflag = t_host.c_lflag;
             t.c_line = t_host.c_line;
-            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _ELFARM64_NCCS));
+            memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _LINUX_NCCS));
             memcpy(TranslateVMA(arg), &t, sizeof(_elfarm64_termios));
             X0_Q = 0;
           } else {
@@ -202,8 +196,8 @@ void RuntimeManager::SVCBrowserCall(void) {
           }
           break;
         }
-        case _ELFARM64_TIOCGWINSZ: X0_Q = -_ECV_ENOTTY; break;
-        default: X0_Q = -_ECV_ENOTTY; break;
+        case _LINUX_TIOCGWINSZ: X0_Q = -_LINUX_ENOTTY; break;
+        default: X0_Q = -_LINUX_ENOTTY; break;
       }
     } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
@@ -331,7 +325,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       NOP_SYSCALL(ECV_SYS_FUTEX);
       break;
     case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
-      X0_Q = -_ECV_EACCESS;
+      X0_Q = -_LINUX_EACCES;
       NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
@@ -353,7 +347,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_Q = kill(X0_D, X1_D);
       break;
     case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
-      X0_Q = -_ECV_EACCESS;
+      X0_Q = -_LINUX_EACCES;
       EMPTY_SYSCALL(ECV_SYS_RT_SIGPROCMASK);
       break;
     case ECV_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
@@ -388,7 +382,7 @@ void RuntimeManager::SVCBrowserCall(void) {
           memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
           X0_D = 0;
           break;
-        default: X0_D = -_ECV_EINVAL; break;
+        default: X0_D = -_LINUX_EINVAL; break;
       }
     } break;
     case ECV_SYS_GETPID: /* getpid () */ X0_D = getpid(); break;
@@ -438,7 +432,6 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
       break;
     case ECV_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
-      NOSYS_CODE(ECV_SYS_PRLIMIT64)
       NOP_SYSCALL(ECV_SYS_PRLIMIT64);
       break;
     case ECV_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
@@ -450,7 +443,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
-      if ((flags & _ECV_AT_EMPTY_PATH) == 0) {
+      if ((flags & _LINUX_AT_EMPTY_PATH) == 0) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
       }
       struct stat _stat;
@@ -459,7 +452,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       if (errno == 0) {
         struct _ecv_statx _statx;
         memset(&_statx, 0, sizeof(_statx));
-        _statx.stx_mask = _statx.stx_mask = _ECV_STATX_BASIC_STATS;
+        _statx.stx_mask = _statx.stx_mask = _LINUX_STATX_BASIC_STATS;
         _statx.stx_blksize = _stat.st_blksize;
         _statx.stx_attributes = 0;
         _statx.stx_nlink = _stat.st_nlink;
@@ -476,9 +469,10 @@ void RuntimeManager::SVCBrowserCall(void) {
       }
     } break;
     case ECV_SYS_RSEQ:
-      NOSYS_CODE(ECV_SYS_RSEQ);
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default: NOSYS_CODE(SYSNUMREG); break;
+    default: X0_Q = -_LINUX_ENOSYS; break;
   }
 }
