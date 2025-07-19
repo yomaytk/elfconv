@@ -155,7 +155,7 @@ void RuntimeManager::SVCWasiCall(void) {
         : /* int statfs(const char *path, struct statfs *buf) UNDECLARED! */
       EMPTY_SYSCALL(ECV_SYS_STATFS)
       X0_Q = -1;
-      errno = _LINUX_EACCES;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
       X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
@@ -170,7 +170,7 @@ void RuntimeManager::SVCWasiCall(void) {
         flags &= ~_LINUX_AT_SYMLINK_NOFOLLOW;
         flags |= 1;
       }
-      faccessat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, flags);
+      X0_D = faccessat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, flags);
     } break;
     case ECV_SYS_CHDIR: /* int chdir (const char * path) */
       X0_D = chdir((const char *) TranslateVMA(X0_Q));
@@ -200,7 +200,8 @@ void RuntimeManager::SVCWasiCall(void) {
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
     case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
       /* FIXME: failed to link getdents function. */
-      X0_Q = -_LINUX_ENOSYS;
+      X0_Q = -1;
+      errno = -_LINUX_ENOSYS;
       break;
     case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
@@ -247,7 +248,7 @@ void RuntimeManager::SVCWasiCall(void) {
         : /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       X0_Q = -1;
       EMPTY_SYSCALL(ECV_SYS_NEWFSTATAT);
-      errno = _LINUX_EACCES;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
@@ -275,7 +276,7 @@ void RuntimeManager::SVCWasiCall(void) {
         : /* set_robust_list (struct robust_list_head *head, size_t len) */
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
-      errno = _LINUX_EACCES;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
@@ -331,6 +332,7 @@ void RuntimeManager::SVCWasiCall(void) {
       break;
     case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+      break;
     /* UNDECLARED! */ case ECV_SYS_PRCTL
         : /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
@@ -340,7 +342,7 @@ void RuntimeManager::SVCWasiCall(void) {
       } else {
         elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
       }
-    }
+    } break;
     case ECV_SYS_GETPID: /* getpid () */ X0_D = 42; break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = 42; break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = 42; break;
@@ -368,7 +370,7 @@ void RuntimeManager::SVCWasiCall(void) {
       EMPTY_SYSCALL(ECV_SYS_MUNMAP);
       break;
     /* CANNOT USE! */ case ECV_SYS_MMAP
-        : /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
+        : /* mmap (void *start, size_t length, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
         if ((int) X4_D != -1)
@@ -385,7 +387,9 @@ void RuntimeManager::SVCWasiCall(void) {
       NOP_SYSCALL(ECV_SYS_MMAP);
       break;
     case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
-      X0_D = mprotect(TranslateVMA(X0_Q), X1_Q, X2_D);
+      // mprotect implementaion of wasi-libc doesn't change the memory access and only check arguments, and Wasm page size (64KiB) is different from Linux Page size (4KiB).
+      // Therefore elfconv doesn't use it. ref: https://github.com/WebAssembly/wasi-libc/blob/45252554b765e3db11d0ef5b41d6dd290ed33382/libc-bottom-half/mman/mman.c#L127-L157
+      X0_D = 0;
       break;
     /* UNDECLARED! */ case ECV_SYS_PRLIMIT64
         : /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
@@ -431,6 +435,6 @@ void RuntimeManager::SVCWasiCall(void) {
       errno = -_LINUX_EACCES;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default: X0_Q = -_LINUX_ENOSYS; break;
+    default: X0_Q = _LINUX_ENOSYS; break;
   }
 }
