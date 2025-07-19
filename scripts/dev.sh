@@ -26,9 +26,9 @@ setting() {
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
-  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
-  WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
-  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
+  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_MMAN -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
+  WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks -lwasi-emulated-mman -lwasi-emulated-signal"
+  ELFCONV_COMMON_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
@@ -55,7 +55,7 @@ aarch64_test() {
   RUNTIME_MACRO="${RUNTIME_MACRO} -DELF_IS_AARCH64"
   # generate execute file (lift_test.aarch64)
   $CXX $CLANGFLAGS $RUNTIME_MACRO -o lift_test.aarch64 aarch64_test.ll ${AARCH64_TEST_DIR}/Test.cpp ${AARCH64_TEST_DIR}/TestHelper.cpp \
-  ${AARCH64_TEST_DIR}/TestInstructions.cpp $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+  ${AARCH64_TEST_DIR}/TestInstructions.cpp $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
   echo -e "[${GREEN}INFO${NC}] Generate lift_test.aarch64"
 
 }
@@ -122,7 +122,7 @@ main() {
   fi
 
   if [ -n "$DEBUG_QEMU" ]; then
-    ELFCONV_SHARED_RUNTIMES="$ELFCONV_SHARED_RUNTIMES ${ROOT_DIR}/debugs/generated/qemulog2c.c"
+    ELFCONV_COMMON_RUNTIMES="$ELFCONV_COMMON_RUNTIMES ${ROOT_DIR}/debugs/generated/qemulog2c.c"
     RUNTIME_MACRO="$RUNTIME_MACRO -DDEBUG_WITH_QEMU=1"
   fi
 
@@ -149,7 +149,7 @@ main() {
       if [ -z "$NOT_LIFTED" ]; then
         $CXX $CLANGFLAGS $RUNTIME_MACRO -c lift.ll -o lift.o
       fi
-      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.o $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.o $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
       if [ -n "$OUT_EXE" ]; then
         mv "exe.${HOST_CPU}" "$OUT_EXE"
@@ -167,7 +167,7 @@ main() {
         $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
       fi
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              lift.wasm.o $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+                              lift.wasm.o $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
       
       # move generated files to `examples/browser`
@@ -192,7 +192,7 @@ main() {
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
       cd $BUILD_DIR
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.ll $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.ll $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
       echo -e "[${GREEN}INFO${NC}] Universal compile optimization was done. (exe_o3.wasm)"

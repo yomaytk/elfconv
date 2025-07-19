@@ -2,11 +2,18 @@
 
 #include <algorithm>
 #include <cstring>
+#include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
+#include <poll.h>
 #include <remill/BC/HelperMacro.h>
+#include <signal.h>  // need -D_WASI_EMULATED_SIGNAL and -lwasi-emulated-signal
+#include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <sys/ioctl.h>
+#include <sys/mman.h>  // need -D_WASI_EMULATED_MMAN and -lwasi-emulated-mman
+#include <sys/random.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -39,8 +46,6 @@ extern _ecv_reg64_t TASK_STRUCT_VMA;
 /*
   for ioctl syscall
 */
-#define _ECV_TCGETS 0x5401
-#define _ECV_NCCS 19
 typedef uint32_t _ecv_tcflag_t;
 typedef uint8_t _ecv_cc_t;
 struct _ecv_termios {
@@ -49,7 +54,7 @@ struct _ecv_termios {
   _ecv_tcflag_t c_cflag;
   _ecv_tcflag_t c_lflag;
   _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_ECV_NCCS];
+  _ecv_cc_t c_cc[_LINUX_NCCS];
 };
 
 /* 
@@ -85,9 +90,6 @@ struct _ecv_statx {
   uint64_t __spare3[12];
 };
 
-#define _ECV_AT_EMPTY_PATH 0x1000
-#define _ECV_STATX_BASIC_STATS 0x000007ffU
-
 // macros specified to Linux
 #define LINUX_AD_FDCWD -100
 #define LINUX_O_CREAT 64
@@ -114,32 +116,46 @@ void RuntimeManager::SVCWasiCall(void) {
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
   switch (SYSNUMREG) {
-    case ECV_SYS_DUP: /* dup (unsinged int fildes)*/
+    /* UNDECLARED! */ case ECV_SYS_DUP: /* dup (unsinged int fildes) UNDECLARED! */
       EMPTY_SYSCALL(ECV_SYS_DUP)
       X0_Q = -1;
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
+      break;
+    /* UNDECLARED! */ case ECV_SYS_DUP3: /* dup3 (int oldfd, int newfd, int flags) UNDECLARED! */
+      EMPTY_SYSCALL(ECV_SYS_DUP3)
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
-      EMPTY_SYSCALL(ECV_SYS_IOCTL)
-      X0_Q = -1;
-      errno = _ECV_EACCESS;
-      break;
+    {
+      unsigned int fd = X0_D;
+      unsigned int cmd = X1_D;
+      unsigned long arg = X2_Q;
+      switch (cmd) {
+        case _LINUX_TCGETS:
+        case _LINUX_TCSETS: {
+          X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+        } break;
+        default: X0_Q = -_LINUX_ENOTTY; break;
+      }
+    } break;
     case ECV_SYS_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
-      if (LINUX_AD_FDCWD == X0_D) {
+      if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
       X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
     case ECV_SYS_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
-      if (LINUX_AD_FDCWD == X0_D) {
+      if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
       X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
       break;
-    case ECV_SYS_STATFS: /* int statfs(const char *path, struct statfs *buf) */
-      EMPTY_SYSCALL(ECV_SYS_IOCTL)
+    /* UNDECLARED! */ case ECV_SYS_STATFS
+        : /* int statfs(const char *path, struct statfs *buf) UNDECLARED! */
+      EMPTY_SYSCALL(ECV_SYS_STATFS)
       X0_Q = -1;
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_TRUNCATE: /* int truncate(const char *path, off_t length) */
       X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
@@ -148,13 +164,19 @@ void RuntimeManager::SVCWasiCall(void) {
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
     case ECV_SYS_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
-      /* TODO */
-      X0_Q = -1;
-      EMPTY_SYSCALL(ECV_SYS_FACCESSAT);
-      errno = _ECV_EACCESS;
+    {
+      int flags = X3_D;
+      if (flags & _LINUX_AT_SYMLINK_NOFOLLOW) {
+        flags &= ~_LINUX_AT_SYMLINK_NOFOLLOW;
+        flags |= 1;
+      }
+      X0_D = faccessat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, flags);
+    } break;
+    case ECV_SYS_CHDIR: /* int chdir (const char * path) */
+      X0_D = chdir((const char *) TranslateVMA(X0_Q));
       break;
     case ECV_SYS_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-      if (LINUX_AD_FDCWD == X0_D) {
+      if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
       if (LINUX_O_RDONLY == (X2_D & LINUX_O_RDONLY)) {
@@ -174,11 +196,13 @@ void RuntimeManager::SVCWasiCall(void) {
         X2_D |= O_CREAT;
       }
       X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
-      if (ERROR_CODE == X0_D) {
-        perror("openat error!");
-      }
       break;
     case ECV_SYS_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    case ECV_SYS_GETDENTS64: /* long getdents64 (int fd, void *dirp, size_t count) */
+      /* FIXME: failed to link getdents function. */
+      X0_Q = -1;
+      errno = -_LINUX_ENOSYS;
+      break;
     case ECV_SYS_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
@@ -202,17 +226,29 @@ void RuntimeManager::SVCWasiCall(void) {
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
+    /* UNDECLARED! */ case ECV_SYS_SENDFILE
+        : /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
+      /* FIXME: should do pseudo implementation */
+      elfconv_runtime_error("sendfile must be implemented for WASI.");
+      break;
+    /* UNDECLARED! */ case ECV_SYS_PPOLL
+        : /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
+      /* alternatively use poll? */
+      EMPTY_SYSCALL(ECV_SYS_PPOLL)
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
+      break;
     case ECV_SYS_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-      if (LINUX_AD_FDCWD == X0_D) {
+      if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
       X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
       break;
-    case ECV_SYS_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
-      /* TODO */
+    /* UNDECLARED! */ case ECV_SYS_NEWFSTATAT
+        : /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
       X0_Q = -1;
       EMPTY_SYSCALL(ECV_SYS_NEWFSTATAT);
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_SYS_EXIT: /* exit (int error_code) */ exit(X0_D); break;
@@ -225,7 +261,8 @@ void RuntimeManager::SVCWasiCall(void) {
       *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
       X0_Q = tid;
     } break;
-    case ECV_SYS_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
+    /* UNDECLARED! */ case ECV_SYS_FUTEX
+        : /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
       /* TODO */
       if ((X1_D & 0x7F) == 0) {
         /* FUTEX_WAIT */
@@ -235,10 +272,11 @@ void RuntimeManager::SVCWasiCall(void) {
       }
       NOP_SYSCALL(ECV_SYS_FUTEX);
       break;
-    case ECV_SYS_SET_ROBUST_LIST: /* set_robust_list (struct robust_list_head *head, size_t len) */
+    /* UNDECLARED! */ case ECV_SYS_SET_ROBUST_LIST
+        : /* set_robust_list (struct robust_list_head *head, size_t len) */
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_SET_ROBUST_LIST);
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
@@ -257,20 +295,22 @@ void RuntimeManager::SVCWasiCall(void) {
       memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
-    case ECV_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
+    /* UNDECLARED! */ case ECV_SYS_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
       EMPTY_SYSCALL(ECV_SYS_TGKILL);
       X0_Q = -1;
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
       break;
-    case ECV_SYS_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
-      /* TODO */
-      X0_Q = 0;
+    /* UNDECLARED! */ case ECV_SYS_RT_SIGPROCMASK
+        : /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
       EMPTY_SYSCALL(ECV_SYS_RT_SIGPROCMASK);
-      break;
-    case ECV_SYS_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       X0_Q = -1;
-      errno = _ECV_EACCESS;
+      errno = -_LINUX_EACCES;
+      break;
+    /* UNDECLARED! */ case ECV_SYS_RT_SIGACTION
+        : /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       EMPTY_SYSCALL(ECV_SYS_RT_SIGACTION)
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       break;
     case ECV_SYS_UNAME: /* uname (struct old_utsname* buf) */
     {
@@ -292,7 +332,9 @@ void RuntimeManager::SVCWasiCall(void) {
       break;
     case ECV_SYS_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
       X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
-    case ECV_SYS_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
+      break;
+    /* UNDECLARED! */ case ECV_SYS_PRCTL
+        : /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       uint32_t option = X0_D;
       if (ECV_PR_GET_NAME == option) {
@@ -300,15 +342,17 @@ void RuntimeManager::SVCWasiCall(void) {
       } else {
         elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
       }
-    }
+    } break;
     case ECV_SYS_GETPID: /* getpid () */ X0_D = 42; break;
     case ECV_SYS_GETPPID: /* getppid () */ X0_D = 42; break;
     case ECV_SYS_GETUID: /* getuid () */ X0_D = 42; break;
     case ECV_SYS_GETEUID: /* geteuid () */ X0_D = 42; break;
     case ECV_SYS_GETGID: /* getgid () */ X0_D = 42; break;
     case ECV_SYS_GETEGID: /* getegid () */ X0_D = 42; break;
-    case ECV_SYS_GETTID: /* getttid () */ X0_D = 42; break;
-    case ECV_SYS_BRK: /* brk (unsigned long brk) */
+    case ECV_SYS_GETTID: /* getttid () */
+      X0_D = 42;
+      break;
+    /* UNDECLARED! */ case ECV_SYS_BRK : /* brk (unsigned long brk) */
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
@@ -320,15 +364,16 @@ void RuntimeManager::SVCWasiCall(void) {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
     } break;
-    case ECV_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
-      /* TODO */
-      X0_Q = 0;
+    /* CANNOT USE! */ case ECV_SYS_MUNMAP: /* munmap (unsigned long addr, size_t len) */
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       EMPTY_SYSCALL(ECV_SYS_MUNMAP);
       break;
-    case ECV_SYS_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
+    /* CANNOT USE! */ case ECV_SYS_MMAP
+        : /* mmap (void *start, size_t length, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
-        if (X4_D != -1)
+        if ((int) X4_D != -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
@@ -342,32 +387,34 @@ void RuntimeManager::SVCWasiCall(void) {
       NOP_SYSCALL(ECV_SYS_MMAP);
       break;
     case ECV_SYS_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
-      X0_Q = 0;
-      NOP_SYSCALL(ECV_SYS_MPROTECT);
+      // mprotect implementaion of wasi-libc doesn't change the memory access and only check arguments, and Wasm page size (64KiB) is different from Linux Page size (4KiB).
+      // Therefore elfconv doesn't use it. ref: https://github.com/WebAssembly/wasi-libc/blob/45252554b765e3db11d0ef5b41d6dd290ed33382/libc-bottom-half/mman/mman.c#L127-L157
+      X0_D = 0;
       break;
-    case ECV_SYS_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
+    /* UNDECLARED! */ case ECV_SYS_PRLIMIT64
+        : /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
       X0_Q = 0;
       NOP_SYSCALL(ECV_SYS_PRLIMIT64);
       break;
-    case ECV_SYS_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
+    /* UNDECLARED! */ case ECV_SYS_GETRANDOM
+        : /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
       memset(TranslateVMA(X0_Q), 1, static_cast<size_t>(X1_Q));
       X0_Q = X1_Q;
     } break;
-    case ECV_SYS_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
+    /* UNDECLARED! */ case ECV_SYS_STATX
+        : /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
-      int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
-      if ((flags & _ECV_AT_EMPTY_PATH) == 0)
+      if ((flags & _LINUX_AT_EMPTY_PATH) == 0) {
         elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
+      }
       struct stat _stat;
       // execute fstat
-      errno = _ECV_EACCESS;
-      EMPTY_SYSCALL(ECV_SYS_STATX);
       if (errno == 0) {
         struct _ecv_statx _statx;
         memset(&_statx, 0, sizeof(_statx));
-        _statx.stx_mask = _statx.stx_mask = _ECV_STATX_BASIC_STATS;
+        _statx.stx_mask = _statx.stx_mask = _LINUX_STATX_BASIC_STATS;
         _statx.stx_blksize = _stat.st_blksize;
         _statx.stx_attributes = 0;
         _statx.stx_nlink = _stat.st_nlink;
@@ -383,11 +430,11 @@ void RuntimeManager::SVCWasiCall(void) {
         X0_Q = -1;
       }
     } break;
-    case ECV_SYS_RSEQ:
-      /* TODO */
-      X0_Q = 0;
+    /* UNDECLARED! */ case ECV_SYS_RSEQ:
+      X0_Q = -1;
+      errno = -_LINUX_EACCES;
       NOP_SYSCALL(ECV_SYS_RSEQ);
       break;
-    default: NOSYS_CODE(SYSNUMREG); break;
+    default: X0_Q = _LINUX_ENOSYS; break;
   }
 }

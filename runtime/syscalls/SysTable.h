@@ -2,10 +2,53 @@
 
 #include <runtime/Runtime.h>
 
-#define _ECV_EACCESS 13
-#define _ECV_ENOSYS 38
-#define _ECV_ENOTTY 25
-#define _ECV_EINVAL 22
+#define _LINUX_EPERM 1 /* Operation not permitted */
+#define _LINUX_ENOENT 2 /* No such file or directory */
+#define _LINUX_ESRCH 3 /* No such process */
+#define _LINUX_EINTR 4 /* Interrupted system call */
+#define _LINUX_EIO 5 /* I/O error */
+#define _LINUX_ENXIO 6 /* No such device or address */
+#define _LINUX_E2BIG 7 /* Argument list too long */
+#define _LINUX_ENOEXEC 8 /* Exec format error */
+#define _LINUX_EBADF 9 /* Bad file number */
+#define _LINUX_ECHILD 10 /* No child processes */
+#define _LINUX_EAGAIN 11 /* Try again */
+#define _LINUX_ENOMEM 12 /* Out of memory */
+#define _LINUX_EACCES 13 /* Permission denied */
+#define _LINUX_EFAULT 14 /* Bad address */
+#define _LINUX_ENOTBLK 15 /* Block device required */
+#define _LINUX_EBUSY 16 /* Device or resource busy */
+#define _LINUX_EEXIST 17 /* File exists */
+#define _LINUX_EXDEV 18 /* Cross-device link */
+#define _LINUX_ENODEV 19 /* No such device */
+#define _LINUX_ENOTDIR 20 /* Not a directory */
+#define _LINUX_EISDIR 21 /* Is a directory */
+#define _LINUX_EINVAL 22 /* Invalid argument */
+#define _LINUX_ENFILE 23 /* File table overflow */
+#define _LINUX_EMFILE 24 /* Too many open files */
+#define _LINUX_ENOTTY 25 /* Not a typewriter */
+#define _LINUX_ETXTBSY 26 /* Text file busy */
+#define _LINUX_EFBIG 27 /* File too large */
+#define _LINUX_ENOSPC 28 /* No space left on device */
+#define _LINUX_ESPIPE 29 /* Illegal seek */
+#define _LINUX_EROFS 30 /* Read-only file system */
+#define _LINUX_EMLINK 31 /* Too many links */
+#define _LINUX_EPIPE 32 /* Broken pipe */
+#define _LINUX_EDOM 33 /* Math argument out of domain of func */
+#define _LINUX_ERANGE 34 /* Math result not representable */
+
+#define _LINUX_ENOSYS 38
+
+#define _LINUX_TCGETS 0x5401
+#define _LINUX_TCSETS 0x5402
+#define _LINUX_TIOCGWINSZ 0x5413
+#define _LINUX_NCCS 19
+
+#define _LINUX_AT_EACCESS 0x200
+#define _LINUX_AT_SYMLINK_NOFOLLOW 0x100
+
+#define _LINUX_AT_EMPTY_PATH 0x1000
+#define _LINUX_STATX_BASIC_STATS 0x000007ffU
 
 #if defined(NOSYS_EXIT)
 #  define NOSYS_CODE(sysnum) elfconv_runtime_error("Unimplemented syscall number: %ld\n", sysnum)
