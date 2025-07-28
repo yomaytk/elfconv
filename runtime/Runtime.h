@@ -23,6 +23,10 @@ class RuntimeManager {
   void SVCBrowserCall();  // for browser
   void SVCWasiCall();  // for wasi
   void SVCNativeCall();  // for native
+  // unimplemented syscall
+  void UnImplementedBrowserSyscall();
+  void UnImplementedWasiSyscall();
+  void UnImplementedNativeSyscall();
 
   std::vector<MappedMemory *> mapped_memorys;
   MappedMemory *memory_arena;
