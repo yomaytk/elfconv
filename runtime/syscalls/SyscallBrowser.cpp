@@ -340,9 +340,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
-    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
-      X0_Q = kill(X0_D, X1_D);
-      break;
+    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ X0_Q = kill(X0_D, X1_D); break;
     case ECV_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
       X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
                        (struct sigaction *) TranslateVMA(X2_Q));
@@ -420,6 +418,11 @@ void RuntimeManager::SVCBrowserCall(void) {
       auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
       X0_Q = 0 == res ? X1_Q : -errno;
     } break;
+    case ECV_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
+      // mprotect implementaion of wasi-libc doesn't change the memory access and only check arguments, and Wasm page size (64KiB) is different from Linux Page size (4KiB).
+      // Therefore elfconv doesn't use it. ref: https://github.com/WebAssembly/wasi-libc/blob/45252554b765e3db11d0ef5b41d6dd290ed33382/libc-bottom-half/mman/mman.c#L127-L157
+      X0_D = 0;
+      break;
     case ECV_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
       int dfd = X0_D;
@@ -526,7 +529,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_PWRITE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PREADV: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PWRITEV: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ // case ECV_SENDFILE: UNIMPLEMENTED_SYSCALL; break;
+    /* UNDECLARED! */  // case ECV_SENDFILE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PSELECT6: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_PPOLL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SIGNALFD4: UNIMPLEMENTED_SYSCALL; break;
@@ -761,5 +764,5 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_PROCESS_MRELEASE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_FUTEX_WAITV: UNIMPLEMENTED_SYSCALL; break;
     default: UNIMPLEMENTED_SYSCALL; break;
-}
+  }
 }
