@@ -653,27 +653,24 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
             auto rest_fun_name = manager.AddRestDisasmFunc(inst.branch_taken_pc);
             target_trace = arch->DeclareLiftedFunction(rest_fun_name, module);
           }
-          if (inst.branch_not_taken_pc != inst.branch_taken_pc) {
-            trace_work_list.insert(inst.branch_taken_pc);
-            // In the noopt mode, direct function call must go through the `L_far_jump_instruction` label,
-            // then we should store the program counter to `PC` register because `L_far_jump_instruction` block
-            // get the first instruction address from `PC`.
-            // always be vrp_opt_mode.
-            // if (!vrp_opt_mode) {
-            //   llvm::IRBuilder<> ir(block);
-            //   ir.CreateStore(
-            //       llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc),
-            //       LoadProgramCounterRef(block));
-            // }
-            auto lifted_func_call = AddCall(
-                block, target_trace, *intrinsics,
-                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
-            virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
-            DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), block);
-          } else {
-            LOG(FATAL)
-                << "[Bug] branch_taken_pc == branch_not_take_pc at Instruction:kCategoryDirecFunctionCall.";
-          }
+          // It may be unnecessary to check this condition.
+          // if (inst.branch_not_taken_pc != inst.branch_taken_pc)
+          trace_work_list.insert(inst.branch_taken_pc);
+          // In the noopt mode, direct function call must go through the `L_far_jump_instruction` label,
+          // then we should store the program counter to `PC` register because `L_far_jump_instruction` block
+          // get the first instruction address from `PC`.
+          // always be vrp_opt_mode.
+          // if (!vrp_opt_mode) {
+          //   llvm::IRBuilder<> ir(block);
+          //   ir.CreateStore(
+          //       llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc),
+          //       LoadProgramCounterRef(block));
+          // }
+          auto lifted_func_call = AddCall(
+              block, target_trace, *intrinsics,
+              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.branch_taken_pc));
+          virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
+          DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), block);
           continue;
         }
 

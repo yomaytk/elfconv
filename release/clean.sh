@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-rm -rf bin bitcode lib *.o *.bc *.wasm *.html *.js
+rm -rf bin bitcode lib out *.o *.bc *.wasm *.js *.data

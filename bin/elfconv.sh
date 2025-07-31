@@ -18,8 +18,8 @@ setting() {
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   WASISDKCC=${WASI_SDK_PATH}/bin/clang++
-  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_PROCESS_CLOCKS -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
-  WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks"
+  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_MMAN -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
+  WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks -lwasi-emulated-mman -lwasi-emulated-signal"
   RUNTIME_MACRO=''
   ELFPATH=$( realpath "$1" )
   HOST_CPU=$(uname -p)
