@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+GREEN="\033[32m"
+ORANGE="\033[33m"
+RED="\033[31m"
+NC="\033[0m"
+
 setting() {
 
   EMCC=emcc
@@ -21,7 +26,7 @@ main() {
   mkdir -p out
 
   if [ $# -eq 0 ]; then
-    echo "[ERROR] target ELF binary is not specified (lift.sh)."
+    echo "[${RED}ERROR${NC}] target ELF binary is not specified."
     echo $#
     exit 1
   fi
@@ -38,13 +43,13 @@ main() {
   esac
 
   # ELF -> LLVM bc
-  echo -e "[\033[32mINFO\033[0m] Converting ELF to LLVM bitcode ..."
+  echo -e "[${GREEN}INFO${NC}] Converting ELF to LLVM bitcode ..."
     ./bin/elflift \
     --arch aarch64 \
     --bc_out ${OUT}/lift.bc \
     --target_elf "$ELFPATH" \
     --bitcode_path ./bitcode && \
-  echo -e "[\033[32mINFO\033[0m] Generate lift.bc."
+  echo -e "[${GREEN}INFO${NC}] Generate lift.bc."
 
   # LLVM bc -> target file
   case "$TARGET" in
@@ -53,9 +58,10 @@ main() {
       if [ -n "$MOUNTDIR" ]; then
         PRELOAD="--preload-file ${MOUNTDIR}"
       fi
-      echo -e "[\033[32mINFO\033[0m] Converting LLVM bitcode to WASM binary (for browser) ..."
+      echo -e "[${GREEN}INFO${NC}] Converting LLVM bitcode to WASM binary (for browser) ..."
         $EMCC $RT_OP -o ${OUT}/exe.js ${OUT}/lift.bc -L"./lib" -sWASM -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library "./lib/emscripten-pty.js" -lelfconvbrowser
-      echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
+        rm ${OUT}/lift.*
+      echo -e "[${GREEN}INFO${NC}] Generate WASM binary."
       
       # specify the binary name
       if [ -n "$OUT_EXE" ]; then
@@ -73,12 +79,13 @@ main() {
     ;;
     *-wasi32)
       RT_OP="$RT_OP -DTARGET_IS_WASI=1 ${WASISDK_COMPILEFLAGS} ${WASISDK_LINKFLAGS}"
-      echo -e "[\033[32mINFO\033[0m] Converting LLVM bitcode to WASM binary (for server) ..."
-        $WASISDKCXX $RT_OP -c ${OUT}/lift.bc -o ${OUT}/lift.o && \
-        $WASISDKCXX $RT_OP -o ${OUT}/exe.wasm -L"./lib" ${OUT}/lift.o -lelfconvwasi
-      echo -e "[\033[32mINFO\033[0m] Generate WASM binary."
-      $WASMEDGE_COMPILE_OPT ${OUT}/exe.wasm ${OUT}/exe_o3.wasm
-      echo -e "[${GREEN}INFO${NC}] Universal compile optimization was done. (exe_o3.wasm)"
+      echo -e "[${GREEN}INFO${NC}] Converting LLVM bitcode to WASM binary (for server) ..."
+        $WASISDKCXX $RT_OP -o ${OUT}/exe.wasm -L"./lib" ${OUT}/lift.bc -lelfconvwasi
+        rm ${OUT}/lift.*
+      echo -e "[${GREEN}INFO${NC}] Generate WASM binary."
+        $WASMEDGE_COMPILE_OPT ${OUT}/exe.wasm ${OUT}/exe_o3.wasm
+      echo -e "[${GREEN}INFO${NC}] WasmEdge optimization was done. (exe_o3.wasm)"
+      
       return 0
     ;;
   esac

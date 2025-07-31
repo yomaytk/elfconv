@@ -127,3 +127,4 @@ elfconv-v*
 
 !examples/browser/exe.html
 !bin/exe.html
+!release/outdir/index.html
