@@ -8,6 +8,10 @@ setting() {
   ELFCONV_ARCH_DIR=${BUILD_DIR}/backend/remill/lib/Arch
   RUNTIME_DIR=${ELFCONV_DIR}/runtime
   UTILS_DIR=${ELFCONV_DIR}/utils
+  OUTDIR=${RELEASE_DIR}/outdir
+  BINDIR=${OUTDIR}/bin
+  BITCODEDIR=${OUTDIR}/bitcode
+  LIBDIR=${OUTDIR}/lib
 
   # shared compiler options
   OPTFLAGS="-O3"
@@ -30,17 +34,20 @@ main() {
   
   setting
 
-  # clear cache
-  rm -rf bin bitcode lib
+  # clean existing outdir/
+  if [ "$1" = "clean" ]; then
+    rm -rf $OUTDIR *.tar.gz
+    exit 0
+  fi
 
   # set elflift
-  mkdir -p bin
+  mkdir -p $BINDIR
   cd "${BUILD_DIR}" && ninja
-  if file "./lifter/elflift" | grep -q "dynamically linked"; then
+  if file "${BUILD_DIR}/lifter/elflift" | grep -q "dynamically linked"; then
     echo -e "[\033[33mWARNING\033[0m] elflift is dynamically linked file."
   fi
-  cd "${RELEASE_DIR}"
-  if cp ${BUILD_DIR}/lifter/elflift bin; then
+  
+  if cp ${BUILD_DIR}/lifter/elflift $BINDIR; then
     echo -e "[\033[32mINFO\033[0m] Set elflift."
   else
     echo -e "[\033[31mERROR\033[0m] Faild to set elflift."
@@ -48,7 +55,7 @@ main() {
   fi
 
   # set semantics *.bc file
-  mkdir -p bitcode
+  mkdir -p $BITCODEDIR
   if cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc bitcode ; then
     echo -e "[\033[32mINFO\033[0m] Set semantics *.bc."
   else
@@ -57,7 +64,7 @@ main() {
   fi
   
   # prepare elfconv-runtime program.
-  mkdir -p lib
+  mkdir -p $LIBDIR
   base_rt=(
     Entry.cpp
     Memory.cpp
@@ -83,7 +90,7 @@ main() {
 
   "$EMAR" rcs libelfconvbrowser.a "${browser_rt_objects[@]}"
 
-  if mv libelfconvbrowser.a "${RELEASE_DIR}/lib"; then
+  if mv libelfconvbrowser.a "${LIBDIR}"; then
     echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
   else
     echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
@@ -109,7 +116,7 @@ main() {
 
   "$WASISDKAR" rcs libelfconvwasi.a "${wasi_rt_objects[@]}"
 
-  if mv libelfconvwasi.a "${RELEASE_DIR}/lib"; then
+  if mv libelfconvwasi.a "${LIBDIR}"; then
     echo -e "[\033[32mINFO\033[0m] Set libelfconvwasi.a."
   else
     echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvwasi.a."
@@ -119,8 +126,8 @@ main() {
   rm *.o
 
   # library of xterm-pty
-  cp ../xterm-pty/emscripten-pty.js ./lib
+  cp ${ELFCONV_DIR}/xterm-pty/emscripten-pty.js $LIBDIR
 
 }
 
-main
+main "$@"
