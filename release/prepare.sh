@@ -16,13 +16,13 @@ setting() {
   EMCXX=emcc
   EMAR=emar
   EMCCFLAGS="${OPTFLAGS} -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR}"
-  EMCC_ELFCONV_MACROS="-DTARGET_IS_BROWSER=1"
+  EMCC_ELFCONV_MACROS=" -DELF_IS_AARCH64 -DTARGET_IS_BROWSER=1"
   
   # wasi-sdk
   WASISDKCXX=${WASI_SDK_PATH}/bin/clang++
   WASISDKAR=${WASI_SDK_PATH}/bin/ar
-  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR} -fno-exceptions"
-  WASI_ELFCONV_MACROS="-DTARGET_IS_WASI=1"
+  WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR} -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_MMAN -fno-exceptions"
+  WASI_ELFCONV_MACROS="-DELF_IS_AARCH64 -DTARGET_IS_WASI=1"
 
 }
 
@@ -56,42 +56,70 @@ main() {
     exit 1
   fi
   
-  # set elfconv-runtime archive (libelfconvbrowser.a)
+  # prepare elfconv-runtime program.
   mkdir -p lib
+  base_rt=(
+    Entry.cpp
+    Memory.cpp
+    VmIntrinsics.cpp
+    "${UTILS_DIR}/Util.cpp"
+    "${UTILS_DIR}/elfconv.cpp"
+  )
+  
+  # for browser
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
-    # shellcheck disable=SC2086
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallBrowser.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
-    $EMCXX $EMCCFLAGS $EMCC_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $EMAR rcs libelfconvbrowser.a Entry.o Runtime.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
-    if mv libelfconvbrowser.a ${RELEASE_DIR}/lib; then
-      echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
-    else
-      echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
-      exit 1
-    fi
-		rm *.o
 
-  # set elfconv-runtime archive (libelfconvwasi.a)
+  browser_rt_flags=( $EMCCFLAGS $EMCC_ELFCONV_MACROS )
+
+  browser_rt_objects=()
+  browser_rt=( "${base_rt[@]}" "syscalls/SyscallBrowser.cpp" )
+
+  for src in "${browser_rt[@]}"; do
+    base=$(basename "$src" .cpp)
+    obj="${base}.o"
+    "$EMCXX" -O3 "${browser_rt_flags[@]}" -o "$obj" -c "$src"
+    browser_rt_objects+=("$obj")
+  done
+
+  "$EMAR" rcs libelfconvbrowser.a "${browser_rt_objects[@]}"
+
+  if mv libelfconvbrowser.a "${RELEASE_DIR}/lib"; then
+    echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
+  else
+    echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
+    exit 1
+  fi
+
+  rm *.o
+
+  # for WASI
   cd "${RUNTIME_DIR}" || { echo "cd Failure"; exit 1; }
-    # shellcheck disable=SC2086
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Entry.o -c Entry.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Memory.o -c Memory.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Syscall.o -c syscalls/SyscallWasi.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o VmIntrinsics.o -c VmIntrinsics.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o Util.o -c "${UTILS_DIR}"/Util.cpp && \
-    $WASISDKCXX $WASISDKFLAGS $WASI_ELFCONV_MACROS -o elfconv.o -c "${UTILS_DIR}"/elfconv.cpp && \
-    $WASISDKAR rcs libelfconvwasi.a Entry.o Runtime.o Memory.o Syscall.o VmIntrinsics.o Util.o elfconv.o
-    if mv libelfconvwasi.a ${RELEASE_DIR}/lib; then
-      echo -e "[\033[32mINFO\033[0m] Set libelfconvwasi.a."
-    else
-      echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvwasi.a."
-      exit 1
-    fi
-		rm *.o
+
+  wasi_rt_flags=( $WASISDKFLAGS $WASI_ELFCONV_MACROS )
+
+  wasi_rt_objects=()
+  wasi_rt=( "${base_rt[@]}" "syscalls/SyscallWasi.cpp" )
+
+  for src in "${wasi_rt[@]}"; do
+    base=$(basename "$src" .cpp)
+    obj="${base}.o"
+    "$WASISDKCXX" "${wasi_rt_flags[@]}" -o "$obj" -c "$src"
+    wasi_rt_objects+=("$obj")
+  done
+
+  "$WASISDKAR" rcs libelfconvwasi.a "${wasi_rt_objects[@]}"
+
+  if mv libelfconvwasi.a "${RELEASE_DIR}/lib"; then
+    echo -e "[\033[32mINFO\033[0m] Set libelfconvwasi.a."
+  else
+    echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvwasi.a."
+    exit 1
+  fi
+		
+  rm *.o
+
+  # library of xterm-pty
+  cp ../xterm-pty/emscripten-pty.js ./lib
 
 }
 
