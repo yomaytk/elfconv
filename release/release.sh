@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+GREEN="\033[32m"
+ORANGE="\033[33m"
+RED="\033[31m"
+NC="\033[0m"
+
 setting() {
 
   RELEASE_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -12,6 +17,7 @@ setting() {
   BINDIR=${OUTDIR}/bin
   BITCODEDIR=${OUTDIR}/bitcode
   LIBDIR=${OUTDIR}/lib
+  OUTOUTDIR=${OUTDIR}/out
 
   # shared compiler options
   OPTFLAGS="-O3"
@@ -34,9 +40,14 @@ main() {
   
   setting
 
+  if [ ! -d "$OUTDIR" ]; then
+    mkdir "$OUTDIR"
+    echo "[${GREEN}INFO${NC}] outdir was generated."
+  fi
+
   # clean existing outdir/
   if [ "$1" = "clean" ]; then
-    rm -rf $OUTDIR *.tar.gz
+    rm -rf $BINDIR $BITCODEDIR $LIBDIR $OUTOUTDIR *.tar.gz
     exit 0
   fi
 
@@ -44,22 +55,24 @@ main() {
   mkdir -p $BINDIR
   cd "${BUILD_DIR}" && ninja
   if file "${BUILD_DIR}/lifter/elflift" | grep -q "dynamically linked"; then
-    echo -e "[\033[33mWARNING\033[0m] elflift is dynamically linked file."
+    echo -e "[${ORANGE}WARNING${NC}] elflift is dynamically linked file."
   fi
   
   if cp ${BUILD_DIR}/lifter/elflift $BINDIR; then
-    echo -e "[\033[32mINFO\033[0m] Set elflift."
+    echo -e "[${GREEN}INFO${NC}] Set elflift."
   else
-    echo -e "[\033[31mERROR\033[0m] Faild to set elflift."
+    echo -e "[${RED}ERROR${NC}] Faild to set elflift."
     exit 1
   fi
 
   # set semantics *.bc file
   mkdir -p $BITCODEDIR
-  if cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc bitcode && cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc bitcode ; then
-    echo -e "[\033[32mINFO\033[0m] Set semantics *.bc."
+  if cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc $BITCODEDIR && \
+  cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc $BITCODEDIR && \
+  cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc $BITCODEDIR ; then
+    echo -e "[${GREEN}INFO${NC}] Set semantics *.bc."
   else
-    echo -e "[\033[31mERROR\033[0m] Failed to set semantics *.bc."
+    echo -e "[${RED}ERROR${NC}] Failed to set semantics *.bc."
     exit 1
   fi
   
@@ -91,9 +104,9 @@ main() {
   "$EMAR" rcs libelfconvbrowser.a "${browser_rt_objects[@]}"
 
   if mv libelfconvbrowser.a "${LIBDIR}"; then
-    echo -e "[\033[32mINFO\033[0m] Set libelfconvbrowser.a."
+    echo -e "[${GREEN}INFO${NC}] Set libelfconvbrowser.a."
   else
-    echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvbrowser.a."
+    echo -e "[${RED}ERROR${NC}] Failed to set libelfconvbrowser.a."
     exit 1
   fi
 
@@ -117,9 +130,9 @@ main() {
   "$WASISDKAR" rcs libelfconvwasi.a "${wasi_rt_objects[@]}"
 
   if mv libelfconvwasi.a "${LIBDIR}"; then
-    echo -e "[\033[32mINFO\033[0m] Set libelfconvwasi.a."
+    echo -e "[${GREEN}INFO${NC}] Set libelfconvwasi.a."
   else
-    echo -e "[\033[31mERROR\033[0m] Failed to set libelfconvwasi.a."
+    echo -e "[${RED}ERROR${NC}] Failed to set libelfconvwasi.a."
     exit 1
   fi
 		
