@@ -1,0 +1,236 @@
+#ifndef EMSCRIPTEN_WASI_ERRNO_H
+#define EMSCRIPTEN_WASI_ERRNO_H
+
+#ifndef __WASI_ERRNO_SUCCESS
+#  define __WASI_ERRNO_SUCCESS UINT16_C(0)
+#endif
+#ifndef __WASI_ERRNO_2BIG
+#  define __WASI_ERRNO_2BIG UINT16_C(1)
+#endif
+#ifndef __WASI_ERRNO_ACCES
+#  define __WASI_ERRNO_ACCES UINT16_C(2)
+#endif
+#ifndef __WASI_ERRNO_ADDRINUSE
+#  define __WASI_ERRNO_ADDRINUSE UINT16_C(3)
+#endif
+#ifndef __WASI_ERRNO_ADDRNOTAVAIL
+#  define __WASI_ERRNO_ADDRNOTAVAIL UINT16_C(4)
+#endif
+#ifndef __WASI_ERRNO_AFNOSUPPORT
+#  define __WASI_ERRNO_AFNOSUPPORT UINT16_C(5)
+#endif
+#ifndef __WASI_ERRNO_AGAIN
+#  define __WASI_ERRNO_AGAIN UINT16_C(6)
+#endif
+#ifndef __WASI_ERRNO_ALREADY
+#  define __WASI_ERRNO_ALREADY UINT16_C(7)
+#endif
+#ifndef __WASI_ERRNO_BADF
+#  define __WASI_ERRNO_BADF UINT16_C(8)
+#endif
+#ifndef __WASI_ERRNO_BADMSG
+#  define __WASI_ERRNO_BADMSG UINT16_C(9)
+#endif
+#ifndef __WASI_ERRNO_BUSY
+#  define __WASI_ERRNO_BUSY UINT16_C(10)
+#endif
+#ifndef __WASI_ERRNO_CANCELED
+#  define __WASI_ERRNO_CANCELED UINT16_C(11)
+#endif
+#ifndef __WASI_ERRNO_CHILD
+#  define __WASI_ERRNO_CHILD UINT16_C(12)
+#endif
+#ifndef __WASI_ERRNO_CONNABORTED
+#  define __WASI_ERRNO_CONNABORTED UINT16_C(13)
+#endif
+#ifndef __WASI_ERRNO_CONNREFUSED
+#  define __WASI_ERRNO_CONNREFUSED UINT16_C(14)
+#endif
+#ifndef __WASI_ERRNO_CONNRESET
+#  define __WASI_ERRNO_CONNRESET UINT16_C(15)
+#endif
+#ifndef __WASI_ERRNO_DEADLK
+#  define __WASI_ERRNO_DEADLK UINT16_C(16)
+#endif
+#ifndef __WASI_ERRNO_DESTADDRREQ
+#  define __WASI_ERRNO_DESTADDRREQ UINT16_C(17)
+#endif
+#ifndef __WASI_ERRNO_DOM
+#  define __WASI_ERRNO_DOM UINT16_C(18)
+#endif
+#ifndef __WASI_ERRNO_DQUOT
+#  define __WASI_ERRNO_DQUOT UINT16_C(19)
+#endif
+#ifndef __WASI_ERRNO_EXIST
+#  define __WASI_ERRNO_EXIST UINT16_C(20)
+#endif
+#ifndef __WASI_ERRNO_FAULT
+#  define __WASI_ERRNO_FAULT UINT16_C(21)
+#endif
+#ifndef __WASI_ERRNO_FBIG
+#  define __WASI_ERRNO_FBIG UINT16_C(22)
+#endif
+#ifndef __WASI_ERRNO_HOSTUNREACH
+#  define __WASI_ERRNO_HOSTUNREACH UINT16_C(23)
+#endif
+#ifndef __WASI_ERRNO_IDRM
+#  define __WASI_ERRNO_IDRM UINT16_C(24)
+#endif
+#ifndef __WASI_ERRNO_ILSEQ
+#  define __WASI_ERRNO_ILSEQ UINT16_C(25)
+#endif
+#ifndef __WASI_ERRNO_INPROGRESS
+#  define __WASI_ERRNO_INPROGRESS UINT16_C(26)
+#endif
+#ifndef __WASI_ERRNO_INTR
+#  define __WASI_ERRNO_INTR UINT16_C(27)
+#endif
+#ifndef __WASI_ERRNO_INVAL
+#  define __WASI_ERRNO_INVAL UINT16_C(28)
+#endif
+#ifndef __WASI_ERRNO_IO
+#  define __WASI_ERRNO_IO UINT16_C(29)
+#endif
+#ifndef __WASI_ERRNO_ISCONN
+#  define __WASI_ERRNO_ISCONN UINT16_C(30)
+#endif
+#ifndef __WASI_ERRNO_ISDIR
+#  define __WASI_ERRNO_ISDIR UINT16_C(31)
+#endif
+#ifndef __WASI_ERRNO_LOOP
+#  define __WASI_ERRNO_LOOP UINT16_C(32)
+#endif
+#ifndef __WASI_ERRNO_MFILE
+#  define __WASI_ERRNO_MFILE UINT16_C(33)
+#endif
+#ifndef __WASI_ERRNO_MLINK
+#  define __WASI_ERRNO_MLINK UINT16_C(34)
+#endif
+#ifndef __WASI_ERRNO_MSGSIZE
+#  define __WASI_ERRNO_MSGSIZE UINT16_C(35)
+#endif
+#ifndef __WASI_ERRNO_MULTIHOP
+#  define __WASI_ERRNO_MULTIHOP UINT16_C(36)
+#endif
+#ifndef __WASI_ERRNO_NAMETOOLONG
+#  define __WASI_ERRNO_NAMETOOLONG UINT16_C(37)
+#endif
+#ifndef __WASI_ERRNO_NETDOWN
+#  define __WASI_ERRNO_NETDOWN UINT16_C(38)
+#endif
+#ifndef __WASI_ERRNO_NETRESET
+#  define __WASI_ERRNO_NETRESET UINT16_C(39)
+#endif
+#ifndef __WASI_ERRNO_NETUNREACH
+#  define __WASI_ERRNO_NETUNREACH UINT16_C(40)
+#endif
+#ifndef __WASI_ERRNO_NFILE
+#  define __WASI_ERRNO_NFILE UINT16_C(41)
+#endif
+#ifndef __WASI_ERRNO_NOBUFS
+#  define __WASI_ERRNO_NOBUFS UINT16_C(42)
+#endif
+#ifndef __WASI_ERRNO_NODEV
+#  define __WASI_ERRNO_NODEV UINT16_C(43)
+#endif
+#ifndef __WASI_ERRNO_NOENT
+#  define __WASI_ERRNO_NOENT UINT16_C(44)
+#endif
+#ifndef __WASI_ERRNO_NOEXEC
+#  define __WASI_ERRNO_NOEXEC UINT16_C(45)
+#endif
+#ifndef __WASI_ERRNO_NOLCK
+#  define __WASI_ERRNO_NOLCK UINT16_C(46)
+#endif
+#ifndef __WASI_ERRNO_NOLINK
+#  define __WASI_ERRNO_NOLINK UINT16_C(47)
+#endif
+#ifndef __WASI_ERRNO_NOMEM
+#  define __WASI_ERRNO_NOMEM UINT16_C(48)
+#endif
+#ifndef __WASI_ERRNO_NOMSG
+#  define __WASI_ERRNO_NOMSG UINT16_C(49)
+#endif
+#ifndef __WASI_ERRNO_NOPROTOOPT
+#  define __WASI_ERRNO_NOPROTOOPT UINT16_C(50)
+#endif
+#ifndef __WASI_ERRNO_NOSPC
+#  define __WASI_ERRNO_NOSPC UINT16_C(51)
+#endif
+#ifndef __WASI_ERRNO_NOSYS
+#  define __WASI_ERRNO_NOSYS UINT16_C(52)
+#endif
+#ifndef __WASI_ERRNO_NOTCONN
+#  define __WASI_ERRNO_NOTCONN UINT16_C(53)
+#endif
+#ifndef __WASI_ERRNO_NOTDIR
+#  define __WASI_ERRNO_NOTDIR UINT16_C(54)
+#endif
+#ifndef __WASI_ERRNO_NOTEMPTY
+#  define __WASI_ERRNO_NOTEMPTY UINT16_C(55)
+#endif
+#ifndef __WASI_ERRNO_NOTRECOVERABLE
+#  define __WASI_ERRNO_NOTRECOVERABLE UINT16_C(56)
+#endif
+#ifndef __WASI_ERRNO_NOTSOCK
+#  define __WASI_ERRNO_NOTSOCK UINT16_C(57)
+#endif
+#ifndef __WASI_ERRNO_NOTSUP
+#  define __WASI_ERRNO_NOTSUP UINT16_C(58)
+#endif
+#ifndef __WASI_ERRNO_NOTTY
+#  define __WASI_ERRNO_NOTTY UINT16_C(59)
+#endif
+#ifndef __WASI_ERRNO_NXIO
+#  define __WASI_ERRNO_NXIO UINT16_C(60)
+#endif
+#ifndef __WASI_ERRNO_OVERFLOW
+#  define __WASI_ERRNO_OVERFLOW UINT16_C(61)
+#endif
+#ifndef __WASI_ERRNO_OWNERDEAD
+#  define __WASI_ERRNO_OWNERDEAD UINT16_C(62)
+#endif
+#ifndef __WASI_ERRNO_PERM
+#  define __WASI_ERRNO_PERM UINT16_C(63)
+#endif
+#ifndef __WASI_ERRNO_PIPE
+#  define __WASI_ERRNO_PIPE UINT16_C(64)
+#endif
+#ifndef __WASI_ERRNO_PROTO
+#  define __WASI_ERRNO_PROTO UINT16_C(65)
+#endif
+#ifndef __WASI_ERRNO_PROTONOSUPPORT
+#  define __WASI_ERRNO_PROTONOSUPPORT UINT16_C(66)
+#endif
+#ifndef __WASI_ERRNO_PROTOTYPE
+#  define __WASI_ERRNO_PROTOTYPE UINT16_C(67)
+#endif
+#ifndef __WASI_ERRNO_RANGE
+#  define __WASI_ERRNO_RANGE UINT16_C(68)
+#endif
+#ifndef __WASI_ERRNO_ROFS
+#  define __WASI_ERRNO_ROFS UINT16_C(69)
+#endif
+#ifndef __WASI_ERRNO_SPIPE
+#  define __WASI_ERRNO_SPIPE UINT16_C(70)
+#endif
+#ifndef __WASI_ERRNO_SRCH
+#  define __WASI_ERRNO_SRCH UINT16_C(71)
+#endif
+#ifndef __WASI_ERRNO_STALE
+#  define __WASI_ERRNO_STALE UINT16_C(72)
+#endif
+#ifndef __WASI_ERRNO_TIMEDOUT
+#  define __WASI_ERRNO_TIMEDOUT UINT16_C(73)
+#endif
+#ifndef __WASI_ERRNO_TXTBSY
+#  define __WASI_ERRNO_TXTBSY UINT16_C(74)
+#endif
+#ifndef __WASI_ERRNO_XDEV
+#  define __WASI_ERRNO_XDEV UINT16_C(75)
+#endif
+#ifndef __WASI_ERRNO_NOTCAPABLE
+#  define __WASI_ERRNO_NOTCAPABLE UINT16_C(76)
+#endif
+
+#endif

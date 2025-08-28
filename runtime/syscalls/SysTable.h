@@ -13,6 +13,7 @@
 #define _LINUX_EBADF 9 /* Bad file number */
 #define _LINUX_ECHILD 10 /* No child processes */
 #define _LINUX_EAGAIN 11 /* Try again */
+#define _LINUX_EWOULDBLOCK 11 /* EAGAIN */
 #define _LINUX_ENOMEM 12 /* Out of memory */
 #define _LINUX_EACCES 13 /* Permission denied */
 #define _LINUX_EFAULT 14 /* Bad address */
@@ -34,10 +35,55 @@
 #define _LINUX_EROFS 30 /* Read-only file system */
 #define _LINUX_EMLINK 31 /* Too many links */
 #define _LINUX_EPIPE 32 /* Broken pipe */
-#define _LINUX_EDOM 33 /* Math argument out of domain of func */
+#define _LINUX_EDOM 33 /* Math argument out of domain */
 #define _LINUX_ERANGE 34 /* Math result not representable */
-
+#define _LINUX_EDEADLK 35
+#define _LINUX_ENAMETOOLONG 36
+#define _LINUX_ENOLCK 37
 #define _LINUX_ENOSYS 38
+#define _LINUX_ENOTEMPTY 39
+#define _LINUX_ELOOP 40
+#define _LINUX_ENOMSG 42
+#define _LINUX_EIDRM 43
+#define _LINUX_ECHRNG 44
+#define _LINUX_EL2NSYNC 45
+#define _LINUX_EL3HLT 46
+#define _LINUX_EL3RST 47
+#define _LINUX_ENOLINK 67
+#define _LINUX_EPROTO 71
+#define _LINUX_EMULTIHOP 72
+#define _LINUX_EBADMSG 74
+#define _LINUX_EOVERFLOW 75
+#define _LINUX_EILSEQ 84
+#define _LINUX_ENOTSOCK 88
+#define _LINUX_EDESTADDRREQ 89
+#define _LINUX_EMSGSIZE 90
+#define _LINUX_EPROTOTYPE 91
+#define _LINUX_ENOPROTOOPT 92
+#define _LINUX_EPROTONOSUPPORT 93
+#define _LINUX_ENOTSUP 95
+#define _LINUX_EOPNOTSUPP 95
+#define _LINUX_EAFNOSUPPORT 97
+#define _LINUX_EADDRINUSE 98
+#define _LINUX_EADDRNOTAVAIL 99
+#define _LINUX_ENETDOWN 100
+#define _LINUX_ENETUNREACH 101
+#define _LINUX_ENETRESET 102
+#define _LINUX_ECONNABORTED 103
+#define _LINUX_ECONNRESET 104
+#define _LINUX_ENOBUFS 105
+#define _LINUX_EISCONN 106
+#define _LINUX_ENOTCONN 107
+#define _LINUX_ETIMEDOUT 110
+#define _LINUX_ECONNREFUSED 111
+#define _LINUX_EHOSTUNREACH 113
+#define _LINUX_EALREADY 114
+#define _LINUX_EINPROGRESS 115
+#define _LINUX_ESTALE 116
+#define _LINUX_EDQUOT 122
+#define _LINUX_ECANCELED 125
+#define _LINUX_EOWNERDEAD 130
+#define _LINUX_ENOTRECOVERABLE 131
 
 #define _LINUX_TCGETS 0x5401
 #define _LINUX_TCSETS 0x5402
