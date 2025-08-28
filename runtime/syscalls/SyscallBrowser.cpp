@@ -1,4 +1,5 @@
 #include "SysTable.h"
+#include "emscripten_wasi_errno.h"
 #include "remill/Arch/Runtime/Types.h"
 
 #include <algorithm>
@@ -19,6 +20,7 @@
 #include <sys/statfs.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -139,6 +141,92 @@ struct _ecv_statx {
   uint64_t __spare3[12];
 };
 
+#ifndef WASI_ERRNO_MAX_VALUE
+#  define WASI_ERRNO_MAX_VALUE 76  // __WASI_ERRNO_NOTCAPABLE
+#endif
+
+#define W2L(wasi, linuxv) [wasi] = (int16_t) (linuxv)
+
+static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
+    /*  0 __WASI_ERRNO_SUCCESS      */ 0,
+    /*  1 __WASI_ERRNO_2BIG         */ _LINUX_E2BIG,
+    /*  2 __WASI_ERRNO_ACCES        */ _LINUX_EACCES,
+    /*  3 __WASI_ERRNO_ADDRINUSE    */ _LINUX_EADDRINUSE,
+    /*  4 __WASI_ERRNO_ADDRNOTAVAIL */ _LINUX_EADDRNOTAVAIL,
+    /*  5 __WASI_ERRNO_AFNOSUPPORT  */ _LINUX_EAFNOSUPPORT,
+    /*  6 __WASI_ERRNO_AGAIN        */ _LINUX_EAGAIN,
+    /*  7 __WASI_ERRNO_ALREADY      */ _LINUX_EALREADY,
+    /*  8 __WASI_ERRNO_BADF         */ _LINUX_EBADF,
+    /*  9 __WASI_ERRNO_BADMSG       */ _LINUX_EBADMSG,
+    /* 10 __WASI_ERRNO_BUSY         */ _LINUX_EBUSY,
+    /* 11 __WASI_ERRNO_CANCELED     */ _LINUX_ECANCELED,
+    /* 12 __WASI_ERRNO_CHILD        */ _LINUX_ECHILD,
+    /* 13 __WASI_ERRNO_CONNABORTED  */ _LINUX_ECONNABORTED,
+    /* 14 __WASI_ERRNO_CONNREFUSED  */ _LINUX_ECONNREFUSED,
+    /* 15 __WASI_ERRNO_CONNRESET    */ _LINUX_ECONNRESET,
+    /* 16 __WASI_ERRNO_DEADLK       */ _LINUX_EDEADLK,
+    /* 17 __WASI_ERRNO_DESTADDRREQ  */ _LINUX_EDESTADDRREQ,
+    /* 18 __WASI_ERRNO_DOM          */ _LINUX_EDOM,
+    /* 19 __WASI_ERRNO_DQUOT        */ _LINUX_EDQUOT,
+    /* 20 __WASI_ERRNO_EXIST        */ _LINUX_EEXIST,
+    /* 21 __WASI_ERRNO_FAULT        */ _LINUX_EFAULT,
+    /* 22 __WASI_ERRNO_FBIG         */ _LINUX_EFBIG,
+    /* 23 __WASI_ERRNO_HOSTUNREACH  */ _LINUX_EHOSTUNREACH,
+    /* 24 __WASI_ERRNO_IDRM         */ _LINUX_EIDRM,
+    /* 25 __WASI_ERRNO_ILSEQ        */ _LINUX_EILSEQ,
+    /* 26 __WASI_ERRNO_INPROGRESS   */ _LINUX_EINPROGRESS,
+    /* 27 __WASI_ERRNO_INTR         */ _LINUX_EINTR,
+    /* 28 __WASI_ERRNO_INVAL        */ _LINUX_EINVAL,
+    /* 29 __WASI_ERRNO_IO           */ _LINUX_EIO,
+    /* 30 __WASI_ERRNO_ISCONN       */ _LINUX_EISCONN,
+    /* 31 __WASI_ERRNO_ISDIR        */ _LINUX_EISDIR,
+    /* 32 __WASI_ERRNO_LOOP         */ _LINUX_ELOOP,
+    /* 33 __WASI_ERRNO_MFILE        */ _LINUX_EMFILE,
+    /* 34 __WASI_ERRNO_MLINK        */ _LINUX_EMLINK,
+    /* 35 __WASI_ERRNO_MSGSIZE      */ _LINUX_EMSGSIZE,
+    /* 36 __WASI_ERRNO_MULTIHOP     */ _LINUX_EMULTIHOP,
+    /* 37 __WASI_ERRNO_NAMETOOLONG  */ _LINUX_ENAMETOOLONG,
+    /* 38 __WASI_ERRNO_NETDOWN      */ _LINUX_ENETDOWN,
+    /* 39 __WASI_ERRNO_NETRESET     */ _LINUX_ENETRESET,
+    /* 40 __WASI_ERRNO_NETUNREACH   */ _LINUX_ENETUNREACH,
+    /* 41 __WASI_ERRNO_NFILE        */ _LINUX_ENFILE,
+    /* 42 __WASI_ERRNO_NOBUFS       */ _LINUX_ENOBUFS,
+    /* 43 __WASI_ERRNO_NODEV        */ _LINUX_ENODEV,
+    /* 44 __WASI_ERRNO_NOENT        */ _LINUX_ENOENT,
+    /* 45 __WASI_ERRNO_NOEXEC       */ _LINUX_ENOEXEC,
+    /* 46 __WASI_ERRNO_NOLCK        */ _LINUX_ENOLCK,
+    /* 47 __WASI_ERRNO_NOLINK       */ _LINUX_ENOLINK,
+    /* 48 __WASI_ERRNO_NOMEM        */ _LINUX_ENOMEM,
+    /* 49 __WASI_ERRNO_NOMSG        */ _LINUX_ENOMSG,
+    /* 50 __WASI_ERRNO_NOPROTOOPT   */ _LINUX_ENOPROTOOPT,
+    /* 51 __WASI_ERRNO_NOSPC        */ _LINUX_ENOSPC,
+    /* 52 __WASI_ERRNO_NOSYS        */ _LINUX_ENOSYS,
+    /* 53 __WASI_ERRNO_NOTCONN      */ _LINUX_ENOTCONN,
+    /* 54 __WASI_ERRNO_NOTDIR       */ _LINUX_ENOTDIR,
+    /* 55 __WASI_ERRNO_NOTEMPTY     */ _LINUX_ENOTEMPTY,
+    /* 56 __WASI_ERRNO_NOTRECOVERABLE */ _LINUX_ENOTRECOVERABLE,
+    /* 57 __WASI_ERRNO_NOTSOCK      */ _LINUX_ENOTSOCK,
+    /* 58 __WASI_ERRNO_NOTSUP       */ _LINUX_EOPNOTSUPP,
+    /* 59 __WASI_ERRNO_NOTTY        */ _LINUX_ENOTTY,
+    /* 60 __WASI_ERRNO_NXIO         */ _LINUX_ENXIO,
+    /* 61 __WASI_ERRNO_OVERFLOW     */ _LINUX_EOVERFLOW,
+    /* 62 __WASI_ERRNO_OWNERDEAD    */ _LINUX_EOWNERDEAD,
+    /* 63 __WASI_ERRNO_PERM         */ _LINUX_EPERM,
+    /* 64 __WASI_ERRNO_PIPE         */ _LINUX_EPIPE,
+    /* 65 __WASI_ERRNO_PROTO        */ _LINUX_EPROTO,
+    /* 66 __WASI_ERRNO_PROTONOSUPPORT */ _LINUX_EPROTONOSUPPORT,
+    /* 67 __WASI_ERRNO_PROTOTYPE    */ _LINUX_EPROTOTYPE,
+    /* 68 __WASI_ERRNO_RANGE        */ _LINUX_ERANGE,
+    /* 69 __WASI_ERRNO_ROFS         */ _LINUX_EROFS,
+    /* 70 __WASI_ERRNO_SPIPE        */ _LINUX_ESPIPE,
+    /* 71 __WASI_ERRNO_SRCH         */ _LINUX_ESRCH,
+    /* 72 __WASI_ERRNO_STALE        */ _LINUX_ESTALE,
+    /* 73 __WASI_ERRNO_TIMEDOUT     */ _LINUX_ETIMEDOUT,
+    /* 74 __WASI_ERRNO_TXTBSY       */ _LINUX_ETXTBSY,
+    /* 75 __WASI_ERRNO_XDEV         */ _LINUX_EXDEV,
+    /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
+};
+
 /*
   syscall emulate function
   
@@ -155,14 +243,23 @@ void RuntimeManager::SVCBrowserCall(void) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
+  // printf("syscall: %llu\n", SYSNUMREG);
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
-      getcwd((char *) TranslateVMA(X0_Q), X1_Q);
-      break;
-    case ECV_DUP: /* dup (unsigned int fildes) */ X0_D = dup(X0_D); break;
+    {
+      char *res = getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      X0_Q = res == NULL ? X0_Q : -wasi2linux_errno[errno];
+    } break;
+    case ECV_DUP: /* dup (unsigned int fildes) */
+    {
+      int res = dup(X0_D);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
-      X0_D = dup3(X0_D, X1_D, X2_D);
-      break;
+    {
+      int res = dup3(X0_D, X1_D, X2_D);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
       if (X1_D == ECV_F_DUPFD || X1_D == ECV_F_SETFD || X1_D == ECV_F_SETFL) {
         X0_D = fcntl(X0_D, X1_D, X2_D);
@@ -193,7 +290,7 @@ void RuntimeManager::SVCBrowserCall(void) {
             memcpy(TranslateVMA(arg), &t, sizeof(_elfarm64_termios));
             X0_Q = 0;
           } else {
-            X0_Q = -errno;
+            X0_Q = -wasi2linux_errno[errno];
           }
           break;
         }
@@ -202,42 +299,70 @@ void RuntimeManager::SVCBrowserCall(void) {
       }
     } break;
     case ECV_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
-      X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
-      break;
+    {
+      int res = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_UNLINKAT: /* int unlinkat (int dfd, const char *pathname, int flag) */
-      X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
-      break;
+    {
+      int res = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_STATFS: /* int statfs(const char *path, struct statfs *buf) */
-      X0_D = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
-      break;
+    {
+      int res = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_TRUNCATE: /* int truncate(const char *path, off_t length) */
-      X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
-      break;
+    {
+      int res = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
-      X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
-      break;
+    {
+      int res = ftruncate(X0_Q, (_ecv_long) X1_Q);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
-      X0_D = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
-      break;
+    {
+      int res = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_CHDIR: /* int chdir (const char * path) */
-      X0_D = chdir((const char *) TranslateVMA(X0_Q));
-      break;
+    {
+      int res = chdir((const char *) TranslateVMA(X0_Q));
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-      X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
-      break;
-    case ECV_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
+    {
+      int res_fd = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      X0_Q = res_fd != -1 ? res_fd : -wasi2linux_errno[errno];
+    } break;
+    case ECV_CLOSE: /* int close (unsigned int fd) */
+    {
+      int res = close(X0_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_GETDENTS: /* long getdents64 (int fd, void *dirp, size_t count) */
-      X0_Q = getdents(X0_D, (struct dirent *) TranslateVMA(X1_Q), X2_Q);
-      break;
+    {
+      long res = getdents(X0_D, (struct dirent *) TranslateVMA(X1_Q), X2_Q);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
-      X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
-      break;
+    {
+      uint64_t res_off = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
+      X0_Q = res_off != (uint64_t) -1 ? res_off : -wasi2linux_errno[errno];
+    } break;
     case ECV_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      X0_Q = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
-      break;
+    {
+      uint64_t res = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = res != (uint64_t) -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
-      X0_Q = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
-      break;
+    {
+      int res = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
@@ -249,18 +374,24 @@ void RuntimeManager::SVCBrowserCall(void) {
         cache_vec[i].iov_base = TranslateVMA(reinterpret_cast<addr_t>(tr_vec[i].iov_base));
         cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
-      X0_Q = writev(fd, cache_vec, vlen);
+      uint64_t res = writev(fd, cache_vec, vlen);
+      X0_Q = res != (uint64_t) -1 ? res : -wasi2linux_errno[errno];
       free(cache_vec);
     } break;
     case ECV_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
       elfconv_runtime_error("sendfile must be implemented for Wasm browser.");
       break;
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
-      X0_D = poll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D, 60);
-      break;
+    {
+      int res = poll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D, 60);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
-      break;
+    {
+      int res =
+          readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
     {
       struct stat _tmp_wasm_stat;
@@ -284,28 +415,32 @@ void RuntimeManager::SVCBrowserCall(void) {
         memcpy((struct _elfarm64df_stat *) TranslateVMA(X2_Q), &_elf_stat, sizeof(_elf_stat));
         X0_D = 0;
       } else {
-        X0_Q = -errno;
+        X0_Q = -wasi2linux_errno[errno];
       }
     } break;
-    case ECV_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
+    case ECV_FSYNC: /* fsync (unsigned int fd) */ {
+      int res = fsync(X0_D);
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
     {
+      const struct timespec *times_ptr;
       struct timespec emu_tp[2];
-      int res = utimensat(X0_D, (char *) TranslateVMA(X1_Q), emu_tp, X3_D);
-      if (res == 0) {
-        struct _elfarm64df_timespec _elf_tp[2];
-        _elf_tp[0].tv_sec = emu_tp[0].tv_sec;
-        _elf_tp[0].tv_nsec = emu_tp[0].tv_nsec;
-        _elf_tp[1].tv_sec = emu_tp[1].tv_sec;
-        _elf_tp[1].tv_nsec = emu_tp[1].tv_nsec;
-        _elfarm64df_timespec *emu_tp_addr = (_elfarm64df_timespec *) TranslateVMA(X2_Q);
-        memcpy(emu_tp_addr, &emu_tp[0], sizeof(emu_tp[0]));
-        emu_tp_addr++;
-        memcpy(emu_tp_addr, &emu_tp[1], sizeof(emu_tp[1]));
-        X0_D = res;
+
+      if (X2_Q != 0) {
+        auto x2_time = (const struct _elfarm64df_timespec *) TranslateVMA(X2_Q);
+        for (int i = 0; i < 2; i++) {
+          emu_tp[i].tv_sec = (time_t) x2_time[i].tv_sec;
+          emu_tp[i].tv_nsec = (long) x2_time[i].tv_nsec;
+        }
+        times_ptr = &emu_tp[0];
       } else {
-        X0_Q = -errno;
+        times_ptr = NULL;
       }
+
+      int res =
+          utimensat(X0_D, (char *) TranslateVMA(X1_Q), (const struct timespec *) times_ptr, X3_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */ exit(X0_D); break;
@@ -329,22 +464,31 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       struct timespec emu_tp;
       int clock_time = clock_gettime(CLOCK_REALTIME, &emu_tp);
-      // int clock_time = clock_gettime(X0_D, &emu_tp); throw error.
-      struct {
-        uint64_t tv_sec; /* time_t */
-        uint64_t tv_nsec; /* long (assume that the from target architecture is 64bit) */
-      } tp = {
-          .tv_sec = (uint64_t) emu_tp.tv_sec,
-          .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
-      };
-      memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
-      X0_Q = (_ecv_reg64_t) clock_time;
+      if (clock_time != -1) {
+        // int clock_time = clock_gettime(X0_D, &emu_tp); throw error.
+        struct {
+          uint64_t tv_sec; /* time_t */
+          uint64_t tv_nsec; /* long (assume that the from target architecture is 64bit) */
+        } tp = {
+            .tv_sec = (uint64_t) emu_tp.tv_sec,
+            .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
+        };
+        memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
+        X0_Q = (_ecv_reg64_t) clock_time;
+      } else {
+        X0_Q = -wasi2linux_errno[errno];
+      }
     } break;
-    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ X0_Q = kill(X0_D, X1_D); break;
+    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ {
+      int res = kill(X0_D, X1_D);
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
-      X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
-                       (struct sigaction *) TranslateVMA(X2_Q));
-      break;
+    {
+      int res = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
+                          (struct sigaction *) TranslateVMA(X2_Q));
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_UNAME: /* uname (struct old_utsname* buf) */
     {
       struct __elfarm64_utsname {
@@ -360,11 +504,16 @@ void RuntimeManager::SVCBrowserCall(void) {
       X0_D = 0;
     } break;
     case ECV_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
-      X0_D = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
-                          (struct timezone *) 0); /* FIXME (second argument) */
-      break;
+    {
+      int res = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
+                             (struct timezone *) 0); /* FIXME (second argument) */
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
-      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+    {
+      int res = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
     case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       uint32_t option = X0_D;
@@ -398,7 +547,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
-        if (X4_D != -1)
+        if (X4_D != (uint32_t) -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
@@ -411,12 +560,14 @@ void RuntimeManager::SVCBrowserCall(void) {
       }
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
-      X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
-      break;
+    {
+      int res = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
+      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+    } break;
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
       auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
-      X0_Q = 0 == res ? X1_Q : -errno;
+      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       // mprotect implementaion of wasi-libc doesn't change the memory access and only check arguments, and Wasm page size (64KiB) is different from Linux Page size (4KiB).
@@ -449,7 +600,7 @@ void RuntimeManager::SVCBrowserCall(void) {
         memcpy(TranslateVMA(X4_Q), &_statx, sizeof(_statx));
         X0_Q = 0;
       } else {
-        X0_Q = -errno;
+        X0_Q = -wasi2linux_errno[errno];
       }
     } break;
     default: UnImplementedBrowserSyscall(); break;
