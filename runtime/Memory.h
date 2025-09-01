@@ -3,10 +3,15 @@
 #include <cstring>
 #include <map>
 #include <remill/Arch/Runtime/Types.h>
+#include <stack>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+
+#if defined(__EMSCRIPTEN__)
+#  include <emscripten/fiber.h>
+#endif
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
@@ -25,7 +30,7 @@ typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
 
 //  State machine which represents all CPU registers */
-extern "C" State CPUState;
+extern "C" State *CPUState;
 //  Lifted entry function pointer
 extern "C" const LiftedFunc _ecv_entry_func;
 //  Entry point of the ELF
@@ -55,6 +60,8 @@ extern "C" const uint64_t _ecv_block_address_size_array[];
 extern "C" const uint64_t _ecv_block_address_fn_vma_array[];
 extern "C" const uint64_t _ecv_block_address_array_size;
 
+extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg);
+
 enum class MemoryAreaType : uint8_t {
   STACK,
   HEAP,
@@ -64,11 +71,11 @@ enum class MemoryAreaType : uint8_t {
   OTHER,
 };
 
-class MappedMemory {
+class MemoryArena {
 
  public:
-  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-               uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
+  MemoryArena(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
+              uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
@@ -76,13 +83,13 @@ class MappedMemory {
         bytes(__bytes),
         heap_cur(__heap_cur),
         stack_init_diff(__stack_init_diff) {}
-  MappedMemory() {}
-  ~MappedMemory() {
+  MemoryArena() {}
+  ~MemoryArena() {
     free(bytes);
   }
 
-  static MappedMemory *MemoryArenaInit(int argc, char *argv[], char *envp[],
-                                       State &state /* start stack pointer */);
+  static MemoryArena *MemoryArenaInit(int argc, char *argv[], char *envp[],
+                                      State &state /* start stack pointer */);
 
   MemoryAreaType memory_area_type;
   std::string name;
@@ -92,3 +99,42 @@ class MappedMemory {
   uint64_t heap_cur; /* for Heap */
   uint64_t stack_init_diff;
 };
+
+#if defined(__EMSCRIPTEN__)
+class ECV_PROCESS {
+ public:
+  ECV_PROCESS(MemoryArena *__memory_arena, State *__cpu_state,
+              std::stack<std::pair<uint64_t, uint64_t>> __call_history)
+      : memory_arena(__memory_arena),
+        cpu_state(__cpu_state),
+        ecv_pid(++org_ecv_pid),
+        fb_t(nullptr),
+        call_history(__call_history),
+        fiber_call_history(__call_history) {}
+
+  ECV_PROCESS *ecv_process_copied();
+
+  static inline uint64_t org_ecv_pid = 42;
+  MemoryArena *memory_arena;
+  State *cpu_state;
+
+  // fiber
+  uint64_t ecv_pid;
+  emscripten_fiber_t *fb_t;
+  void *cstack;
+  void *astack;
+  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>> call_history;
+  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
+      fiber_call_history;
+};
+#else
+class ECV_PROCESS {
+ public:
+  ECV_PROCESS(MemoryArena *__memory_arena, State __cpu_state)
+      : memory_arena(__memory_arena),
+        cpu_state(__cpu_state) {}
+
+  MemoryArena *memory_arena;
+  State cpu_state;
+};
+#endif

@@ -333,12 +333,21 @@ struct alignas(16) AArch64State : public ArchState {
   // IOC: Invalid Operation
   uint64_t ecv_fpsr;  // [8:0] = {7: IDC, [6:5]: Reserved 4: IXC, 3: UFC, 2: OFC, 1: DZC, 0: IOC}
 
+  uint64_t fiber_fun_addr;
+
+  uint64_t inst_count;
+
+  uint64_t func_depth;
+
+  uint64_t has_fibers;
+
   uint8_t padding[8];
 
 } __attribute__((packed));
 
 static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ +
-               8 /* ecv_nzcv */ + /* ecv_fpsr */ 8 + /* padding */ 8) == sizeof(AArch64State),
+               8 /* ecv_nzcv */ + /* ecv_fpsr */ 8 + /* fiber_fun_addr */ 8 + /* inst_count */ 8 +
+               /* func_depth */ 8 + /* has_fibers */ 8 + /* padding */ 8) == sizeof(AArch64State),
               "Invalid packing of `struct State`");
 
 struct State : public AArch64State {};

@@ -78,7 +78,7 @@ IntrinsicTable::IntrinsicTable(llvm::Module *module)
 
       // Control-flow.
       function_call(FindIntrinsic(module, "__remill_function_call")),
-      function_return(FindIntrinsic(module, "__remill_function_return")),
+      function_return(FindIntrinsic(module, "_ecv_func_epilogue")),
       jump(FindIntrinsic(module, "__remill_jump")),
       missing_block(FindIntrinsic(module, "__remill_missing_block")),
 
