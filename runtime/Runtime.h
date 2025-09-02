@@ -2,21 +2,16 @@
 
 #include "Memory.h"
 #include "remill/Arch/Runtime/Types.h"
+#include "runtime/syscalls/SysTable.h"
 
 class RuntimeManager {
  public:
-  RuntimeManager(std::vector<MappedMemory *> __mapped_memorys, MappedMemory *__memory_arena)
-      : mapped_memorys(__mapped_memorys),
-        memory_arena(__memory_arena) {}
+  RuntimeManager(ECV_PROCESS __ecv_process) : ecv_processes({__ecv_process}), cur_id(0) {}
   RuntimeManager() {}
-  ~RuntimeManager() {
-    for (auto memory : mapped_memorys)
-      delete (memory);
-  }
 
   // translates vma_addr to the address of the memory arena
   void *TranslateVMA(addr_t vma_addr) {
-    return memory_arena->bytes + (vma_addr - MEMORY_ARENA_VMA);
+    return ecv_processes[cur_id].memory_arena.bytes + (vma_addr - MEMORY_ARENA_VMA);
   };
 
   // Linux system calls emulation
@@ -28,8 +23,11 @@ class RuntimeManager {
   void UnImplementedWasiSyscall();
   void UnImplementedNativeSyscall();
 
-  std::vector<MappedMemory *> mapped_memorys;
-  MappedMemory *memory_arena;
+  // elfconv psuedo-process
+  std::vector<ECV_PROCESS> ecv_processes;
+  uint64_t cur_id;
+  emscripten_fiber_t cur_fb;
+
   std::vector<std::pair<addr_t, LiftedFunc>> addr_funptr_srt_list;
   std::unordered_map<addr_t, const char *> addr_fun_symbol_map;
   std::map<addr_t, std::map<uint64_t, uint64_t *>> fun_bb_addr_map;

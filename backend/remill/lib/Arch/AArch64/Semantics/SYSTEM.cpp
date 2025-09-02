@@ -16,8 +16,10 @@
 
 namespace {
 
-extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manager, I32 imm) {
+extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manager, I32 imm,
+                                    I64 fun_vma) {
   // Linux always get 0 for the argument of `svc` exception (I32 imm).
+  // imm is used to represent the next pc. imm and fun_vma is used for the implementation of fork emulation.
   __remill_syscall_tranpoline_call(state, runtime_manager);
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstring>
+#include <emscripten/fiber.h>
 #include <map>
 #include <remill/Arch/Runtime/Types.h>
 #include <string>
@@ -25,7 +26,7 @@ typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
 
 //  State machine which represents all CPU registers */
-extern "C" State CPUState;
+extern "C" State *CPUState;
 //  Lifted entry function pointer
 extern "C" const LiftedFunc _ecv_entry_func;
 //  Entry point of the ELF
@@ -64,11 +65,11 @@ enum class MemoryAreaType : uint8_t {
   OTHER,
 };
 
-class MappedMemory {
+class MemoryArena {
 
  public:
-  MappedMemory(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-               uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
+  MemoryArena(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
+              uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
@@ -76,13 +77,13 @@ class MappedMemory {
         bytes(__bytes),
         heap_cur(__heap_cur),
         stack_init_diff(__stack_init_diff) {}
-  MappedMemory() {}
-  ~MappedMemory() {
+  MemoryArena() {}
+  ~MemoryArena() {
     free(bytes);
   }
 
-  static MappedMemory *MemoryArenaInit(int argc, char *argv[], char *envp[],
-                                       State &state /* start stack pointer */);
+  static MemoryArena *MemoryArenaInit(int argc, char *argv[], char *envp[],
+                                      State &state /* start stack pointer */);
 
   MemoryAreaType memory_area_type;
   std::string name;
@@ -91,4 +92,17 @@ class MappedMemory {
   uint8_t *bytes;
   uint64_t heap_cur; /* for Heap */
   uint64_t stack_init_diff;
+};
+
+class ECV_PROCESS {
+ public:
+  ECV_PROCESS(MemoryArena __memory_arena, State __cpu_state)
+      : memory_arena(__memory_arena),
+        cpu_state(__cpu_state) {}
+
+  ECV_PROCESS ecv_process_copied();
+
+  MemoryArena memory_arena;
+  State cpu_state;
+  bool is_fiber;
 };

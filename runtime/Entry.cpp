@@ -4,13 +4,17 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <emscripten/fiber.h>
 #include <iostream>
 #include <map>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
 
-State CPUState = State();
+State *CPUState;
+
+static emscripten_fiber_t MainFB, SubFB[100];
+static char MainAstack[256 * 1024];
 
 // memory_arena_ptr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
 extern "C" uint8_t *memory_arena_ptr = nullptr;
@@ -20,14 +24,16 @@ int main(int argc, char *argv[]) {
 #else
 int main(int argc, char *argv[], char *envp[]) {
 #endif
-  std::vector<MappedMemory *> mapped_memorys;
 
+  // CPU State
+  State cpu_state = State();
+  CPUState = &cpu_state;
   //  Allocate memorys.
-  MappedMemory *memory_arena;
+  MemoryArena *memory_arena;
 #if defined(__wasm__)
-  memory_arena = MappedMemory::MemoryArenaInit(argc, argv, NULL, CPUState);
+  memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
 #else
-  memory_arena = MappedMemory::MemoryArenaInit(argc, argv, envp, CPUState);
+  memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
   memory_arena_ptr = memory_arena->bytes;
   for (size_t i = 0; i < _ecv_data_sec_num; i++) {
@@ -41,18 +47,18 @@ int main(int argc, char *argv[], char *envp[]) {
   }
 #if defined(ELF_IS_AARCH64)
   //  set program counter
-  CPUState.gpr.pc = {.qword = _ecv_entry_pc};
+  cpu_state.gpr.pc = {.qword = _ecv_entry_pc};
   // set system register (FIXME)
-  CPUState.sr.tpidr_el0 = {.qword = 0};
-  CPUState.sr.midr_el1 = {.qword = 0xf0510};
-  CPUState.sr.ctr_el0 = {.qword = 0x80038003};
-  CPUState.sr.dczid_el0 = {.qword = 0x4};
+  cpu_state.sr.tpidr_el0 = {.qword = 0};
+  cpu_state.sr.midr_el1 = {.qword = 0xf0510};
+  cpu_state.sr.ctr_el0 = {.qword = 0x80038003};
+  cpu_state.sr.dczid_el0 = {.qword = 0x4};
 #  if defined(DEBUG_WITH_QEMU)
   // QEMU seems to init PSTATE as the Z flag is raised.
   CPUState.ecv_nzcv = 0x40000000;
 #  endif
 #endif
-  auto runtime_manager = new RuntimeManager(mapped_memorys, memory_arena);
+  auto runtime_manager = new RuntimeManager(ECV_PROCESS(memory_arena, cpu_state));
 
   // Set lifted function pointer table
   for (size_t i = 0; _ecv_fun_vmas[i] && _ecv_fun_ptrs[i]; i++) {
@@ -78,6 +84,9 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     runtime_manager->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
+
+  // register current cotext to the main fiber.
+  emscripten_fiber_init_from_current_context(&MainFB, MainAstack, sizeof(MainAstack));
 
   //  Go to the entry function (__g_entry_func is injected by lifted LLVM IR)
   _ecv_entry_func(&CPUState, _ecv_entry_pc, runtime_manager);

@@ -23,7 +23,7 @@
 _ecv_reg64_t TASK_STRUCT_VMA;
 #endif
 
-MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
+MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
 
   char *env_ptr[1000];
 #if defined(__wasm__)
@@ -176,6 +176,25 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   // starting stack pointer indicates the pointer of `argc`.
   SP_REG = sp;
 
-  return new MappedMemory(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
-                          bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
+  return new MemoryArena(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
+                         bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
+}
+
+ECV_PROCESS ECV_PROCESS::ecv_process_copied() {
+  MemoryArena new_memory_arena;
+  State new_cpu_state;
+
+  // copy memory arena
+  new_memory_arena.memory_area_type = memory_arena.memory_area_type;
+  new_memory_arena.name = memory_arena.name;
+  new_memory_arena.vma = memory_arena.vma;
+  new_memory_arena.len = memory_arena.len;
+  new_memory_arena.bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
+  memcpy(new_memory_arena.bytes, memory_arena.bytes, MEMORY_ARENA_SIZE);
+  new_memory_arena.heap_cur = memory_arena.heap_cur;
+  new_memory_arena.stack_init_diff = memory_arena.stack_init_diff;
+  // copy CPU state
+  memcpy(&new_cpu_state, &cpu_state, sizeof(new_cpu_state));
+
+  return ECV_PROCESS(new_memory_arena, new_cpu_state);
 }
