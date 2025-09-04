@@ -28,13 +28,17 @@ int main(int argc, char *argv[], char *envp[]) {
   // CPU State
   State cpu_state = State();
   CPUState = &cpu_state;
+  cpu_state.inst_count = 0;
   //  Allocate memorys.
   MemoryArena *memory_arena;
+  ECV_PROCESS::org_ecv_pid = 42;
+
 #if defined(__wasm__)
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
 #else
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
+
   memory_arena_ptr = memory_arena->bytes;
   for (size_t i = 0; i < _ecv_data_sec_num; i++) {
     // remove covered section
@@ -58,6 +62,7 @@ int main(int argc, char *argv[], char *envp[]) {
   CPUState.ecv_nzcv = 0x40000000;
 #  endif
 #endif
+
   auto runtime_manager = new RuntimeManager(ECV_PROCESS(memory_arena, cpu_state));
 
   // Set lifted function pointer table
@@ -85,8 +90,11 @@ int main(int argc, char *argv[], char *envp[]) {
     runtime_manager->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
 
+#if defined(__EMSCRIPTEN__)
   // register current cotext to the main fiber.
   emscripten_fiber_init_from_current_context(&MainFB, MainAstack, sizeof(MainAstack));
+  runtime_manager->cur_ecv_process.is_fiber = true;
+#endif
 
   //  Go to the entry function (__g_entry_func is injected by lifted LLVM IR)
   _ecv_entry_func(&CPUState, _ecv_entry_pc, runtime_manager);

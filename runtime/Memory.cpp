@@ -196,5 +196,5 @@ ECV_PROCESS ECV_PROCESS::ecv_process_copied() {
   // copy CPU state
   memcpy(&new_cpu_state, &cpu_state, sizeof(new_cpu_state));
 
-  return ECV_PROCESS(new_memory_arena, new_cpu_state);
+  return ECV_PROCESS(new_memory_arena, new_cpu_state, call_history);
 }

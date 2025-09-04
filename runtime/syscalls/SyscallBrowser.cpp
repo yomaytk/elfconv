@@ -228,8 +228,6 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
 };
 
-#define FIBER_STACK_SIZE 32 * 1024
-
 /*
   syscall emulate function
   
@@ -549,37 +547,40 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
+#if defined(__EMSCRIPTEN__)
       // make new psuedo-process
-      auto &cur_ecv_process = ecv_processes[cur_id];
+      auto &cur_ecv_process = ecv_processes.at(cur_ecv_pid);
       ecv_processes.push_back(cur_ecv_process.ecv_process_copied());
       auto &new_ecv_process = ecv_processes.back();
 
       // new fiber settings.
-      emscripten_fiber_t *new_fb =
+      emscripten_fiber_t *new_fb_t =
           reinterpret_cast<emscripten_fiber_t *> malloc(sizeof(emscripten_fiber_t));
+      new_ecv_process.fb_t = new_fb_t;
+      new_ecv_process.is_fiber = true;
 
       // fiber entry
       LiftedFunc *fiber_entry = addr_funptr_srt_list.at(cur_ecv_process.cpu_state.fiber_fun_addr);
 
       // fiber entry arguments
-      struct FiberArgs {
-        State &state;
-        addr_t addr;
-        RuntimeManager *run_mgr;
-      } fiber_args = {
+      struct FiberArgs fiber_args = {
           .state = new_ecv_process.cpu_state,
           .addr = cur_ecv_process.cpu_state.pc.qword,
           .run_mgr = this,
       };
 
-      // cstack, asicify stack
+      // cstack, asincify stack
       auto new_cstack = malloc(32 * 1024);
       auto new_astack = malloc(32 * 1024);
 
       // init fiber
-      emscripten_fiber_init(new_fb, fiber_entry, &fiber_args, new_cstack, FIBER_STACK_SIZE,
+      emscripten_fiber_init(new_fb_t, fiber_entry, &fiber_args, new_cstack, FIBER_STACK_SIZE,
                             new_astack, FIBER_STACK_SIZE);
-      emscripten_fiber_swap(cur_fb, new_fb);
+      // registers current process to the task queue.
+      ecv_pid_queue.push_back(cur_ecv_process.ecv_pid);
+      // swap
+      emscripten_fiber_swap(cur_ecv_process.fb_t, new_fb_t);
+#endif
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
@@ -589,8 +590,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = ecv_processes[cur_id].memory_arena.heap_cur;
-          ecv_processes[cur_id].memory_arena.heap_cur += X1_Q;
+          X0_Q = cur_memory_arena.heap_cur;
+          cur_memory_arena.heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }

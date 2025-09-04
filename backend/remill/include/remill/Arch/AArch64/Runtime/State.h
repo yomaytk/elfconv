@@ -335,11 +335,15 @@ struct alignas(16) AArch64State : public ArchState {
 
   uint64_t fiber_fun_addr;
 
+  uint64_t inst_count;
+
+  uint64_t func_depth;
+
 } __attribute__((packed));
 
 static_assert((1200 /* simd ~ _3 */ + 16 /* ArchState */ + 24 /* sleigh_flags */ +
-               8 /* ecv_nzcv */ + /* ecv_fpsr */ 8 + /* fiber_fun_addr */ 8) ==
-                  sizeof(AArch64State),
+               8 /* ecv_nzcv */ + /* ecv_fpsr */ 8 + /* fiber_fun_addr */ 8 + /* inst_count */ 8 +
+               /* func_depth */ 8) == sizeof(AArch64State),
               "Invalid packing of `struct State`");
 
 struct State : public AArch64State {};

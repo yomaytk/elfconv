@@ -106,6 +106,26 @@ llvm::Value *LoadProgramCounter(llvm::BasicBlock *block, const IntrinsicTable &i
 // Return the next program counter.
 llvm::Value *LoadNextProgramCounter(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
 
+// Return the fiber func addr.
+llvm::Value *LoadFiberFunAddr(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
+
+llvm::Value *LoadFiberFunAddr(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
+
+// Return the inst count.
+llvm::Value *LoadInstCount(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
+
+llvm::Value *LoadInstCount(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
+
+// Return the func depth.
+llvm::Value *LoadFuncDepth(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
+
+llvm::Value *LoadFuncDepth(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
+
+// Return the bb cache.
+llvm::Value *LoadBBCache(llvm::IRBuilder<> &builder, const IntrinsicTable &intrinsics);
+
+llvm::Value *LoadBBCache(llvm::BasicBlock *block, const IntrinsicTable &intrinsics);
+
 // Return a reference to the current program counter.
 llvm::Value *LoadProgramCounterRef(llvm::BasicBlock *block);
 
@@ -114,6 +134,14 @@ llvm::Value *LoadNextProgramCounterRef(llvm::BasicBlock *block);
 
 // Return a reference to the return program counter.
 llvm::Value *LoadReturnProgramCounterRef(llvm::BasicBlock *block);
+
+llvm::Value *LoadFiberFunAddrRef(llvm::BasicBlock *block);
+
+llvm::Value *LoadInstCountRef(llvm::BasicBlock *block);
+
+llvm::Value *LoadFuncDepthRef(llvm::BasicBlock *block);
+
+llvm::Value *LoadBBCacheRef(llvm::BasicBlock *block);
 
 // Update the program counter in the state struct with a hard-coded value.
 void StoreProgramCounter(llvm::BasicBlock *block, uint64_t pc, const IntrinsicTable &intrinsics);

@@ -4,6 +4,7 @@
 #include <emscripten/fiber.h>
 #include <map>
 #include <remill/Arch/Runtime/Types.h>
+#include <stack>
 #include <string>
 #include <unistd.h>
 #include <unordered_map>
@@ -96,13 +97,27 @@ class MemoryArena {
 
 class ECV_PROCESS {
  public:
-  ECV_PROCESS(MemoryArena __memory_arena, State __cpu_state)
+  ECV_PROCESS(MemoryArena __memory_arena, State __cpu_state,
+              std::vector<std::pair<uint64_t, uint64_t>> __fiber_call_history)
       : memory_arena(__memory_arena),
-        cpu_state(__cpu_state) {}
+        cpu_state(__cpu_state),
+        ecv_pid(++org_ecv_pid),
+        fb_t(nullptr),
+        fiber_call_history(__fiber_call_history) {}
 
   ECV_PROCESS ecv_process_copied();
 
+  static uint64_t org_ecv_pid;
   MemoryArena memory_arena;
   State cpu_state;
+
+  // fiber
   bool is_fiber;
+  uint64_t ecv_pid;
+  emscripten_fiber_t *fb_t;
+  void *cstack;
+  void *astack;
+  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>> call_history;
+  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
+      fiber_call_history;
 };

@@ -324,9 +324,42 @@ llvm::Value *LoadProgramCounter(llvm::IRBuilder<> &ir, const IntrinsicTable &int
   return ir.CreateLoad(intrinsics.pc_type, LoadProgramCounterRef(ir.GetInsertBlock()));
 }
 
+llvm::Value *LoadFiberFunAddr(llvm::BasicBlock *block, const IntrinsicTable &intrinsics) {
+  llvm::IRBuilder<> ir(block);
+  return LoadFiberFunAddr(ir, intrinsics);
+}
+
+llvm::Value *LoadFiberFunAddr(llvm::IRBuilder<> &ir, const IntrinsicTable &intrinsics) {
+  return ir.CreateLoad(intrinsics.pc_type, LoadProgramCounterRef(ir.GetInsertBlock()));
+}
+
+llvm::Value *LoadFuncDepth(llvm::IRBuilder<> &ir, const IntrinsicTable &intrinsics) {
+  return ir.CreateLoad(intrinsics.pc_type, LoadFuncDepthRef(ir.GetInsertBlock()));
+}
+
+llvm::Value *LoadBBCache(llvm::IRBuilder<> &ir, const IntrinsicTable &intrinsics) {
+  return ir.CreateLoad(intrinsics.runtime_ptr_type, LoadBBCacheRef(ir.GetInsertBlock()));
+}
+
 // Return a reference to the current program counter.
 llvm::Value *LoadProgramCounterRef(llvm::BasicBlock *block) {
   return FindVarInFunction(block->getParent(), kPCVariableName).first;
+}
+
+llvm::Value *LoadFiberFunAddrRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kFiberFunAddrVariableName).first;
+}
+
+llvm::Value *LoadInstCountRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kInstCountVariableName).first;
+}
+
+llvm::Value *LoadFuncDepthRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kFuncDepthVariableName).first;
+}
+
+llvm::Value *LoadBBCacheRef(llvm::BasicBlock *block) {
+  return FindVarInFunction(block->getParent(), kBBCacheVariableName).first;
 }
 
 // Return a reference to the next program counter.

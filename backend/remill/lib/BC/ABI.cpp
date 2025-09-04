@@ -28,6 +28,8 @@ const std::string_view kRuntimeVariableName = "RUNTIME";
 const std::string_view kEcvNZCVVariableName = "ECV_NZCV";
 const std::string_view kFiberFunAddrVariableName = "FIBER_FUN_ADDR";
 const std::string_view kInstCountVariableName = "INST_COUNT";
+const std::string_view kFuncDepthVariableName = "FUNC_DEPTH";
+const std::string_view kBBCacheVariableName = "BB_CACHE";
 
 const std::string_view kInvalidInstructionISelName = "INVALID_INSTRUCTION";
 const std::string_view kUnsupportedInstructionISelName = "UNSUPPORTED_INSTRUCTION";

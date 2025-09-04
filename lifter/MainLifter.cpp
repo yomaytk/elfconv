@@ -414,6 +414,29 @@ void MainLifter::WrapImpl::DeclareHelperFunction() {
                               {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context)},
                               false),
       llvm::Function::ExternalLinkage, _ecv_noopt_get_bb_name, *module);
+
+#if defined(__EMSCRIPTEN__)
+  // void _ecv_process_context_switch(RuntimeManager *);
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
+                                                 {llvm::Type::getInt64PtrTy(context)}, false),
+                         llvm::Function::ExternalLinkage, "_ecv_sprocess_context_switch", *module);
+
+  // void _ecv_save_call_history(RuntimeManager *, uint64_t, uint64_t);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_save_call_history", *module);
+
+  // void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64PtrTy(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_func_epilogue", *module);
+#endif
 }
 
 /* Prepare the virtual machine for instruction test */

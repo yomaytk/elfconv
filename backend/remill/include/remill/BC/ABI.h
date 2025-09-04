@@ -41,6 +41,8 @@ extern const std::string_view kRuntimeVariableName;
 extern const std::string_view kEcvNZCVVariableName;
 extern const std::string_view kFiberFunAddrVariableName;
 extern const std::string_view kInstCountVariableName;
+extern const std::string_view kFuncDepthVariableName;
+extern const std::string_view kBBCacheVariableName;
 
 extern const std::string_view kInvalidInstructionISelName;
 extern const std::string_view kUnsupportedInstructionISelName;
