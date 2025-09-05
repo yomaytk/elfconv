@@ -2,6 +2,7 @@
 #include "emscripten_wasi_errno.h"
 #include "remill/Arch/Runtime/Types.h"
 #include "runtime/Memory.h"
+#include "runtime/Runtime.h"
 
 #include <algorithm>
 #include <cerrno>
@@ -537,50 +538,58 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = ecv_processes[cur_id].memory_arena.heap_cur;
+        X0_Q = cur_memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        ecv_processes[cur_id].memory_arena.heap_cur = X0_Q;
+        cur_memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
     } break;
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
-#if defined(__EMSCRIPTEN__)
-      // make new psuedo-process
-      auto &cur_ecv_process = ecv_processes.at(cur_ecv_pid);
-      ecv_processes.push_back(cur_ecv_process.ecv_process_copied());
-      auto &new_ecv_process = ecv_processes.back();
 
-      // new fiber settings.
-      emscripten_fiber_t *new_fb_t =
-          reinterpret_cast<emscripten_fiber_t *> malloc(sizeof(emscripten_fiber_t));
-      new_ecv_process.fb_t = new_fb_t;
-      new_ecv_process.is_fiber = true;
+      uint64_t cur_ecv_pid;
+      emscripten_fiber_t *cur_fb_t, *new_fb_t;
 
-      // fiber entry
-      LiftedFunc *fiber_entry = addr_funptr_srt_list.at(cur_ecv_process.cpu_state.fiber_fun_addr);
+      cur_ecv_pid = cur_ecv_process->ecv_pid;
+      cur_fb_t = cur_ecv_process->fb_t;
 
-      // fiber entry arguments
-      struct FiberArgs fiber_args = {
-          .state = new_ecv_process.cpu_state,
-          .addr = cur_ecv_process.cpu_state.pc.qword,
-          .run_mgr = this,
-      };
+      // make new copied ecv_process
+      ECV_PROCESS *new_ecv_process = cur_ecv_process->ecv_process_copied();
+      new_ecv_process->is_fiber = true;
 
-      // cstack, asincify stack
+      // new fiber context.
+      new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
+      new_ecv_process->fb_t = new_fb_t;
+
+      // set return value to x0 register
+      new_ecv_process->cpu_state.gpr.x0.qword = new_ecv_process->ecv_pid;
+
+      // update cache data and switch process.
+      ecv_pid_queue.push(cur_ecv_pid);
+      ecv_processes.insert({new_ecv_process->ecv_pid, new_ecv_process});
+      cur_ecv_process = new_ecv_process;
+      cur_memory_arena = new_ecv_process->memory_arena;
+
+      // prepare fiber swap data.
+      LiftedFunc t_lifted_func =
+          addr_funptr_srt_list.at(cur_ecv_process->cpu_state.fiber_fun_addr).second;
+
+      auto fiber_args = FiberArgs(t_lifted_func, new_ecv_process->cpu_state,
+                                  cur_ecv_process->cpu_state.gpr.pc
+                                      .qword,  // assumes that `next_pc` is saved to cpu_state.pc
+                                  this);
+
       auto new_cstack = malloc(32 * 1024);
       auto new_astack = malloc(32 * 1024);
+      new_ecv_process->cstack = new_cstack;
+      new_ecv_process->astack = new_astack;
 
-      // init fiber
-      emscripten_fiber_init(new_fb_t, fiber_entry, &fiber_args, new_cstack, FIBER_STACK_SIZE,
-                            new_astack, FIBER_STACK_SIZE);
-      // registers current process to the task queue.
-      ecv_pid_queue.push_back(cur_ecv_process.ecv_pid);
-      // swap
-      emscripten_fiber_swap(cur_ecv_process.fb_t, new_fb_t);
-#endif
+      // swap fiber.
+      emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &fiber_args, new_cstack,
+                            FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
+      emscripten_fiber_swap(cur_ecv_process->fb_t, new_fb_t);
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
@@ -590,8 +599,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = cur_memory_arena.heap_cur;
-          cur_memory_arena.heap_cur += X1_Q;
+          X0_Q = cur_memory_arena->heap_cur;
+          cur_memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }

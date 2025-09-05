@@ -180,21 +180,23 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
                          bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
 }
 
-ECV_PROCESS ECV_PROCESS::ecv_process_copied() {
-  MemoryArena new_memory_arena;
+#if defined(__EMSCRIPTEN__)
+ECV_PROCESS *ECV_PROCESS::ecv_process_copied() {
+  auto new_memory_arena = new MemoryArena();
   State new_cpu_state;
 
   // copy memory arena
-  new_memory_arena.memory_area_type = memory_arena.memory_area_type;
-  new_memory_arena.name = memory_arena.name;
-  new_memory_arena.vma = memory_arena.vma;
-  new_memory_arena.len = memory_arena.len;
-  new_memory_arena.bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
-  memcpy(new_memory_arena.bytes, memory_arena.bytes, MEMORY_ARENA_SIZE);
-  new_memory_arena.heap_cur = memory_arena.heap_cur;
-  new_memory_arena.stack_init_diff = memory_arena.stack_init_diff;
+  new_memory_arena->memory_area_type = memory_arena->memory_area_type;
+  new_memory_arena->name = memory_arena->name;
+  new_memory_arena->vma = memory_arena->vma;
+  new_memory_arena->len = memory_arena->len;
+  new_memory_arena->bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
+  memcpy(new_memory_arena->bytes, memory_arena->bytes, MEMORY_ARENA_SIZE);
+  new_memory_arena->heap_cur = memory_arena->heap_cur;
+  new_memory_arena->stack_init_diff = memory_arena->stack_init_diff;
   // copy CPU state
   memcpy(&new_cpu_state, &cpu_state, sizeof(new_cpu_state));
 
-  return ECV_PROCESS(new_memory_arena, new_cpu_state, call_history);
+  return new ECV_PROCESS(new_memory_arena, new_cpu_state, call_history);
 }
+#endif

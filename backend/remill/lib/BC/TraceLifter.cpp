@@ -395,16 +395,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(entry_block))
           << "The entry block has been already added illegally to the VirtualRegsOpt.";
       virtual_regs_opt->bb_reg_info_node_map.insert({entry_block, entry_bb_reg_info_node});
-
-      // increment func depth.
-      llvm::IRBuilder<> ir7(entry_block);
-      auto func_depth_val =
-          inst.GetLifter()->LoadRegValue(entry_block, state_ptr, kFuncDepthVariableName);
-      auto inc_func_depth_val =
-          ir7.CreateAdd(func_depth_val, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 1));
-      auto [func_depth_ptr, _] =
-          inst.GetLifter()->LoadRegAddress(entry_block, state_ptr, kInstCountVariableName);
-      ir7.CreateStore(inc_func_depth_val, func_depth_ptr);
     } else {
       LOG(FATAL) << "Initialized function must have the entry block. address: " << trace_addr;
     }
@@ -947,7 +937,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           lifted_block_map.size());
       for (auto &[_adr, t_bb] : lifted_block_map) {
         br_i->addDestination(t_bb);
-        // (FIXME!) should be accessed by at() not operator[].
         virtual_regs_opt->bb_parents[t_bb].insert(
             new_first_bb);  // Update Parent-child relationship.
       }
@@ -1063,29 +1052,52 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
+    llvm::BasicBlock *entry_bb;
+    llvm::Value *bb_cache_ref, *inst_count_ref, *func_depth_ref;
+    llvm::Type *u64ty, *u64ptrty;
+
+    entry_bb = &(func->front());
+    bb_cache_ref =
+        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kBBCacheVariableName).first;
+    inst_count_ref =
+        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kInstCountVariableName).first;
+    func_depth_ref =
+        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kFuncDepthVariableName).first;
+
+    u64ty = llvm::Type::getInt64Ty(context);
+    u64ptrty = llvm::Type::getInt64PtrTy(context);
+
+    // increment func depth
+    auto entry_trmi = entry_bb->getTerminator();
+    llvm::IRBuilder<> ir7(entry_trmi);
+    auto func_depth_val = ir7.CreateLoad(u64ty, func_depth_ref);
+    auto inc_func_depth_val = ir7.CreateAdd(func_depth_val, llvm::ConstantInt::get(u64ty, 1));
+    ir7.CreateStore(inc_func_depth_val, func_depth_ref);
+
     // L_fiber_switch to switch to other fiber.
     auto fiber_switch_bb = llvm::BasicBlock::Create(context, "L_fiber_switch", func);
     llvm::IRBuilder<> fiber_ir(fiber_switch_bb);
     auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
     // call "_ecv_process_context_switch"
     fiber_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
+    // reset inst_count
+    fiber_ir.CreateStore(llvm::ConstantInt::get(u64ty, 0), inst_count_ref);
     // as-is branch instruction
-    auto [bb_cache_ref, _] =
-        inst.GetLifter()->LoadRegAddress(fiber_switch_bb, state_ptr, kBBCacheVariableName);
-    auto asis_br = fiber_ir.CreateIndirectBr(
-        fiber_ir.CreateLoad(llvm::Type::getInt64PtrTy(context), bb_cache_ref),
-        lifted_block_map.size());
+    auto t_bb_ptr = fiber_ir.CreateLoad(u64ptrty, bb_cache_ref);
+    auto asis_br = fiber_ir.CreateIndirectBr(t_bb_ptr, lifted_block_map.size());
     for (auto [_, t_bb] : lifted_block_map) {
       asis_br->addDestination(t_bb);
     }
 
+    // Add inst_count increment and branch to L_fiber_switch
+    // against the every basic block.
     for (auto &[bb_addr, tbb] : lifted_block_map) {
       auto tri = tbb->getTerminator();
       llvm::IRBuilder<> ir5(tri);
       // increment inst count
-      auto inst_count_val = inst.GetLifter()->LoadRegValue(tbb, state_ptr, kInstCountVariableName);
-      auto inc_inst_count_val =
-          ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 1));
+      auto inst_count_val =
+          inst.GetLifter()->LoadRegValueBeforeInst(tbb, state_ptr, kInstCountVariableName, tri);
+      auto inc_inst_count_val = ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(u64ty, 1));
       auto [inst_count_ptr, _] =
           inst.GetLifter()->LoadRegAddress(tbb, state_ptr, kInstCountVariableName);
       ir5.CreateStore(inc_inst_count_val, inst_count_ptr);
@@ -1093,8 +1105,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // set the branch to the fiber switch bb only against the no conditional br instruction.
       if (llvm::dyn_cast<llvm::BranchInst>(tri) && tri->getNumSuccessors() == 1) {
         // threshold condition
-        llvm::Value *threshold_cond = ir5.CreateICmpUGE(
-            inc_inst_count_val, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 1000));
+        llvm::Value *threshold_cond =
+            ir5.CreateICmpUGE(inc_inst_count_val, llvm::ConstantInt::get(u64ty, 1000));
         auto norm_dest = tri->getSuccessor(0);
         tri->eraseFromParent();
         llvm::IRBuilder<> ir6(tbb);

@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <emscripten/fiber.h>
 #include <iostream>
 #include <map>
 #include <remill/Arch/Runtime/Intrinsics.h>
@@ -12,9 +11,6 @@
 #include <stdio.h>
 
 State *CPUState;
-
-static emscripten_fiber_t MainFB, SubFB[100];
-static char MainAstack[256 * 1024];
 
 // memory_arena_ptr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
 extern "C" uint8_t *memory_arena_ptr = nullptr;
@@ -31,7 +27,6 @@ int main(int argc, char *argv[], char *envp[]) {
   cpu_state.inst_count = 0;
   //  Allocate memorys.
   MemoryArena *memory_arena;
-  ECV_PROCESS::org_ecv_pid = 42;
 
 #if defined(__wasm__)
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
@@ -63,7 +58,12 @@ int main(int argc, char *argv[], char *envp[]) {
 #  endif
 #endif
 
-  auto runtime_manager = new RuntimeManager(ECV_PROCESS(memory_arena, cpu_state));
+#if defined(__EMSCRIPTEN__)
+  auto main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state, {});
+#else
+  auto main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state);
+#endif
+  auto runtime_manager = new RuntimeManager(main_ecv_process);
 
   // Set lifted function pointer table
   for (size_t i = 0; _ecv_fun_vmas[i] && _ecv_fun_ptrs[i]; i++) {
@@ -91,13 +91,16 @@ int main(int argc, char *argv[], char *envp[]) {
   }
 
 #if defined(__EMSCRIPTEN__)
+  emscripten_fiber_t MainFB;
+  char MainAstack[256 * 1024];
   // register current cotext to the main fiber.
   emscripten_fiber_init_from_current_context(&MainFB, MainAstack, sizeof(MainAstack));
-  runtime_manager->cur_ecv_process.is_fiber = true;
+  runtime_manager->cur_ecv_process->is_fiber = true;
+  runtime_manager->cur_ecv_process->call_history.emplace(_ecv_entry_pc, _ecv_entry_pc);
 #endif
 
   //  Go to the entry function (__g_entry_func is injected by lifted LLVM IR)
-  _ecv_entry_func(&CPUState, _ecv_entry_pc, runtime_manager);
+  _ecv_entry_func(CPUState, _ecv_entry_pc, runtime_manager);
 
   delete (runtime_manager);
 

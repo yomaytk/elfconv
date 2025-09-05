@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstring>
-#include <emscripten/fiber.h>
 #include <map>
 #include <remill/Arch/Runtime/Types.h>
 #include <stack>
@@ -9,6 +8,10 @@
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
+
+#if defined(__EMSCRIPTEN__)
+#  include <emscripten/fiber.h>
+#endif
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
@@ -57,6 +60,8 @@ extern "C" const uint64_t _ecv_block_address_size_array[];
 extern "C" const uint64_t _ecv_block_address_fn_vma_array[];
 extern "C" const uint64_t _ecv_block_address_array_size;
 
+extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg);
+
 enum class MemoryAreaType : uint8_t {
   STACK,
   HEAP,
@@ -95,20 +100,21 @@ class MemoryArena {
   uint64_t stack_init_diff;
 };
 
+#if defined(__EMSCRIPTEN__)
 class ECV_PROCESS {
  public:
-  ECV_PROCESS(MemoryArena __memory_arena, State __cpu_state,
-              std::vector<std::pair<uint64_t, uint64_t>> __fiber_call_history)
+  ECV_PROCESS(MemoryArena *__memory_arena, State __cpu_state,
+              std::stack<std::pair<uint64_t, uint64_t>> __fiber_call_history)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state),
         ecv_pid(++org_ecv_pid),
         fb_t(nullptr),
         fiber_call_history(__fiber_call_history) {}
 
-  ECV_PROCESS ecv_process_copied();
+  ECV_PROCESS *ecv_process_copied();
 
-  static uint64_t org_ecv_pid;
-  MemoryArena memory_arena;
+  static inline uint64_t org_ecv_pid = 42;
+  MemoryArena *memory_arena;
   State cpu_state;
 
   // fiber
@@ -121,3 +127,14 @@ class ECV_PROCESS {
   std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
       fiber_call_history;
 };
+#else
+class ECV_PROCESS {
+ public:
+  ECV_PROCESS(MemoryArena *__memory_arena, State __cpu_state)
+      : memory_arena(__memory_arena),
+        cpu_state(__cpu_state) {}
+
+  MemoryArena *memory_arena;
+  State cpu_state;
+};
+#endif

@@ -121,6 +121,8 @@ extern "C" [[gnu::used]] void __remill_intrinsics(void) {
   USED(__remill_jump);
   USED(__remill_missing_block);
 
+  USED(_ecv_func_epilogue);
+
   USED(__remill_async_hyper_call);
   USED(__remill_sync_hyper_call);
   USED(__remill_syscall_tranpoline_call);
