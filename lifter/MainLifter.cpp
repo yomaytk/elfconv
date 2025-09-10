@@ -408,12 +408,39 @@ void MainLifter::WrapImpl::DeclareHelperFunction() {
                               false),
       llvm::Function::ExternalLinkage, g_get_indirectbr_block_address_func_name, *module);
 
-  // uint64_t *_ecv_noopt_get_bb(RuntimeManager *, addr_t)
+  // uint64_t *_ecv_noopt_get_bb(RuntimeManager *, addr_t, addr_t)
   llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
-                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context)},
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
                               false),
       llvm::Function::ExternalLinkage, _ecv_noopt_get_bb_name, *module);
+
+  // void _ecv_process_context_switch(RuntimeManager *);
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64PtrTy(context)}, false),
+                         llvm::Function::ExternalLinkage, "_ecv_process_context_switch", *module);
+
+  // void _ecv_save_call_history(RuntimeManager *, uint64_t, uint64_t);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_save_call_history", *module);
+
+  // void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64PtrTy(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_func_epilogue", *module);
+
+  // void _ecv_unreached();
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, "_ecv_unreached", *module);
 }
 
 /* Prepare the virtual machine for instruction test */

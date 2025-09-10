@@ -103,6 +103,7 @@ class OperandLifter {
 #define WSP_ORDER 43
 #define FPSR_ORDER 44
 #define FPCR_ORDER 45
+#define FUN_ADDR_ORDER 46
 
 // shared
 #define BRANCH_TAKEN_ORDER 36

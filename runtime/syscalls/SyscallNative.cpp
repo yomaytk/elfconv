@@ -279,10 +279,10 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = memory_arena->heap_cur;
+        X0_Q = cur_memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        memory_arena->heap_cur = X0_Q;
+        cur_memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
@@ -295,8 +295,8 @@ void RuntimeManager::SVCNativeCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = memory_arena->heap_cur;
-          memory_arena->heap_cur += X1_Q;
+          X0_Q = cur_memory_arena->heap_cur;
+          cur_memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }

@@ -296,10 +296,10 @@ void RuntimeManager::SVCWasiCall(void) {
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = memory_arena->heap_cur;
+        X0_Q = cur_memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        memory_arena->heap_cur = X0_Q;
+        cur_memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
@@ -313,8 +313,8 @@ void RuntimeManager::SVCWasiCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = memory_arena->heap_cur;
-          memory_arena->heap_cur += X1_Q;
+          X0_Q = cur_memory_arena->heap_cur;
+          cur_memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
@@ -388,9 +388,15 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_EVENTFD2: UNIMPLEMENTED_SYSCALL; break;
     case ECV_EPOLL_CREATE1: UNIMPLEMENTED_SYSCALL; break;
     case ECV_EPOLL_CTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EPOLL_PWAIT: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_DUP: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_DUP3: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_EPOLL_PWAIT:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_DUP:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_DUP3:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_FCNTL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_INOTIFY_INIT1: UNIMPLEMENTED_SYSCALL; break;
     case ECV_INOTIFY_ADD_WATCH: UNIMPLEMENTED_SYSCALL; break;
@@ -408,8 +414,12 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_UMOUNT2: UNIMPLEMENTED_SYSCALL; break;
     case ECV_MOUNT: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PIVOT_ROOT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_NFSSERVCTL: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_STATFS: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_NFSSERVCTL:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_STATFS:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_FSTATFS: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_TRUNCATE: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_FTRUNCATE: UNIMPLEMENTED_SYSCALL; break;
@@ -426,8 +436,12 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     // case ECV_CLOSE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_VHANGUP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PIPE2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_QUOTACTL: UNIMPLEMENTED_SYSCALL; break;
-    /* Fail to exectute wasi-libc function */ case ECV_GETDENTS: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_QUOTACTL:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* Fail to exectute wasi-libc function */ case ECV_GETDENTS:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     // case ECV_LSEEK: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_READ: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_WRITE: UNIMPLEMENTED_SYSCALL; break;
@@ -436,16 +450,28 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_PREAD: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PWRITE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PREADV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PWRITEV: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_SENDFILE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PSELECT6: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_PPOLL: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_PWRITEV:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_SENDFILE:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    case ECV_PSELECT6:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_PPOLL:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_SIGNALFD4: UNIMPLEMENTED_SYSCALL; break;
     case ECV_VMSPLICE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SPLICE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TEE: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_TEE:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     // case ECV_READLINKAT: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_NEWFSTATAT: UNIMPLEMENTED_SYSCALL; break;
+    /* UNDECLARED! */ case ECV_NEWFSTATAT:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_NEWFSTAT: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SYNC: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_FSYNC: UNIMPLEMENTED_SYSCALL; break;
@@ -463,9 +489,13 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     // case ECV_EXIT_GROUP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_WAITID: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_SET_TID_ADDRESS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_UNSHARE: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_UNSHARE:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     // case ECV_FUTEX: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_SET_ROBUST_LIST: UNIMPLEMENTED_SYSCALL; break;
+    /* UNDECLARED! */ case ECV_SET_ROBUST_LIST:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_GET_ROBUST_LIST: UNIMPLEMENTED_SYSCALL; break;
     case ECV_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_GETITIMER: UNIMPLEMENTED_SYSCALL; break;
@@ -496,12 +526,22 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_SCHED_RR_GET_INTERVAL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RESTART_SYSCALL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_KILL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TKILL: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_TGKILL: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_TKILL:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_TGKILL:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_SIGALTSTACK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGSUSPEND: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_RT_SIGACTION: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_RT_SIGPROCMASK: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_RT_SIGSUSPEND:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_RT_SIGACTION:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_RT_SIGPROCMASK:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_RT_SIGPENDING: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGTIMEDWAIT: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGQUEUEINFO: UNIMPLEMENTED_SYSCALL; break;
@@ -579,16 +619,24 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_SHUTDOWN: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SENDMSG: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RECVMSG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_READAHEAD: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ // case ECV_BRK: UNIMPLEMENTED_SYSCALL; break;
-    /* CANNOT USE! */ case ECV_MUNMAP: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_READAHEAD:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */  // case ECV_BRK: UNIMPLEMENTED_SYSCALL; break;
+    /* CANNOT USE! */ case ECV_MUNMAP:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_MREMAP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_ADD_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_REQUEST_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_KEYCTL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EXECVE: UNIMPLEMENTED_SYSCALL; break;
-    /* CANNOT USE! */ case ECV_MMAP: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_EXECVE:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* CANNOT USE! */ case ECV_MMAP:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_FADVISE64: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SWAPON: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SWAPOFF: UNIMPLEMENTED_SYSCALL; break;
@@ -610,8 +658,12 @@ void RuntimeManager::UnImplementedWasiSyscall() {
     case ECV_PERF_EVENT_OPEN: UNIMPLEMENTED_SYSCALL; break;
     case ECV_ACCEPT4: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RECVMMSG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_WAIT4: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */ case ECV_PRLIMIT64: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_WAIT4:
+      UNIMPLEMENTED_SYSCALL;
+      break;
+    /* UNDECLARED! */ case ECV_PRLIMIT64:
+      UNIMPLEMENTED_SYSCALL;
+      break;
     case ECV_FANOTIFY_INIT: UNIMPLEMENTED_SYSCALL; break;
     case ECV_FANOTIFY_MARK: UNIMPLEMENTED_SYSCALL; break;
     case ECV_NAME_TO_HANDLE_AT: UNIMPLEMENTED_SYSCALL; break;

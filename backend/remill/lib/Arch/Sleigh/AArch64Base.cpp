@@ -824,5 +824,9 @@ void AArch64ArchBase::PopulateRegisterTable(void) const {
   REG(DCZID_EL0, sr.dczid_el0.qword, u64);
   REG(MIDR_EL0, sr.midr_el1.qword, u64);
   REG(ECV_NZCV, ecv_nzcv, u64);
+  REG(FIBER_FUN_ADDR, fiber_fun_addr, u64);
+  REG(INST_COUNT, inst_count, u64);
+  REG(FUNC_DEPTH, func_depth, u64);
+  REG(HAS_FIBERS, has_fibers, u64);
 }
 }  // namespace remill

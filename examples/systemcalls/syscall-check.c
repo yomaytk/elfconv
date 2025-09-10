@@ -13,6 +13,7 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
 // check with WASI SDK
@@ -115,6 +116,9 @@ int emcc_sys() {
 
   /* getdents .. success */
   getdents(0, 0, 0);
+
+  /* clock_nanosleep .. success */
+  clock_nanosleep(0, 0, NULL, NULL);
 
   return 0;
 }

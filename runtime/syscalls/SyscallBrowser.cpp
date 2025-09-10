@@ -1,11 +1,14 @@
 #include "SysTable.h"
 #include "emscripten_wasi_errno.h"
 #include "remill/Arch/Runtime/Types.h"
+#include "runtime/Memory.h"
+#include "runtime/Runtime.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
@@ -15,6 +18,7 @@
 #include <stdlib.h>
 #include <string>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -479,6 +483,21 @@ void RuntimeManager::SVCBrowserCall(void) {
         X0_Q = -wasi2linux_errno[errno];
       }
     } break;
+    case ECV_CLOCK_NANOSLEEP: /* clock_nanosleep (clockid_t which_clock, int flags, const struct __kernel_timespec *rqtp, struct __kernel_timespce *rmtp) */
+    {
+      struct timespec _wasm_rqtp, _wasm_rmtp;
+      struct _elfarm64df_timespec _elf_rmtp;
+
+      auto _elf_rqtp = (const struct _elfarm64df_timespec *) TranslateVMA(X2_Q);
+      _wasm_rqtp.tv_nsec = _elf_rqtp->tv_nsec;
+      _wasm_rqtp.tv_sec = _elf_rqtp->tv_sec;
+      int res = clock_nanosleep(CLOCK_REALTIME, X1_D, &_wasm_rqtp, &_wasm_rmtp);
+      _elf_rmtp.tv_nsec = _wasm_rmtp.tv_nsec;
+      _elf_rmtp.tv_sec = _wasm_rmtp.tv_sec;
+      memcpy((struct _elfarm64df_timespec *) TranslateVMA(X3_Q), &_elf_rmtp, sizeof(_elf_rmtp));
+
+      X0_Q = -res;
+    } break;
     case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ {
       int res = kill(X0_D, X1_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
@@ -525,7 +544,7 @@ void RuntimeManager::SVCBrowserCall(void) {
         default: X0_D = -_LINUX_EINVAL; break;
       }
     } break;
-    case ECV_GETPID: /* getpid () */ X0_D = getpid(); break;
+    case ECV_GETPID: /* getpid () */ X0_D = cur_ecv_process->ecv_pid; break;
     case ECV_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
     case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
@@ -536,13 +555,70 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = memory_arena->heap_cur;
+        X0_Q = cur_memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        memory_arena->heap_cur = X0_Q;
+        cur_memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
+    } break;
+    case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
+    {
+
+      uint64_t cur_ecv_pid;
+      emscripten_fiber_t *cur_fb_t, *new_fb_t;
+      State *cur_state, *new_state;
+      LiftedFunc t_lifted_func;
+      uint64_t next_pc;
+
+      cur_ecv_pid = cur_ecv_process->ecv_pid;
+      cur_fb_t = cur_ecv_process->fb_t;
+      cur_state = cur_ecv_process->cpu_state;
+      next_pc = cur_state->gpr.pc.qword;
+
+      // make new copied ecv_process
+      cur_state->has_fibers = 1;
+      ECV_PROCESS *new_ecv_process = cur_ecv_process->ecv_process_copied();
+      new_state = new_ecv_process->cpu_state;
+
+      // set some state data unique to the new ecv_process.
+      new_state->inst_count = 0;
+      new_state->func_depth = -1;  // mini hack.
+
+      // new fiber context.
+      new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
+      new_ecv_process->fb_t = new_fb_t;
+
+      // set return value to x0 register
+      new_state->gpr.x0.qword = new_ecv_process->ecv_pid;
+      cur_state->gpr.x0.qword = 0;
+
+      auto t_lifted_func_it = std::lower_bound(
+          addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), cur_state->fiber_fun_addr,
+          [](auto const &lhs, addr_t value) { return lhs.first < value; });
+      t_lifted_func = t_lifted_func_it->second;
+
+      // update cache data and switch process.
+      ecv_pid_queue.push(cur_ecv_pid);
+      ecv_processes.insert({new_ecv_process->ecv_pid, new_ecv_process});
+      cur_ecv_process = new_ecv_process;
+      cur_memory_arena = new_ecv_process->memory_arena;
+      CPUState = new_state;
+
+      auto fiber_args = FiberArgs(t_lifted_func, new_state,
+                                  next_pc,  // assumes that `next_pc` is saved to cpu_state.pc
+                                  this);
+
+      auto new_cstack = malloc(32 * 1024);
+      auto new_astack = malloc(32 * 1024);
+      new_ecv_process->cstack = new_cstack;
+      new_ecv_process->astack = new_astack;
+
+      // swap fiber.
+      emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &fiber_args, new_cstack,
+                            FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
+      emscripten_fiber_swap(cur_ecv_process->fb_t, new_fb_t);
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
@@ -552,8 +628,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = memory_arena->heap_cur;
-          memory_arena->heap_cur += X1_Q;
+          X0_Q = cur_memory_arena->heap_cur;
+          cur_memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
@@ -724,7 +800,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_CLOCK_SETTIME: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_CLOCK_GETTIME: UNIMPLEMENTED_SYSCALL; break;
     case ECV_CLOCK_GETRES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOCK_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_CLOCK_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SYSLOG: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PTRACE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SCHED_SETPARAM: UNIMPLEMENTED_SYSCALL; break;
@@ -829,7 +905,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_ADD_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_REQUEST_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_KEYCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_EXECVE: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_MMAP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_FADVISE64: UNIMPLEMENTED_SYSCALL; break;

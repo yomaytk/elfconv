@@ -2372,4 +2372,17 @@ std::stringstream OutLLVMFunc(llvm::Function *func) {
   return ss;
 }
 
+std::stringstream OutLLVMBB(llvm::BasicBlock *bb) {
+  std::stringstream ss;
+  ss << &bb << ": {\n";
+  for (auto &inst : *bb) {
+    std::string inst_str;
+    llvm::raw_string_ostream rso(inst_str);
+    inst.print(rso);
+    ss << "    " << rso.str() << "\n";
+  }
+  ss << "}\n";
+  return ss;
+}
+
 }  // namespace remill

@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdarg>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -19,7 +20,7 @@
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
-#  define PCREG CPUState.gpr.pc.qword
+#  define PCREG CPUState->gpr.pc.qword
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
 #  define PCREG CPUState.gpr.rip.qword
@@ -134,21 +135,21 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
-void __remill_function_call(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
+void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *runtime_manager) {
   auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   auto jmp_fun_it =
-      std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
+      std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_fun_vma,
                        [](auto const &lhs, addr_t value) { return lhs.first < value; });
-  if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
+  if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_fun_vma) {
     // target instruction address is used via `PC` register.
-    PCREG = t_vma;
-    jmp_fun_it->second(&state, t_vma, runtime_manager);
+    PCREG = t_fun_vma;
+    jmp_fun_it->second(&state, t_fun_vma, runtime_manager);
   } else {
     elfconv_runtime_error(
-        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_function_call`."
+        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
         "found vma on lower_bound: 0x%lx\n",
-        t_vma, jmp_fun_it->first);
+        t_fun_vma, jmp_fun_it->first);
   }
 }
 
@@ -202,21 +203,129 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_m
 }
 
 // get the target basic block label pointer on the noopt indirectbr instruction.
-extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t t_vma) {
-  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
+extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t cur_fun_vma,
+                                       addr_t t_vma) {
   auto &fun_bb_addr_map = runtime_manager->fun_bb_addr_map;
-  // fun_it must indicate the current function, but no guarantee on the current implementation.
-  auto fun_it = std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
-                                 [](auto const &lhs, addr_t value) { return lhs.first < value; });
+  if (auto t_fun_it = fun_bb_addr_map.find(cur_fun_vma); t_fun_it == fun_bb_addr_map.end()) {
+    elfconv_runtime_error(
+        "func addr (0x%lx) is not included in fun_bb_addr_map (at _ecv_noopt_get_bb) fun_bb_addr_map size: %ld.",
+        cur_fun_vma, fun_bb_addr_map.size());
+  }
+  auto vma_bb_map = fun_bb_addr_map[cur_fun_vma];
+  if (auto t_bb_it = vma_bb_map.find(t_vma); t_bb_it == vma_bb_map.end()) {
+    elfconv_runtime_error(
+        "basic block addr (0x%lx) is not included in vma_bb_map (at _ecv_noopt_get_bb)", t_vma);
+  }
+  auto res = vma_bb_map[t_vma];
+  return res;
+}
 
-  if (fun_it == addr_funptr_srt_list.end()) {
-    elfconv_runtime_error("[ERROR] address 0x%lx is not the address of the lifted instructios.\n",
-                          t_vma);
+#if defined(__EMSCRIPTEN__)
+extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
+  auto cur_ecv_process = runtime_manager->cur_ecv_process;
+  if (runtime_manager->cur_ecv_process->cpu_state->has_fibers == 0) {
+    elfconv_runtime_error("_ecv_process_context_switch must not be with only one fiber execution.");
+  }
+  if (runtime_manager->ecv_pid_queue.empty()) {
+    elfconv_runtime_error("ecv process doesn't be found at fiber swaping.");
   }
 
-  auto vma_bb_map = fun_bb_addr_map.at(fun_it->first);
-  auto res = vma_bb_map.at(t_vma);
-  return res;
+  // switch ecv_pid
+  uint64_t next_ecv_pid = runtime_manager->ecv_pid_queue.front();
+
+  // if there is a other ecv process in the task queue, we switch to it.
+  if (next_ecv_pid != cur_ecv_process->ecv_pid) {
+    runtime_manager->ecv_pid_queue.pop();
+    runtime_manager->ecv_pid_queue.push(cur_ecv_process->ecv_pid);
+    ECV_PROCESS *next_ecv_process = runtime_manager->ecv_processes.at(next_ecv_pid);
+    // switch to next ecv process
+    runtime_manager->cur_ecv_process = next_ecv_process;
+    runtime_manager->cur_memory_arena = next_ecv_process->memory_arena;
+    CPUState = next_ecv_process->cpu_state;
+    // swap
+    emscripten_fiber_swap(cur_ecv_process->fb_t, next_ecv_process->fb_t);
+  } else {
+    return;
+  }
+}
+
+extern "C" void _ecv_save_call_history(RuntimeManager *runtime_manager, uint64_t func_addr,
+                                       uint64_t ret_addr) {
+  runtime_manager->cur_ecv_process->call_history.push({func_addr, ret_addr});
+}
+
+extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
+                                   RuntimeManager *runtime_manager) {
+  ECV_PROCESS *cur_ecv_process;
+
+  cur_ecv_process = runtime_manager->cur_ecv_process;
+  if (cur_ecv_process->cpu_state->has_fibers) {
+    if (cur_ecv_process->cpu_state->func_depth == 0) {
+      // should do fiber_swap instead of returning.
+      auto [top_func_addr, top_func_next_pc] = cur_ecv_process->fiber_call_history.top();
+      cur_ecv_process->fiber_call_history.pop();
+
+      // delete all unnecessary fibers
+      for (auto unused_fiber : runtime_manager->unused_fibers) {
+        free(unused_fiber.cstack);
+        free(unused_fiber.astack);
+        free(unused_fiber.fb_t);
+      }
+
+      // Add current unused fiber to the unused_fibers.
+      runtime_manager->unused_fibers.emplace_back(cur_ecv_process->fb_t, cur_ecv_process->cstack,
+                                                  cur_ecv_process->astack);
+      // new fiber settings
+      emscripten_fiber_t *new_fb_t =
+          reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
+      void *new_cstack = malloc(32 * 1024);
+      void *new_astack = malloc(32 * 1024);
+
+      auto t_lifted_func_it =
+          std::lower_bound(runtime_manager->addr_funptr_srt_list.begin(),
+                           runtime_manager->addr_funptr_srt_list.end(), top_func_addr,
+                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
+      LiftedFunc t_lifted_func = t_lifted_func_it->second;
+
+      struct FiberArgs new_fiber_args = {t_lifted_func, cur_ecv_process->cpu_state,
+                                         top_func_next_pc, runtime_manager};
+
+      // re-set the fiber of cur_ecv_process
+      cur_ecv_process->cpu_state->gpr.pc.qword = top_func_next_pc;
+      cur_ecv_process->fb_t = new_fb_t;
+      cur_ecv_process->cstack = new_cstack;
+      cur_ecv_process->astack = new_astack;
+      cur_ecv_process->call_history.pop();
+
+      // fiber swap
+      emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &new_fiber_args, new_cstack,
+                            FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
+      emscripten_fiber_swap(cur_ecv_process->fb_t, new_fb_t);
+    }
+  }
+  cur_ecv_process->cpu_state->func_depth--;
+  cur_ecv_process->call_history.pop();
+}
+
+extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
+  FiberArgs *ecv_fiber_arg = (FiberArgs *) fiber_arg;
+  auto t_lifted_func = ecv_fiber_arg->lifted_func;
+  t_lifted_func(ecv_fiber_arg->state, ecv_fiber_arg->addr, ecv_fiber_arg->run_mgr);
+}
+
+#else
+extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
+  elfconv_runtime_error("emscritepn Fiber switch cannot be used on the native environment.");
+}
+extern "C" void _ecv_save_call_history(RuntimeManager *runtime_manager, uint64_t func_addr,
+                                       uint64_t ret_addr) {}
+extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
+                                   RuntimeManager *runtime_manager) {}
+extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {}
+#endif
+
+extern "C" void _ecv_unreached(uint64_t value) {
+  elfconv_runtime_error("You must not reach this point. value: 0x%llx\n", value);
 }
 
 // push the callee symbol to the call stack for debug
