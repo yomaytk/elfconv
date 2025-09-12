@@ -223,28 +223,46 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t c
 #if defined(__EMSCRIPTEN__)
 extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
   auto cur_ecv_process = runtime_manager->cur_ecv_process;
-  if (runtime_manager->cur_ecv_process->cpu_state->has_fibers == 0) {
+  if (cur_ecv_process->cpu_state->has_fibers == 0) {
     elfconv_runtime_error("_ecv_process_context_switch must not be with only one fiber execution.");
   }
-  if (runtime_manager->ecv_pid_queue.empty()) {
-    elfconv_runtime_error("ecv process doesn't be found at fiber swaping.");
+
+  if (runtime_manager->ecv_processes.size() == 1) {
+    return;
   }
 
   // switch ecv_pid
-  uint64_t next_ecv_pid = runtime_manager->ecv_pid_queue.front();
+  uint64_t cur_ecv_pid, next_ecv_pid;
+
+  next_ecv_pid = runtime_manager->ecv_pid_queue.front();
+  cur_ecv_pid = cur_ecv_process->ecv_pid;
+
+  // reset current inst_count
+  cur_ecv_process->cpu_state->inst_count = 0;
 
   // if there is a other ecv process in the task queue, we switch to it.
-  if (next_ecv_pid != cur_ecv_process->ecv_pid) {
-    runtime_manager->ecv_pid_queue.pop();
-    runtime_manager->ecv_pid_queue.push(cur_ecv_process->ecv_pid);
+  if (next_ecv_pid != cur_ecv_pid) {
+    emscripten_fiber_t *cur_fb_t, *next_fb_t;
+
+    runtime_manager->ecv_pid_queue.pop();  // pop next_ecv_pid
+    runtime_manager->ecv_pid_queue.push(cur_ecv_pid);
     ECV_PROCESS *next_ecv_process = runtime_manager->ecv_processes.at(next_ecv_pid);
+    cur_fb_t = cur_ecv_process->fb_t;
+    next_fb_t = next_ecv_process->fb_t;
+
     // switch to next ecv process
     runtime_manager->cur_ecv_process = next_ecv_process;
     runtime_manager->cur_memory_arena = next_ecv_process->memory_arena;
     CPUState = next_ecv_process->cpu_state;
+
+    runtime_manager->GcUnusedFibers();
     // swap
-    emscripten_fiber_swap(cur_ecv_process->fb_t, next_ecv_process->fb_t);
+    printf("swap from fb:0x%p to fb:0x%p! (_ecv_process_context_switch)\n", cur_fb_t, next_fb_t);
+    emscripten_fiber_swap(cur_fb_t, next_fb_t);
   } else {
+    elfconv_runtime_error(
+        "[ERROR] cur_ecv_pid (%llx) is equal to next_ecv_pid (%llx) at _ecv_process_context_switch.\n",
+        cur_ecv_pid, next_ecv_pid);
     return;
   }
 }
@@ -259,27 +277,25 @@ extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
   ECV_PROCESS *cur_ecv_process;
 
   cur_ecv_process = runtime_manager->cur_ecv_process;
-  if (cur_ecv_process->cpu_state->has_fibers) {
+  if (cur_ecv_process->cpu_state->has_fibers > 0) {
     if (cur_ecv_process->cpu_state->func_depth == 0) {
+      emscripten_fiber_t *cur_fb_t, *new_fb_t;
+
       // should do fiber_swap instead of returning.
       auto [top_func_addr, top_func_next_pc] = cur_ecv_process->fiber_call_history.top();
       cur_ecv_process->fiber_call_history.pop();
 
-      // delete all unnecessary fibers
-      for (auto unused_fiber : runtime_manager->unused_fibers) {
-        free(unused_fiber.cstack);
-        free(unused_fiber.astack);
-        free(unused_fiber.fb_t);
-      }
+      runtime_manager->GcUnusedFibers();
 
-      // Add current unused fiber to the unused_fibers.
+      // Add current unused fiber to the unused_fibers (must append after GcUnusedFibers).
       runtime_manager->unused_fibers.emplace_back(cur_ecv_process->fb_t, cur_ecv_process->cstack,
                                                   cur_ecv_process->astack);
       // new fiber settings
-      emscripten_fiber_t *new_fb_t =
-          reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
-      void *new_cstack = malloc(32 * 1024);
-      void *new_astack = malloc(32 * 1024);
+      cur_fb_t = cur_ecv_process->fb_t;
+      new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
+
+      void *new_cstack = malloc(FIBER_STACK_SIZE);
+      void *new_astack = malloc(FIBER_STACK_SIZE);
 
       auto t_lifted_func_it =
           std::lower_bound(runtime_manager->addr_funptr_srt_list.begin(),
@@ -297,10 +313,12 @@ extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
       cur_ecv_process->astack = new_astack;
       cur_ecv_process->call_history.pop();
 
+      cur_ecv_process->cpu_state->func_depth = -1;  // mini hack.
+
       // fiber swap
       emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &new_fiber_args, new_cstack,
                             FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
-      emscripten_fiber_swap(cur_ecv_process->fb_t, new_fb_t);
+      emscripten_fiber_swap(cur_fb_t, new_fb_t);
     }
   }
   cur_ecv_process->cpu_state->func_depth--;

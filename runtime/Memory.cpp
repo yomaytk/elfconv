@@ -11,7 +11,7 @@
 #include <utils/elfconv.h>
 
 #if defined(ELF_IS_AARCH64)
-#  define SP_REG state.gpr.sp.qword
+#  define SP_REG state->gpr.sp.qword
 #elif defined(ELF_IS_AMD64)
 #  define SP_REG state.gpr.rsp.qword
 #endif
@@ -25,7 +25,7 @@
 _ecv_reg64_t TASK_STRUCT_VMA;
 #endif
 
-MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
+MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State *state) {
 
   char *env_ptr[1000];
 #if defined(__wasm__)

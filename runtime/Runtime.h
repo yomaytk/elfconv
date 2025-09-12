@@ -39,7 +39,8 @@ struct FiberArgs {
 class RuntimeManager {
  public:
   RuntimeManager(ECV_PROCESS *__ecv_process)
-      : ecv_processes({{__ecv_process->ecv_pid, __ecv_process}}),
+      : main_ecv_pid(__ecv_process->ecv_pid),
+        ecv_processes({{__ecv_process->ecv_pid, __ecv_process}}),
         cur_ecv_process(__ecv_process),
         cur_memory_arena(__ecv_process->memory_arena) {}
 
@@ -57,7 +58,18 @@ class RuntimeManager {
   void UnImplementedWasiSyscall();
   void UnImplementedNativeSyscall();
 
+  // fiber
+  void GcUnusedFibers() {
+    for (auto unused_fiber : unused_fibers) {
+      free(unused_fiber.fb_t);
+      free(unused_fiber.astack);
+      free(unused_fiber.cstack);
+    }
+    unused_fibers.clear();
+  }
+
   // elfconv psuedo-process
+  uint64_t main_ecv_pid;
   std::unordered_map<uint64_t, ECV_PROCESS *> ecv_processes;
   ECV_PROCESS *cur_ecv_process;
   MemoryArena *cur_memory_arena;

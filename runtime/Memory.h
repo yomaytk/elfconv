@@ -89,7 +89,7 @@ class MemoryArena {
   }
 
   static MemoryArena *MemoryArenaInit(int argc, char *argv[], char *envp[],
-                                      State &state /* start stack pointer */);
+                                      State *state /* start stack pointer */);
 
   MemoryAreaType memory_area_type;
   std::string name;
@@ -111,6 +111,13 @@ class ECV_PROCESS {
         fb_t(nullptr),
         call_history(__call_history),
         fiber_call_history(__call_history) {}
+
+  ~ECV_PROCESS() {
+    delete (memory_arena);
+    free(cpu_state);
+    // skip free of *fb_t, *cstack, *astack.
+    // These will be freed by simple GC.
+  }
 
   ECV_PROCESS *ecv_process_copied();
 

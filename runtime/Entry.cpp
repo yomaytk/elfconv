@@ -17,8 +17,9 @@ State *CPUState;
 extern "C" uint8_t *memory_arena_ptr = nullptr;
 
 #if defined(__EMSCRIPTEN__)
-char MainAstack[64 * 1024];
+#  define MAIN_ASTACK_SIZE 64 * 1024
 emscripten_fiber_t MainFB;
+char MainAstack[MAIN_ASTACK_SIZE];
 #endif
 
 #if defined(__wasm__)
@@ -28,9 +29,9 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
   // CPU State
-  State cpu_state = State();
-  CPUState = &cpu_state;
-  cpu_state.inst_count = 0;
+  State *cpu_state = new State();
+  CPUState = cpu_state;
+  cpu_state->inst_count = 0;
   //  Allocate memorys.
   MemoryArena *memory_arena;
 
@@ -52,12 +53,12 @@ int main(int argc, char *argv[], char *envp[]) {
   }
 #if defined(ELF_IS_AARCH64)
   //  set program counter
-  cpu_state.gpr.pc = {.qword = _ecv_entry_pc};
+  cpu_state->gpr.pc = {.qword = _ecv_entry_pc};
   // set system register (FIXME)
-  cpu_state.sr.tpidr_el0 = {.qword = 0};
-  cpu_state.sr.midr_el1 = {.qword = 0xf0510};
-  cpu_state.sr.ctr_el0 = {.qword = 0x80038003};
-  cpu_state.sr.dczid_el0 = {.qword = 0x4};
+  cpu_state->sr.tpidr_el0 = {.qword = 0};
+  cpu_state->sr.midr_el1 = {.qword = 0xf0510};
+  cpu_state->sr.ctr_el0 = {.qword = 0x80038003};
+  cpu_state->sr.dczid_el0 = {.qword = 0x4};
 #  if defined(DEBUG_WITH_QEMU)
   // QEMU seems to init PSTATE as the Z flag is raised.
   CPUState.ecv_nzcv = 0x40000000;
@@ -67,7 +68,7 @@ int main(int argc, char *argv[], char *envp[]) {
   ECV_PROCESS *main_ecv_process;
 
 #if defined(__EMSCRIPTEN__)
-  main_ecv_process = new ECV_PROCESS(memory_arena, &cpu_state, {});
+  main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state, {});
 #else
   main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state);
 #endif
@@ -100,7 +101,9 @@ int main(int argc, char *argv[], char *envp[]) {
 
 #if defined(__EMSCRIPTEN__)
   // register current cotext to the main fiber.
-  emscripten_fiber_init_from_current_context(&MainFB, MainAstack, sizeof(MainAstack));
+  emscripten_fiber_init_from_current_context(&MainFB, MainAstack, MAIN_ASTACK_SIZE);
+  main_ecv_process->fb_t = &MainFB;
+  main_ecv_process->astack = MainAstack;
   runtime_manager->cur_ecv_process->call_history.emplace(_ecv_entry_pc, _ecv_entry_pc);
 #endif
 

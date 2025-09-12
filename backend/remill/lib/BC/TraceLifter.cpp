@@ -593,14 +593,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto not_taken_block = GetOrCreateBranchNotTakenBlock();
 
           llvm::IRBuilder<> ir(block);
-
-          // call "ecv_save_call_history"
-          llvm::Value *t_func_addr =
+          llvm::Value *t_func_addr = FindIndirectBrAddress(block);
+          // call "_ecv_save_call_history"
+          llvm::Value *cur_func_addr =
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
           llvm::Value *t_ret_addr =
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
           ir.CreateCall(module->getFunction("_ecv_save_call_history"),
-                        {runtime_ptr, t_func_addr, t_ret_addr});
+                        {runtime_ptr, cur_func_addr, t_ret_addr});
 
           // indirect jump address is value of %Xzzz just before
           auto lifted_func_call =
@@ -673,12 +673,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::IRBuilder<> ir(block);
 
           // call "_ecv_save_call_history"
-          llvm::Value *t_func_addr =
+          llvm::Value *cur_func_addr =
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
           llvm::Value *t_ret_addr =
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
           ir.CreateCall(module->getFunction("_ecv_save_call_history"),
-                        {runtime_ptr, t_func_addr, t_ret_addr});
+                        {runtime_ptr, cur_func_addr, t_ret_addr});
 
           // call lifted function
           llvm::CallInst *lifted_func_call = AddCall(
@@ -1041,12 +1041,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     }
 
     llvm::BasicBlock *entry_bb;
-    llvm::Value *inst_count_ref, *func_depth_ref, *has_fibers_ref;
+    llvm::Value *func_depth_ref, *has_fibers_ref;
     llvm::Type *u64ty;
 
     entry_bb = &(func->front());
-    inst_count_ref =
-        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kInstCountVariableName).first;
     func_depth_ref =
         inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kFuncDepthVariableName).first;
     has_fibers_ref =
@@ -1061,17 +1059,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     auto inc_func_depth_val = ir7.CreateAdd(func_depth_val, llvm::ConstantInt::get(u64ty, 1));
     ir7.CreateStore(inc_func_depth_val, func_depth_ref);
 
-    // L_fiber_switch to switch to other fiber.
+    // L_fiber_switch which is used to switch to other fiber.
     auto fiber_switch_bb = llvm::BasicBlock::Create(context, "L_fiber_switch", func);
     llvm::IRBuilder<> fiber_ir(fiber_switch_bb);
-    // reset inst_count
-    fiber_ir.CreateStore(llvm::ConstantInt::get(u64ty, 0), inst_count_ref);
     // call "_ecv_process_context_switch"
     auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
     fiber_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
-    // call "_ecv_unreached": This function must not be called.
-    auto ecv_unreached_fun = module->getFunction("_ecv_unreached");
-    fiber_ir.CreateCall(ecv_unreached_fun, {llvm::ConstantInt::get(u64ty, 0)});
     // dummy ret inst
     fiber_ir.CreateRetVoid();
 
