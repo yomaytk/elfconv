@@ -51,11 +51,12 @@ int main(int argc, char *argv[], char *envp[]) {
     memcpy(memory_arena->bytes + _ecv_data_sec_vma_array[i], _ecv_data_sec_bytes_ptr_array[i],
            static_cast<size_t>(_ecv_data_sec_size_array[i]));
   }
+
 #if defined(ELF_IS_AARCH64)
   //  set program counter
   cpu_state->gpr.pc = {.qword = _ecv_entry_pc};
   // set system register (FIXME)
-  cpu_state->sr.tpidr_el0 = {.qword = 0};
+  cpu_state->sr.tpidr_el0 = {.qword = THREAD_PTR};
   cpu_state->sr.midr_el1 = {.qword = 0xf0510};
   cpu_state->sr.ctr_el0 = {.qword = 0x80038003};
   cpu_state->sr.dczid_el0 = {.qword = 0x4};

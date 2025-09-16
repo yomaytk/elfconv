@@ -28,6 +28,7 @@ _ecv_reg64_t TASK_STRUCT_VMA;
 MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State *state) {
 
   char *env_ptr[1000];
+
 #if defined(__wasm__)
   env_ptr[0] = NULL;
 #else
@@ -35,6 +36,7 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
     env_ptr[i] = envp[i];
   }
 #endif
+
   /* Initialize Stack */
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
@@ -193,6 +195,7 @@ ECV_PROCESS *ECV_PROCESS::ecv_process_copied() {
   new_memory_arena->vma = memory_arena->vma;
   new_memory_arena->len = memory_arena->len;
   new_memory_arena->bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
+  memset(new_memory_arena->bytes, 0, MEMORY_ARENA_SIZE);
   memcpy(new_memory_arena->bytes, memory_arena->bytes, MEMORY_ARENA_SIZE);
   new_memory_arena->heap_cur = memory_arena->heap_cur;
   new_memory_arena->stack_init_diff = memory_arena->stack_init_diff;

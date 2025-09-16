@@ -25,6 +25,7 @@ const size_t STACK_SIZE = 8 * 1024 * 1024; /* 8 MiB */
 const addr_t STACK_LOWEST_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
 const size_t HEAP_UNIT_SIZE = 252 * 1024 * 1024; /* 252 MiB */
 const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
+const addr_t THREAD_PTR = 244 * 1024 * 1024;
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;

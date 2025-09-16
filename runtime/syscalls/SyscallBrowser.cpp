@@ -52,6 +52,7 @@ typedef uint64_t _ecv_long;
 #endif
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
+extern "C" uint8_t *memory_arena_ptr;
 
 /*
   for ioctl syscall
@@ -456,8 +457,6 @@ void RuntimeManager::SVCBrowserCall(void) {
         exit(X0_D);
       }
 
-      printf("exit and switch to the other process!\n");
-
       uint64_t cur_ecv_pid, next_ecv_pid;
       ECV_PROCESS *next_ecv_process;
       emscripten_fiber_t *cur_fb_t, *next_fb_t;
@@ -487,7 +486,6 @@ void RuntimeManager::SVCBrowserCall(void) {
       CPUState = next_ecv_process->cpu_state;
 
       GcUnusedFibers();
-      printf("exit end and next swap! cur_fb_t: %p, next_fb_t: %p\n", cur_fb_t, next_fb_t);
       // swap
       emscripten_fiber_swap(cur_fb_t, next_fb_t);
     } break;
@@ -618,10 +616,10 @@ void RuntimeManager::SVCBrowserCall(void) {
       cur_ecv_pid = cur_ecv_process->ecv_pid;
       cur_fb_t = cur_ecv_process->fb_t;
       cur_state = cur_ecv_process->cpu_state;
+      cur_state->has_fibers = 1;
       next_pc = cur_state->gpr.pc.qword;
 
       // make new copied ecv_process
-      cur_state->has_fibers = 1;
       ECV_PROCESS *new_ecv_process = cur_ecv_process->ecv_process_copied();
       new_ecv_pid = new_ecv_process->ecv_pid;
       new_state = new_ecv_process->cpu_state;
@@ -631,7 +629,7 @@ void RuntimeManager::SVCBrowserCall(void) {
 
       // set some state data unique to the new ecv_process.
       new_state->inst_count = 0;
-      new_state->func_depth = -1;  // mini hack.
+      new_state->func_depth = 0;  // mini hack.
 
       // new fiber context.
       new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
@@ -641,17 +639,19 @@ void RuntimeManager::SVCBrowserCall(void) {
       new_state->gpr.x0.qword = 0;  // child
       cur_state->gpr.x0.qword = new_ecv_pid;  // parent
 
-      auto t_lifted_func_it = std::lower_bound(
-          addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), cur_state->fiber_fun_addr,
-          [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      t_lifted_func = t_lifted_func_it->second;
-
       // update cache data and switch process.
       ecv_pid_queue.push(cur_ecv_pid);
       ecv_processes.insert({new_ecv_pid, new_ecv_process});
       cur_ecv_process = new_ecv_process;
       cur_memory_arena = new_ecv_process->memory_arena;
+      memory_arena_ptr = new_ecv_process->memory_arena->bytes;
+
       CPUState = new_state;
+
+      auto t_lifted_func_it = std::lower_bound(
+          addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), cur_state->fiber_fun_addr,
+          [](auto const &lhs, addr_t value) { return lhs.first < value; });
+      t_lifted_func = t_lifted_func_it->second;
 
       auto fiber_args = FiberArgs(t_lifted_func, new_state,
                                   next_pc,  // assumes that `next_pc` is saved to cpu_state.pc
@@ -662,13 +662,11 @@ void RuntimeManager::SVCBrowserCall(void) {
       new_ecv_process->cstack = new_cstack;
       new_ecv_process->astack = new_astack;
 
-      printf("clone end!\n");
       GcUnusedFibers();
       // swap fiber.
       emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &fiber_args, new_cstack,
                             FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
       emscripten_fiber_swap(cur_fb_t, new_fb_t);
-      printf("come back!\n");
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */

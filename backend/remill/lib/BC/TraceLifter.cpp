@@ -166,8 +166,10 @@ llvm::BasicBlock *TraceLifter::Impl::GetOrCreateBlock(uint64_t block_pc) {
   auto &block = blocks[block_pc];
   if (!block)
     block = llvm::BasicBlock::Create(context, "", func);
-  if (lifted_block_map.count(block_pc) == 0)
+  if (lifted_block_map.count(block_pc) == 0) {
     lifted_block_map[block_pc] = block;
+    rev_lifted_block_map[block] = block_pc;
+  }
   return block;
 }
 
@@ -312,6 +314,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   block = nullptr;
   bb_reg_info_node = nullptr;
   lifted_block_map.clear();
+  rev_lifted_block_map.clear();
   lift_all_insn = false;
   indirectbr_block = nullptr;
   inst.Reset();
@@ -350,6 +353,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     func = get_trace_decl(trace_addr);
     blocks.clear();
     lifted_block_map.clear();
+    rev_lifted_block_map.clear();
     br_blocks.clear();
     indirectbr_block = nullptr;
     lift_all_insn = false;
@@ -577,7 +581,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           // In the current implementation, __remill_async_hyper_call is empty.
           // AddCall(block, intrinsics->async_hyper_call, *intrinsics,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
-
           // if the next instruction is not included in this function, jumping to it is illegal.
           // Therefore, we force to return at this block because we assume that this instruction don't come back to.
           if (manager.isFunctionEntry(inst.next_pc)) {
@@ -669,7 +672,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           // It may be unnecessary to check this condition.
           // if (inst.branch_not_taken_pc != inst.branch_taken_pc)
           trace_work_list.insert(inst.branch_taken_pc);
-
           llvm::IRBuilder<> ir(block);
 
           // call "_ecv_save_call_history"
@@ -765,7 +767,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           auto ret_inst = llvm::dyn_cast<llvm::ReturnInst>(block->getTerminator());
           CHECK(ret_inst) << "ret_inst must be ReturnInst. inst: " << LLVMThingToString(ret_inst);
           virtual_regs_opt->ret_inst_set.insert(ret_inst);
-
         } break;
 
         case Instruction::kCategoryConditionalFunctionReturn: {
@@ -872,7 +873,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
     llvm::PHINode *br_vma_phi;
     llvm::BasicBlock *near_jump_bb, *remill_jump_bb;
-    // llvm::GlobalVariable *g_bb_addrs, *g_bb_addr_vmas;
 
     near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump_instruction", func);
 
@@ -918,10 +918,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       root_trmi->setSuccessor(0, near_jump_bb);
 
       // Define the near_jump_bb.
-      llvm::IRBuilder<> not_ir(near_jump_bb);
-      // llvm::Value *cur_fun_vma_val =
-      //     llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
-      auto t_pc_val = not_ir.CreatePHI(llvm::Type::getInt64Ty(context), indirectbr_block ? 2 : 1);
+      llvm::IRBuilder<> near_jump_ir(near_jump_bb);
+      auto t_pc_val =
+          near_jump_ir.CreatePHI(llvm::Type::getInt64Ty(context), indirectbr_block ? 3 : 2);
       llvm::Value *arg_pc_val = NthArgument(func, kPCArgNum);
       t_pc_val->addIncoming(arg_pc_val, root_bb);
       if (indirectbr_block) {
@@ -929,12 +928,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
       // You must not reach the `L_switch_unreached`
       if (indirectbr_block) {
-        switch_br = not_ir.CreateSwitch(t_pc_val, remill_jump_bb, lifted_block_map.size());
+        switch_br = near_jump_ir.CreateSwitch(t_pc_val, remill_jump_bb, lifted_block_map.size());
         // Add terminate.
         AddTerminatingTailCall(remill_jump_bb, intrinsics->jump, *intrinsics, -1, t_pc_val);
       } else {
         auto default_bb = llvm::BasicBlock::Create(context, "L_switch_unreached", func);
-        switch_br = not_ir.CreateSwitch(t_pc_val, default_bb, lifted_block_map.size());
+        switch_br = near_jump_ir.CreateSwitch(t_pc_val, default_bb, lifted_block_map.size());
         // default_bb setting
         llvm::IRBuilder<> def_ir(default_bb);
         auto pc_phi = def_ir.CreatePHI(llvm::Type::getInt64Ty(context), 1);
@@ -945,7 +944,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       // Add all target bb candidates.
       for (auto &[t_bb_vma, t_bb] : lifted_block_map) {
-        switch_br->addCase(not_ir.getInt64(t_bb_vma), t_bb);
+        switch_br->addCase(near_jump_ir.getInt64(t_bb_vma), t_bb);
       }
 
       // Update cache.
@@ -1052,21 +1051,23 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     u64ty = llvm::Type::getInt64Ty(context);
 
-    // increment func depth
-    auto entry_trmi = entry_bb->getTerminator();
-    llvm::IRBuilder<> ir7(entry_trmi);
-    auto func_depth_val = ir7.CreateLoad(u64ty, func_depth_ref);
-    auto inc_func_depth_val = ir7.CreateAdd(func_depth_val, llvm::ConstantInt::get(u64ty, 1));
-    ir7.CreateStore(inc_func_depth_val, func_depth_ref);
 
-    // L_fiber_switch which is used to switch to other fiber.
+    // L_fiber_switch which is used to switch to the other fiber.
     auto fiber_switch_bb = llvm::BasicBlock::Create(context, "L_fiber_switch", func);
-    llvm::IRBuilder<> fiber_ir(fiber_switch_bb);
+    llvm::IRBuilder<> fiber_switch_ir(fiber_switch_bb);
+    // get the target bb to come back after switching.
+    auto fiber_switch_phi = fiber_switch_ir.CreatePHI(u64ty, lifted_block_map.size());
     // call "_ecv_process_context_switch"
     auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
-    fiber_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
-    // dummy ret inst
-    fiber_ir.CreateRetVoid();
+    fiber_switch_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
+    fiber_switch_ir.CreateBr(near_jump_bb);
+
+    // Pass fiber_switch_phi to the `near_jump_bb`
+    if (auto first_inst = llvm::dyn_cast<llvm::PHINode>(&near_jump_bb->front()); first_inst) {
+      first_inst->addIncoming(fiber_switch_phi, fiber_switch_bb);
+    } else {
+      LOG(FATAL) << "[ERROR] The first instruction of `L_near_jump_instruction` must be PHINode.";
+    }
 
     // Add inst_count increment and branch to L_fiber_switch
     // against the every basic block.
@@ -1083,6 +1084,11 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       // set the branch to the fiber switch bb only against the no conditional br instruction.
       if (llvm::dyn_cast<llvm::BranchInst>(tri) && tri->getNumSuccessors() == 1) {
+        auto norm_dest = tri->getSuccessor(0);
+        // For simplicity, skip if the norm_dest is `indirectbr_block`
+        if (norm_dest == indirectbr_block) {
+          continue;
+        }
         // threshold condition
         auto threshold_cond =
             ir5.CreateICmpUGE(inc_inst_count_val, llvm::ConstantInt::get(u64ty, 1000));
@@ -1091,11 +1097,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         auto has_fibers_check = ir5.CreateICmpNE(has_fibers_u64, ir5.getInt64(0));
         auto fiber_switch = ir5.CreateAnd(threshold_cond, has_fibers_check, "fiber_switch");
 
-        auto norm_dest = tri->getSuccessor(0);
         tri->eraseFromParent();
         llvm::IRBuilder<> ir6(tbb);
         // branch to the fiber_switch_bb or norm_dest
         ir6.CreateCondBr(fiber_switch, fiber_switch_bb, norm_dest);
+
+        fiber_switch_phi->addIncoming(
+            llvm::ConstantInt::get(u64ty, rev_lifted_block_map.at(norm_dest)), tbb);
       }
     }
 
@@ -1105,6 +1113,95 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   }
 
   return true;
+}
+
+void VirtualRegsOpt::JoinBBsForMultiProcesses() {
+
+  // t_bb: parent bb of the joined bb
+  llvm::BasicBlock *t_bb, *entry_bb;
+  std::queue<llvm::BasicBlock *> bb_queue;
+  std::set<llvm::BasicBlock *> visited;
+  llvm::CastInfo<llvm::BranchInst, llvm::Instruction *>::CastReturnType entry_terminator_br;
+
+  entry_bb = &func->getEntryBlock();
+  entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
+  t_bb = entry_terminator_br->getSuccessor(0);
+  bb_queue.push(t_bb);
+
+  auto push_successor_bb_queue = [&bb_queue, &visited](llvm::BasicBlock *successor_bb) {
+    if (!visited.contains(successor_bb)) {
+      bb_queue.push(successor_bb);
+    }
+  };
+
+  // remill individually convert each machine instruction into a basic block of LLVM IR.
+  // However, VRP yields the some phi instructions for the every basic block, so having many basic blocks may incur performance overheads.
+  // According that, VRP combine the basic block to the basic block if the former has only child basic block and the latter has only parent basic block.
+  // Therefore VRP decrease the total number of basic blocks.
+  llvm::Instruction *t_endbr;
+  while (!bb_queue.empty()) {
+
+    t_bb = bb_queue.front();
+    bb_queue.pop();
+    visited.insert(t_bb);
+    uint64_t child_num;
+
+    t_endbr = t_bb->getTerminator();
+    child_num = t_endbr->getNumSuccessors();
+
+    if (2 < child_num) {
+      LOG(FATAL)
+          << "Every block of the lifted function by elfconv must not have the child blocks more than two."
+          << ECV_DEBUG_STREAM.str();
+    } else if (2 == child_num) {
+      push_successor_bb_queue(t_endbr->getSuccessor(0));
+      push_successor_bb_queue(t_endbr->getSuccessor(1));
+    } else if (1 == child_num) {
+
+      // The next instruction of `lifted function` or `system call` calling may be jumped by context switching.
+      if (impl->lift_or_system_calling_bbs.contains(t_bb)) {
+        push_successor_bb_queue(t_endbr->getSuccessor(0));
+        continue;
+      }
+
+      llvm::BasicBlock *candidate_bb, *joined_bb;
+
+      candidate_bb = t_endbr->getSuccessor(0);
+      auto &candidate_bb_parents = bb_parents.at(candidate_bb);
+      if (1 == candidate_bb_parents.size()) {
+        // join candidate_bb to the t_bb
+        joined_bb = candidate_bb;
+        t_endbr = t_bb->getTerminator();
+        CHECK(llvm::dyn_cast<llvm::BranchInst>(t_endbr))
+            << "The parent basic block of the lifted function must terminate by the branch instruction.";
+        // delete the branch instruction of the t_bb and joined_bb
+        t_endbr->eraseFromParent();
+        // transfer the all instructions (t_bb = t_bb & joined_bb)
+        t_bb->splice(t_bb->end(), joined_bb);
+        // join BBRegInfoNode
+        auto joined_bb_reg_info_node = bb_reg_info_node_map.extract(joined_bb).mapped();
+        bb_reg_info_node_map.at(t_bb)->join_reg_info_node(joined_bb_reg_info_node);
+        // update bb_parents
+        bb_parents.erase(joined_bb);
+        t_endbr = t_bb->getTerminator();
+        if (llvm::dyn_cast<llvm::BranchInst>(t_endbr)) {
+          // joined_bb has children
+          for (uint32_t i = 0; i < t_endbr->getNumSuccessors(); i++) {
+            bb_parents.at(t_endbr->getSuccessor(i)).erase(joined_bb);
+            bb_parents.at(t_endbr->getSuccessor(i)).insert(t_bb);
+          }
+          bb_queue.push(t_bb);
+        }
+        // delete the joined block
+        joined_bb->eraseFromParent();
+      } else {
+        push_successor_bb_queue(candidate_bb);
+      }
+    } else /* if (0 == child_num)*/ {
+      CHECK(llvm::dyn_cast<llvm::ReturnInst>(t_endbr))
+          << "The basic block which doesn't have the successors must be ReturnInst.";
+    }
+  }
 }
 
 void TraceLifter::Impl::Optimize() {

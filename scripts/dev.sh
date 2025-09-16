@@ -116,7 +116,7 @@ main() {
   fi
 
   # ELF -> LLVM bc
-  if [ -z "$NOT_LIFTED" ]; then
+  if [ -z "$NOT_LIFTED" ] && [ -z "$NOT_COMPILED" ]; then
     arch_name=${TARGET%%-*}
     lifting "$1" "$arch_name" "$2" "$3"
   fi
@@ -163,11 +163,12 @@ main() {
         PRELOAD="--preload-file ${MOUNT_DIR}"
       fi
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
-      if [ -z "$NOT_LIFTED" ]; then
+      if [ -z "$NOT_COMPILED" ]; then
         $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
       fi
+      TARGET_PRG=lift.wasm.o
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY -sASSERTIONS -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              lift.wasm.o $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+                              $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
       
       # move generated files to `examples/browser`

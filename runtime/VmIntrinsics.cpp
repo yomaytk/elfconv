@@ -34,6 +34,8 @@
   fflush(stdout); \
   abort();
 
+extern "C" uint8_t *memory_arena_ptr;
+
 // __remill_(read | write)_memory_* functions are not used for the optimization.
 
 uint8_t __remill_read_memory_8(RuntimeManager *runtime_manager, addr_t addr) {
@@ -254,10 +256,10 @@ extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
     runtime_manager->cur_ecv_process = next_ecv_process;
     runtime_manager->cur_memory_arena = next_ecv_process->memory_arena;
     CPUState = next_ecv_process->cpu_state;
+    memory_arena_ptr = next_ecv_process->memory_arena->bytes;
 
     runtime_manager->GcUnusedFibers();
     // swap
-    printf("swap from fb:0x%p to fb:0x%p! (_ecv_process_context_switch)\n", cur_fb_t, next_fb_t);
     emscripten_fiber_swap(cur_fb_t, next_fb_t);
   } else {
     elfconv_runtime_error(
@@ -270,6 +272,7 @@ extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
 extern "C" void _ecv_save_call_history(RuntimeManager *runtime_manager, uint64_t func_addr,
                                        uint64_t ret_addr) {
   runtime_manager->cur_ecv_process->call_history.push({func_addr, ret_addr});
+  runtime_manager->cur_ecv_process->cpu_state->func_depth++;
 }
 
 extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
@@ -313,7 +316,7 @@ extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
       cur_ecv_process->astack = new_astack;
       cur_ecv_process->call_history.pop();
 
-      cur_ecv_process->cpu_state->func_depth = -1;  // mini hack.
+      cur_ecv_process->cpu_state->func_depth = 0;  // mini hack.
 
       // fiber swap
       emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &new_fiber_args, new_cstack,
