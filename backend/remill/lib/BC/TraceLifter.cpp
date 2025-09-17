@@ -358,6 +358,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     indirectbr_block = nullptr;
     lift_all_insn = false;
 
+    inst_nums_in_bb.clear();
+
     lifted_funcs.insert(func);
 
     CHECK(func->isDeclaration());
@@ -583,6 +585,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           // if the next instruction is not included in this function, jumping to it is illegal.
           // Therefore, we force to return at this block because we assume that this instruction don't come back to.
+          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           if (manager.isFunctionEntry(inst.next_pc)) {
             llvm::ReturnInst::Create(context, block);
           } else {
@@ -612,6 +615,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           DirectBranchWithSaveParents(not_taken_block, block);
           virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
           block = not_taken_block;
+
+          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           continue;
         }
 
@@ -689,6 +694,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
 
           DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), block);
+
+          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           continue;
         }
 
@@ -870,6 +877,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       goto inst_lifting_start;
     }
 
+    // prepare inst_nums_in_bb (this is necessary before `JoinBBsForMultiProcesses` and `L_fiber_switch` making).
+    for (auto &[_, t_bb] : lifted_block_map) {
+      inst_nums_in_bb[t_bb] = 1;
+    }
+
+    // Join basic blocks for reducing the target to jump by fiber process managements.
+    if (!indirectbr_block) {
+      virtual_regs_opt->JoinBBsForMultiProcesses();
+    }
+
     std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
     llvm::PHINode *br_vma_phi;
     llvm::BasicBlock *near_jump_bb, *remill_jump_bb;
@@ -943,8 +960,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
 
       // Add all target bb candidates.
-      for (auto &[t_bb_vma, t_bb] : lifted_block_map) {
-        switch_br->addCase(near_jump_ir.getInt64(t_bb_vma), t_bb);
+      for (auto &[t_bb, _] : inst_nums_in_bb) {
+        switch_br->addCase(near_jump_ir.getInt64(rev_lifted_block_map.at(t_bb)), t_bb);
       }
 
       // Update cache.
@@ -1040,12 +1057,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     }
 
     llvm::BasicBlock *entry_bb;
-    llvm::Value *func_depth_ref, *has_fibers_ref;
+    llvm::Value *has_fibers_ref;
     llvm::Type *u64ty;
 
     entry_bb = &(func->front());
-    func_depth_ref =
-        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kFuncDepthVariableName).first;
     has_fibers_ref =
         inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kHasFibersVariableName).first;
 
@@ -1066,19 +1081,22 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     if (auto first_inst = llvm::dyn_cast<llvm::PHINode>(&near_jump_bb->front()); first_inst) {
       first_inst->addIncoming(fiber_switch_phi, fiber_switch_bb);
     } else {
+      std::cout << LLVMThingToString(near_jump_bb) << std::endl;
       LOG(FATAL) << "[ERROR] The first instruction of `L_near_jump_instruction` must be PHINode.";
     }
 
     // Add inst_count increment and branch to L_fiber_switch
     // against the every basic block.
-    for (auto &[bb_addr, tbb] : lifted_block_map) {
+    for (auto &[tbb, tbb_inst_nums] : inst_nums_in_bb) {
       auto tri = tbb->getTerminator();
       llvm::IRBuilder<> ir5(tri);
       // increment inst count
       auto inst_count_val =
           inst.GetLifter()->LoadRegValueBeforeInst(tbb, state_ptr, kInstCountVariableName, tri);
-      auto inc_inst_count_val = ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(u64ty, 1));
-      auto [inst_count_ptr, _] =
+      CHECK(tbb_inst_nums > 0);
+      auto inc_inst_count_val =
+          ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(u64ty, tbb_inst_nums));
+      auto [inst_count_ptr, _2] =
           inst.GetLifter()->LoadRegAddress(tbb, state_ptr, kInstCountVariableName);
       ir5.CreateStore(inc_inst_count_val, inst_count_ptr);
 
@@ -1117,14 +1135,14 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
 void VirtualRegsOpt::JoinBBsForMultiProcesses() {
 
-  // t_bb: parent bb of the joined bb
+  impl->virtual_regs_opt = this;
+
   llvm::BasicBlock *t_bb, *entry_bb;
-  std::queue<llvm::BasicBlock *> bb_queue;
   std::set<llvm::BasicBlock *> visited;
-  llvm::CastInfo<llvm::BranchInst, llvm::Instruction *>::CastReturnType entry_terminator_br;
+  std::queue<llvm::BasicBlock *> bb_queue;
 
   entry_bb = &func->getEntryBlock();
-  entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
+  auto entry_terminator_br = llvm::dyn_cast<llvm::BranchInst>(entry_bb->getTerminator());
   t_bb = entry_terminator_br->getSuccessor(0);
   bb_queue.push(t_bb);
 
@@ -1134,20 +1152,27 @@ void VirtualRegsOpt::JoinBBsForMultiProcesses() {
     }
   };
 
+  auto &inst_nums_in_bb = impl->inst_nums_in_bb;
+
   // remill individually convert each machine instruction into a basic block of LLVM IR.
   // However, VRP yields the some phi instructions for the every basic block, so having many basic blocks may incur performance overheads.
   // According that, VRP combine the basic block to the basic block if the former has only child basic block and the latter has only parent basic block.
   // Therefore VRP decrease the total number of basic blocks.
-  llvm::Instruction *t_endbr;
   while (!bb_queue.empty()) {
 
     t_bb = bb_queue.front();
     bb_queue.pop();
     visited.insert(t_bb);
-    uint64_t child_num;
 
-    t_endbr = t_bb->getTerminator();
-    child_num = t_endbr->getNumSuccessors();
+    llvm::Instruction *t_endbr = t_bb->getTerminator();
+
+    // if `t_endbr` is not branched to the specified basic block, t_bb must not be the joining bb.
+    // This is necessary because JoinBBsForMultiProcesses will be called before calling AddTerminatingCall against all basic blocks.
+    if (!t_endbr) {
+      continue;
+    }
+
+    uint64_t child_num = t_endbr->getNumSuccessors();
 
     if (2 < child_num) {
       LOG(FATAL)
@@ -1158,20 +1183,22 @@ void VirtualRegsOpt::JoinBBsForMultiProcesses() {
       push_successor_bb_queue(t_endbr->getSuccessor(1));
     } else if (1 == child_num) {
 
-      // The next instruction of `lifted function` or `system call` calling may be jumped by context switching.
-      if (impl->lift_or_system_calling_bbs.contains(t_bb)) {
-        push_successor_bb_queue(t_endbr->getSuccessor(0));
-        continue;
-      }
-
       llvm::BasicBlock *candidate_bb, *joined_bb;
 
       candidate_bb = t_endbr->getSuccessor(0);
       auto &candidate_bb_parents = bb_parents.at(candidate_bb);
       if (1 == candidate_bb_parents.size()) {
+
+        // The next instruction of `lifted function` or `system call` calling may be jumped by context switching, so cannot join those.
+        if (impl->lift_or_system_calling_bbs.contains(candidate_bb)) {
+          if (t_endbr->getNumSuccessors() > 0) {
+            push_successor_bb_queue(t_endbr->getSuccessor(0));
+          }
+          continue;
+        }
+
         // join candidate_bb to the t_bb
         joined_bb = candidate_bb;
-        t_endbr = t_bb->getTerminator();
         CHECK(llvm::dyn_cast<llvm::BranchInst>(t_endbr))
             << "The parent basic block of the lifted function must terminate by the branch instruction.";
         // delete the branch instruction of the t_bb and joined_bb
@@ -1181,6 +1208,7 @@ void VirtualRegsOpt::JoinBBsForMultiProcesses() {
         // join BBRegInfoNode
         auto joined_bb_reg_info_node = bb_reg_info_node_map.extract(joined_bb).mapped();
         bb_reg_info_node_map.at(t_bb)->join_reg_info_node(joined_bb_reg_info_node);
+
         // update bb_parents
         bb_parents.erase(joined_bb);
         t_endbr = t_bb->getTerminator();
@@ -1190,14 +1218,24 @@ void VirtualRegsOpt::JoinBBsForMultiProcesses() {
             bb_parents.at(t_endbr->getSuccessor(i)).erase(joined_bb);
             bb_parents.at(t_endbr->getSuccessor(i)).insert(t_bb);
           }
+          // should push t_bb again for searching the children of original joined_bb.
           bb_queue.push(t_bb);
+        } else {
+          // When JoinBBsForMultiProcesses is called, switch instruction should not exist.
+          CHECK(llvm::dyn_cast<llvm::ReturnInst>(t_endbr));
         }
+
+        // update inst_nums_in_bb
+        CHECK(inst_nums_in_bb[t_bb] > 0 && inst_nums_in_bb[joined_bb] > 0);
+        inst_nums_in_bb[t_bb] += inst_nums_in_bb[joined_bb];
+        inst_nums_in_bb.erase(joined_bb);
+
         // delete the joined block
         joined_bb->eraseFromParent();
       } else {
         push_successor_bb_queue(candidate_bb);
       }
-    } else /* if (0 == child_num)*/ {
+    } else if (0 == child_num) {
       CHECK(llvm::dyn_cast<llvm::ReturnInst>(t_endbr))
           << "The basic block which doesn't have the successors must be ReturnInst.";
     }

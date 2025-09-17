@@ -21,7 +21,7 @@ setting() {
   BUILD_LIFTER_DIR=${BUILD_DIR}/lifter
   BUILD_TESTS_AARCH64_DIR=${BUILD_DIR}/tests/aarch64
   CXX=clang++-16
-  OPTFLAGS="-O1"
+  OPTFLAGS="-O3"
   CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   EMCC=emcc
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
