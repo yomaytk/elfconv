@@ -42,8 +42,12 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   /* Initialize AT_RANDOM (placed on the stack temporarily) */
   _ecv_reg64_t randomp;
   sp -= 16;
-  // getentropy(bytes + (sp - vma), 16);
+
+#if defined(TARGET_IS_WASI)
   memset(SP_REAL_ADDR, 1, 16);
+#else
+  getentropy(SP_REAL_ADDR, 16);
+#endif
   randomp = sp;
 
   /* Initialize AT_PHDR (placed on the stack temporarily) */
