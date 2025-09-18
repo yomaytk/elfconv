@@ -185,7 +185,7 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
 }
 
 #if defined(__EMSCRIPTEN__)
-ECV_PROCESS *ECV_PROCESS::ecv_process_copied() {
+EcvProcess *EcvProcess::EcvProcessCopied() {
   auto new_memory_arena = new MemoryArena();
   auto new_cpu_state = (State *) malloc(sizeof(State));
 
@@ -202,6 +202,6 @@ ECV_PROCESS *ECV_PROCESS::ecv_process_copied() {
   // copy CPU state
   memcpy(new_cpu_state, cpu_state, sizeof(State));
 
-  return new ECV_PROCESS(new_memory_arena, new_cpu_state, call_history);
+  return new EcvProcess(new_memory_arena, new_cpu_state, call_history);
 }
 #endif

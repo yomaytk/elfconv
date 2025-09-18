@@ -11,11 +11,11 @@
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
 
+// MemoryArenaPtr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
+uint8_t *MemoryArenaPtr = nullptr;
 State *CPUState;
 
-// memory_arena_ptr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
-extern "C" uint8_t *memory_arena_ptr = nullptr;
-
+// Emscripten main fiber data for `fork` emulation.
 #if defined(__EMSCRIPTEN__)
 #  define MAIN_ASTACK_SIZE 64 * 1024
 emscripten_fiber_t MainFB;
@@ -28,12 +28,12 @@ int main(int argc, char *argv[]) {
 int main(int argc, char *argv[], char *envp[]) {
 #endif
 
-  // CPU State
   State *cpu_state = new State();
+  MemoryArena *memory_arena;
+
   CPUState = cpu_state;
   cpu_state->inst_count = 0;
-  //  Allocate memorys.
-  MemoryArena *memory_arena;
+
 
 #if defined(__wasm__)
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
@@ -41,7 +41,8 @@ int main(int argc, char *argv[], char *envp[]) {
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
 
-  memory_arena_ptr = memory_arena->bytes;
+  MemoryArenaPtr = memory_arena->bytes;
+
   for (size_t i = 0; i < _ecv_data_sec_num; i++) {
     // remove covered section
     if (strncmp(reinterpret_cast<const char *>(_ecv_data_sec_name_ptr_array[i]), ".tbss", 5) == 0) {
@@ -66,13 +67,14 @@ int main(int argc, char *argv[], char *envp[]) {
 #  endif
 #endif
 
-  ECV_PROCESS *main_ecv_process;
+  EcvProcess *main_ecv_process;
 
 #if defined(__EMSCRIPTEN__)
-  main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state, {});
+  main_ecv_process = new EcvProcess(memory_arena, cpu_state, {});
 #else
-  main_ecv_process = new ECV_PROCESS(memory_arena, cpu_state);
+  main_ecv_process = new EcvProcess(memory_arena, cpu_state);
 #endif
+
   auto runtime_manager = new RuntimeManager(main_ecv_process);
 
   // Set lifted function pointer table

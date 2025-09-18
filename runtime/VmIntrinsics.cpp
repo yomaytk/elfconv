@@ -34,63 +34,63 @@
   fflush(stdout); \
   abort();
 
-extern "C" uint8_t *memory_arena_ptr;
+extern "C" uint8_t *MemoryArenaPtr;
 
 // __remill_(read | write)_memory_* functions are not used for the optimization.
 
-uint8_t __remill_read_memory_8(RuntimeManager *runtime_manager, addr_t addr) {
+uint8_t __remill_read_memory_8(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_8 function must not be called!");
 }
 
-uint16_t __remill_read_memory_16(RuntimeManager *runtime_manager, addr_t addr) {
+uint16_t __remill_read_memory_16(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_16 function must not be called!");
 }
 
-uint32_t __remill_read_memory_32(RuntimeManager *runtime_manager, addr_t addr) {
+uint32_t __remill_read_memory_32(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_32 function must not be called!");
 }
 
-uint64_t __remill_read_memory_64(RuntimeManager *runtime_manager, addr_t addr) {
+uint64_t __remill_read_memory_64(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_64 function must not be called!");
 }
 
-uint128_t __remill_read_memory_128(RuntimeManager *runtime_manager, addr_t addr) {
+uint128_t __remill_read_memory_128(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_128 function must not be called!");
 }
 
-float32_t __remill_read_memory_f32(RuntimeManager *runtime_manager, addr_t addr) {
+float32_t __remill_read_memory_f32(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_f32 function must not be called!");
 }
 
-float64_t __remill_read_memory_f64(RuntimeManager *runtime_manager, addr_t addr) {
+float64_t __remill_read_memory_f64(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_f64 function must not be called!");
 }
 
-void __remill_write_memory_8(RuntimeManager *runtime_manager, addr_t addr, uint8_t src) {
+void __remill_write_memory_8(RuntimeManager *rt_m, addr_t addr, uint8_t src) {
   elfconv_runtime_error("__remill_write_memory_8 function must not be called!");
 }
 
-void __remill_write_memory_16(RuntimeManager *runtime_manager, addr_t addr, uint16_t src) {
+void __remill_write_memory_16(RuntimeManager *rt_m, addr_t addr, uint16_t src) {
   elfconv_runtime_error("__remill_write_memory_16 function must not be called!");
 }
 
-void __remill_write_memory_32(RuntimeManager *runtime_manager, addr_t addr, uint32_t src) {
+void __remill_write_memory_32(RuntimeManager *rt_m, addr_t addr, uint32_t src) {
   elfconv_runtime_error("__remill_write_memory_32 function must not be called!");
 }
 
-void __remill_write_memory_64(RuntimeManager *runtime_manager, addr_t addr, uint64_t src) {
+void __remill_write_memory_64(RuntimeManager *rt_m, addr_t addr, uint64_t src) {
   elfconv_runtime_error("__remill_write_memory_64 function must not be called!");
 }
 
-void __remill_write_memory_128(RuntimeManager *runtime_manager, addr_t addr, uint128_t src) {
+void __remill_write_memory_128(RuntimeManager *rt_m, addr_t addr, uint128_t src) {
   elfconv_runtime_error("__remill_write_memory_128 function must not be called!");
 }
 
-void __remill_write_memory_f32(RuntimeManager *runtime_manager, addr_t addr, float32_t src) {
+void __remill_write_memory_f32(RuntimeManager *rt_m, addr_t addr, float32_t src) {
   elfconv_runtime_error("__remill_write_memory_f32 function must not be called!");
 }
 
-void __remill_write_memory_f64(RuntimeManager *runtime_manager, addr_t addr, float64_t src) {
+void __remill_write_memory_f64(RuntimeManager *rt_m, addr_t addr, float64_t src) {
   elfconv_runtime_error("__remill_write_memory_f64 function must not be called!");
 }
 
@@ -99,14 +99,14 @@ void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
 /*
   tranpoline call for emulating syscall of original ELF binary.
 */
-void __remill_syscall_tranpoline_call(State &state, RuntimeManager *runtime_manager) {
+void __remill_syscall_tranpoline_call(State &state, RuntimeManager *rt_m) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
 #if defined(TARGET_IS_WASI)
-  runtime_manager->SVCWasiCall();
+  rt_m->SVCWasiCall();
 #elif defined(TARGET_IS_BROWSER)
-  runtime_manager->SVCBrowserCall();
+  rt_m->SVCBrowserCall();
 #else
-  runtime_manager->SVCNativeCall();
+  rt_m->SVCNativeCall();
 #endif
 }
 
@@ -119,14 +119,14 @@ extern "C" void __remill_mark_as_used(void *mem) {
   asm("" ::"m"(mem));
 }
 
-void __remill_function_return(State &state, addr_t fn_ret_vma, RuntimeManager *runtime_manager) {}
+void __remill_function_return(State &state, addr_t fn_ret_vma, RuntimeManager *rt_m) {}
 
-void __remill_missing_block(State &, addr_t, RuntimeManager *runtime_manager) {
+void __remill_missing_block(State &, addr_t, RuntimeManager *rt_m) {
   std::cout << std::hex << std::setw(16) << std::setfill('0')
             << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << PCREG << std::endl;
 }
 
-void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *runtime_manager) {}
+void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *rt_m) {}
 
 void __remill_error(State &, addr_t addr, RuntimeManager *) {
   std::cout << "[ERROR] Reached __remill_error. PC: 0x" << std::hex << addr << std::endl;
@@ -137,8 +137,8 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
-void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *runtime_manager) {
-  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
+void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *rt_m) {
+  auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   auto jmp_fun_it =
       std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_fun_vma,
@@ -146,7 +146,7 @@ void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *runt
   if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_fun_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_fun_vma;
-    jmp_fun_it->second(&state, t_fun_vma, runtime_manager);
+    jmp_fun_it->second(&state, t_fun_vma, rt_m);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
@@ -156,8 +156,8 @@ void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *runt
 }
 
 /* BR instruction */
-void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) {
-  auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
+void __remill_jump(State &state, addr_t t_vma, RuntimeManager *rt_m) {
+  auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   auto jmp_fun_it =
       std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
@@ -165,7 +165,7 @@ void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) 
   if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_vma;
-    jmp_fun_it->second(&state, t_vma, runtime_manager);
+    jmp_fun_it->second(&state, t_vma, rt_m);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
@@ -175,9 +175,9 @@ void __remill_jump(State &state, addr_t t_vma, RuntimeManager *runtime_manager) 
 }
 
 // get the target basic block label pointer for indirectbr instruction
-extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_manager,
-                                                       uint64_t fun_vma, uint64_t bb_vma) {
-  auto &fun_bb_addr_map = runtime_manager->fun_bb_addr_map;
+extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *rt_m, uint64_t fun_vma,
+                                                       uint64_t bb_vma) {
+  auto &fun_bb_addr_map = rt_m->fun_bb_addr_map;
   if (fun_bb_addr_map.count(fun_vma) == 1) {
     auto &vma_bb_map = fun_bb_addr_map[fun_vma];
     if (vma_bb_map.count(bb_vma) == 1) {
@@ -185,7 +185,7 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_m
     } else {
       // If the target instruction is not the vma of basic block but the function entry point,
       // jump to the basic block for `__remill_jump`.
-      auto &addr_funptr_srt_list = runtime_manager->addr_funptr_srt_list;
+      auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
       if (auto fun_it =
               std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), bb_vma,
                                [](auto const &lhs, addr_t value) { return lhs.first < value; });
@@ -205,9 +205,8 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *runtime_m
 }
 
 // get the target basic block label pointer on the noopt indirectbr instruction.
-extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t cur_fun_vma,
-                                       addr_t t_vma) {
-  auto &fun_bb_addr_map = runtime_manager->fun_bb_addr_map;
+extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma, addr_t t_vma) {
+  auto &fun_bb_addr_map = rt_m->fun_bb_addr_map;
   if (auto t_fun_it = fun_bb_addr_map.find(cur_fun_vma); t_fun_it == fun_bb_addr_map.end()) {
     elfconv_runtime_error(
         "func addr (0x%lx) is not included in fun_bb_addr_map (at _ecv_noopt_get_bb) fun_bb_addr_map size: %ld.",
@@ -223,44 +222,44 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *runtime_manager, addr_t c
 }
 
 #if defined(__EMSCRIPTEN__)
-extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
-  auto cur_ecv_process = runtime_manager->cur_ecv_process;
-  if (cur_ecv_process->cpu_state->has_fibers == 0) {
+extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
+  EcvProcess *cur_ecv_pr, *next_ecv_pr;
+
+  cur_ecv_pr = rt_m->cur_ecv_process;
+
+  if (cur_ecv_pr->cpu_state->has_fibers == 0) {
     elfconv_runtime_error("_ecv_process_context_switch must not be with only one fiber execution.");
   }
 
-  if (runtime_manager->ecv_processes.size() == 1) {
+  if (rt_m->ecv_processes.size() == 1) {
     return;
   }
 
   // switch ecv_pid
   uint64_t cur_ecv_pid, next_ecv_pid;
 
-  next_ecv_pid = runtime_manager->ecv_pid_queue.front();
-  cur_ecv_pid = cur_ecv_process->ecv_pid;
+  next_ecv_pid = rt_m->ecv_pid_queue.front();
+  cur_ecv_pid = cur_ecv_pr->ecv_pid;
 
   // reset current inst_count
-  cur_ecv_process->cpu_state->inst_count = 0;
+  cur_ecv_pr->cpu_state->inst_count = 0;
 
   // if there is a other ecv process in the task queue, we switch to it.
   if (next_ecv_pid != cur_ecv_pid) {
-    emscripten_fiber_t *cur_fb_t, *next_fb_t;
 
-    runtime_manager->ecv_pid_queue.pop();  // pop next_ecv_pid
-    runtime_manager->ecv_pid_queue.push(cur_ecv_pid);
-    ECV_PROCESS *next_ecv_process = runtime_manager->ecv_processes.at(next_ecv_pid);
-    cur_fb_t = cur_ecv_process->fb_t;
-    next_fb_t = next_ecv_process->fb_t;
+    // get next ecv process from the task queue.
+    rt_m->ecv_pid_queue.pop();
+    rt_m->ecv_pid_queue.push(cur_ecv_pid);
+    next_ecv_pr = rt_m->ecv_processes.at(next_ecv_pid);
 
     // switch to next ecv process
-    runtime_manager->cur_ecv_process = next_ecv_process;
-    runtime_manager->cur_memory_arena = next_ecv_process->memory_arena;
-    CPUState = next_ecv_process->cpu_state;
-    memory_arena_ptr = next_ecv_process->memory_arena->bytes;
+    rt_m->SwitchEcvProcessContext(cur_ecv_pr, next_ecv_pr);
 
-    runtime_manager->GcUnusedFibers();
+    // execute simple GC for cleaning unused fibers.
+    rt_m->GcUnusedFibers();
+
     // swap
-    emscripten_fiber_swap(cur_fb_t, next_fb_t);
+    emscripten_fiber_swap(cur_ecv_pr->fb_t, next_ecv_pr->fb_t);
   } else {
     elfconv_runtime_error(
         "[ERROR] cur_ecv_pid (%llx) is equal to next_ecv_pid (%llx) at _ecv_process_context_switch.\n",
@@ -269,63 +268,46 @@ extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
   }
 }
 
-extern "C" void _ecv_save_call_history(RuntimeManager *runtime_manager, uint64_t func_addr,
+extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {
-  runtime_manager->cur_ecv_process->call_history.push({func_addr, ret_addr});
-  runtime_manager->cur_ecv_process->cpu_state->func_depth++;
+  rt_m->cur_ecv_process->call_history.push({func_addr, ret_addr});
+  rt_m->cur_ecv_process->cpu_state->func_depth++;
 }
 
-extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
-                                   RuntimeManager *runtime_manager) {
-  ECV_PROCESS *cur_ecv_process;
+extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr, RuntimeManager *rt_m) {
 
-  cur_ecv_process = runtime_manager->cur_ecv_process;
-  if (cur_ecv_process->cpu_state->has_fibers > 0) {
-    if (cur_ecv_process->cpu_state->func_depth == 0) {
+  EcvProcess *cur_ecv_pr = rt_m->cur_ecv_process;
+  if (cur_ecv_pr->cpu_state->has_fibers > 0) {
+    if (cur_ecv_pr->cpu_state->func_depth == 0) {
       emscripten_fiber_t *cur_fb_t, *new_fb_t;
 
       // should do fiber_swap instead of returning.
-      auto [top_func_addr, top_func_next_pc] = cur_ecv_process->fiber_call_history.top();
-      cur_ecv_process->fiber_call_history.pop();
+      auto [top_func_addr, top_func_next_pc] = cur_ecv_pr->fiber_call_history.top();
+      cur_ecv_pr->fiber_call_history.pop();
 
-      runtime_manager->GcUnusedFibers();
+      // Note. must execute before updating unused_fibers.
+      rt_m->GcUnusedFibers();
 
       // Add current unused fiber to the unused_fibers (must append after GcUnusedFibers).
-      runtime_manager->unused_fibers.emplace_back(cur_ecv_process->fb_t, cur_ecv_process->cstack,
-                                                  cur_ecv_process->astack);
+      rt_m->unused_fibers.emplace_back(cur_ecv_pr->fb_t, cur_ecv_pr->cstack, cur_ecv_pr->astack);
       // new fiber settings
-      cur_fb_t = cur_ecv_process->fb_t;
-      new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
+      cur_fb_t = cur_ecv_pr->fb_t;
 
-      void *new_cstack = malloc(FIBER_STACK_SIZE);
-      void *new_astack = malloc(FIBER_STACK_SIZE);
+      // Initialize new fiber.
+      rt_m->InitFiberForEcvProcess(cur_ecv_pr, top_func_addr, top_func_next_pc);
+      new_fb_t = cur_ecv_pr->fb_t;
 
-      auto t_lifted_func_it =
-          std::lower_bound(runtime_manager->addr_funptr_srt_list.begin(),
-                           runtime_manager->addr_funptr_srt_list.end(), top_func_addr,
-                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      LiftedFunc t_lifted_func = t_lifted_func_it->second;
+      // re-set the fiber info of cur_ecv_process
+      cur_ecv_pr->cpu_state->gpr.pc.qword = top_func_next_pc;
+      cur_ecv_pr->cpu_state->func_depth = 0;
+      cur_ecv_pr->call_history.pop();
 
-      struct FiberArgs new_fiber_args = {t_lifted_func, cur_ecv_process->cpu_state,
-                                         top_func_next_pc, runtime_manager};
-
-      // re-set the fiber of cur_ecv_process
-      cur_ecv_process->cpu_state->gpr.pc.qword = top_func_next_pc;
-      cur_ecv_process->fb_t = new_fb_t;
-      cur_ecv_process->cstack = new_cstack;
-      cur_ecv_process->astack = new_astack;
-      cur_ecv_process->call_history.pop();
-
-      cur_ecv_process->cpu_state->func_depth = 0;  // mini hack.
-
-      // fiber swap
-      emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &new_fiber_args, new_cstack,
-                            FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
+      // switch process.
       emscripten_fiber_swap(cur_fb_t, new_fb_t);
     }
   }
-  cur_ecv_process->cpu_state->func_depth--;
-  cur_ecv_process->call_history.pop();
+  cur_ecv_pr->cpu_state->func_depth--;
+  cur_ecv_pr->call_history.pop();
 }
 
 extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
@@ -335,13 +317,12 @@ extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
 }
 
 #else
-extern "C" void _ecv_process_context_switch(RuntimeManager *runtime_manager) {
+extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
   elfconv_runtime_error("emscritepn Fiber switch cannot be used on the native environment.");
 }
-extern "C" void _ecv_save_call_history(RuntimeManager *runtime_manager, uint64_t func_addr,
+extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {}
-extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr,
-                                   RuntimeManager *runtime_manager) {}
+extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr, RuntimeManager *rt_m) {}
 extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {}
 #endif
 
@@ -350,14 +331,14 @@ extern "C" void _ecv_unreached(uint64_t value) {
 }
 
 // push the callee symbol to the call stack for debug
-extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t fn_vma) {
-  if (auto func_name = runtime_manager->addr_fun_symbol_map[fn_vma]; func_name) {
+extern "C" void debug_call_stack_push(RuntimeManager *rt_m, uint64_t fn_vma) {
+  if (auto func_name = rt_m->addr_fun_symbol_map[fn_vma]; func_name) {
     if (strncmp(func_name, "fn_plt", 6) == 0) {
       return;
     }
-    runtime_manager->call_stacks.push_back(fn_vma);
+    rt_m->call_stacks.push_back(fn_vma);
     std::string tab_space;
-    for (size_t i = 0; i < runtime_manager->call_stacks.size(); i++) {
+    for (size_t i = 0; i < rt_m->call_stacks.size(); i++) {
       if (i & 0b1)
         tab_space += "\033[34m";
       else
@@ -375,21 +356,21 @@ extern "C" void debug_call_stack_push(RuntimeManager *runtime_manager, uint64_t 
 }
 
 // pop the callee symbol from the call stack for debug
-extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t fn_vma) {
-  if (runtime_manager->call_stacks.empty()) {
+extern "C" void debug_call_stack_pop(RuntimeManager *rt_m, uint64_t fn_vma) {
+  if (rt_m->call_stacks.empty()) {
     elfconv_runtime_error("invalid debug call stack empty. PC: 0x%016llx\n", PCREG);
   } else {
-    auto last_call_vma = runtime_manager->call_stacks.back();
-    auto func_name = runtime_manager->addr_fun_symbol_map[last_call_vma];
+    auto last_call_vma = rt_m->call_stacks.back();
+    auto func_name = rt_m->addr_fun_symbol_map[last_call_vma];
     if (strncmp(func_name, "fn_plt", 6) != 0) {
       if (fn_vma != last_call_vma)
         elfconv_runtime_error("fn_vma: %lu(%s) must be equal to last_call_vma(%s): %lu\n", fn_vma,
-                              last_call_vma, runtime_manager->addr_fun_symbol_map[fn_vma],
-                              runtime_manager->addr_fun_symbol_map[last_call_vma]);
-      runtime_manager->call_stacks.pop_back();
+                              last_call_vma, rt_m->addr_fun_symbol_map[fn_vma],
+                              rt_m->addr_fun_symbol_map[last_call_vma]);
+      rt_m->call_stacks.pop_back();
       return;
       std::string tab_space;
-      for (int i = 0; i < runtime_manager->call_stacks.size(); i++) {
+      for (int i = 0; i < rt_m->call_stacks.size(); i++) {
         if (i & 0b1)
           tab_space += "\033[34m";
         else
@@ -406,14 +387,14 @@ extern "C" void debug_call_stack_pop(RuntimeManager *runtime_manager, uint64_t f
 }
 
 // observe the value change of runtime memory
-extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager, uint64_t pc) {
+extern "C" void debug_memory_value_change(RuntimeManager *rt_m, uint64_t pc) {
   // step 1. set target vma
   static uint64_t target_vma = 0x1fffe58c;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = *(uint64_t *) runtime_manager->TranslateVMA(target_vma);
+  auto cur_value = *(uint64_t *) rt_m->TranslateVMA(target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
               << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
@@ -422,13 +403,13 @@ extern "C" void debug_memory_value_change(RuntimeManager *runtime_manager, uint6
 }
 
 // observe the value of runtime memory
-extern "C" void debug_memory_value(RuntimeManager *runtime_manager) {
+extern "C" void debug_memory_value(RuntimeManager *rt_m) {
   // step 1. set target vma
   std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) runtime_manager->TranslateVMA(target_vma);
+    auto target_pma = (double *) rt_m->TranslateVMA(target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
@@ -571,15 +552,15 @@ static std::set<std::pair<uint64_t, uint64_t>> differed_reg_set;
 extern const QemuState QemuStates[];
 extern const uint64_t BRK_MIN, BRK_MAX;
 
-#  define QEMU_STACK_VMA QemuStates[0].sp - runtime_manager->memory_arena->stack_init_diff
+#  define QEMU_STACK_VMA QemuStates[0].sp - rt_m->memory_arena->stack_init_diff
 #  define XREG_CHECK(i) \
     do { \
       uint64_t qemu_xi = QemuStates[INSN_COUNT].x[i]; \
       uint64_t xi = gpr.x##i.qword; \
       if (xi != qemu_xi) { \
         /* heap check */ \
-        if (HEAPS_START_VMA <= xi && xi <= runtime_manager->memory_arena->heap_cur && \
-            BRK_MIN <= qemu_xi && qemu_xi <= BRK_MAX) { \
+        if (HEAPS_START_VMA <= xi && xi <= rt_m->memory_arena->heap_cur && BRK_MIN <= qemu_xi && \
+            qemu_xi <= BRK_MAX) { \
           break; \
         } \
         /* stack check */ \
@@ -595,7 +576,7 @@ extern const uint64_t BRK_MIN, BRK_MAX;
       } \
     } while (0)
 
-extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uint64_t pc) {
+extern "C" void debug_check_state_with_qemu(RuntimeManager *rt_m, uint64_t pc) {
   auto gpr = CPUState.gpr;
   auto &qemu_state = QemuStates[INSN_COUNT];
   uint64_t sp, ecv_nzcv;
@@ -673,8 +654,8 @@ extern "C" void debug_check_state_with_qemu(RuntimeManager *runtime_manager, uin
 #endif
 
 // temp patch for correct stdout behavior
-extern "C" void temp_patch_f_flags(RuntimeManager *runtime_manager, uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) runtime_manager->TranslateVMA(f_flags_vma);
+extern "C" void temp_patch_f_flags(RuntimeManager *rt_m, uint64_t f_flags_vma) {
+  uint64_t *pma = (uint64_t *) rt_m->TranslateVMA(f_flags_vma);
   *pma = 0xfbad2a84;
   return;
 }
@@ -724,17 +705,17 @@ inline bool __remill_compare_neq(bool result) {
 }
 
 /* Data Memory Barrier instruction (FIXME) */
-void __remill_barrier_load_load(RuntimeManager *runtime_manager) {}
-void __remill_barrier_load_store(RuntimeManager *runtime_manager) {}
-void __remill_barrier_store_load(RuntimeManager *runtime_manager) {}
-void __remill_barrier_store_store(RuntimeManager *runtime_manager) {}
+void __remill_barrier_load_load(RuntimeManager *rt_m) {}
+void __remill_barrier_load_store(RuntimeManager *rt_m) {}
+void __remill_barrier_store_load(RuntimeManager *rt_m) {}
+void __remill_barrier_store_store(RuntimeManager *rt_m) {}
 
 /* atomic */
-void __remill_atomic_begin(RuntimeManager *runtime_manager) {}
-void __remill_atomic_end(RuntimeManager *runtime_manager) {}
+void __remill_atomic_begin(RuntimeManager *rt_m) {}
+void __remill_atomic_end(RuntimeManager *rt_m) {}
 
 /* FIXME */
-void __remill_aarch64_emulate_instruction(RuntimeManager *runtime_manager) {}
+void __remill_aarch64_emulate_instruction(RuntimeManager *rt_m) {}
 
 int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
   return clear_mask;
@@ -748,7 +729,7 @@ int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
 //   UNDEFINED_INTRINSICS("__remill_") return nullptr;
 // }
 
-float128_t __remill_read_memory_f128(RuntimeManager *runtime_manager, addr_t addr) {
+float128_t __remill_read_memory_f128(RuntimeManager *rt_m, addr_t addr) {
   UNDEFINED_INTRINSICS("__remill_read_memory_f128");
 }
 

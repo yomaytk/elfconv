@@ -52,7 +52,7 @@ typedef uint64_t _ecv_long;
 #endif
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
-extern "C" uint8_t *memory_arena_ptr;
+extern "C" uint8_t *MemoryArenaPtr;
 
 /*
   for ioctl syscall
@@ -458,8 +458,8 @@ void RuntimeManager::SVCBrowserCall(void) {
       }
 
       uint64_t cur_ecv_pid, next_ecv_pid;
-      ECV_PROCESS *next_ecv_process;
-      emscripten_fiber_t *cur_fb_t, *next_fb_t;
+      EcvProcess *next_ecv_pr;
+      emscripten_fiber_t *cur_fb_t;
 
       cur_ecv_pid = cur_ecv_process->ecv_pid;
 
@@ -478,16 +478,14 @@ void RuntimeManager::SVCBrowserCall(void) {
       }
       next_ecv_pid = ecv_pid_queue.front();
       ecv_pid_queue.pop();
-      next_ecv_process = ecv_processes.at(next_ecv_pid);
+      next_ecv_pr = ecv_processes.at(next_ecv_pid);
 
-      next_fb_t = next_ecv_process->fb_t;
-      cur_ecv_process = next_ecv_process;
-      cur_memory_arena = next_ecv_process->memory_arena;
-      CPUState = next_ecv_process->cpu_state;
+      // switch ecv process context.
+      SwitchEcvProcessContext(cur_ecv_process, next_ecv_pr);
 
       GcUnusedFibers();
       // swap
-      emscripten_fiber_swap(cur_fb_t, next_fb_t);
+      emscripten_fiber_swap(cur_fb_t, next_ecv_pr->fb_t);
     } break;
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
@@ -607,66 +605,38 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
 
-      uint64_t cur_ecv_pid, new_ecv_pid;
-      emscripten_fiber_t *cur_fb_t, *new_fb_t;
+      EcvProcess *cur_ecv_pr, *new_ecv_pr;
       State *cur_state, *new_state;
-      LiftedFunc t_lifted_func;
-      uint64_t next_pc;
 
-      cur_ecv_pid = cur_ecv_process->ecv_pid;
-      cur_fb_t = cur_ecv_process->fb_t;
+      cur_ecv_pr = cur_ecv_process;
       cur_state = cur_ecv_process->cpu_state;
-      cur_state->has_fibers = 1;
-      next_pc = cur_state->gpr.pc.qword;
 
       // make new copied ecv_process
-      ECV_PROCESS *new_ecv_process = cur_ecv_process->ecv_process_copied();
-      new_ecv_pid = new_ecv_process->ecv_pid;
-      new_state = new_ecv_process->cpu_state;
-
-      // reset the current inst_count.
+      cur_state->has_fibers = 1;
       cur_state->inst_count = 0;
+      new_ecv_pr = cur_ecv_process->EcvProcessCopied();
+      new_state = new_ecv_pr->cpu_state;
+      new_state->func_depth = 0;
+      ecv_processes.insert({new_ecv_pr->ecv_pid, new_ecv_pr});
 
-      // set some state data unique to the new ecv_process.
-      new_state->inst_count = 0;
-      new_state->func_depth = 0;  // mini hack.
-
-      // new fiber context.
-      new_fb_t = reinterpret_cast<emscripten_fiber_t *>(malloc(sizeof(emscripten_fiber_t)));
-      new_ecv_process->fb_t = new_fb_t;
-
-      // set return value to x0 register
+      // set the return value of `clone` syscall.
       new_state->gpr.x0.qword = 0;  // child
-      cur_state->gpr.x0.qword = new_ecv_pid;  // parent
+      cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
 
-      // update cache data and switch process.
-      ecv_pid_queue.push(cur_ecv_pid);
-      ecv_processes.insert({new_ecv_pid, new_ecv_process});
-      cur_ecv_process = new_ecv_process;
-      cur_memory_arena = new_ecv_process->memory_arena;
-      memory_arena_ptr = new_ecv_process->memory_arena->bytes;
+      // append current ecv process to the task queue.
+      ecv_pid_queue.push(cur_ecv_pr->ecv_pid);
 
-      CPUState = new_state;
+      // Initialize fiber for new ecv process.
+      InitFiberForEcvProcess(new_ecv_pr, cur_state->fiber_fun_addr, cur_state->gpr.pc.qword);
 
-      auto t_lifted_func_it = std::lower_bound(
-          addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), cur_state->fiber_fun_addr,
-          [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      t_lifted_func = t_lifted_func_it->second;
+      // switch ecv process context.
+      SwitchEcvProcessContext(cur_ecv_pr, new_ecv_pr);
 
-      auto fiber_args = FiberArgs(t_lifted_func, new_state,
-                                  next_pc,  // assumes that `next_pc` is saved to cpu_state.pc
-                                  this);
-
-      auto new_cstack = malloc(FIBER_STACK_SIZE);
-      auto new_astack = malloc(FIBER_STACK_SIZE);
-      new_ecv_process->cstack = new_cstack;
-      new_ecv_process->astack = new_astack;
-
+      // execute simple GC for cleaning unused fibers.
       GcUnusedFibers();
-      // swap fiber.
-      emscripten_fiber_init(new_fb_t, _ecv_fiber_init_wrapper, &fiber_args, new_cstack,
-                            FIBER_STACK_SIZE, new_astack, FIBER_STACK_SIZE);
-      emscripten_fiber_swap(cur_fb_t, new_fb_t);
+
+      // switch process.
+      emscripten_fiber_swap(cur_ecv_pr->fb_t, new_ecv_pr->fb_t);
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */

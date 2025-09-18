@@ -32,6 +32,7 @@ typedef uint64_t _ecv_reg64_t;
 
 //  State machine which represents all CPU registers */
 extern "C" State *CPUState;
+extern "C" uint8_t *MemoryArenaPtr;
 //  Lifted entry function pointer
 extern "C" const LiftedFunc _ecv_entry_func;
 //  Entry point of the ELF
@@ -102,10 +103,10 @@ class MemoryArena {
 };
 
 #if defined(__EMSCRIPTEN__)
-class ECV_PROCESS {
+class EcvProcess {
  public:
-  ECV_PROCESS(MemoryArena *__memory_arena, State *__cpu_state,
-              std::stack<std::pair<uint64_t, uint64_t>> __call_history)
+  EcvProcess(MemoryArena *__memory_arena, State *__cpu_state,
+             std::stack<std::pair<uint64_t, uint64_t>> __call_history)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state),
         ecv_pid(++org_ecv_pid),
@@ -113,14 +114,14 @@ class ECV_PROCESS {
         call_history(__call_history),
         fiber_call_history(__call_history) {}
 
-  ~ECV_PROCESS() {
+  ~EcvProcess() {
     delete (memory_arena);
     free(cpu_state);
     // skip free of *fb_t, *cstack, *astack.
     // These will be freed by simple GC.
   }
 
-  ECV_PROCESS *ecv_process_copied();
+  EcvProcess *EcvProcessCopied();
 
   static inline uint64_t org_ecv_pid = 42;
   MemoryArena *memory_arena;
@@ -136,9 +137,9 @@ class ECV_PROCESS {
       fiber_call_history;
 };
 #else
-class ECV_PROCESS {
+class EcvProcess {
  public:
-  ECV_PROCESS(MemoryArena *__memory_arena, State __cpu_state)
+  EcvProcess(MemoryArena *__memory_arena, State __cpu_state)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state) {}
 
