@@ -32,7 +32,7 @@ setting() {
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
-  FLOAT_STATUS_FLAG='off'
+  FLOAT_STATUS_FLAG='0'
 
   if [ -n "$DEBUG" ]; then
     RUNTIME_MACRO="${RUNTIME_MACRO} -DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
@@ -119,7 +119,7 @@ main() {
 
   # floating-point exception
   if [ -n "$FLOAT_STATUS" ]; then
-    FLOAT_STATUS_FLAG='on'
+    FLOAT_STATUS_FLAG='1'
   fi
 
   # ELF -> LLVM bc

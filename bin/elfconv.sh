@@ -24,7 +24,8 @@ setting() {
   ELFPATH=$( realpath "$1" )
   HOST_CPU=$(uname -p)
   ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
-  FLOAT_STATUS_FLAG='off'
+  FLOAT_STATUS_FLAG='0'
+  EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
 
 }
 
@@ -46,7 +47,13 @@ main() {
 
   # floating-point exception
   if [ -n "$FLOAT_STATUS" ]; then
-    FLOAT_STATUS_FLAG='on'
+    FLOAT_STATUS_FLAG='1'
+  fi
+
+  # enable Linux `fork` syscall emulation using emscripten fiber.
+  if [ "$FORK_EMULATION_EMCC_FIBER" == "1" ]; then
+    EMCC_ASYNC_OPTION="-sASYNCIFY"
+    RUNTIME_MACRO="$RUNTIME_MACRO -D__EMSCRIPTEN_FORK_FIBER__"
   fi
 
   # input ELF CPU architecture
@@ -75,14 +82,15 @@ main() {
   # --dbg_fun_cfg: used to show the detail of the lifted function (for Debug).
   # --target_arch: conversion target architecture
   echo -e "[${GREEN}INFO${NC}] ELF -> LLVM bitcode..."
-    cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
+    cd "${BIN_DIR}"
     ./elflift \
     --arch $arch_name \
     --bc_out lift.bc \
     --target_elf "$ELFPATH" \
     --dbg_fun_cfg "$2" \
     --target_arch "$target_arch" \
-    --float_exception "$FLOAT_STATUS_FLAG"
+    --float_exception "$FLOAT_STATUS_FLAG" \
+    --fork_emulation_emcc_fiber "$FORK_EMULATION_EMCC_FIBER"
   echo -e "[${GREEN}INFO${NC}] LLVM bitcode (lift.bc) was generated."
 
   # LLVM bc -> target file
@@ -97,15 +105,13 @@ main() {
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
       # We use https://github.com/mame/xterm-pty for the console on the browser.
-      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
-        $EMCC $EMCCFLAGS $RUNTIME_MACRO -sALLOW_MEMORY_GROWTH -sASYNCIFY -sEXPORT_ES6 -sENVIRONMENT=web $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+        $EMCC $EMCCFLAGS $RUNTIME_MACRO $EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
             -o exe.js lift.bc $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
     ;;
     *-wasi32)
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
-      cd "${BIN_DIR}" || { echo "cd Failure"; exit 1; }
       $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.bc $ELFCONV_SHARED_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm was generated."
     ;;

@@ -49,7 +49,7 @@ DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
 DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
-DEFINE_string(float_exception, "off", "Whether the floating-point exception status is set or not");
+DEFINE_string(float_exception, "0", "Whether the floating-point exception status is set or not");
 DEFINE_string(
     norm_mode, "0",
     "Whether the test mode is on or off");  // We use `test_mode` for not only test mode but also `no VRP` mode.
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Set various lifting config.
-  auto lift_config = LiftConfig(FLAGS_float_exception == "on",
+  auto lift_config = LiftConfig(FLAGS_float_exception == "1",
                                 FLAGS_norm_mode == "1" || FLAGS_fork_emulation_emcc_fiber == "1",
                                 arch_name, FLAGS_fork_emulation_emcc_fiber == "1");
 
