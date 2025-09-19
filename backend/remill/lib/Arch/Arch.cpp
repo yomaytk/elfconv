@@ -724,11 +724,11 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   auto state = remill::NthArgument(func, kStatePointerArgNum);
 
   llvm::IRBuilder<> ir(block);
-  ir.CreateAlloca(u64, nullptr, "BRANCH_TAKEN");
+  ir.CreateAlloca(u64, nullptr, kBranchTakenVariableName);
   ir.CreateAlloca(addr, nullptr, "MONITOR");
 
-  ir.CreateAlloca(u64, nullptr, "RETURN_PC");
-  ir.CreateAlloca(u64, nullptr, "NEXT_PC");
+  ir.CreateAlloca(u64, nullptr, kReturnPCVariableName);
+  ir.CreateAlloca(u64, nullptr, kNextPCVariableName);
   // NOTE(pag): `PC` and `NEXT_PC` are handled by
   //            `FinishLiftedFunctionInitialization`.
 

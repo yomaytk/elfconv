@@ -122,6 +122,8 @@ extern "C" {
 
 [[gnu::used]] extern void __remill_syscall_tranpoline_call(State &state, RuntimeManager *);
 
+[[gnu::used]] extern void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
+
 // This intrinsic must be tagged with the `always_inline` function attribute
 // since it has an implementation we want to use in Anvill's lifted IR.
 //

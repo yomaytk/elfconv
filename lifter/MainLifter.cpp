@@ -65,8 +65,8 @@ void MainLifter::SetBlockAddressData(std::vector<llvm::Constant *> &block_addres
                             block_address_sizes_array, block_address_fn_vma_array);
 }
 
-void MainLifter::SetOptMode(bool able_vrp_opt, bool test_mode) {
-  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt, test_mode);
+void MainLifter::SetOptMode(bool able_vrp_opt, bool norm_mode) {
+  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt, norm_mode);
 }
 
 /* Declare helper function used in lifted LLVM bitcode */
@@ -113,7 +113,7 @@ void MainLifter::SetCommonMetaData(LiftConfig lift_config) {
              target_manager->elf_obj.e_ph);
   SetEntryPC(target_manager->entry_point);
   SetDataSections(target_manager->elf_obj.sections);
-  SetOptMode(target_manager->elf_obj.able_vrp_opt, lift_config.test_mode);
+  SetOptMode(target_manager->elf_obj.able_vrp_opt, lift_config.norm_mode);
 
   if (target_manager->target_arch == "aarch64") {
     SetPlatform("aarch64");
@@ -351,13 +351,13 @@ void MainLifter::WrapImpl::SetBlockAddressData(
                 ecv_block_address_fn_vma_array_name);
 }
 
-void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt, bool __test_mode) {
-  // vrp_opt always be disabled if the test_mode on.
-  if (__test_mode) {
-    test_mode = true;
+void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt, bool __norm_mode) {
+  // vrp_opt always be disabled if the norm_mode on.
+  if (__norm_mode) {
+    norm_mode = true;
     vrp_opt_mode = false;
   } else {
-    test_mode = false;
+    norm_mode = false;
     vrp_opt_mode = able_vrp_opt;
   }
 }
@@ -408,12 +408,39 @@ void MainLifter::WrapImpl::DeclareHelperFunction() {
                               false),
       llvm::Function::ExternalLinkage, g_get_indirectbr_block_address_func_name, *module);
 
-  // uint64_t *_ecv_noopt_get_bb(RuntimeManager *, addr_t)
+  // uint64_t *_ecv_noopt_get_bb(RuntimeManager *, addr_t, addr_t)
   llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getInt64PtrTy(context),
-                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context)},
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
                               false),
       llvm::Function::ExternalLinkage, _ecv_noopt_get_bb_name, *module);
+
+  // void _ecv_process_context_switch(RuntimeManager *);
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64PtrTy(context)}, false),
+                         llvm::Function::ExternalLinkage, "_ecv_process_context_switch", *module);
+
+  // void _ecv_save_call_history(RuntimeManager *, uint64_t, uint64_t);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64Ty(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_save_call_history", *module);
+
+  // void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
+  llvm::Function::Create(
+      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                               llvm::Type::getInt64PtrTy(context)},
+                              false),
+      llvm::Function::ExternalLinkage, "_ecv_func_epilogue", *module);
+
+  // void _ecv_unreached();
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64Ty(context)}, false),
+                         llvm::Function::ExternalLinkage, "_ecv_unreached", *module);
 }
 
 /* Prepare the virtual machine for instruction test */

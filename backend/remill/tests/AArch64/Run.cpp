@@ -23,6 +23,7 @@
 #include "remill/Arch/Name.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
 #include "remill/Arch/Runtime/Runtime.h"
+#include "remill/Arch/Runtime/Types.h"
 #include "remill/BC/InstructionLifter.h"
 
 #include <cfenv>
@@ -271,6 +272,10 @@ void __remill_function_call(State &, addr_t, RuntimeManager *) {
 }
 
 void __remill_function_return(State &, addr_t, RuntimeManager *) {
+  abort();
+}
+
+void _ecv_func_epilogue(State &, addr_t, RuntimeManager *) {
   abort();
 }
 
@@ -582,9 +587,8 @@ inline static bool operator!=(const T &a, const T &b) {
   return !!memcmp(&a, &b, sizeof(a));
 }
 
-bool FLOAT_STATUS_ON;
 remill::ArchName remill::EcvReg::target_elf_arch = kArchAArch64LittleEndian;
-extern "C" const uint8_t *memory_arena_ptr = nullptr;
+extern "C" const uint8_t *MemoryArenaPtr = nullptr;
 
 static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string desc, uint64_t arg1,
                          uint64_t arg2, uint64_t arg3) {

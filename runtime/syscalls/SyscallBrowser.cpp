@@ -1,11 +1,15 @@
 #include "SysTable.h"
 #include "emscripten_wasi_errno.h"
 #include "remill/Arch/Runtime/Types.h"
+#include "runtime/Memory.h"
+#include "runtime/Runtime.h"
 
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <dirent.h>
 #include <fcntl.h>
 #include <iostream>
@@ -15,6 +19,7 @@
 #include <stdlib.h>
 #include <string>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -47,6 +52,7 @@ typedef uint64_t _ecv_long;
 #endif
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
+extern "C" uint8_t *MemoryArenaPtr;
 
 /*
   for ioctl syscall
@@ -442,8 +448,49 @@ void RuntimeManager::SVCBrowserCall(void) {
           utimensat(X0_D, (char *) TranslateVMA(X1_Q), (const struct timespec *) times_ptr, X3_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
-    case ECV_EXIT: /* exit (int error_code) */ exit(X0_D); break;
-    case ECV_EXIT_GROUP: /* exit_group (int error_code) */ exit(X0_D); break;
+    case ECV_EXIT: /* exit (int error_code) */
+    case ECV_EXIT_GROUP: /* exit_group (int error_code) */
+    {
+
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
+      // only one process.
+      if (CPUState->has_fibers == 0 || ecv_processes.size() == 1) {
+        exit(X0_D);
+      }
+
+      uint64_t cur_ecv_pid, next_ecv_pid;
+      EcvProcess *next_ecv_pr;
+      emscripten_fiber_t *cur_fb_t;
+
+      cur_ecv_pid = cur_ecv_process->ecv_pid;
+
+      // kill only the current process.
+      if (main_ecv_pid != cur_ecv_pid) {
+        unused_fibers.emplace_back(cur_ecv_process->fb_t, cur_ecv_process->cstack,
+                                   cur_ecv_process->astack);
+      }
+      ecv_processes.erase(cur_ecv_pid);
+      cur_fb_t = cur_ecv_process->fb_t;
+      delete (cur_ecv_process);
+
+      // switch to the other process.
+      if (ecv_pid_queue.empty()) {
+        elfconv_runtime_error("cannot switch to the other process at exit_group syscall.\n");
+      }
+      next_ecv_pid = ecv_pid_queue.front();
+      ecv_pid_queue.pop();
+      next_ecv_pr = ecv_processes.at(next_ecv_pid);
+
+      // switch ecv process context.
+      SwitchEcvProcessContext(cur_ecv_process, next_ecv_pr);
+
+      GcUnusedFibers();
+      // swap
+      emscripten_fiber_swap(cur_fb_t, next_ecv_pr->fb_t);
+#else
+      exit(X0_D);
+#endif
+    } break;
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
@@ -478,6 +525,21 @@ void RuntimeManager::SVCBrowserCall(void) {
       } else {
         X0_Q = -wasi2linux_errno[errno];
       }
+    } break;
+    case ECV_CLOCK_NANOSLEEP: /* clock_nanosleep (clockid_t which_clock, int flags, const struct __kernel_timespec *rqtp, struct __kernel_timespce *rmtp) */
+    {
+      struct timespec _wasm_rqtp, _wasm_rmtp;
+      struct _elfarm64df_timespec _elf_rmtp;
+
+      auto _elf_rqtp = (const struct _elfarm64df_timespec *) TranslateVMA(X2_Q);
+      _wasm_rqtp.tv_nsec = _elf_rqtp->tv_nsec;
+      _wasm_rqtp.tv_sec = _elf_rqtp->tv_sec;
+      int res = clock_nanosleep(CLOCK_REALTIME, X1_D, &_wasm_rqtp, &_wasm_rmtp);
+      _elf_rmtp.tv_nsec = _wasm_rmtp.tv_nsec;
+      _elf_rmtp.tv_sec = _wasm_rmtp.tv_sec;
+      memcpy((struct _elfarm64df_timespec *) TranslateVMA(X3_Q), &_elf_rmtp, sizeof(_elf_rmtp));
+
+      X0_Q = -res;
     } break;
     case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ {
       int res = kill(X0_D, X1_D);
@@ -525,7 +587,13 @@ void RuntimeManager::SVCBrowserCall(void) {
         default: X0_D = -_LINUX_EINVAL; break;
       }
     } break;
-    case ECV_GETPID: /* getpid () */ X0_D = getpid(); break;
+    case ECV_GETPID: /* getpid () */
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
+      X0_D = cur_ecv_process->ecv_pid;
+#else
+      X0_D = getpid();
+#endif
+      break;
     case ECV_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
     case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
@@ -536,13 +604,53 @@ void RuntimeManager::SVCBrowserCall(void) {
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = memory_arena->heap_cur;
+        X0_Q = cur_memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        memory_arena->heap_cur = X0_Q;
+        cur_memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
+    } break;
+    case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
+    {
+
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
+      EcvProcess *cur_ecv_pr, *new_ecv_pr;
+      State *cur_state, *new_state;
+
+      cur_ecv_pr = cur_ecv_process;
+      cur_state = cur_ecv_process->cpu_state;
+
+      // make new copied ecv_process
+      cur_state->has_fibers = 1;
+      cur_state->inst_count = 0;
+      new_ecv_pr = cur_ecv_process->EcvProcessCopied();
+      new_state = new_ecv_pr->cpu_state;
+      new_state->func_depth = 0;
+      ecv_processes.insert({new_ecv_pr->ecv_pid, new_ecv_pr});
+
+      // set the return value of `clone` syscall.
+      new_state->gpr.x0.qword = 0;  // child
+      cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
+
+      // append current ecv process to the task queue.
+      ecv_pid_queue.push(cur_ecv_pr->ecv_pid);
+
+      // Initialize fiber for new ecv process.
+      InitFiberForEcvProcess(new_ecv_pr, cur_state->fiber_fun_addr, cur_state->gpr.pc.qword);
+
+      // switch ecv process context.
+      SwitchEcvProcessContext(cur_ecv_pr, new_ecv_pr);
+
+      // execute simple GC for cleaning unused fibers.
+      GcUnusedFibers();
+
+      // switch process.
+      emscripten_fiber_swap(cur_ecv_pr->fb_t, new_ecv_pr->fb_t);
+#else
+      UNIMPLEMENTED_SYSCALL;
+#endif
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
@@ -552,8 +660,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = memory_arena->heap_cur;
-          memory_arena->heap_cur += X1_Q;
+          X0_Q = cur_memory_arena->heap_cur;
+          cur_memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
@@ -724,7 +832,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_CLOCK_SETTIME: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_CLOCK_GETTIME: UNIMPLEMENTED_SYSCALL; break;
     case ECV_CLOCK_GETRES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOCK_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_CLOCK_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SYSLOG: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PTRACE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SCHED_SETPARAM: UNIMPLEMENTED_SYSCALL; break;
@@ -829,7 +937,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_ADD_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_REQUEST_KEY: UNIMPLEMENTED_SYSCALL; break;
     case ECV_KEYCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_EXECVE: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_MMAP: UNIMPLEMENTED_SYSCALL; break;
     case ECV_FADVISE64: UNIMPLEMENTED_SYSCALL; break;

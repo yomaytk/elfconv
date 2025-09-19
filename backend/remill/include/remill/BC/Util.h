@@ -17,6 +17,8 @@
 #pragma once
 
 // clang-format off
+#include <llvm/Bitstream/BitCodeEnums.h>
+#include <sstream>
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #pragma clang diagnostic ignored "-Wconversion"
@@ -306,5 +308,7 @@ bool isu128v2Ty(llvm::LLVMContext &context, llvm::Type *arg_type);
 
 // output the args and body of the llvm::Function*
 std::stringstream OutLLVMFunc(llvm::Function *func);
+// output the basic block details
+std::stringstream OutLLVMBB(llvm::BasicBlock *bb);
 
 }  // namespace remill

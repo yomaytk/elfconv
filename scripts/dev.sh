@@ -71,9 +71,15 @@ lifting() {
     target_arch='wasi32'
   fi
 
-  test_mode="off"
-  if [ "$TEST_MODE" = "on" ] || [ "$DEBUG_QEMU" = "on" ]; then
-    test_mode="on"
+  norm_mode="0"
+  if [ "$TEST_MODE" = "1" ] || [ "$DEBUG_QEMU" = "on" ]; then
+    norm_mode="1"
+  fi
+
+  fork_emulation_emcc_fiber="0"
+  if [ "$FORK_EMULATION_EMCC_FIBER" = "1" ]; then
+    echo -e "[${GREEN}INFO${NC}] fork-emulation-emcc-fiber is enabled."
+    fork_emulation_emcc_fiber="1"
   fi
   
   ${BUILD_LIFTER_DIR}/elflift \
@@ -84,7 +90,8 @@ lifting() {
   --bitcode_path "$4" \
   --target_arch "$target_arch" \
   --float_exception "$FLOAT_STATUS_FLAG" \
-  --test_mode "$test_mode"
+  --norm_mode "$norm_mode" \
+  --fork_emulation_emcc_fiber "$fork_emulation_emcc_fiber"
  
   echo -e "[${GREEN}INFO${NC}] lift.bc was generated."
   
@@ -116,7 +123,7 @@ main() {
   fi
 
   # ELF -> LLVM bc
-  if [ -z "$NOT_LIFTED" ]; then
+  if [ -z "$NOT_LIFTED" ] && [ -z "$NOT_COMPILED" ]; then
     arch_name=${TARGET%%-*}
     lifting "$1" "$arch_name" "$2" "$3"
   fi
@@ -142,14 +149,18 @@ main() {
     RUNTIME_MACRO="$RUNTIME_MACRO -DNOSYS_EXIT"
   fi
 
+  TARGET_PRG=
   # LLVM bc -> target file
   case "$TARGET" in
     *-native)
       echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for $HOST_CPU)... "
-      if [ -z "$NOT_LIFTED" ]; then
+      TARGET_PRG=lift.o
+      
+      if [ -z "$NOT_COMPILED" ]; then
         $CXX $CLANGFLAGS $RUNTIME_MACRO -c lift.ll -o lift.o
       fi
-      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" lift.o $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
+      
+      $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
       if [ -n "$OUT_EXE" ]; then
         mv "exe.${HOST_CPU}" "$OUT_EXE"
@@ -158,16 +169,26 @@ main() {
     ;;
     *-wasm)
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
+      TARGET_PRG=lift.wasm.o
+      
       PRELOAD=
       if [ -n "$MOUNT_DIR" ]; then
         PRELOAD="--preload-file ${MOUNT_DIR}"
       fi
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
-      if [ -z "$NOT_LIFTED" ]; then
+      
+      if [ -z "$NOT_COMPILED" ]; then
         $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
       fi
-      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js -sALLOW_MEMORY_GROWTH -sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              lift.wasm.o $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+
+      EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
+      if [ -n "$FORK_EMULATION_EMCC_FIBER" ]; then
+        EMCC_ASYNC_OPTION="-sASYNCIFY"
+        RUNTIME_MACRO="$RUNTIME_MACRO -D__EMSCRIPTEN_FORK_FIBER__"
+      fi
+      
+      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
+                              $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
       
       # move generated files to `examples/browser`
@@ -190,9 +211,14 @@ main() {
     ;;
     *-wasi32)
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
-      cd $BUILD_DIR
+      TARGET_PRG=lift.wasi.o
+
+      if [ -z "$NOT_COMPILED" ]; then
+        $WASISDKCC $WASISDKFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasi.o
+      fi
+      
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
-      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm lift.ll $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
+      $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[${GREEN}INFO${NC}] exe.wasm was generated."
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
       echo -e "[${GREEN}INFO${NC}] Universal compile optimization was done. (exe_o3.wasm)"

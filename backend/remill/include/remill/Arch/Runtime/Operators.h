@@ -23,55 +23,55 @@ class RuntimeManager;
 
 #include <limits>
 
-extern "C" const uint8_t *memory_arena_ptr;
+extern "C" const uint8_t *MemoryArenaPtr;
 
-#define __remill_read_memory_macro8(run_mgr, addr) *(uint8_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macro16(run_mgr, addr) *(uint16_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macro32(run_mgr, addr) *(uint32_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macro64(run_mgr, addr) *(uint64_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macro128(run_mgr, addr) *(uint128_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macrof32(run_mgr, addr) *(float32_t *) (memory_arena_ptr + addr)
-#define __remill_read_memory_macrof64(run_mgr, addr) *(float64_t *) (memory_arena_ptr + addr)
+#define __remill_read_memory_macro8(run_mgr, addr) *(uint8_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macro16(run_mgr, addr) *(uint16_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macro32(run_mgr, addr) *(uint32_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macro64(run_mgr, addr) *(uint64_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macro128(run_mgr, addr) *(uint128_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macrof32(run_mgr, addr) *(float32_t *) (MemoryArenaPtr + addr)
+#define __remill_read_memory_macrof64(run_mgr, addr) *(float64_t *) (MemoryArenaPtr + addr)
 
 #define __remill_write_memory_macro8(run_mgr, addr, src) \
   do { \
-    auto dst = (uint8_t *) (memory_arena_ptr + addr); \
+    auto dst = (uint8_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macro16(run_mgr, addr, src) \
   do { \
-    auto dst = (uint16_t *) (memory_arena_ptr + addr); \
+    auto dst = (uint16_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macro32(run_mgr, addr, src) \
   do { \
-    auto dst = (uint32_t *) (memory_arena_ptr + addr); \
+    auto dst = (uint32_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macro64(run_mgr, addr, src) \
   do { \
-    auto dst = (uint64_t *) (memory_arena_ptr + addr); \
+    auto dst = (uint64_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macro128(run_mgr, addr, src) \
   do { \
-    auto dst = (uint128_t *) (memory_arena_ptr + addr); \
+    auto dst = (uint128_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macrof32(run_mgr, addr, src) \
   do { \
-    auto dst = (float32_t *) (memory_arena_ptr + addr); \
+    auto dst = (float32_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 
 #define __remill_write_memory_macrof64(run_mgr, addr, src) \
   do { \
-    auto dst = (float64_t *) (memory_arena_ptr + addr); \
+    auto dst = (float64_t *) (MemoryArenaPtr + addr); \
     *dst = src; \
   } while (0);
 

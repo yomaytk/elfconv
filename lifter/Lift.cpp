@@ -51,11 +51,11 @@ DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
 DEFINE_string(float_exception, "off", "Whether the floating-point exception status is set or not");
 DEFINE_string(
-    test_mode, "off",
+    norm_mode, "0",
     "Whether the test mode is on or off");  // We use `test_mode` for not only test mode but also `no VRP` mode.
+DEFINE_string(fork_emulation_emcc_fiber, "",
+              "enable the function of emulating fork syscall using emscripten Fiber.");
 
-// (FIXME) seems to should make the init program for every CPU architecture.
-bool FLOAT_STATUS_ON;
 ArchName remill::EcvReg::target_elf_arch;
 
 extern "C" void debug_stream_out_sigaction(int sig, siginfo_t *info, void *ctx) {
@@ -107,10 +107,10 @@ int main(int argc, char *argv[]) {
   }
 
   // Set various lifting config.
-  LiftConfig lift_config = {.float_exception_enabled = FLAGS_float_exception == "on",
-                            .test_mode = FLAGS_test_mode == "on",
-                            .target_elf_arch = arch_name};
-  FLOAT_STATUS_ON = FLAGS_float_exception == "on";
+  auto lift_config = LiftConfig(FLAGS_float_exception == "on",
+                                FLAGS_norm_mode == "1" || FLAGS_fork_emulation_emcc_fiber == "1",
+                                arch_name, FLAGS_fork_emulation_emcc_fiber == "1");
+
   remill::EcvReg::target_elf_arch = arch_name;
   remill::IntrinsicTable intrinsics(module.get());
   MainLifter main_lifter(arch.get(), &manager, lift_config);
@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
   } while (!manager.rest_disasm_funcs.empty());
 
   // If we lift with `test_mode`, we should disable `able_vrp_opt`.
-  manager.elf_obj.able_vrp_opt = !lift_config.test_mode;
+  manager.elf_obj.able_vrp_opt = !lift_config.norm_mode;
 
   // Subsequence process of lifting.
   if (manager.elf_obj.able_vrp_opt) {

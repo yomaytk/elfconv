@@ -290,6 +290,7 @@ Instruction::Instruction(void)
       branch_not_taken_pc(0),
       arch_name(kArchInvalid),
       sub_arch_name(kArchInvalid),
+      lift_config(LiftConfig(false, false, kArchInvalid, false)),
       branch_taken_arch_name(kArchInvalid),
       arch(nullptr),
       is_atomic_read_modify_write(false),
@@ -307,6 +308,7 @@ void Instruction::Reset(void) {
   branch_not_taken_pc = 0;
   arch_name = kArchInvalid;
   sub_arch_name = kArchInvalid;
+  lift_config = LiftConfig(false, false, kArchInvalid, false);
   branch_taken_arch_name = kArchInvalid;
   is_atomic_read_modify_write = false;
   has_branch_taken_delay_slot = false;

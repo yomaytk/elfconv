@@ -1,5 +1,7 @@
 #include "Memory.h"
 
+#include "remill/Arch/AArch64/Runtime/State.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -9,7 +11,7 @@
 #include <utils/elfconv.h>
 
 #if defined(ELF_IS_AARCH64)
-#  define SP_REG state.gpr.sp.qword
+#  define SP_REG state->gpr.sp.qword
 #elif defined(ELF_IS_AMD64)
 #  define SP_REG state.gpr.rsp.qword
 #endif
@@ -23,9 +25,10 @@
 _ecv_reg64_t TASK_STRUCT_VMA;
 #endif
 
-MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[], State &state) {
+MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State *state) {
 
   char *env_ptr[1000];
+
 #if defined(__wasm__)
   env_ptr[0] = NULL;
 #else
@@ -33,6 +36,7 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
     env_ptr[i] = envp[i];
   }
 #endif
+
   /* Initialize Stack */
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
@@ -180,6 +184,28 @@ MappedMemory *MappedMemory::MemoryArenaInit(int argc, char *argv[], char *envp[]
   // starting stack pointer indicates the pointer of `argc`.
   SP_REG = sp;
 
-  return new MappedMemory(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
-                          bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
+  return new MemoryArena(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
+                         bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
 }
+
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
+EcvProcess *EcvProcess::EcvProcessCopied() {
+  auto new_memory_arena = new MemoryArena();
+  auto new_cpu_state = (State *) malloc(sizeof(State));
+
+  // copy memory arena
+  new_memory_arena->memory_area_type = memory_arena->memory_area_type;
+  new_memory_arena->name = memory_arena->name;
+  new_memory_arena->vma = memory_arena->vma;
+  new_memory_arena->len = memory_arena->len;
+  new_memory_arena->bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
+  memset(new_memory_arena->bytes, 0, MEMORY_ARENA_SIZE);
+  memcpy(new_memory_arena->bytes, memory_arena->bytes, MEMORY_ARENA_SIZE);
+  new_memory_arena->heap_cur = memory_arena->heap_cur;
+  new_memory_arena->stack_init_diff = memory_arena->stack_init_diff;
+  // copy CPU state
+  memcpy(new_cpu_state, cpu_state, sizeof(State));
+
+  return new EcvProcess(new_memory_arena, new_cpu_state, call_history);
+}
+#endif

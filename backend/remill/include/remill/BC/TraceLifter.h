@@ -17,6 +17,7 @@
 #pragma once
 
 #include "remill/Arch/Arch.h"
+#include "remill/BC/InstructionLifter.h"
 #include "remill/BC/Lifter.h"
 
 #include <cstdint>
@@ -179,12 +180,6 @@ class BBBag {
   bool is_loop;
 };
 
-struct LiftConfig {
-  bool float_exception_enabled;
-  bool test_mode;
-  ArchName target_elf_arch;
-};
-
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
 class TraceLifter {
  public:
@@ -238,6 +233,9 @@ class VirtualRegsOpt {
   static void CalPassedCallerRegForBJump();
 
   void OptimizeVirtualRegsUsage();
+
+  // This is used for process management on Wasm environment, instead of VRP optimization.
+  void JoinBBsForMultiProcesses();
 
   static inline std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_v_r_opt_map = {};
   static inline std::unordered_map<llvm::Function *, std::vector<llvm::Function *>>
@@ -369,6 +367,8 @@ class TraceLifter::Impl {
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
 
+  void JoinBBsForMultiProcesses();
+
   void Optimize();
 
   const Arch *const arch;
@@ -384,6 +384,7 @@ class TraceLifter::Impl {
   llvm::BasicBlock *indirectbr_block;
   BBRegInfoNode *bb_reg_info_node;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
+  std::map<llvm::BasicBlock *, uint64_t> rev_lifted_block_map;
   std::vector<std::pair<llvm::BasicBlock *, llvm::Value *>> br_blocks;
   bool lift_all_insn;
   const size_t max_inst_bytes;
@@ -396,13 +397,17 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
+  // process management
+  std::set<llvm::BasicBlock *> lift_or_system_calling_bbs;
+  std::map<llvm::BasicBlock *, uint64_t> inst_nums_in_bb;
+
   LiftConfig lift_config;
 
   // In the latest implementation, we don't use this because we can apply VPR optimization to the almost Linux/ELF binary.
   // Then, we occur the exception when we enter the process of the `not` VRP optimization, or comment out the relevant functions.
   bool vrp_opt_mode;
 
-  bool test_mode;
+  bool norm_mode;
 
   std::set<llvm::Function *> opt_target_funcs;
   std::set<llvm::Function *> lifted_funcs;
