@@ -15,7 +15,7 @@ $ make # mnist.aarch64 is generated, and you can convert it.
 - This is a software suite that provides several Unix utilities in a single executable file. [wiki](https://en.wikipedia.org/wiki/BusyBox)
 - We should set some configuration when we build this project. You can use [`examples-repos/.config`](https://github.com/yomaytk/elfconv/tree/main/examples/examples-repos/.config) for configuration.
 > [!WARNING]
-> When you convert the busybox binary by elfconv, please use `scripts/dev.sh` and add the environment variable `TEST_MODE=on`.
+> When you convert the busybox binary by elfconv, please use `scripts/dev.sh` and add the environment variable `TEST_MODE=1`.
 
 ```bash
 $ git clone https://github.com/mirror/busybox
