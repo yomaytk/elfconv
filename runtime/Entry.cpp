@@ -63,10 +63,6 @@ int main(int argc, char *argv[], char *envp[]) {
   cpu_state->sr.midr_el1 = {.qword = 0xf0510};
   cpu_state->sr.ctr_el0 = {.qword = 0x80038003};
   cpu_state->sr.dczid_el0 = {.qword = 0x4};
-#  if defined(DEBUG_WITH_QEMU)
-  // QEMU seems to init PSTATE as the Z flag is raised.
-  CPUState.ecv_nzcv = 0x40000000;
-#  endif
 #endif
 
   EcvProcess *main_ecv_process;

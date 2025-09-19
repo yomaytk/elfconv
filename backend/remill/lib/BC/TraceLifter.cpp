@@ -886,10 +886,13 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     llvm::PHINode *br_vma_phi;
     llvm::BasicBlock *near_jump_bb, *remill_jump_bb;
 
+    if (inst.lift_config.fork_emulation_emcc_fiber) {
+      near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump_instruction", func);
+    }
+
     //  Add switch branch basic block for intraprocedural indirect jump instruction.
     if (indirectbr_block) {
       if (inst.lift_config.fork_emulation_emcc_fiber) {
-        near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump_instruction", func);
         remill_jump_bb = llvm::BasicBlock::Create(context, "", func);
         // Add basic block address of remill_jump_bb to the grobal data array.
         bb_addrs.push_back(llvm::BlockAddress::get(func, remill_jump_bb));

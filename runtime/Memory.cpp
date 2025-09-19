@@ -61,23 +61,6 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
   memcpy(SP_REAL_ADDR, _ecv_e_ph, e_ph_size);
   phdr = sp;
 
-  /* Initialize psuedo task_struct for Wasm on the stack */
-#if defined(__wasm__)
-  struct {
-    char comm[16];
-  } _ecv_task_struct;
-
-  if (strlen(TASK_NAME) > 16) {
-    strncpy(_ecv_task_struct.comm, TASK_NAME, 16);
-  } else {
-    strcpy(_ecv_task_struct.comm, TASK_NAME);
-  }
-
-  sp -= sizeof(_ecv_task_struct);
-  TASK_STRUCT_VMA = sp;
-  memcpy(SP_REAL_ADDR, &_ecv_task_struct, sizeof(_ecv_task_struct));
-#endif
-
   sp -= sp & 0xf;  // This sp points to the stack bottom (16 bit align).
 
   // end marker
