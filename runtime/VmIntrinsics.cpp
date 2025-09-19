@@ -221,7 +221,7 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma,
   return res;
 }
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
 extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
   EcvProcess *cur_ecv_pr, *next_ecv_pr;
 

@@ -18,15 +18,11 @@
 
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
-#include "remill/BC/ABI.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/InstructionLifter.h"
-#include "remill/BC/Util.h"
 
 #include <cstdint>
 #include <glog/logging.h>
-#include <llvm/IR/Argument.h>
-#include <llvm/IR/Constants.h>
 #include <type_traits>
 
 namespace remill {
@@ -777,16 +773,18 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 
   llvm::IRBuilder<> ir(block);
 
-  if (arch_inst.function.starts_with("SVC_EX")) {
-    llvm::Value *fiber_fun_addr_ref, *pc_ref;
-    // save fiber func addr
-    fiber_fun_addr_ref = LoadRegAddress(block, state_ptr, kFiberFunAddrVariableName).first;
-    pc_ref = LoadRegAddress(block, state_ptr, kPCVariableName).first;
-    ir.CreateStore(remill::NthArgument(func, kPCArgNum), fiber_fun_addr_ref);
-    // save next pc
-    ir.CreateStore(
-        llvm::ConstantInt::get(llvm::Type::getInt64Ty(module->getContext()), arch_inst.next_pc),
-        pc_ref);
+  if (arch_inst.lift_config.fork_emulation_emcc_fiber) {
+    if (arch_inst.function.starts_with("SVC_EX")) {
+      llvm::Value *fiber_fun_addr_ref, *pc_ref;
+      // save fiber func addr
+      fiber_fun_addr_ref = LoadRegAddress(block, state_ptr, kFiberFunAddrVariableName).first;
+      pc_ref = LoadRegAddress(block, state_ptr, kPCVariableName).first;
+      ir.CreateStore(remill::NthArgument(func, kPCArgNum), fiber_fun_addr_ref);
+      // save next pc
+      ir.CreateStore(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(module->getContext()), arch_inst.next_pc),
+          pc_ref);
+    }
   }
 
   // Call the function that implements the instruction semantics.

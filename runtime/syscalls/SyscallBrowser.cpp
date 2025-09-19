@@ -452,6 +452,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */
     {
 
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
       // only one process.
       if (CPUState->has_fibers == 0 || ecv_processes.size() == 1) {
         exit(X0_D);
@@ -486,6 +487,9 @@ void RuntimeManager::SVCBrowserCall(void) {
       GcUnusedFibers();
       // swap
       emscripten_fiber_swap(cur_fb_t, next_ecv_pr->fb_t);
+#else
+      exit(X0_D);
+#endif
     } break;
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
@@ -583,7 +587,13 @@ void RuntimeManager::SVCBrowserCall(void) {
         default: X0_D = -_LINUX_EINVAL; break;
       }
     } break;
-    case ECV_GETPID: /* getpid () */ X0_D = cur_ecv_process->ecv_pid; break;
+    case ECV_GETPID: /* getpid () */
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
+      X0_D = cur_ecv_process->ecv_pid;
+#else
+      X0_D = getpid();
+#endif
+      break;
     case ECV_GETPPID: /* getppid () */ X0_D = getppid(); break;
     case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
     case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
@@ -605,6 +615,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
 
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
       EcvProcess *cur_ecv_pr, *new_ecv_pr;
       State *cur_state, *new_state;
 
@@ -637,6 +648,9 @@ void RuntimeManager::SVCBrowserCall(void) {
 
       // switch process.
       emscripten_fiber_swap(cur_ecv_pr->fb_t, new_ecv_pr->fb_t);
+#else
+      UNIMPLEMENTED_SYSCALL;
+#endif
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */

@@ -156,8 +156,6 @@ class AArch64TestTraceManager : public remill::TraceManager {
 
 }  // namespace
 
-// (FIXME) seems to should make the init program for every CPU architecture.
-bool FLOAT_STATUS_ON;
 remill::ArchName remill::EcvReg::target_elf_arch;
 
 extern "C" int main(int argc, char *argv[]) {
@@ -195,15 +193,12 @@ extern "C" int main(int argc, char *argv[]) {
   auto arch = remill::Arch::Build(&context, os_name, arch_name);
   auto module = remill::LoadArchSemantics(arch.get());
 
-  remill::LiftConfig lift_config = {.float_exception_enabled = false,
-                                    .test_mode = true,
-                                    .target_elf_arch = remill::kArchAArch64LittleEndian};
-  FLOAT_STATUS_ON = lift_config.float_exception_enabled;
+  auto lift_config = remill::LiftConfig(false, true, remill::kArchAArch64LittleEndian, false);
   remill::EcvReg::target_elf_arch = lift_config.target_elf_arch;
 
   remill::IntrinsicTable intrinsics(module.get());
   remill::TraceLifter trace_lifter(arch.get(), manager, lift_config);
-  trace_lifter.impl->test_mode = true;
+  trace_lifter.impl->norm_mode = true;
   trace_lifter.impl->vrp_opt_mode = false;
 
   for (auto test : tests) {

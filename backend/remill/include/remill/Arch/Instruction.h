@@ -216,6 +216,8 @@ class Instruction {
   // of instructions.
   ArchName sub_arch_name;
 
+  LiftConfig lift_config;
+
   // Name of the architecture of the branch taken target.
   /// We may not know the arch name if it is an indirect jump
   std::optional<ArchName> branch_taken_arch_name;

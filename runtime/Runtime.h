@@ -10,7 +10,7 @@
 
 #define FIBER_STACK_SIZE 32 * 1024
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
 struct EcvFiberData {
   emscripten_fiber_t *fb_t;
   void *cstack;
@@ -36,7 +36,7 @@ struct FiberArgs {
 };
 #endif
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
 class RuntimeManager {
  public:
   RuntimeManager(EcvProcess *__ecv_process)

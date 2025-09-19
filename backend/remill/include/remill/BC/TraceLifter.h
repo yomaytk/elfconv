@@ -17,6 +17,7 @@
 #pragma once
 
 #include "remill/Arch/Arch.h"
+#include "remill/BC/InstructionLifter.h"
 #include "remill/BC/Lifter.h"
 
 #include <cstdint>
@@ -177,12 +178,6 @@ class BBBag {
   BBBag *converted_bag;
 
   bool is_loop;
-};
-
-struct LiftConfig {
-  bool float_exception_enabled;
-  bool test_mode;
-  ArchName target_elf_arch;
 };
 
 // Implements a recursive decoder that lifts a trace of instructions to bitcode.
@@ -412,7 +407,7 @@ class TraceLifter::Impl {
   // Then, we occur the exception when we enter the process of the `not` VRP optimization, or comment out the relevant functions.
   bool vrp_opt_mode;
 
-  bool test_mode;
+  bool norm_mode;
 
   std::set<llvm::Function *> opt_target_funcs;
   std::set<llvm::Function *> lifted_funcs;

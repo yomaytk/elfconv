@@ -24,7 +24,6 @@
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/GlobalVariable.h>
-#include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
@@ -452,25 +451,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
 
       inst.Reset();
-
+      // set the specified config of lifting.
+      inst.lift_config = lift_config;
 
       // TODO(Ian): not passing context around in trace lifter
       std::ignore =
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
-
-#if defined(DEBUG_WITH_QEMU)
-      llvm::IRBuilder<> ir2(block);
-      auto check_fun = module->getFunction("debug_check_state_with_qemu");
-      ir2.CreateCall(check_fun, {runtime_ptr,
-                                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
-#endif
-#if defined(NOOPT_REAL_REGS_DEBUG)
-      llvm::IRBuilder<> ir3(block);
-      auto [pc_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, kPCVariableName);
-      ir3.CreateStore(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc), pc_ptr);
-      auto check_fun = module->getFunction("debug_gprs_nzcv");
-      ir3.CreateCall(check_fun, {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.pc)});
-#endif
 
       // Lift instruction
       auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);
@@ -585,7 +571,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           // if the next instruction is not included in this function, jumping to it is illegal.
           // Therefore, we force to return at this block because we assume that this instruction don't come back to.
-          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
+          if (inst.lift_config.fork_emulation_emcc_fiber) {
+            lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
+          }
           if (manager.isFunctionEntry(inst.next_pc)) {
             llvm::ReturnInst::Create(context, block);
           } else {
@@ -600,13 +588,17 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
           llvm::IRBuilder<> ir(block);
           llvm::Value *t_func_addr = FindIndirectBrAddress(block);
-          // call "_ecv_save_call_history"
-          llvm::Value *cur_func_addr =
-              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
-          llvm::Value *t_ret_addr =
-              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
-          ir.CreateCall(module->getFunction("_ecv_save_call_history"),
-                        {runtime_ptr, cur_func_addr, t_ret_addr});
+
+          if (inst.lift_config.fork_emulation_emcc_fiber) {
+            // call "_ecv_save_call_history"
+            llvm::Value *cur_func_addr =
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
+            llvm::Value *t_ret_addr =
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
+            ir.CreateCall(module->getFunction("_ecv_save_call_history"),
+                          {runtime_ptr, cur_func_addr, t_ret_addr});
+            lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
+          }
 
           // indirect jump address is value of %Xzzz just before
           auto lifted_func_call =
@@ -616,7 +608,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           virtual_regs_opt->lifted_func_caller_set.insert(lifted_func_call);
           block = not_taken_block;
 
-          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           continue;
         }
 
@@ -679,13 +670,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           trace_work_list.insert(inst.branch_taken_pc);
           llvm::IRBuilder<> ir(block);
 
-          // call "_ecv_save_call_history"
-          llvm::Value *cur_func_addr =
-              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
-          llvm::Value *t_ret_addr =
-              llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
-          ir.CreateCall(module->getFunction("_ecv_save_call_history"),
-                        {runtime_ptr, cur_func_addr, t_ret_addr});
+          if (inst.lift_config.fork_emulation_emcc_fiber) {
+            // call "_ecv_save_call_history"
+            llvm::Value *cur_func_addr =
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
+            llvm::Value *t_ret_addr =
+                llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst.next_pc);
+            ir.CreateCall(module->getFunction("_ecv_save_call_history"),
+                          {runtime_ptr, cur_func_addr, t_ret_addr});
+            lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
+          }
 
           // call lifted function
           llvm::CallInst *lifted_func_call = AddCall(
@@ -695,7 +689,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
           DirectBranchWithSaveParents(GetOrCreateBranchNotTakenBlock(), block);
 
-          lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           continue;
         }
 
@@ -877,52 +870,89 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       goto inst_lifting_start;
     }
 
-    // prepare inst_nums_in_bb (this is necessary before `JoinBBsForMultiProcesses` and `L_fiber_switch` making).
-    for (auto &[_, t_bb] : lifted_block_map) {
-      inst_nums_in_bb[t_bb] = 1;
-    }
+    if (inst.lift_config.fork_emulation_emcc_fiber) {
+      // prepare inst_nums_in_bb (this is necessary before `JoinBBsForMultiProcesses` and `L_fiber_switch` making).
+      for (auto &[_, t_bb] : lifted_block_map) {
+        inst_nums_in_bb[t_bb] = 1;
+      }
 
-    // Join basic blocks for reducing the target to jump by fiber process managements.
-    if (!indirectbr_block) {
-      virtual_regs_opt->JoinBBsForMultiProcesses();
+      // Join basic blocks for reducing the target to jump by fiber process managements.
+      if (!indirectbr_block) {
+        virtual_regs_opt->JoinBBsForMultiProcesses();
+      }
     }
 
     std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
     llvm::PHINode *br_vma_phi;
     llvm::BasicBlock *near_jump_bb, *remill_jump_bb;
 
-    near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump_instruction", func);
-
     //  Add switch branch basic block for intraprocedural indirect jump instruction.
     if (indirectbr_block) {
-      remill_jump_bb = llvm::BasicBlock::Create(context, "", func);
-      // Add basic block address of remill_jump_bb to the grobal data array.
-      bb_addrs.push_back(llvm::BlockAddress::get(func, remill_jump_bb));
-      bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
-      //  indirectbr_block
-      llvm::IRBuilder<> ir_1(indirectbr_block);
-      //  function to calculate the target basic block address
-      br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
-      for (auto &br_pair : br_blocks) {
-        auto br_block = br_pair.first;
-        auto dest_addr = br_pair.second;
-        br_vma_phi->addIncoming(dest_addr, br_block);
-        virtual_regs_opt->bb_parents[br_block].insert(indirectbr_block);
+      if (inst.lift_config.fork_emulation_emcc_fiber) {
+        near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump_instruction", func);
+        remill_jump_bb = llvm::BasicBlock::Create(context, "", func);
+        // Add basic block address of remill_jump_bb to the grobal data array.
+        bb_addrs.push_back(llvm::BlockAddress::get(func, remill_jump_bb));
+        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
+        //  indirectbr_block
+        llvm::IRBuilder<> ir_1(indirectbr_block);
+        //  function to calculate the target basic block address
+        br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
+        for (auto &br_pair : br_blocks) {
+          auto br_block = br_pair.first;
+          auto dest_addr = br_pair.second;
+          br_vma_phi->addIncoming(dest_addr, br_block);
+          virtual_regs_opt->bb_parents[br_block].insert(indirectbr_block);
+        }
+        ir_1.CreateBr(near_jump_bb);
+        // Update cache for `remill_jump` block.
+        virtual_regs_opt->bb_parents.insert({remill_jump_bb, {indirectbr_block}});
+        CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(remill_jump_bb))
+            << "The entry block has been already added illegally to the VirtualRegsOpt.";
+        virtual_regs_opt->bb_reg_info_node_map.insert(
+            {remill_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
+      } else {
+        auto br_to_func_block = llvm::BasicBlock::Create(context, "", func);
+        // Add basic block address of br_to_func_block to the grobal data array.
+        bb_addrs.push_back(llvm::BlockAddress::get(func, br_to_func_block));
+        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
+        //  indirectbr_block
+        llvm::IRBuilder<> ir_1(indirectbr_block);
+        //  function to calculate the target basic block address
+        auto g_get_jmp_helper_fn = module->getFunction(
+            g_get_indirectbr_block_address_func_name); /* return type: uint64_t* */
+        auto br_vma_phi = ir_1.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
+        for (auto &br_pair : br_blocks) {
+          auto br_block = br_pair.first;
+          auto dest_addr = br_pair.second;
+          br_vma_phi->addIncoming(dest_addr, br_block);
+          virtual_regs_opt->bb_parents[br_block].insert(indirectbr_block);
+        }
+        auto target_bb_i64 = ir_1.CreateCall(
+            g_get_jmp_helper_fn,
+            {runtime_ptr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr),
+             br_vma_phi});
+        auto indirect_br_i = ir_1.CreateIndirectBr(
+            ir_1.CreatePointerCast(target_bb_i64, llvm::Type::getInt64PtrTy(context)),
+            bb_addrs.size());
+        for (auto &[_, lifted_block] : lifted_block_map) {
+          indirect_br_i->addDestination(lifted_block);
+        }
+        indirect_br_i->addDestination(br_to_func_block);
+        // Update cache for `remill_jump` block.
+        virtual_regs_opt->bb_parents.insert({br_to_func_block, {indirectbr_block}});
+        CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(br_to_func_block))
+            << "The entry block has been already added illegally to the VirtualRegsOpt.";
+        virtual_regs_opt->bb_reg_info_node_map.insert(
+            {br_to_func_block, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
+        // Add terminate.
+        AddTerminatingTailCall(br_to_func_block, intrinsics->jump, *intrinsics, -1, br_vma_phi);
       }
-      ir_1.CreateBr(near_jump_bb);
-      // Update cache for `remill_jump` block.
-      virtual_regs_opt->bb_parents.insert({remill_jump_bb, {indirectbr_block}});
-      CHECK(!virtual_regs_opt->bb_reg_info_node_map.contains(remill_jump_bb))
-          << "The entry block has been already added illegally to the VirtualRegsOpt.";
-      virtual_regs_opt->bb_reg_info_node_map.insert(
-          {remill_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
     }
 
-    // Add the entry basic block to jump the basic block specified by `PC`.
-    // if vrp_opt_mode is not set, the first instruction may be the instruction on the way.
-    // Then, the entry basic block decide the target basic block using indirectbr instruction.
-    // always be vrp_opt_mode.
-    if (!vrp_opt_mode) {
+    // Add the entry basic block to jump the any basic block specified by `PC`.
+    // In the current implementation, this is used for only fork emulation using emscripten fiber.
+    if (inst.lift_config.fork_emulation_emcc_fiber) {
       llvm::BasicBlock *root_bb, *org_first_bb;
       llvm::Instruction *root_trmi;
       std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
@@ -974,7 +1004,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           {near_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
     }
 
-    if (indirectbr_block || lift_config.test_mode /* always be vrp_opt_mode. !vrp_opt_mode */) {
+    if (indirectbr_block || lift_config.norm_mode /* always be vrp_opt_mode. !vrp_opt_mode */) {
       // Add StoreInst for the every semantics functions.
       // if the lifted function is `indirectbr_block` or `!vrp_opt_mode`, we must store the return values of semantics functions to the registers.
       auto &inst_lifter = inst.GetLifter();
@@ -1044,6 +1074,30 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
+    // Make various global data array of the basic block addresses for indirect jump.
+    // Add all basic block addresses of the lifted instructions.
+    if (indirectbr_block &&
+        !inst.lift_config
+             .fork_emulation_emcc_fiber /* always be vrp_opt_mode. || !vrp_opt_mode */) {
+      for (auto &[_vma, _bb] : lifted_block_map) {
+        bb_addrs.push_back(llvm::BlockAddress::get(func, _bb));
+        bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), _vma));
+      }
+      // Append the list to the global data.
+      auto g_bb_addrs = SetGblArrayIr(llvm::Type::getInt64PtrTy(context), bb_addrs,
+                                      func->getName() + ".bb_addrs");
+      auto g_bb_addr_vmas = SetGblArrayIr(llvm::Type::getInt64Ty(context), bb_addr_vmas,
+                                          func->getName() + ".bb_addr_vmas");
+      manager.g_block_address_ptrs_array.push_back(
+          llvm::ConstantExpr::getBitCast(g_bb_addrs, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_vmas_array.push_back(
+          llvm::ConstantExpr::getBitCast(g_bb_addr_vmas, llvm::Type::getInt64PtrTy(context)));
+      manager.g_block_address_size_array.push_back(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), bb_addrs.size()));
+      manager.g_block_address_fn_vma_array.push_back(
+          llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr));
+    }
+
     // If the lifted function doesn't have the indirect jump instruction or is not noopt target function, we optimize it.
     if (!indirectbr_block) {
       opt_target_funcs.insert(func);
@@ -1056,72 +1110,74 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
-    llvm::BasicBlock *entry_bb;
-    llvm::Value *has_fibers_ref;
-    llvm::Type *u64ty;
+    if (inst.lift_config.fork_emulation_emcc_fiber) {
 
-    entry_bb = &(func->front());
-    has_fibers_ref =
-        inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kHasFibersVariableName).first;
+      llvm::BasicBlock *entry_bb;
+      llvm::Value *has_fibers_ref;
+      llvm::Type *u64ty;
 
-    u64ty = llvm::Type::getInt64Ty(context);
+      entry_bb = &(func->front());
+      has_fibers_ref =
+          inst.GetLifter()->LoadRegAddress(entry_bb, state_ptr, kHasFibersVariableName).first;
 
+      u64ty = llvm::Type::getInt64Ty(context);
 
-    // L_fiber_switch which is used to switch to the other fiber.
-    auto fiber_switch_bb = llvm::BasicBlock::Create(context, "L_fiber_switch", func);
-    llvm::IRBuilder<> fiber_switch_ir(fiber_switch_bb);
-    // get the target bb to come back after switching.
-    auto fiber_switch_phi = fiber_switch_ir.CreatePHI(u64ty, lifted_block_map.size());
-    // call "_ecv_process_context_switch"
-    auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
-    fiber_switch_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
-    fiber_switch_ir.CreateBr(near_jump_bb);
+      // L_fiber_switch which is used to switch to the other fiber.
+      auto fiber_switch_bb = llvm::BasicBlock::Create(context, "L_fiber_switch", func);
+      llvm::IRBuilder<> fiber_switch_ir(fiber_switch_bb);
+      // get the target bb to come back after switching.
+      auto fiber_switch_phi = fiber_switch_ir.CreatePHI(u64ty, lifted_block_map.size());
+      // call "_ecv_process_context_switch"
+      auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
+      fiber_switch_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
+      fiber_switch_ir.CreateBr(near_jump_bb);
 
-    // Pass fiber_switch_phi to the `near_jump_bb`
-    if (auto first_inst = llvm::dyn_cast<llvm::PHINode>(&near_jump_bb->front()); first_inst) {
-      first_inst->addIncoming(fiber_switch_phi, fiber_switch_bb);
-    } else {
-      std::cout << LLVMThingToString(near_jump_bb) << std::endl;
-      LOG(FATAL) << "[ERROR] The first instruction of `L_near_jump_instruction` must be PHINode.";
-    }
+      // Pass fiber_switch_phi to the `near_jump_bb`
+      if (auto first_inst = llvm::dyn_cast<llvm::PHINode>(&near_jump_bb->front()); first_inst) {
+        first_inst->addIncoming(fiber_switch_phi, fiber_switch_bb);
+      } else {
+        std::cout << LLVMThingToString(near_jump_bb) << std::endl;
+        LOG(FATAL) << "[ERROR] The first instruction of `L_near_jump_instruction` must be PHINode.";
+      }
 
-    // Add inst_count increment and branch to L_fiber_switch
-    // against the every basic block.
-    for (auto &[tbb, tbb_inst_nums] : inst_nums_in_bb) {
-      auto tri = tbb->getTerminator();
-      llvm::IRBuilder<> ir5(tri);
-      // increment inst count
-      auto inst_count_val =
-          inst.GetLifter()->LoadRegValueBeforeInst(tbb, state_ptr, kInstCountVariableName, tri);
-      CHECK(tbb_inst_nums > 0);
-      auto inc_inst_count_val =
-          ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(u64ty, tbb_inst_nums));
-      auto [inst_count_ptr, _2] =
-          inst.GetLifter()->LoadRegAddress(tbb, state_ptr, kInstCountVariableName);
-      ir5.CreateStore(inc_inst_count_val, inst_count_ptr);
+      // Add inst_count increment and branch to L_fiber_switch
+      // against the every basic block.
+      for (auto &[tbb, tbb_inst_nums] : inst_nums_in_bb) {
+        auto tri = tbb->getTerminator();
+        llvm::IRBuilder<> ir5(tri);
+        // increment inst count
+        auto inst_count_val =
+            inst.GetLifter()->LoadRegValueBeforeInst(tbb, state_ptr, kInstCountVariableName, tri);
+        CHECK(tbb_inst_nums > 0);
+        auto inc_inst_count_val =
+            ir5.CreateAdd(inst_count_val, llvm::ConstantInt::get(u64ty, tbb_inst_nums));
+        auto [inst_count_ptr, _2] =
+            inst.GetLifter()->LoadRegAddress(tbb, state_ptr, kInstCountVariableName);
+        ir5.CreateStore(inc_inst_count_val, inst_count_ptr);
 
-      // set the branch to the fiber switch bb only against the no conditional br instruction.
-      if (llvm::dyn_cast<llvm::BranchInst>(tri) && tri->getNumSuccessors() == 1) {
-        auto norm_dest = tri->getSuccessor(0);
-        // For simplicity, skip if the norm_dest is `indirectbr_block`
-        if (norm_dest == indirectbr_block) {
-          continue;
+        // set the branch to the fiber switch bb only against the no conditional br instruction.
+        if (llvm::dyn_cast<llvm::BranchInst>(tri) && tri->getNumSuccessors() == 1) {
+          auto norm_dest = tri->getSuccessor(0);
+          // For simplicity, skip if the norm_dest is `indirectbr_block`
+          if (norm_dest == indirectbr_block) {
+            continue;
+          }
+          // threshold condition
+          auto threshold_cond =
+              ir5.CreateICmpUGE(inc_inst_count_val, llvm::ConstantInt::get(u64ty, 1000));
+          // has_fibers
+          auto has_fibers_u64 = ir5.CreateLoad(u64ty, has_fibers_ref);
+          auto has_fibers_check = ir5.CreateICmpNE(has_fibers_u64, ir5.getInt64(0));
+          auto fiber_switch = ir5.CreateAnd(threshold_cond, has_fibers_check, "fiber_switch");
+
+          tri->eraseFromParent();
+          llvm::IRBuilder<> ir6(tbb);
+          // branch to the fiber_switch_bb or norm_dest
+          ir6.CreateCondBr(fiber_switch, fiber_switch_bb, norm_dest);
+
+          fiber_switch_phi->addIncoming(
+              llvm::ConstantInt::get(u64ty, rev_lifted_block_map.at(norm_dest)), tbb);
         }
-        // threshold condition
-        auto threshold_cond =
-            ir5.CreateICmpUGE(inc_inst_count_val, llvm::ConstantInt::get(u64ty, 1000));
-        // has_fibers
-        auto has_fibers_u64 = ir5.CreateLoad(u64ty, has_fibers_ref);
-        auto has_fibers_check = ir5.CreateICmpNE(has_fibers_u64, ir5.getInt64(0));
-        auto fiber_switch = ir5.CreateAnd(threshold_cond, has_fibers_check, "fiber_switch");
-
-        tri->eraseFromParent();
-        llvm::IRBuilder<> ir6(tbb);
-        // branch to the fiber_switch_bb or norm_dest
-        ir6.CreateCondBr(fiber_switch, fiber_switch_bb, norm_dest);
-
-        fiber_switch_phi->addIncoming(
-            llvm::ConstantInt::get(u64ty, rev_lifted_block_map.at(norm_dest)), tbb);
       }
     }
 

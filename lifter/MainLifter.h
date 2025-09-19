@@ -102,7 +102,7 @@ class MainLifter : public TraceLifter {
                              std::vector<llvm::Constant *> &block_address_fn_vma_array);
 
     // If the ELF is stripped, we set opt mode on. Otherwise, we set it off.
-    void SetOptMode(bool able_vrp_opt, bool test_mode);
+    void SetOptMode(bool able_vrp_opt, bool norm_mode);
 
     //  Global variable array definition helper function
     llvm::GlobalVariable *SetGblArrayIr(
@@ -158,7 +158,7 @@ class MainLifter : public TraceLifter {
                            std::vector<llvm::Constant *> &block_address_vmas_array,
                            std::vector<llvm::Constant *> &block_address_size_array,
                            std::vector<llvm::Constant *> &block_address_fn_vma_array);
-  void SetOptMode(bool able_vrp_opt, bool test_mode);
+  void SetOptMode(bool able_vrp_opt, bool norm_mode);
   virtual void DeclareHelperFunction();
 
   void Optimize();

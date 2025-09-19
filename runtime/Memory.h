@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
 #  include <emscripten/fiber.h>
 #endif
 
@@ -102,7 +102,7 @@ class MemoryArena {
   uint64_t stack_init_diff;
 };
 
-#if defined(__EMSCRIPTEN__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__)
 class EcvProcess {
  public:
   EcvProcess(MemoryArena *__memory_arena, State *__cpu_state,
@@ -139,11 +139,11 @@ class EcvProcess {
 #else
 class EcvProcess {
  public:
-  EcvProcess(MemoryArena *__memory_arena, State __cpu_state)
+  EcvProcess(MemoryArena *__memory_arena, State *__cpu_state)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state) {}
 
   MemoryArena *memory_arena;
-  State cpu_state;
+  State *cpu_state;
 };
 #endif

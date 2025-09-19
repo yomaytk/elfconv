@@ -65,8 +65,8 @@ void MainLifter::SetBlockAddressData(std::vector<llvm::Constant *> &block_addres
                             block_address_sizes_array, block_address_fn_vma_array);
 }
 
-void MainLifter::SetOptMode(bool able_vrp_opt, bool test_mode) {
-  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt, test_mode);
+void MainLifter::SetOptMode(bool able_vrp_opt, bool norm_mode) {
+  static_cast<WrapImpl *>(impl.get())->SetOptMode(able_vrp_opt, norm_mode);
 }
 
 /* Declare helper function used in lifted LLVM bitcode */
@@ -113,7 +113,7 @@ void MainLifter::SetCommonMetaData(LiftConfig lift_config) {
              target_manager->elf_obj.e_ph);
   SetEntryPC(target_manager->entry_point);
   SetDataSections(target_manager->elf_obj.sections);
-  SetOptMode(target_manager->elf_obj.able_vrp_opt, lift_config.test_mode);
+  SetOptMode(target_manager->elf_obj.able_vrp_opt, lift_config.norm_mode);
 
   if (target_manager->target_arch == "aarch64") {
     SetPlatform("aarch64");
@@ -351,13 +351,13 @@ void MainLifter::WrapImpl::SetBlockAddressData(
                 ecv_block_address_fn_vma_array_name);
 }
 
-void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt, bool __test_mode) {
-  // vrp_opt always be disabled if the test_mode on.
-  if (__test_mode) {
-    test_mode = true;
+void MainLifter::WrapImpl::SetOptMode(bool able_vrp_opt, bool __norm_mode) {
+  // vrp_opt always be disabled if the norm_mode on.
+  if (__norm_mode) {
+    norm_mode = true;
     vrp_opt_mode = false;
   } else {
-    test_mode = false;
+    norm_mode = false;
     vrp_opt_mode = able_vrp_opt;
   }
 }
