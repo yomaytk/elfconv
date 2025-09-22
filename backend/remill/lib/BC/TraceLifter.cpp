@@ -900,7 +900,9 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
                          /* fn_vma is used only for debug*/ -1, t_vma_phi);
 
   // Add `store` the every result of calling semantics function to State structure.
-  AddStoreForAllSemantics();
+  if (lift_config.norm_mode) {
+    AddStoreForAllSemantics();
+  }
 
   // Define Basic Block address as global data (necessary for AArch64 `BR` instruction).
   for (auto &[_vma, _bb] : lifted_block_map) {
