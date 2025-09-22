@@ -234,9 +234,6 @@ class VirtualRegsOpt {
 
   void OptimizeVirtualRegsUsage();
 
-  // This is used for process management on Wasm environment, instead of VRP optimization.
-  void JoinBBsForMultiProcesses();
-
   static inline std::unordered_map<llvm::Function *, VirtualRegsOpt *> func_v_r_opt_map = {};
   static inline std::unordered_map<llvm::Function *, std::vector<llvm::Function *>>
       b_jump_callees_map = {};
@@ -367,7 +364,16 @@ class TraceLifter::Impl {
   void ConditionalBranchWithSaveParents(llvm::BasicBlock *true_bb, llvm::BasicBlock *false_bb,
                                         llvm::Value *condition, llvm::BasicBlock *src_bb);
 
-  void JoinBBsForMultiProcesses();
+  void AddStoreForAllSemantics();
+  void GenIndirectJumpCode(uint64_t trace_addr);
+
+  // emscripten fiber (fork)
+  void JoinBasicBlocksForFork();
+  void AddFiberNearJump();
+  void AddFiberSwitchBB();
+  void AddBrBBIR();
+  void AddFarJumpBB();
+  void FiberContextSwitchMain(uint64_t trace_addr);
 
   void Optimize();
 
@@ -381,7 +387,9 @@ class TraceLifter::Impl {
 
   llvm::Function *func;
   llvm::BasicBlock *block;
-  llvm::BasicBlock *indirectbr_block;
+  llvm::Argument *state_ptr, *runtime_ptr;
+  llvm::BasicBlock *br_bb, *far_jump_bb;
+  std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
   BBRegInfoNode *bb_reg_info_node;
   std::map<uint64_t, llvm::BasicBlock *> lifted_block_map;
   std::map<llvm::BasicBlock *, uint64_t> rev_lifted_block_map;
@@ -400,6 +408,8 @@ class TraceLifter::Impl {
   // process management
   std::set<llvm::BasicBlock *> lift_or_system_calling_bbs;
   std::map<llvm::BasicBlock *, uint64_t> inst_nums_in_bb;
+  llvm::BasicBlock *_fb_near_jump_bb;
+
 
   LiftConfig lift_config;
 
