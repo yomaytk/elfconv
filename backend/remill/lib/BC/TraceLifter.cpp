@@ -843,6 +843,18 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       opt_target_funcs.insert(func);
     }
 
+    // Add `store` the every result of calling semantics function to State structure.
+    if (br_bb || lift_config.norm_mode) {
+      AddStoreForAllSemantics();
+    }
+
+    // Add terminator to the all basic block to avoid error on CFG flat
+    for (auto &block : *func) {
+      if (!block.getTerminator()) {
+        AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
+      }
+    }
+
     callback(trace_addr, func);
     manager.SetLiftedTraceDefinition(trace_addr, func);
     virtual_regs_opt->block_num = lifted_block_map.size();
@@ -857,11 +869,11 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
   auto u64ptrty = llvm::Type::getInt64PtrTy(context);
 
   // Complete br_bb definition.
-  llvm::IRBuilder<> indirectbr_ir(br_bb);
+  llvm::IRBuilder<> br_ir(br_bb);
 
   // IR to get jump target VMA `from` every BR basic block.
   // i.e. t_vma_phi = phi i64 [ %t_vma1, $%br_bb_1 ], [ %t_vma2, %br_bb_2 ], [ %t_vma3, %br_bb_3 ], ...
-  auto t_vma_phi = indirectbr_ir.CreatePHI(u64ty, br_blocks.size());
+  auto t_vma_phi = br_ir.CreatePHI(u64ty, br_blocks.size());
   for (auto &[br_bb, t_vma] : br_blocks) {
     t_vma_phi->addIncoming(t_vma, br_bb);
     virtual_regs_opt->bb_parents[br_bb].insert(br_bb);
@@ -872,10 +884,10 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
   //      indirectbr ptr <t_bb_ptr>, [ %L1, %L2, ..., %Ln ]
   auto get_bbptr_func =
       module->getFunction(g_get_indirectbr_block_address_func_name); /* return type: uint64_t* */
-  auto t_bb_ptr = indirectbr_ir.CreateCall(
+  auto t_bb_ptr = br_ir.CreateCall(
       get_bbptr_func, {runtime_ptr, llvm::ConstantInt::get(u64ty, trace_addr), t_vma_phi});
-  auto br_jump = indirectbr_ir.CreateIndirectBr(indirectbr_ir.CreatePointerCast(t_bb_ptr, u64ptrty),
-                                                bb_addrs.size());
+  auto br_jump =
+      br_ir.CreateIndirectBr(br_ir.CreatePointerCast(t_bb_ptr, u64ptrty), bb_addrs.size());
   for (auto &[_, lifted_block] : lifted_block_map) {
     br_jump->addDestination(lifted_block);
   }
@@ -884,25 +896,19 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
   // `L_far_jump` is necessary in the case that the target VMA indicates the other function address.
   // (e.g. x7 indicates the other function address for `BR x7`)
   far_jump_bb = llvm::BasicBlock::Create(context, "L_far_jump", func);
-  // Add basic block address of far_jump_bb to the grobal data array.
-  bb_addrs.push_back(llvm::BlockAddress::get(func, far_jump_bb));
-  bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
-
   // `BR` instruction may jump to `L_far_jump`
   br_jump->addDestination(far_jump_bb);
-
-  // Update cache for `remill_jump` block.
-  virtual_regs_opt->bb_parents.insert({far_jump_bb, {br_bb}});
-  virtual_regs_opt->bb_reg_info_node_map.insert(
-      {far_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
-  // Add terminate to L_far_jump.
+  // Add terminator to `L_far_jump`.
   AddTerminatingTailCall(far_jump_bb, intrinsics->jump, *intrinsics,
                          /* fn_vma is used only for debug*/ -1, t_vma_phi);
 
-  // Add `store` the every result of calling semantics function to State structure.
-  if (lift_config.norm_mode) {
-    AddStoreForAllSemantics();
-  }
+  // Update cache for `L_far_jump` block.
+  virtual_regs_opt->bb_parents.insert({far_jump_bb, {br_bb}});
+  virtual_regs_opt->bb_reg_info_node_map.insert(
+      {far_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
+  // Add basic block address of far_jump_bb to the grobal data array.
+  bb_addrs.push_back(llvm::BlockAddress::get(func, far_jump_bb));
+  bb_addr_vmas.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), UINT64_MAX));
 
   // Define Basic Block address as global data (necessary for AArch64 `BR` instruction).
   for (auto &[_vma, _bb] : lifted_block_map) {
@@ -926,8 +932,6 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
 }
 
 void TraceLifter::Impl::AddStoreForAllSemantics() {
-
-  CHECK(br_bb || lift_config.norm_mode /* always be vrp_opt_mode. !vrp_opt_mode */);
 
   // Add StoreInst for the every semantics functions.
   // if the lifted function is `br_bb` or `!vrp_opt_mode`, we must store the return values of semantics functions to the registers.
@@ -953,24 +957,21 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
         auto call_next_inst = call_inst->getNextNode();
 
         if (write_regs.size() == 1) {
-          auto store_ecv_reg = write_regs[0].first;
-          auto store_ecv_reg_class = write_regs[0].second;
-          if (store_ecv_reg.number != IGNORE_WRITE_TO_WZR_ORDER &&
-              store_ecv_reg.number != IGNORE_WRITE_TO_XZR_ORDER) {
+          auto [str_er, str_erc] = write_regs[0];
+          if (str_er.number != IGNORE_WRITE_TO_WZR_ORDER &&
+              str_er.number != IGNORE_WRITE_TO_XZR_ORDER) {
             inst_lifter->StoreRegValueBeforeInst(
-                &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
-                virtual_regs_opt->CastFromInst(store_ecv_reg, call_inst,
-                                               virtual_regs_opt->ERC2WholeLLVMTy(store_ecv_reg),
-                                               call_next_inst),
+                &bb, state_ptr, str_er.GetRegName(str_erc),
+                virtual_regs_opt->CastFromInst(
+                    str_er, call_inst, virtual_regs_opt->ERC2WholeLLVMTy(str_er), call_next_inst),
                 call_next_inst);
           }
         } else if (write_regs.size() > 1) {
           for (uint32_t i = 0; i < write_regs.size(); i++) {
             llvm::Instruction *from_extracted_inst;
-            auto store_ecv_reg = write_regs[i].first;
-            auto store_ecv_reg_class = write_regs[i].second;
-            if (store_ecv_reg.number == IGNORE_WRITE_TO_WZR_ORDER ||
-                store_ecv_reg.number == IGNORE_WRITE_TO_XZR_ORDER) {
+            auto [str_er, str_erc] = write_regs[i];
+            if (str_er.number == IGNORE_WRITE_TO_WZR_ORDER ||
+                str_er.number == IGNORE_WRITE_TO_XZR_ORDER) {
               continue;
             }
             if (llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
@@ -986,9 +987,9 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
                          << "pc: " << Sema_func_vma_map.at(call_inst);
             }
             inst_lifter->StoreRegValueBeforeInst(
-                &bb, state_ptr, store_ecv_reg.GetRegName(store_ecv_reg_class),
-                virtual_regs_opt->CastFromInst(store_ecv_reg, from_extracted_inst,
-                                               virtual_regs_opt->ERC2WholeLLVMTy(store_ecv_reg),
+                &bb, state_ptr, str_er.GetRegName(str_erc),
+                virtual_regs_opt->CastFromInst(str_er, from_extracted_inst,
+                                               virtual_regs_opt->ERC2WholeLLVMTy(str_er),
                                                call_next_inst),
                 call_next_inst);
           }

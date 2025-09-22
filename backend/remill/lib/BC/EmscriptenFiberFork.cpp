@@ -323,13 +323,6 @@ void TraceLifter::Impl::FiberContextSwitchMain(uint64_t trace_addr) {
 
   AddStoreForAllSemantics();
 
-  // Add terminator to the all basic block to avoid error on CFG flat
-  for (auto &block : *func) {
-    if (!block.getTerminator()) {
-      AddTerminatingTailCall(&block, intrinsics->missing_block, *intrinsics, trace_addr);
-    }
-  }
-
   AddFiberSwitchBB();
 }
 
