@@ -287,6 +287,12 @@ class InstructionLifter : public InstructionLifterIntf {
                                    llvm::Value *state_ptr, BBRegInfoNode *bb_reg_info_node,
                                    bool is_delayed = false) override;
 
+  LiftStatus LiftAArch64EveryOperand(Instruction &inst, llvm::BasicBlock *block,
+                                     llvm::Value *state_ptr, llvm::Function *isel_func,
+                                     BBRegInfoNode *bb_reg_info_node);
+
+  LiftStatus LiftX86EveryOperand(Instruction &inst, llvm::BasicBlock *block, llvm::Value *state_ptr,
+                                 llvm::Function *isel_func, BBRegInfoNode *bb_reg_info_node);
 
   // Load the address of a register.
   std::pair<llvm::Value *, llvm::Type *>

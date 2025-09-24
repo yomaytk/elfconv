@@ -34,7 +34,8 @@ add_library(remill_bc STATIC
   SleighLifter.cpp
   PcodeCFG.cpp
   Util.cpp
-  VirtualRegisterOptimization.cpp
+  VroTraceLifter.cpp
+  VroInstructionLifter.cpp
 )
 
 target_include_directories(remill_bc AFTER PRIVATE "${REMILL_SOURCE_DIR}")
