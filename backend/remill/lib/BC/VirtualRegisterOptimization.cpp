@@ -1185,10 +1185,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             // priority: cur_r_inst_map > pre_str_rmp
             std::set<EcvReg> strd;
             for (auto [str_er1, cur_er1_valtpl] : cur_r_inst_mp) {
-              if (
-                  // func_v_r_opt_map.at(call_inst->getCalledFunction())
-                  //        ->passed_caller_reg_map.contains(str_er1) &&
-                  str_er1.CheckPassedArgsRegs()) {
+              if (str_er1.CheckPassedArgsRegs()) {
                 auto cur_erc1 = std::get<ERC>(cur_er1_valtpl);
                 inst_lifter->StoreRegValueBeforeInst(
                     t_bb, state_ptr, str_er1.GetRegName(cur_erc1),
@@ -1200,10 +1197,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             }
             // Store `pre_str_map`
             for (auto [str_er2, str_erc2] : t_bag->pres_str_rmp) {
-              if (
-                  // !func_v_r_opt_map.at(call_inst->getCalledFunction())
-                  //        ->passed_caller_reg_map.contains(str_er2) ||
-                  str_er2.CheckPassedArgsRegs() && !strd.contains(str_er2)) {
+              if (str_er2.CheckPassedArgsRegs() && !strd.contains(str_er2)) {
                 inst_lifter->StoreRegValueBeforeInst(
                     t_bb, state_ptr, str_er2.GetRegName(str_erc2),
                     GetRegValueFromCacheMap(str_er2, ERC2WholeLLVMTy(str_er2), call_inst,
@@ -1214,10 +1208,7 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto call_next_inst = call_inst->getNextNode();
             // Load `preceding_store_map` + `load_map`
             for (auto [ld_er1, ld_er1_valtpl] : cur_r_inst_mp) {
-              if (ld_er1.CheckPassedReturnRegs()
-                  // || !func_v_r_opt_map.at(call_inst->getParent()->getParent())
-                  //      ->passed_callee_ret_reg_map.contains(req_ecv_reg)
-              ) {
+              if (ld_er1.CheckPassedReturnRegs()) {
                 auto [_1, user_refd_val, order, _2] = ld_er1_valtpl;
                 // must load `wide` register because the called lifted function may have changed the req_ecv_reg.
                 auto req_wide_load =

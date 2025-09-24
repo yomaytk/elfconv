@@ -736,7 +736,9 @@ void Arch::InitializeEmptyLiftedFunction(llvm::Function *func) const {
   ir.CreateStore(runtime, ir.CreateAlloca(runtime->getType(), nullptr, "RUNTIME"));
 
   FinishLiftedFunctionInitialization(module, func);
+#if !defined(SIMPLE_OPT)
   CHECK(BlockHasSpecialVars(func));
+#endif
 }
 
 void Arch::PrepareModule(llvm::Module *mod) const {

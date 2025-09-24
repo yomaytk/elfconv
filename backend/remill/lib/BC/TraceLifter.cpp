@@ -937,14 +937,24 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
   // if the lifted function is `br_bb` or `!vrp_opt_mode`, we must store the return values of semantics functions to the registers.
   auto &inst_lifter = inst.GetLifter();
   for (auto &bb : *func) {
-    auto inst = &*bb.begin();
+    auto t_inst = &*bb.begin();
     auto t_bb_reg_info_node = virtual_regs_opt->bb_reg_info_node_map[&bb];
     if (t_bb_reg_info_node == nullptr) {
       continue;
     }
-    while (inst) {
-      auto call_inst = llvm::dyn_cast<llvm::CallInst>(inst);
-      inst = inst->getNextNode();
+
+    while (t_inst) {
+
+      auto call_inst = llvm::dyn_cast<llvm::CallInst>(t_inst);
+      auto ret_inst = llvm::dyn_cast<llvm::ReturnInst>(t_inst);
+
+      t_inst = t_inst->getNextNode();
+
+      if (!call_inst && !ret_inst) {
+        continue;
+      }
+
+      // `store` the result of calling semantics function.
       if (t_bb_reg_info_node->sema_call_written_reg_map.contains(call_inst)) {
 #if defined(OPT_REAL_REGS_DEBUG)
         auto debug_llvmir_u64_fn = module->getFunction("debug_llvmir_u64value");
@@ -954,7 +964,7 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
                                "", call_inst);
 #endif
         auto &write_regs = t_bb_reg_info_node->sema_call_written_reg_map.at(call_inst);
-        auto call_next_inst = call_inst->getNextNode();
+        auto call_nexti = call_inst->getNextNode();
 
         if (write_regs.size() == 1) {
           auto [str_er, str_erc] = write_regs[0];
@@ -963,8 +973,8 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
             inst_lifter->StoreRegValueBeforeInst(
                 &bb, state_ptr, str_er.GetRegName(str_erc),
                 virtual_regs_opt->CastFromInst(
-                    str_er, call_inst, virtual_regs_opt->ERC2WholeLLVMTy(str_er), call_next_inst),
-                call_next_inst);
+                    str_er, call_inst, virtual_regs_opt->ERC2WholeLLVMTy(str_er), call_nexti),
+                call_nexti);
           }
         } else if (write_regs.size() > 1) {
           for (uint32_t i = 0; i < write_regs.size(); i++) {
@@ -976,12 +986,11 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
             }
             if (llvm::dyn_cast<llvm::StructType>(call_inst->getType()) ||
                 llvm::dyn_cast<llvm::ArrayType>(call_inst->getType())) {
-              from_extracted_inst =
-                  llvm::ExtractValueInst::Create(call_inst, {i}, "", call_next_inst);
+              from_extracted_inst = llvm::ExtractValueInst::Create(call_inst, {i}, "", call_nexti);
             } else if (isu128v2Ty(context, call_inst->getType())) {
               from_extracted_inst = llvm::ExtractElementInst::Create(
                   call_inst, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), i), "",
-                  call_next_inst);
+                  call_nexti);
             } else {
               LOG(FATAL) << "[Bug] call_inst: " << LLVMThingToString(call_inst)
                          << "pc: " << Sema_func_vma_map.at(call_inst);
@@ -990,11 +999,128 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
                 &bb, state_ptr, str_er.GetRegName(str_erc),
                 virtual_regs_opt->CastFromInst(str_er, from_extracted_inst,
                                                virtual_regs_opt->ERC2WholeLLVMTy(str_er),
-                                               call_next_inst),
-                call_next_inst);
+                                               call_nexti),
+                call_nexti);
           }
         }
+        continue;
       }
+
+#if !defined(SIMPLE_OPT)
+      continue;
+#endif
+
+      // load and store the registers which are used between function calling and returning.
+      if (virtual_regs_opt->lifted_func_caller_set.contains(call_inst)) {
+        // `store` the [ X0, X1, ..., X8, SP ] before calling the lifted function.
+        {
+          llvm::IRBuilder<> ir1(call_inst);
+          // [ X0, X1, ..., X8 ]
+          for (int i = 0; i < 9; i++) {
+            std::string reg_name = "X" + to_string(i);
+            // store `Xi_Lc (local)` value to `Xi (global)`.
+            auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
+            auto [xlc_reg_ptr, xlc_reg_type] =
+                inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name);
+            auto xlc_val = ir1.CreateLoad(xlc_reg_type, xlc_reg_ptr);
+            ir1.CreateStore(xlc_val, xg_reg_ptr);
+          }
+          // SP
+          auto [spg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, "SP", true);
+          auto [splc_reg_ptr, splc_reg_type] = inst_lifter->LoadRegAddress(&bb, state_ptr, "SP");
+          auto splc_val = ir1.CreateLoad(splc_reg_type, splc_reg_ptr);
+          ir1.CreateStore(splc_val, spg_reg_ptr);
+        }
+
+        // `load` the [ X0, X1, SP ] after calling the lifted function.
+        auto call_nexti = call_inst->getNextNode();
+        {
+          llvm::IRBuilder<> ir(call_nexti);
+          // [ X0, X1 ]
+          for (int i = 0; i < 2; i++) {
+            std::string reg_name = "X" + to_string(i);
+            // load `Xi (global)` value to `Xi_Lc (local)`.
+            auto [xlc_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name);
+            auto [xg_reg_ptr, xg_reg_type] =
+                inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
+            auto xg_reg_val = ir.CreateLoad(xg_reg_type, xg_reg_ptr);
+            ir.CreateStore(xg_reg_val, xlc_reg_ptr);
+          }
+          // SP
+          auto [splc_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, "SP");
+          auto [spg_reg_ptr, spg_reg_type] =
+              inst_lifter->LoadRegAddress(&bb, state_ptr, "SP", true);
+          auto spg_reg_val = ir.CreateLoad(spg_reg_type, spg_reg_ptr);
+          ir.CreateStore(spg_reg_val, splc_reg_ptr);
+        }
+        continue;
+      }
+
+      // load and store the registers which are used for Linux system call calling.
+      if (call_inst && call_inst->getCalledFunction()->getName().str() == "emulate_system_call") {
+        // `store` the [ X0, ..., X5, X8 ] before calling system call.
+        {
+          llvm::IRBuilder<> ir(call_inst);
+          // [ X0, X1, ..., X5, X8 ]
+          for (int i = 0; i < 9; i++) {
+            if (i == 6 || i == 7) {
+              continue;
+            }
+            std::string reg_name = "X" + to_string(i);
+            // store `Xi_Lc (local)` value to `Xi (global)`.
+            auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
+            auto [xlc_reg_ptr, xlc_reg_type] =
+                inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name);
+            auto xlc_val = ir.CreateLoad(xlc_reg_type, xlc_reg_ptr);
+            ir.CreateStore(xlc_val, xg_reg_ptr);
+          }
+        }
+        // `load` the X0 after calling system call.
+        auto call_nexti = call_inst->getNextNode();
+        {
+          llvm::IRBuilder<> ir(call_nexti);
+          // X0
+          auto [x0lc_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, "X0");
+          auto [x0g_reg_ptr, x0g_reg_type] =
+              inst_lifter->LoadRegAddress(&bb, state_ptr, "X0", true);
+          auto x0g_val = ir.CreateLoad(x0g_reg_type, x0g_reg_ptr);
+          ir.CreateStore(x0g_val, x0lc_reg_ptr);
+        }
+        continue;
+      }
+
+      // `_ecv_func_epilogue`
+      if (call_inst) {
+        continue;
+      }
+
+      // store the registers which are used after function returning.
+      if (ret_inst) {
+        // `store` [ X0, X1, SP ] before returning.
+        {
+          llvm::IRBuilder<> ir(ret_inst);
+          // [ X0, X1 ]
+          for (int i = 0; i < 2; i++) {
+            std::string reg_name = "X" + to_string(i);
+            // load `Xi_Lc (local)` value to `Xi (global)`.
+            auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
+            auto [xlc_reg_ptr, xlc_reg_type] =
+                inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name);
+            auto xlc_reg_val = ir.CreateLoad(xlc_reg_type, xlc_reg_ptr);
+            ir.CreateStore(xlc_reg_val, xg_reg_ptr);
+          }
+          // SP
+          auto [spg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, "SP", true);
+          auto [splc_reg_ptr, splc_reg_type] = inst_lifter->LoadRegAddress(&bb, state_ptr, "SP");
+          auto splc_reg_val = ir.CreateLoad(splc_reg_type, splc_reg_ptr);
+          ir.CreateStore(splc_reg_val, spg_reg_ptr);
+        }
+        continue;
+      }
+
+      LOG(FATAL) << "This part must not be reached. t_inst: " << LLVMThingToString(t_inst)
+                 << ", call_inst: " << LLVMThingToString(call_inst)
+                 << ", ret_inst: " << LLVMThingToString(ret_inst);
     }
   }
 }
