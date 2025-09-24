@@ -109,8 +109,8 @@ class SleighLifterWithState final : public InstructionLifterIntf {
 
   // Load the address of a register.
   virtual std::pair<llvm::Value *, llvm::Type *>
-  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                 std::string_view reg_name) const override;
+  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr, std::string_view reg_name,
+                 bool is_global = false) const override;
 
   // Load the value of a register.
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,

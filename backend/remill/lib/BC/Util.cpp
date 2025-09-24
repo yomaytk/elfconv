@@ -206,17 +206,18 @@ llvm::CallInst *AddTerminatingTailCall(llvm::BasicBlock *source_block, llvm::Val
 
 // Find a local variable defined in the entry block of the function. We use
 // this to find register variables.
-std::pair<llvm::Value *, llvm::Type *>
-FindVarInFunction(llvm::BasicBlock *block, std::string_view name, bool allow_failure) {
-  return FindVarInFunction(block->getParent(), name, allow_failure);
+std::pair<llvm::Value *, llvm::Type *> FindVarInFunction(llvm::BasicBlock *block,
+                                                         std::string_view name, bool allow_failure,
+                                                         bool is_global) {
+  return FindVarInFunction(block->getParent(), name, allow_failure, is_global);
 }
 
 // Find a local variable defined in the entry block of the function. We use
 // this to find register variables.
-std::pair<llvm::Value *, llvm::Type *>
-FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_failure) {
+std::pair<llvm::Value *, llvm::Type *> FindVarInFunction(llvm::Function *function,
+                                                         std::string_view name_, bool allow_failure,
+                                                         bool is_global) {
 
-  llvm::StringRef name(name_.data(), name_.size());
   auto &context = function->getContext();
 
   static std::unordered_map<const char *, llvm::Type *> RegNameTypeMap = {
@@ -260,6 +261,27 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
     }
   };
 
+  // find the variable using `lc_name`
+  if (!is_global) {
+    auto lc_name_ = std::string(name_) + "_Lc";
+    llvm::StringRef lc_name(lc_name_.data(), lc_name_.size());
+
+    if (!function->empty()) {
+      for (auto &instr : function->getEntryBlock()) {
+        if (instr.getName() == lc_name) {
+          if (auto *alloca = llvm::dyn_cast<llvm::AllocaInst>(&instr)) {
+            return {alloca, get_type_from_reg_name(name_)};
+          }
+          if (auto *gep = llvm::dyn_cast<llvm::GetElementPtrInst>(&instr)) {
+            return {gep, get_type_from_reg_name(name_)};
+          }
+        }
+      }
+    }
+  }
+
+  // find the variable using `name`
+  llvm::StringRef name(name_.data(), name_.size());
   if (!function->empty()) {
     for (auto &instr : function->getEntryBlock()) {
       if (instr.getName() == name) {
@@ -274,6 +296,7 @@ FindVarInFunction(llvm::Function *function, std::string_view name_, bool allow_f
   }
 
   auto module = function->getParent();
+
   if (auto var = module->getGlobalVariable(name)) {
     return {var, var->getValueType()};
   }
