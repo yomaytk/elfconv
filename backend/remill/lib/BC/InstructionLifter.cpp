@@ -185,7 +185,7 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
 // Load the address of a register.
 std::pair<llvm::Value *, llvm::Type *>
 InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                                  std::string_view reg_name_) const {
+                                  std::string_view reg_name_, bool is_global) const {
   const auto func = block->getParent();
   const auto module = func->getParent();
 
@@ -209,7 +209,7 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
   auto reg = impl->arch->RegisterByName(reg_name_);
 
   // It's already a variable in the function.
-  const auto [var_ptr, var_ptr_type] = FindVarInFunction(func, reg_name_, true);
+  const auto [var_ptr, var_ptr_type] = FindVarInFunction(func, reg_name_, true, is_global);
   if (var_ptr) {
     auto ty = var_ptr_type;
     //NOTE(Ian) for stuff like NEXT_PC existing in the block we arent going to have reg type info, im not sure i like pulling it from var_ptr_type regardles. Not sure what to do about it
@@ -251,9 +251,17 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
                  << LLVMThingToString(state_ptr);
     }
 
+#if defined(SIMPLE_OPT)
+    // Copy the global pointer to the local variable.
+    reg_ptr = GetLocalRegAddress(&func->getEntryBlock(), reg->name, reg_ptr, reg->type);
+#endif
+
     reg_ptr_it->second = {reg_ptr, reg->type};
     return reg_ptr_it->second;
   }
+
+  LOG(FATAL) << "This point must not be reached in the current implementation. reg_name: "
+             << reg_name_;
 
   // Try to find it as a global variable.
   if (auto gvar = module->getGlobalVariable(reg_name)) {
@@ -277,6 +285,21 @@ InstructionLifter::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_pt
                                    llvm::GlobalValue::ExternalLinkage,
                                    llvm::UndefValue::get(impl->word_type), unk_var_name),
           impl->word_type};
+}
+
+llvm::Value *
+InstructionLifter::GetLocalRegAddress(llvm::BasicBlock *entry_bb, std::string_view reg_name,
+                                      llvm::Value *tg_reg_ptr, llvm::Type *tg_reg_type) const {
+
+  auto trmi = entry_bb->getTerminator();
+  llvm::IRBuilder<> ir(trmi);
+
+  std::string lc_reg_name = std::string(reg_name) + "_Lc";
+  auto reg_ptr = ir.CreateAlloca(tg_reg_type, nullptr, lc_reg_name);
+  auto tg_reg_val = ir.CreateLoad(tg_reg_type, tg_reg_ptr);
+  ir.CreateStore(tg_reg_val, reg_ptr);
+
+  return reg_ptr;
 }
 
 // Clear out the cache of the current register values/addresses loaded.

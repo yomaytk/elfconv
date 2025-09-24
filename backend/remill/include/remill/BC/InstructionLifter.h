@@ -84,8 +84,8 @@ class OperandLifter {
 
   // Load the address of a register.
   virtual std::pair<llvm::Value *, llvm::Type *>
-  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                 std::string_view reg_name) const = 0;
+  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr, std::string_view reg_name,
+                 bool is_global = false) const = 0;
 
   // Load the value of a register.
   virtual llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,
@@ -296,8 +296,15 @@ class InstructionLifter : public InstructionLifterIntf {
 
   // Load the address of a register.
   std::pair<llvm::Value *, llvm::Type *>
-  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                 std::string_view reg_name) const override final;
+  LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr, std::string_view reg_name,
+                 bool is_global = false) const override final;
+
+  std::pair<llvm::Value *, llvm::Type *> LoadRegLocalAddress(llvm::BasicBlock *block,
+                                                             llvm::Value *state_ptr,
+                                                             std::string_view reg_name) const;
+
+  llvm::Value *GetLocalRegAddress(llvm::BasicBlock *entry_bb, std::string_view reg_name,
+                                  llvm::Value *tg_reg_ptr, llvm::Type *tg_reg_type) const;
 
   // Load the value of a register.
   llvm::Value *LoadRegValue(llvm::BasicBlock *block, llvm::Value *state_ptr,

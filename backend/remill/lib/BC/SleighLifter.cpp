@@ -1691,7 +1691,7 @@ SleighLifterWithState::StoreRegValueBeforeInst(llvm::BasicBlock *block, llvm::Va
 // Load the address of a register.
 std::pair<llvm::Value *, llvm::Type *>
 SleighLifterWithState::LoadRegAddress(llvm::BasicBlock *block, llvm::Value *state_ptr,
-                                      std::string_view reg_name) const {
+                                      std::string_view reg_name, bool is_global) const {
   return this->lifter->LoadRegAddress(block, state_ptr, reg_name);
 }
 
