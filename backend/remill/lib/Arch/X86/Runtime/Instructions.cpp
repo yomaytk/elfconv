@@ -21,11 +21,10 @@
 // clang-format off
 #include "remill/Arch/Runtime/Float.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/Arch/Runtime/Operators.h"
+#include "remill/Arch/Runtime/RemillOperators.h"
 #include "remill/Arch/X86/Runtime/State.h"
 #include "remill/Arch/X86/Runtime/Types.h"
 #include "remill/Arch/X86/Runtime/Operators.h"
-#include "remill/Arch/X86/Runtime/X86Definitions.h"
 
 // clang-format on
 
@@ -140,14 +139,14 @@ State __remill_state;
 namespace {
 
 // Takes the place of an unsupported instruction.
-DEF_SEM_VOID_STATE_RUN(HandleUnsupported) {
-  __remill_sync_hyper_call(state, runtime_manager,
+DEF_SEM(HandleUnsupported) {
+  __remill_sync_hyper_call(state, rt_m,
                            IF_64BIT_ELSE(SyncHyperCall::kAMD64EmulateInstruction,
                                          SyncHyperCall::kX86EmulateInstruction));
 }
 
 // Takes the place of an invalid instruction.
-DEF_SEM_VOID_STATE(HandleInvalidInstruction) {
+DEF_SEM(HandleInvalidInstruction) {
   HYPER_CALL = AsyncHyperCall::kInvalidInstruction;
 }
 

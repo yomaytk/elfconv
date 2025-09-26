@@ -14,4 +14,4 @@
 
 // #define SIMPLE_OPT 1
 
-// #define R2_ANALYSIS 1
+#define TRG_X86 1

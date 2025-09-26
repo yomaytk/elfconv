@@ -1,7 +1,11 @@
 #pragma once
 
 #include "Memory.h"
-#include "remill/Arch/Runtime/Types.h"
+#if defined(ELF_IS_AARCH64)
+#  include "remill/Arch/Runtime/Types.h"
+#else
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#endif
 #include "runtime/syscalls/SysTable.h"
 
 #include <cassert>

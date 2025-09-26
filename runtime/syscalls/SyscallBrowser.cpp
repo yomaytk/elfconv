@@ -1,6 +1,10 @@
 #include "SysTable.h"
 #include "emscripten_wasi_errno.h"
-#include "remill/Arch/Runtime/Types.h"
+#if defined(ELF_IS_AARCH64)
+#  include "remill/Arch/Runtime/Types.h"
+#else
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#endif
 #include "runtime/Memory.h"
 #include "runtime/Runtime.h"
 

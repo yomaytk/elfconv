@@ -2,7 +2,6 @@
 
 #include <cstring>
 #include <map>
-#include <remill/Arch/Runtime/Types.h>
 #include <stack>
 #include <string>
 #include <unistd.h>
@@ -15,7 +14,9 @@
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
+#  include <remill/Arch/Runtime/Types.h>
 #elif defined(ELF_IS_AMD64)
+#  include <remill/Arch/Runtime/RemillTypes.h>
 #  include <remill/Arch/X86/Runtime/State.h>
 #endif
 

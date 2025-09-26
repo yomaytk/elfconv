@@ -2,7 +2,11 @@
 
 #include "Lift.h"
 #include "lifter/Binary/Loader.h"
-#include "remill/Arch/Runtime/Types.h"
+#if defined(TRG_X86)
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#else
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 
 #include <algorithm>
 #include <bfd.h>

@@ -16,27 +16,31 @@
 
 namespace {
 
-extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manager) {
-  __remill_syscall_tranpoline_call(state, runtime_manager);
+DEF_SEM(DoSYSCALL, IF_32BIT_ELSE(R32W, R64W)) {
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kX86SysCall);
+  HYPER_CALL = AsyncHyperCall::kX86SysCall;
 }
 
-// DEF_SEM(DoSYSENTER, IF_32BIT_ELSE(R32W, R64W)) {
-//   memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SysEnter);
-//   HYPER_CALL = AsyncHyperCall::kX86SysEnter;
-//   return memory;
-// }
+DEF_SEM(DoSYSCALL_AMD, IF_32BIT_ELSE(R32W, R64W)) {
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kX86SysCall);
+  HYPER_CALL = AsyncHyperCall::kX86SysCall;
+}
 
-// DEF_SEM(DoSYSEXIT, IF_32BIT_ELSE(R32W, R64W)) {
-//   memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kX86SysExit);
-//   HYPER_CALL = AsyncHyperCall::kX86SysExit;
-//   return memory;
-// }
+DEF_SEM(DoSYSENTER, IF_32BIT_ELSE(R32W, R64W)) {
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kX86SysEnter);
+  HYPER_CALL = AsyncHyperCall::kX86SysEnter;
+}
+
+DEF_SEM(DoSYSEXIT, IF_32BIT_ELSE(R32W, R64W)) {
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kX86SysExit);
+  HYPER_CALL = AsyncHyperCall::kX86SysExit;
+}
 }  // namespace
 
-DEF_ISEL(SYSCALL) = emulate_system_call;
+DEF_ISEL(SYSCALL) = DoSYSCALL;
 
-DEF_ISEL(SYSCALL_AMD) = emulate_system_call;
+DEF_ISEL(SYSCALL_AMD) = DoSYSCALL_AMD;
 
-// DEF_ISEL(SYSENTER) = DoSYSENTER;
+DEF_ISEL(SYSENTER) = DoSYSENTER;
 
-// DEF_ISEL(SYSEXIT) = DoSYSEXIT;
+DEF_ISEL(SYSEXIT) = DoSYSEXIT;

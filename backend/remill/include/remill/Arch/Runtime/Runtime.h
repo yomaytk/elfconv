@@ -18,6 +18,12 @@
 
 #include "remill/Arch/Runtime/Definitions.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/Arch/Runtime/Operators.h"
+#include "remill/BC/HelperMacro.h"
+#if defined(TRG_X86)
+#  include "remill/Arch/Runtime/RemillOperators.h"
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#else
+#  include "remill/Arch/Runtime/Operators.h"
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 #include "remill/Arch/Runtime/State.h"
-#include "remill/Arch/Runtime/Types.h"

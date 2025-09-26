@@ -17,7 +17,12 @@
 #pragma once
 
 #include "remill/Arch/Runtime/HyperCall.h"
-#include "remill/Arch/Runtime/Types.h"
+#include "remill/BC/HelperMacro.h"
+#if defined(TRG_X86)
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#else
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 
 extern "C" {
 

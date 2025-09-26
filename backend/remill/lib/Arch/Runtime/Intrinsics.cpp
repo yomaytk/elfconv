@@ -16,8 +16,15 @@
 
 #include "remill/Arch/Runtime/Intrinsics.h"
 
-#include "remill/Arch/Runtime/Operators.h"
-#include "remill/Arch/Runtime/Types.h"
+#include "remill/BC/HelperMacro.h"
+
+#if defined(TRG_X86)
+#  include "remill/Arch/Runtime/RemillOperators.h"
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#else
+#  include "remill/Arch/Runtime/Operators.h"
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 
 #define USED(sym) __remill_mark_as_used(reinterpret_cast<const void *>(&sym))
 
