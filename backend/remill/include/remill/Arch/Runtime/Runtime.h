@@ -18,11 +18,10 @@
 
 #include "remill/Arch/Runtime/Definitions.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/BC/HelperMacro.h"
-#if defined(TRG_X86)
+#if defined(ELFCONV_X86_BUILD) && ELFCONV_X86_BUILD == 1
 #  include "remill/Arch/Runtime/RemillOperators.h"
 #  include "remill/Arch/Runtime/RemillTypes.h"
-#else
+#elif defined(ELFCONV_AARCH64_BUILD) && ELFCONV_AARCH64_BUILD == 1
 #  include "remill/Arch/Runtime/Operators.h"
 #  include "remill/Arch/Runtime/Types.h"
 #endif

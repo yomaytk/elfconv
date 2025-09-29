@@ -39,6 +39,8 @@ target_link_libraries(remill_arch_aarch64 LINK_PUBLIC
   remill_settings
 )
 
+target_compile_definitions(remill_arch_aarch64 PUBLIC "ELFCONV_AARCH64_BUILD=1")
+
 if(REMILL_ENABLE_INSTALL_TARGET)
   install(
     TARGETS remill_arch_aarch64

@@ -22,7 +22,8 @@ set(AARCH64RUNTIME_SOURCEFILES
   "${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp"
 )
 
-set_source_files_properties(Instructions.cpp PROPERTIES COMPILE_FLAGS "-O3")
+set_source_files_properties(Instructions.cpp PROPERTIES COMPILE_FLAGS "-O3 -DELFCONV_AARCH64_BUILD=1")
+set_source_files_properties("${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp" PROPERTIES COMPILE_FLAGS "-O3 -DELFCONV_AARCH64_BUILD=1")
 set_source_files_properties(BasicBlock.cpp PROPERTIES COMPILE_FLAGS "-O3")
 
 function(add_runtime_helper target_name address_bit_size little_endian)

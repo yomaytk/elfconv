@@ -18,7 +18,7 @@ list(APPEND PROJECT_LIBRARIES GTest::gtest)
 enable_testing()
 enable_language(ASM)
 
-include_directories("/usr/lib/llvm-15/include")
+include_directories("/usr/lib/llvm-16/include")
 
 add_executable(lift-aarch64-tests
   EXCLUDE_FROM_ALL
@@ -35,6 +35,14 @@ target_compile_options(lift-aarch64-tests
   PRIVATE ${AARCH64_TEST_FLAGS}
   -DIN_TEST_GENERATOR
 )
+
+if(CMAKE_ELFCONV_AARCH64_BUILD)
+  target_compile_definitions(lift-aarch64-tests PUBLIC "ELFCONV_AARCH64_BUILD=1")
+elseif(CMAKE_ELFCONV_X86_BUILD)
+  target_compile_definitions(lift-aarch64-tests PUBLIC "ELFCONV_X86_BUILD=1")
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (remill/CMakeLists.txt: 1)")
+endif()
 
 file(GLOB AARCH64_TEST_FILES
   "${CMAKE_CURRENT_LIST_DIR}/*/*.S"

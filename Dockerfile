@@ -3,6 +3,8 @@ ARG LLVM_VERSION=16
 ARG UBUNTU_VERSION=22.04
 ARG DISTRO_NAME=jammy
 ARG ROOT_DIR=/root/elfconv
+ARG ECV_AARCH64
+ARG ECV_X86
 
 # Run-time dependencies go here
 FROM ubuntu:${UBUNTU_VERSION}
@@ -10,6 +12,16 @@ ARG LLVM_VERSION
 ARG UBUNTU_VERSION
 ARG DISTRO_NAME
 ARG ROOT_DIR
+ARG ECV_AARCH64
+ARG ECV_X86
+
+ENV ELFCONV_AARCH64=${ECV_AARCH64}
+ENV ELFCONV_X86=${ECV_X86}
+
+RUN if [ $(( ${ELFCONV_AARCH64:-0} ^ ${ELFCONV_X86:-0} )) -eq 0 ]; then \
+      echo "Only one of 'ELFCONV_AARCH64' and 'ELFCONV_X86' should be set to 1."; \
+      exit 1; \
+    fi
 
 RUN date
 
