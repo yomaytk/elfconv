@@ -34,8 +34,8 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic fatal "-Wpadded"
 
+#include "remill/Arch/Runtime/RemillTypes.h"
 #include "remill/Arch/Runtime/State.h"
-#include "remill/Arch/Runtime/Types.h"
 
 #ifndef HAS_FEATURE_AVX
 #  define HAS_FEATURE_AVX 1

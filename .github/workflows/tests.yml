@@ -22,7 +22,7 @@ jobs:
       uses: actions/checkout@v4
     
     - name: build container image
-      run: docker build . -t elfconv-image
+      run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
 
     - name: run integration test
       run: docker run --rm -w /root/elfconv/build elfconv-image "ninja test_dependencies && ctest"

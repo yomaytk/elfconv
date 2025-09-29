@@ -16,10 +16,10 @@ add_library(remill_arch_x86 STATIC
   "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Definitions.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/HyperCall.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Intrinsics.h"
-  "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Operators.h"
+  "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/RemillOperators.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Runtime.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/State.h"
-  "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Types.h"
+  "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/RemillTypes.h"
 
   "${REMILL_INCLUDE_DIR}/remill/Arch/X86/Runtime/Operators.h"
   "${REMILL_INCLUDE_DIR}/remill/Arch/X86/Runtime/State.h"
@@ -37,6 +37,8 @@ set_property(TARGET remill_arch_x86 PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(remill_arch_x86 LINK_PUBLIC
   remill_settings
 )
+
+target_compile_definitions(remill_arch_x86 PUBLIC "ELFCONV_X86_BUILD=1")
 
 if(REMILL_ENABLE_INSTALL_TARGET)
   install(TARGETS remill_arch_x86

@@ -74,12 +74,19 @@ set(REMILL_LLVM_VERSION "${LLVM_MAJOR_VERSION}")
 
 message("Remill llvm version: ${REMILL_LLVM_VERSION}")
 set(REMILL_INSTALL_SEMANTICS_DIR "${CMAKE_INSTALL_PREFIX}/${REMILL_INSTALL_SHARE_DIR}/remill/${REMILL_LLVM_VERSION}/semantics" CACHE PATH "Directory into which semantics are installed")
-set(REMILL_BUILD_SEMANTICS_DIR_X86 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/X86/Runtime")
+
+if(CMAKE_ELFCONV_X86_BUILD)
+  set(REMILL_BUILD_SEMANTICS_DIR_X86 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/X86/Runtime")
+elseif(CMAKE_ELFCONV_AARCH64_BUILD)
+  set(REMILL_BUILD_SEMANTICS_DIR_AARCH64 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/AArch64/Runtime")
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (remill/CMakeLists.txt: 1)")
+endif()
 # set(REMILL_BUILD_SEMANTICS_DIR_AARCH32 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/AArch32/Runtime")
-set(REMILL_BUILD_SEMANTICS_DIR_AARCH64 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/AArch64/Runtime")
 # set(REMILL_BUILD_SEMANTICS_DIR_SPARC32 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/SPARC32/Runtime")
 # set(REMILL_BUILD_SEMANTICS_DIR_SPARC64 "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/SPARC64/Runtime")
 # set(REMILL_BUILD_SEMANTICS_DIR_PPC64_32ADDR "${CMAKE_CURRENT_BINARY_DIR}/lib/Arch/PPC/Runtime")
+
 set(REMILL_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
 set(REMILL_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/lib")
 
@@ -216,13 +223,23 @@ endif()
 
 target_compile_definitions(remill_settings INTERFACE
   "REMILL_INSTALL_SEMANTICS_DIR=\"${REMILL_INSTALL_SEMANTICS_DIR}\""
-  "REMILL_BUILD_SEMANTICS_DIR_X86=\"${REMILL_BUILD_SEMANTICS_DIR_X86}\""
   # "REMILL_BUILD_SEMANTICS_DIR_AARCH32=\"${REMILL_BUILD_SEMANTICS_DIR_AARCH32}\""
-  "REMILL_BUILD_SEMANTICS_DIR_AARCH64=\"${REMILL_BUILD_SEMANTICS_DIR_AARCH64}\""
   # "REMILL_BUILD_SEMANTICS_DIR_SPARC32=\"${REMILL_BUILD_SEMANTICS_DIR_SPARC32}\""
   # "REMILL_BUILD_SEMANTICS_DIR_SPARC64=\"${REMILL_BUILD_SEMANTICS_DIR_SPARC64}\""
   # "REMILL_BUILD_SEMANTICS_DIR_PPC64_32ADDR=\"${REMILL_BUILD_SEMANTICS_DIR_PPC64_32ADDR}\""
 )
+
+if(CMAKE_ELFCONV_AARCH64_BUILD)
+  target_compile_definitions(remill_settings INTERFACE
+    "REMILL_BUILD_SEMANTICS_DIR_AARCH64=\"${REMILL_BUILD_SEMANTICS_DIR_AARCH64}\""
+  )
+elseif(CMAKE_ELFCONV_X86_BUILD)
+  target_compile_definitions(remill_settings INTERFACE
+    "REMILL_BUILD_SEMANTICS_DIR_X86=\"${REMILL_BUILD_SEMANTICS_DIR_X86}\""
+  )
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1 (remill/CMakeLists.txt: 2).")
+endif()
 
 set(ghidra_patch_user "github-actions[bot]")
 set(ghidra_patch_email "41898282+github-actions[bot]@users.noreply.github.com")
@@ -248,16 +265,16 @@ else()
   set(sleigh_compiler "$<TARGET_FILE:sleigh::sleigh>")
 endif()
 
-sleigh_compile(
-  TARGET ppc_e200_spec
-  COMPILER "${sleigh_compiler}"
-  SLASPEC "${ghidra-fork_SOURCE_DIR}/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.slaspec"
-  LOG_FILE "${sleigh_BINARY_DIR}/sleighspecs/spec_build_logs/ppc_32_e200_be.sla.log"
-  OUT_FILE "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla"
-)
+# sleigh_compile(
+#   TARGET ppc_e200_spec
+#   COMPILER "${sleigh_compiler}"
+#   SLASPEC "${ghidra-fork_SOURCE_DIR}/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.slaspec"
+#   LOG_FILE "${sleigh_BINARY_DIR}/sleighspecs/spec_build_logs/ppc_32_e200_be.sla.log"
+#   OUT_FILE "${sleigh_BINARY_DIR}/specfiles/Ghidra/Processors/PowerPC/data/languages/ppc_32_e200_be.sla"
+# )
 
 add_custom_target(sleigh_custom_specs)
-add_dependencies(sleigh_custom_specs ppc_e200_spec)
+# add_dependencies(sleigh_custom_specs ppc_e200_spec)
 
 target_link_libraries(remill_settings INTERFACE
   ${llvm_libs}
@@ -303,5 +320,11 @@ add_custom_target(semantics)
   find_package(Threads REQUIRED)
   add_custom_target(test_dependencies)
 
+if(CMAKE_ELFCONV_AARCH64_BUILD)
   add_subdirectory(tests/AArch64)
+elseif(CMAKE_ELFCONV_X86_BUILD)
+  message("X86 test directory should be executed (FIXME).")
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (remill/CMakeLists.txt: 3)")
+endif()
 # endif()

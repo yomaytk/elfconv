@@ -29,6 +29,14 @@ set_target_properties(elflift PROPERTIES
   COMPILE_FLAGS "-O3 -fPIC"
 )
 
+if(CMAKE_ELFCONV_AARCH64_BUILD)
+  target_compile_definitions(elflift PUBLIC "ELFCONV_AARCH64_BUILD=1")
+elseif(CMAKE_ELFCONV_X86_BUILD)
+  target_compile_definitions(elflift PUBLIC "ELFCONV_X86_BUILD=1")
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (lifter/CMakeLists.txt)")
+endif()
+
 # static link
 if(${CMAKE_ELFLIFT_STATIC_LINK})
   if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")

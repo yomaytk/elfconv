@@ -22,8 +22,9 @@ set(X86RUNTIME_SOURCEFILES
   "${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp"
 )
 
-set_source_files_properties(Instructions.cpp PROPERTIES COMPILE_FLAGS "-O3 -g0")
-set_source_files_properties(BasicBlock.cpp PROPERTIES COMPILE_FLAGS "-O0 -g3")
+set_source_files_properties("${REMILL_LIB_DIR}/Arch/Runtime/Intrinsics.cpp" PROPERTIES COMPILE_FLAGS "-O3 -DELFCONV_X86_BUILD=1")
+set_source_files_properties(Instructions.cpp PROPERTIES COMPILE_FLAGS "-O3 -DELFCONV_X86_BUILD=1")
+set_source_files_properties(BasicBlock.cpp PROPERTIES COMPILE_FLAGS "-O3")
 
 function(add_runtime_helper target_name address_bit_size enable_avx enable_avx512)
   message(" > Generating runtime target: ${target_name}")
@@ -53,8 +54,8 @@ function(add_runtime_helper target_name address_bit_size enable_avx enable_avx51
     DEPENDENCIES
     "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Float.h"
     "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/State.h"
-    "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Types.h"
-    "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Operators.h"
+    "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/RemillTypes.h"
+    "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/RemillOperators.h"
     "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Intrinsics.h"
     "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/HyperCall.h"
     "${REMILL_INCLUDE_DIR}/remill/Arch/Runtime/Definitions.h"

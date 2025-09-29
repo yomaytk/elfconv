@@ -18,6 +18,11 @@
 
 #include "remill/Arch/Runtime/Definitions.h"
 #include "remill/Arch/Runtime/Intrinsics.h"
-#include "remill/Arch/Runtime/Operators.h"
+#if defined(ELFCONV_X86_BUILD) && ELFCONV_X86_BUILD == 1
+#  include "remill/Arch/Runtime/RemillOperators.h"
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#elif defined(ELFCONV_AARCH64_BUILD) && ELFCONV_AARCH64_BUILD == 1
+#  include "remill/Arch/Runtime/Operators.h"
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 #include "remill/Arch/Runtime/State.h"
-#include "remill/Arch/Runtime/Types.h"

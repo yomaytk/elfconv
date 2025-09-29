@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "remill/Arch/Runtime/Types.h"
+#include "remill/Arch/Runtime/RemillTypes.h"
 
 namespace {
 

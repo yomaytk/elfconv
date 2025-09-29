@@ -46,6 +46,14 @@ target_link_libraries(remill_bc LINK_PRIVATE
   remill_settings
 )
 
+if(CMAKE_ELFCONV_AARCH64_BUILD)
+  target_compile_definitions(remill_bc PUBLIC "ELFCONV_AARCH64_BUILD=1")
+elseif(CMAKE_ELFCONV_X86_BUILD)
+  target_compile_definitions(remill_bc PUBLIC "ELFCONV_X86_BUILD=1")
+else()
+  message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (remill/lib/BC/CMakeLists.txt)")
+endif()
+
 if(REMILL_ENABLE_INSTALL_TARGET)
   install(
     TARGETS remill_bc

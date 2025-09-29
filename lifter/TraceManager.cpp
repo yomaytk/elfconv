@@ -2,7 +2,11 @@
 
 #include "Lift.h"
 #include "lifter/Binary/Loader.h"
-#include "remill/Arch/Runtime/Types.h"
+#if defined(ELFCONV_X86_BUILD) && ELFCONV_X86_BUILD == 1
+#  include "remill/Arch/Runtime/RemillTypes.h"
+#elif defined(ELFCONV_AARCH64_BUILD) && ELFCONV_AARCH64_BUILD == 1
+#  include "remill/Arch/Runtime/Types.h"
+#endif
 
 #include <algorithm>
 #include <bfd.h>

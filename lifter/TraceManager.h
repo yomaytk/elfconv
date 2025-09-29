@@ -7,15 +7,8 @@
 #include <fstream>
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <llvm/IR/Function.h>
-#include <llvm/IR/GlobalValue.h>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/LLVMContext.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Type.h>
 #include <map>
 #include <memory>
-#include <remill/Arch/AArch64/Runtime/State.h>
 #include <remill/Arch/Arch.h>
 #include <remill/Arch/Instruction.h>
 #include <remill/Arch/Name.h>

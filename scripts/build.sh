@@ -29,6 +29,8 @@ ARCH_VERSION=
 BUILD_FLAGS=
 LIFT_DEBUG_MACROS=
 CXX_COMMON_VERSION="0.5.0"
+ELFCONV_AARCH64_BUILD=0
+ELFCONV_X86_BUILD=0
 
 # There are pre-build versions of various libraries for specific
 # Ubuntu releases.
@@ -227,6 +229,8 @@ function Configure
 {
   # Configure the remill build, specifying that it should use the pre-built
   # Clang compiler binaries.
+  # $1: ELFCONV_AARCH64_BUILD
+  # $2: ELFCONV_X86_BUILD
   (
     set -x
     cmake \
@@ -240,6 +244,8 @@ function Configure
         -DCMAKE_ELFLIFT_STATIC_LINK="${ELFCONV_RELEASE}" \
         "${BUILD_FLAGS}" \
         "${LIFT_DEBUG_MACROS}" \
+        -DCMAKE_ELFCONV_AARCH64_BUILD=$1 \
+        -DCMAKE_ELFCONV_X86_BUILD=$2 \
         -GNinja \
         "${ROOT_DIR}"
   ) || exit $?
@@ -403,8 +409,21 @@ function main
 
   mkdir -p "${BUILD_DIR}"
   cd "${BUILD_DIR}" || exit 1
+  
+  if [ "$ELFCONV_AARCH64" = "1" ]; then
+    ELFCONV_AARCH64_BUILD=1
+  fi
 
-  if ! (DownloadLibraries && TestSetup && Configure && Build); then
+  if [ "$ELFCONV_X86" = "1" ]; then
+    ELFCONV_X86_BUILD=1
+  fi
+
+  if [ "$ELFCONV_AARCH64" = "1" ] && [ "$ELFCONV_X86" == 1 ]; then
+    echo "[x] ELFCONV Target Architecture must be only one."
+    exit 1
+  fi
+
+  if ! (DownloadLibraries && TestSetup && Configure $ELFCONV_AARCH64_BUILD $ELFCONV_X86_BUILD && Build); then
     echo "[x] Build aborted."
     exit 1
   fi

@@ -50,6 +50,11 @@
 // Define a specific instruction selection variable.
 #define DEF_ISEL(name) extern "C" constexpr auto ISEL_##name [[gnu::used]]
 
+// Define a semantics implementing function.
+#define DEF_SEM(name, ...) \
+  ALWAYS_INLINE __attribute__((flatten)) static void name(RuntimeManager *rt_m, State &state, \
+                                                          ##__VA_ARGS__)
+
 // Define a conditional execution function.
 #define DEF_COND(name) extern "C" constexpr auto COND_##name [[gnu::used]]
 
@@ -60,15 +65,15 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 
 // Define a semantics implementing function.
 #define DEF_COND_SEM(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static Memory *name##_impl(Memory *memory, State &state, \
-                                                                    ##__VA_ARGS__); \
-  static Memory *name##_spec(Memory *memory, State &state, R8 __cond, R8W __branch_taken, \
-                             ##__VA_ARGS__) { \
+  ALWAYS_INLINE __attribute__((flatten)) static RuntimeManager *name##_impl( \
+      RuntimeManager *rt_m, State &state, ##__VA_ARGS__); \
+  static RuntimeManager *name##_spec(RuntimeManager *rt_m, State &state, R8 __cond, \
+                                     R8W __branch_taken, ##__VA_ARGS__) { \
     return nullptr; \
   } \
   template <typename... Args> \
-  ALWAYS_INLINE __attribute__((flatten)) static Memory *name##_wrapped( \
-      Memory *memory, State &state, R8 __cond, R8W __branch_taken, Args... args) { \
+  ALWAYS_INLINE __attribute__((flatten)) static RuntimeManager *name##_wrapped( \
+      RuntimeManager *rt_m, State &state, R8 __cond, R8W __branch_taken, Args... args) { \
     if (Read(__cond)) { \
       Write(__branch_taken, true); \
       return name##_impl(memory, state, args...); \
@@ -78,12 +83,12 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
     } \
   } \
   static constexpr auto name = Specialize(name##_spec, name##_wrapped); \
-  ALWAYS_INLINE __attribute__((flatten)) static Memory *name##_impl(Memory *memory, State &state, \
-                                                                    ##__VA_ARGS__)
+  ALWAYS_INLINE __attribute__((flatten)) static RuntimeManager *name##_impl( \
+      RuntimeManager *rt_m, State &state, ##__VA_ARGS__)
 
 // Define a semantics implementing function.
 #define DEF_HELPER(name, ...) \
-  ALWAYS_INLINE __attribute__((flatten)) static auto name(Memory *&memory, State &state, \
+  ALWAYS_INLINE __attribute__((flatten)) static auto name(RuntimeManager *rt_m, State &state, \
                                                           ##__VA_ARGS__)
 
 // An instruction where the implementation is the same for all operand sizes.
@@ -107,8 +112,8 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 
 // An instruction with a single 32- or 64-bit register destination operand.
 #define DEF_ISEL_R32or64W(name, func) \
-  IF_32BIT(DEF_ISEL(name##_32) = func<R32>) \
-  IF_64BIT(DEF_ISEL(name##_64) = func<R64>)
+  IF_32BIT(DEF_ISEL(name##_32) = func<R32W>) \
+  IF_64BIT(DEF_ISEL(name##_64) = func<R64W>)
 
 // An instruction with a single 32- or 64-bit memory destination operand.
 #define DEF_ISEL_M32or64(name, func) \
@@ -175,17 +180,11 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
   DEF_ISEL(name##_32) = \
       tpl_func<X##32W, Y##32> IF_64BIT(; DEF_ISEL(name##_64) = tpl_func<X##64W, Y##64>)
 
-// One source operand instruction (destination can be omitted by register utility optimization).
-#define _DEF_ISEL_Yn(Y, name, tpl_func) \
-  DEF_ISEL(name##_8) = tpl_func<Y##8>; \
-  DEF_ISEL(name##_16) = tpl_func<Y##16>; \
-  DEF_ISEL(name##_32) = tpl_func<Y##32> IF_64BIT(; DEF_ISEL(name##_64) = tpl_func<Y##64>)
+#define DEF_ISEL_RnW_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn(R, M, name, tpl_func)
 
-#define DEF_ISEL_RnW_Mn(name, tpl_func) _DEF_ISEL_Yn(M, name, tpl_func)
+#define DEF_ISEL_RnW_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn(R, R, name, tpl_func)
 
-#define DEF_ISEL_RnW_Rn(name, tpl_func) _DEF_ISEL_Yn(R, name, tpl_func)
-
-#define DEF_ISEL_RnW_In(name, tpl_func) _DEF_ISEL_Yn(I, name, tpl_func)
+#define DEF_ISEL_RnW_In(name, tpl_func) _DEF_ISEL_XnW_Yn(R, I, name, tpl_func)
 
 #define DEF_ISEL_MnW_In(name, tpl_func) _DEF_ISEL_XnW_Yn(M, I, name, tpl_func)
 
@@ -194,11 +193,11 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 #define DEF_ISEL_MnW_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn(M, M, name, tpl_func)
 
 // One destination, two source operand instruction
-#define _DEF_ISEL_XnW_Yn_Zn(Y, Z, name, tpl_func) \
-  DEF_ISEL(name##_8) = tpl_func<Y##8, Z##8>; \
-  DEF_ISEL(name##_16) = tpl_func<Y##16, Z##16>; \
-  DEF_ISEL(name##_32) = \
-      tpl_func<Y##32, Z##32> IF_64BIT(; DEF_ISEL(name##_64) = tpl_func<Y##64, Z##64>)
+#define _DEF_ISEL_XnW_Yn_Zn(X, Y, Z, name, tpl_func) \
+  DEF_ISEL(name##_8) = tpl_func<X##8W, Y##8, Z##8>; \
+  DEF_ISEL(name##_16) = tpl_func<X##16W, Y##16, Z##16>; \
+  DEF_ISEL(name##_32) = tpl_func<X##32W, Y##32, Z##32> IF_64BIT( \
+      ; DEF_ISEL(name##_64) = tpl_func<X##64W, Y##64, Z##64>)
 
 #define _DEF_ISEL_XnW_Xn_Yn_Zn(X, Y, Z, name, tpl_func) \
   DEF_ISEL(name##_8) = tpl_func<X##8W, X##8, Y##8, Z##8>; \
@@ -206,13 +205,13 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
   DEF_ISEL(name##_32) = tpl_func<X##32W, X##32, Y##32, Z##32> IF_64BIT( \
       ; DEF_ISEL(name##_64) = tpl_func<X##64W, X##64, Y##64, Z##64>)
 
-#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, M, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_Mn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, M, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP REG_b.
-#define DEF_ISEL_RnW_Rn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, R, name, tpl_func)
 
 // Three operand: REG_a <- REG_a OP IMM.
-#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, I, name, tpl_func)
+#define DEF_ISEL_RnW_Rn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, R, I, name, tpl_func)
 
 #define _DEF_ISEL_XnW_Xn_YnW_Yn(X, Y, name, tpl_func) \
   DEF_ISEL(name##_8) = tpl_func<X##8W, X##8, Y##8W, Y##8>; \
@@ -224,7 +223,7 @@ inline static constexpr auto Specialize(R (*)(Args...), R (*b)(Args...)) -> R (*
 
 #define DEF_ISEL_RnW_Rn_RnW_Rn(name, tpl_func) _DEF_ISEL_XnW_Xn_YnW_Yn(R, R, name, tpl_func)
 
-#define DEF_ISEL_RnW_Mn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(M, I, name, tpl_func)
+#define DEF_ISEL_RnW_Mn_In(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(R, M, I, name, tpl_func)
 
 #define DEF_ISEL_MnW_Mn_Rn(name, tpl_func) _DEF_ISEL_XnW_Yn_Zn(M, M, R, name, tpl_func)
 

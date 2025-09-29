@@ -157,6 +157,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
   switch (arch_name_) {
     case kArchInvalid: LOG(FATAL) << "Unrecognized architecture."; return nullptr;
 
+#if defined(ELFCONV_AARCH64_BUILD) && ELFCONV_AARCH64_BUILD == 1
     case kArchAArch64LittleEndian_SLEIGH: {
       DLOG(INFO) << "Using architecture: AArch64 Sleigh, feature set: Little Endian";
       return GetAArch64Sleigh(context_, os_name_, arch_name_);
@@ -166,6 +167,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
       DLOG(INFO) << "Using architecture: AArch64, feature set: Little Endian";
       return GetAArch64(context_, os_name_, arch_name_);
     }
+#endif
 
     case kArchAArch32LittleEndian: {
       DLOG(INFO) << "Using architecture: AArch32, feature set: Little Endian";
@@ -178,6 +180,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
       return GetUndefinedArch(context_, os_name_, arch_name_);
     }
 
+#if defined(ELFCONV_X86_BUILD) && ELFCONV_X86_BUILD == 1
     case kArchX86: {
       DLOG(INFO) << "Using architecture: X86";
       return GetX86(context_, os_name_, arch_name_);
@@ -217,6 +220,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
       DLOG(INFO) << "Using architecture: AMD64, feature set: AVX512";
       return GetX86(context_, os_name_, arch_name_);
     }
+#endif
 
     case kArchSparc32: {
       DLOG(INFO) << "Using architecture: 32-bit SPARC";
@@ -234,6 +238,7 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
     }
 
     default: {
+      LOG(FATAL) << "OS: " << os_name_ << " ArchName: " << arch_name_;
       return nullptr;
     }
   }
