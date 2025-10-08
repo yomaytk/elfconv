@@ -28,7 +28,7 @@ setting() {
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
   WASISDKFLAGS="${OPTFLAGS} --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_PROCESS_CLOCKS -D_WASI_EMULATED_MMAN -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR} -fno-exceptions"
   WASISDK_LINKFLAGS="-lwasi-emulated-process-clocks -lwasi-emulated-mman -lwasi-emulated-signal"
-  ELFCONV_COMMON_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
+  ELFCONV_COMMON_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
   WASMEDGE_COMPILE_OPT="wasmedge compile --optimize 3"
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
@@ -81,6 +81,12 @@ lifting() {
     echo -e "[${GREEN}INFO${NC}] fork-emulation-emcc-fiber is enabled."
     fork_emulation_emcc_fiber="1"
   fi
+
+  fork_emulation_pthread="0"
+  if [ "$FORK_EMULATION_PTHREAD" = "1" ]; then
+    echo -e "[${GREEN}INFO${NC}] fork-emulation-pthread is enabled."
+    fork_emulation_pthread="1"
+  fi
   
   ${BUILD_LIFTER_DIR}/elflift \
   --arch "$2" \
@@ -91,7 +97,8 @@ lifting() {
   --target_arch "$target_arch" \
   --float_exception "$FLOAT_STATUS_FLAG" \
   --norm_mode "$norm_mode" \
-  --fork_emulation_emcc_fiber "$fork_emulation_emcc_fiber"
+  --fork_emulation_emcc_fiber "$fork_emulation_emcc_fiber" \
+  --fork_emulation_pthread "$fork_emulation_pthread"
  
   echo -e "[${GREEN}INFO${NC}] lift.bc was generated."
   
@@ -182,9 +189,16 @@ main() {
       fi
 
       EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
+      
+      # Linux fork emulation
       if [ -n "$FORK_EMULATION_EMCC_FIBER" ]; then
         EMCC_ASYNC_OPTION="-sASYNCIFY"
         RUNTIME_MACRO="$RUNTIME_MACRO -D__EMSCRIPTEN_FORK_FIBER__"
+      fi
+
+      if [ -n "$FORK_EMULATION_PTHREAD" ]; then
+        EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
+        RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
       fi
       
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \

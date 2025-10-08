@@ -236,11 +236,11 @@ Memory *__remill_delay_slot_end(Memory *) {
 
 void __remill_defer_inlining(void) {}
 
-void __remill_error(State &, addr_t, RuntimeManager *) {
+void __remill_error(uint8_t *, State &, addr_t, RuntimeManager *) {
   siglongjmp(gJmpBuf, 0);
 }
 
-void __remill_missing_block(State &, addr_t, RuntimeManager *) {}
+void __remill_missing_block(uint8_t *, State &, addr_t, RuntimeManager *) {}
 
 // Read/write to I/O ports.
 uint8_t __remill_read_io_port_8(Memory *, addr_t) {
@@ -267,27 +267,27 @@ Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
   abort();
 }
 
-void __remill_function_call(State &, addr_t, RuntimeManager *) {
+void __remill_function_call(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void __remill_function_return(State &, addr_t, RuntimeManager *) {
+void __remill_function_return(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void _ecv_func_epilogue(State &, addr_t, RuntimeManager *) {
+void _ecv_func_epilogue(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void __remill_jump(State &, addr_t, RuntimeManager *) {
+void __remill_jump(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void __remill_async_hyper_call(State &, addr_t, RuntimeManager *) {
+void __remill_async_hyper_call(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void __remill_syscall_tranpoline_call(State &state, RuntimeManager *) {
+void __remill_syscall_tranpoline_call(uint8_t *, State &state, RuntimeManager *) {
   printf("[ERROR] syscall_tranpoline_call is undefined.\n");
   abort();
 }

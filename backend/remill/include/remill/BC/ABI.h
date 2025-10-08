@@ -25,12 +25,14 @@ namespace remill {
 
 // Describes the arguments to a basic block function.
 enum : size_t {
-  kStatePointerArgNum = 0,
-  kPCArgNum = 1,
-  kRuntimePointerArgNum = 2,
-  kNumBlockArgs = 3
+  kArenaPointerArgNum = 0,
+  kStatePointerArgNum = 1,
+  kPCArgNum = 2,
+  kRuntimePointerArgNum = 3,
+  kNumBlockArgs = 4
 };
 
+extern const std::string_view kArenaVariableName;
 extern const std::string_view kStateVariableName;
 extern const std::string_view kPCVariableName;
 extern const std::string_view kRIPVariableName;

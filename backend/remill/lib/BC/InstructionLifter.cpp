@@ -54,10 +54,9 @@ llvm::Function *GetInstructionFunction(llvm::Module *module, std::string_view fu
 InstructionLifter::Impl::Impl(const Arch *arch_, const IntrinsicTable *intrinsics_)
     : arch(arch_),
       intrinsics(intrinsics_),
-      word_type(remill::NthArgument(intrinsics->async_hyper_call, remill::kPCArgNum)->getType()),
+      word_type(remill::NthArgument(intrinsics->jump, remill::kPCArgNum)->getType()),
       runtime_ptr_type(
-          remill::NthArgument(intrinsics->async_hyper_call, remill::kRuntimePointerArgNum)
-              ->getType()),
+          remill::NthArgument(intrinsics->jump, remill::kRuntimePointerArgNum)->getType()),
       module(intrinsics->async_hyper_call->getParent()),
       invalid_instruction(GetInstructionFunction(module, kInvalidInstructionISelName)),
       unsupported_instruction(GetInstructionFunction(module, kUnsupportedInstructionISelName)) {

@@ -111,22 +111,25 @@ extern "C" {
 [[gnu::used, gnu::const]] extern bool __remill_compare_neq(bool result);
 
 // Generic error.
-[[gnu::used]] extern void __remill_error(State &, addr_t addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_error(uint8_t *, State &, addr_t addr, RuntimeManager *);
 
 // Control-flow intrinsics.
-[[gnu::used]] extern void __remill_function_call(State &, addr_t addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_function_call(uint8_t *, State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern void __remill_function_return(State &, addr_t addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_function_return(uint8_t *, State &, addr_t addr,
+                                                   RuntimeManager *);
 
-[[gnu::used]] extern void __remill_jump(State &, addr_t addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_jump(uint8_t *, State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern void __remill_missing_block(State &, addr_t addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_missing_block(uint8_t *, State &, addr_t addr, RuntimeManager *);
 
-[[gnu::used]] extern void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *);
+[[gnu::used]] extern void __remill_async_hyper_call(uint8_t *, State &, addr_t ret_addr,
+                                                    RuntimeManager *);
 
-[[gnu::used]] extern void __remill_syscall_tranpoline_call(State &state, RuntimeManager *);
+[[gnu::used]] extern void __remill_syscall_tranpoline_call(uint8_t *, State &state,
+                                                           RuntimeManager *);
 
-[[gnu::used]] extern void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
+[[gnu::used]] extern void _ecv_func_epilogue(uint8_t *, State &, addr_t, RuntimeManager *);
 
 // This intrinsic must be tagged with the `always_inline` function attribute
 // since it has an implementation we want to use in Anvill's lifted IR.

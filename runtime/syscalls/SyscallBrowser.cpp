@@ -38,6 +38,10 @@
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
+#if defined(__FORK_PTHREAD__)
+#  include <pthread.h>
+#endif
+
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #  sysnum "\" is empty now.\n");
 #  define NOP_SYSCALL(sysnum) \
@@ -56,7 +60,6 @@ typedef uint64_t _ecv_long;
 #endif
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
-extern "C" uint8_t *MemoryArenaPtr;
 
 /*
   for ioctl syscall
@@ -247,7 +250,7 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
   arch: x86-64, sycall NR: rax, return: rax, arg0: rdi, arg1: rsi, arg2: rdx, arg3: r10, arg4: r8, arg5: r9
   ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 */
-void RuntimeManager::SVCBrowserCall(void) {
+void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 
   errno = 0;
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
@@ -257,7 +260,7 @@ void RuntimeManager::SVCBrowserCall(void) {
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
-      char *res = getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      char *res = getcwd((char *) TranslateVMA(arena_ptr, X0_Q), X1_Q);
       X0_Q = res == NULL ? X0_Q : -wasi2linux_errno[errno];
     } break;
     case ECV_DUP: /* dup (unsigned int fildes) */
@@ -297,7 +300,7 @@ void RuntimeManager::SVCBrowserCall(void) {
             t.c_lflag = t_host.c_lflag;
             t.c_line = t_host.c_line;
             memcpy(t.c_cc, t_host.c_cc, std::min(NCCS, _LINUX_NCCS));
-            memcpy(TranslateVMA(arg), &t, sizeof(_elfarm64_termios));
+            memcpy(TranslateVMA(arena_ptr, arg), &t, sizeof(_elfarm64_termios));
             X0_Q = 0;
           } else {
             X0_Q = -wasi2linux_errno[errno];
@@ -310,22 +313,23 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
     {
-      int res = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      int res = mkdirat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_UNLINKAT: /* int unlinkat (int dfd, const char *pathname, int flag) */
     {
-      int res = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      int res = unlinkat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_STATFS: /* int statfs(const char *path, struct statfs *buf) */
     {
-      int res = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
+      int res = statfs((char *) TranslateVMA(arena_ptr, X0_Q),
+                       (struct statfs *) TranslateVMA(arena_ptr, X1_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_TRUNCATE: /* int truncate(const char *path, off_t length) */
     {
-      int res = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
+      int res = truncate((char *) TranslateVMA(arena_ptr, X0_Q), (_ecv_long) X1_Q);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
@@ -335,17 +339,17 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
     {
-      int res = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      int res = faccessat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_CHDIR: /* int chdir (const char * path) */
     {
-      int res = chdir((const char *) TranslateVMA(X0_Q));
+      int res = chdir((const char *) TranslateVMA(arena_ptr, X0_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
-      int res_fd = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      int res_fd = openat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
       X0_Q = res_fd != -1 ? res_fd : -wasi2linux_errno[errno];
     } break;
     case ECV_CLOSE: /* int close (unsigned int fd) */
@@ -355,7 +359,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_GETDENTS: /* long getdents64 (int fd, void *dirp, size_t count) */
     {
-      long res = getdents(X0_D, (struct dirent *) TranslateVMA(X1_Q), X2_Q);
+      long res = getdents(X0_D, (struct dirent *) TranslateVMA(arena_ptr, X1_Q), X2_Q);
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
@@ -365,23 +369,24 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_READ: /* read (unsigned int fd, char *buf, size_t count) */
     {
-      uint64_t res = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      uint64_t res = read(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       X0_Q = res != (uint64_t) -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
     {
-      int res = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      int res = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
-      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(X1_Q));
+      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(arena_ptr, X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
-        cache_vec[i].iov_base = TranslateVMA(reinterpret_cast<addr_t>(tr_vec[i].iov_base));
+        cache_vec[i].iov_base =
+            TranslateVMA(arena_ptr, reinterpret_cast<addr_t>(tr_vec[i].iov_base));
         cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
       uint64_t res = writev(fd, cache_vec, vlen);
@@ -393,19 +398,19 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
     {
-      int res = poll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D, 60);
+      int res = poll((struct pollfd *) TranslateVMA(arena_ptr, X0_Q), (unsigned long int) X1_D, 60);
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
     {
-      int res =
-          readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
+      int res = readlinkat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q),
+                           (char *) TranslateVMA(arena_ptr, X2_Q), X3_D);
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
     {
       struct stat _tmp_wasm_stat;
-      int res = fstatat(X0_D, (const char *) TranslateVMA(X1_Q), &_tmp_wasm_stat, X3_D);
+      int res = fstatat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q), &_tmp_wasm_stat, X3_D);
       if (res == 0) {
         struct _elfarm64df_stat _elf_stat;
         memset(&_elf_stat, 0, sizeof(_elf_stat));
@@ -422,7 +427,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         _elf_stat.st_atime = _tmp_wasm_stat.st_atim.tv_sec;
         _elf_stat.st_mtime = _tmp_wasm_stat.st_mtim.tv_sec;
         _elf_stat.st_ctime = _tmp_wasm_stat.st_ctim.tv_sec;
-        memcpy((struct _elfarm64df_stat *) TranslateVMA(X2_Q), &_elf_stat, sizeof(_elf_stat));
+        memcpy((struct _elfarm64df_stat *) TranslateVMA(arena_ptr, X2_Q), &_elf_stat,
+               sizeof(_elf_stat));
         X0_D = 0;
       } else {
         X0_Q = -wasi2linux_errno[errno];
@@ -438,7 +444,7 @@ void RuntimeManager::SVCBrowserCall(void) {
       struct timespec emu_tp[2];
 
       if (X2_Q != 0) {
-        auto x2_time = (const struct _elfarm64df_timespec *) TranslateVMA(X2_Q);
+        auto x2_time = (const struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q);
         for (int i = 0; i < 2; i++) {
           emu_tp[i].tv_sec = (time_t) x2_time[i].tv_sec;
           emu_tp[i].tv_nsec = (long) x2_time[i].tv_nsec;
@@ -448,8 +454,8 @@ void RuntimeManager::SVCBrowserCall(void) {
         times_ptr = NULL;
       }
 
-      int res =
-          utimensat(X0_D, (char *) TranslateVMA(X1_Q), (const struct timespec *) times_ptr, X3_D);
+      int res = utimensat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q),
+                          (const struct timespec *) times_ptr, X3_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_EXIT: /* exit (int error_code) */
@@ -498,7 +504,7 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
-      *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
+      *reinterpret_cast<int *>(TranslateVMA(arena_ptr, X0_Q)) = tid;
       X0_Q = tid;
     } break;
     case ECV_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
@@ -524,7 +530,7 @@ void RuntimeManager::SVCBrowserCall(void) {
             .tv_sec = (uint64_t) emu_tp.tv_sec,
             .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
         };
-        memcpy(TranslateVMA(X1_Q), &tp, sizeof(tp));
+        memcpy(TranslateVMA(arena_ptr, X1_Q), &tp, sizeof(tp));
         X0_Q = (_ecv_reg64_t) clock_time;
       } else {
         X0_Q = -wasi2linux_errno[errno];
@@ -535,13 +541,14 @@ void RuntimeManager::SVCBrowserCall(void) {
       struct timespec _wasm_rqtp, _wasm_rmtp;
       struct _elfarm64df_timespec _elf_rmtp;
 
-      auto _elf_rqtp = (const struct _elfarm64df_timespec *) TranslateVMA(X2_Q);
+      auto _elf_rqtp = (const struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q);
       _wasm_rqtp.tv_nsec = _elf_rqtp->tv_nsec;
       _wasm_rqtp.tv_sec = _elf_rqtp->tv_sec;
       int res = clock_nanosleep(CLOCK_REALTIME, X1_D, &_wasm_rqtp, &_wasm_rmtp);
       _elf_rmtp.tv_nsec = _wasm_rmtp.tv_nsec;
       _elf_rmtp.tv_sec = _wasm_rmtp.tv_sec;
-      memcpy((struct _elfarm64df_timespec *) TranslateVMA(X3_Q), &_elf_rmtp, sizeof(_elf_rmtp));
+      memcpy((struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X3_Q), &_elf_rmtp,
+             sizeof(_elf_rmtp));
 
       X0_Q = -res;
     } break;
@@ -551,8 +558,8 @@ void RuntimeManager::SVCBrowserCall(void) {
     } break;
     case ECV_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
     {
-      int res = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
-                          (struct sigaction *) TranslateVMA(X2_Q));
+      int res = sigaction(X0_D, (const struct sigaction *) TranslateVMA(arena_ptr, X1_Q),
+                          (struct sigaction *) TranslateVMA(arena_ptr, X2_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_UNAME: /* uname (struct old_utsname* buf) */
@@ -566,18 +573,18 @@ void RuntimeManager::SVCBrowserCall(void) {
       } new_utsname = {"Linux", "wasm-host-01",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
                        "#4 SMP PREEMPT Tue May 15 12:34:56 UTC 2025", "wasm32"};
-      memcpy(TranslateVMA(X0_Q), &new_utsname, sizeof(new_utsname));
+      memcpy(TranslateVMA(arena_ptr, X0_Q), &new_utsname, sizeof(new_utsname));
       X0_D = 0;
     } break;
     case ECV_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
     {
-      int res = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
+      int res = gettimeofday((struct timeval *) TranslateVMA(arena_ptr, X0_Q),
                              (struct timezone *) 0); /* FIXME (second argument) */
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
     {
-      int res = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+      int res = getrusage(X0_D, (struct rusage *) TranslateVMA(arena_ptr, X1_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
@@ -585,7 +592,8 @@ void RuntimeManager::SVCBrowserCall(void) {
       uint32_t option = X0_D;
       switch (option) {
         case ECV_PR_GET_NAME:
-          memcpy(TranslateVMA(X1_Q), TranslateVMA(TASK_STRUCT_VMA), /* TASK_COMM_LEN */ 16);
+          memcpy(TranslateVMA(arena_ptr, X1_Q), TranslateVMA(arena_ptr, TASK_STRUCT_VMA),
+                 /* TASK_COMM_LEN */ 16);
           X0_D = 0;
           break;
         default: X0_D = -_LINUX_EINVAL; break;
@@ -594,6 +602,8 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_GETPID: /* getpid () */
 #if defined(__EMSCRIPTEN_FORK_FIBER__)
       X0_D = cur_ecv_process->ecv_pid;
+#elif defined(__FORK_PTHREAD__)
+      X0_D = CurEcvPid;
 #else
       X0_D = getpid();
 #endif
@@ -606,6 +616,9 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_GETTID: /* getttid () */ X0_D = gettid(); break;
     case ECV_BRK: /* brk (unsigned long brk) */
     {
+#if defined(__FORK_PTHREAD__)
+      auto cur_memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#endif
       if (X0_Q == 0) {
         /* init program break (FIXME) */
         X0_Q = cur_memory_arena->heap_cur;
@@ -652,6 +665,41 @@ void RuntimeManager::SVCBrowserCall(void) {
 
       // switch process.
       emscripten_fiber_swap(cur_ecv_pr->fb_t, new_ecv_pr->fb_t);
+#elif defined(__FORK_PTHREAD__)
+      EcvProcess *cur_ecv_pr, *new_ecv_pr;
+      State *cur_state, *new_state;
+      LiftedFunc t_func;
+      uint64_t t_func_addr, t_next_pc;
+
+      cur_ecv_pr = ecv_prs[CurEcvPid];
+      cur_state = CPUState;
+
+      // make new copied ecv_process
+      new_ecv_pr = cur_ecv_pr->EcvProcessCopied();
+      new_state = new_ecv_pr->cpu_state;
+      new_state->func_depth = 1;
+      new_state->gpr.x0.qword = 0;  // child
+
+      cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
+
+      // assumes that generated LLVM IR save these two values before calling syscall.
+      t_func_addr = CPUState->fiber_fun_addr;
+      t_next_pc = CPUState->gpr.pc.qword;
+
+      auto t_func_it =
+          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_func_addr,
+                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
+      t_func = t_func_it->second;
+
+      if (!t_func) {
+        elfconv_runtime_error("The function corresponding to t_func_addr (0x%lx) is not found.\n",
+                              t_func_addr);
+      }
+
+      auto _ecv_pthread_arg = new EcvPthreadArg(new_ecv_pr, this, t_func, t_next_pc);
+      auto p_th = (pthread_t *) malloc(sizeof(pthread_t));
+
+      pthread_create(p_th, NULL, ManageNewForkPthread, _ecv_pthread_arg);
 #else
       UNIMPLEMENTED_SYSCALL;
 #endif
@@ -659,6 +707,9 @@ void RuntimeManager::SVCBrowserCall(void) {
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
+#if defined(__FORK_PTHREAD__)
+        auto cur_memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#endif
         if (X4_D != (uint32_t) -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
@@ -673,12 +724,13 @@ void RuntimeManager::SVCBrowserCall(void) {
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
     {
-      int res = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
+      int res = wait4(X0_D, (int *) TranslateVMA(arena_ptr, X1_Q), X2_D,
+                      (struct rusage *) TranslateVMA(arena_ptr, X3_Q));
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
+      auto res = getentropy(TranslateVMA(arena_ptr, X0_Q), static_cast<size_t>(X1_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
@@ -709,7 +761,7 @@ void RuntimeManager::SVCBrowserCall(void) {
         _statx.stx_ino = _stat.st_ino;
         _statx.stx_size = _stat.st_size;
         _statx.stx_blocks = _stat.st_blocks;
-        memcpy(TranslateVMA(X4_Q), &_statx, sizeof(_statx));
+        memcpy(TranslateVMA(arena_ptr, X4_Q), &_statx, sizeof(_statx));
         X0_Q = 0;
       } else {
         X0_Q = -wasi2linux_errno[errno];

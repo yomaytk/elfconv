@@ -23,59 +23,57 @@ class RuntimeManager;
 
 #include <limits>
 
-extern "C" const uint8_t *MemoryArenaPtr;
+#define __remill_read_memory_macro8(arena_ptr, addr) *(uint8_t *) (arena_ptr + addr)
+#define __remill_read_memory_macro16(arena_ptr, addr) *(uint16_t *) (arena_ptr + addr)
+#define __remill_read_memory_macro32(arena_ptr, addr) *(uint32_t *) (arena_ptr + addr)
+#define __remill_read_memory_macro64(arena_ptr, addr) *(uint64_t *) (arena_ptr + addr)
+#define __remill_read_memory_macro128(arena_ptr, addr) *(uint128_t *) (arena_ptr + addr)
+#define __remill_read_memory_macrof32(arena_ptr, addr) *(float32_t *) (arena_ptr + addr)
+#define __remill_read_memory_macrof64(arena_ptr, addr) *(float64_t *) (arena_ptr + addr)
 
-#define __remill_read_memory_macro8(run_mgr, addr) *(uint8_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macro16(run_mgr, addr) *(uint16_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macro32(run_mgr, addr) *(uint32_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macro64(run_mgr, addr) *(uint64_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macro128(run_mgr, addr) *(uint128_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macrof32(run_mgr, addr) *(float32_t *) (MemoryArenaPtr + addr)
-#define __remill_read_memory_macrof64(run_mgr, addr) *(float64_t *) (MemoryArenaPtr + addr)
-
-#define __remill_write_memory_macro8(run_mgr, addr, src) \
+#define __remill_write_memory_macro8(arena_ptr, addr, src) \
   do { \
-    auto dst = (uint8_t *) (MemoryArenaPtr + addr); \
+    auto dst = (uint8_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macro16(run_mgr, addr, src) \
+#define __remill_write_memory_macro16(arena_ptr, addr, src) \
   do { \
-    auto dst = (uint16_t *) (MemoryArenaPtr + addr); \
+    auto dst = (uint16_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macro32(run_mgr, addr, src) \
+#define __remill_write_memory_macro32(arena_ptr, addr, src) \
   do { \
-    auto dst = (uint32_t *) (MemoryArenaPtr + addr); \
+    auto dst = (uint32_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macro64(run_mgr, addr, src) \
+#define __remill_write_memory_macro64(arena_ptr, addr, src) \
   do { \
-    auto dst = (uint64_t *) (MemoryArenaPtr + addr); \
+    auto dst = (uint64_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macro128(run_mgr, addr, src) \
+#define __remill_write_memory_macro128(arena_ptr, addr, src) \
   do { \
-    auto dst = (uint128_t *) (MemoryArenaPtr + addr); \
+    auto dst = (uint128_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macrof32(run_mgr, addr, src) \
+#define __remill_write_memory_macrof32(arena_ptr, addr, src) \
   do { \
-    auto dst = (float32_t *) (MemoryArenaPtr + addr); \
+    auto dst = (float32_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macrof64(run_mgr, addr, src) \
+#define __remill_write_memory_macrof64(arena_ptr, addr, src) \
   do { \
-    auto dst = (float64_t *) (MemoryArenaPtr + addr); \
+    auto dst = (float64_t *) (arena_ptr + addr); \
     *dst = src; \
   } while (0);
 
-#define __remill_write_memory_macrof128(run_mgr, addr, src) \
+#define __remill_write_memory_macrof128(arena_ptr, addr, src) \
   do { \
   } while (0);
 
@@ -113,6 +111,7 @@ MAKE_UNDEF(64)
 
 #define READBIT(A, B) ((A >> B) & 1)
 
+// unused!
 #define MAKE_SIGNED_MEM_ACCESS(size) \
   ALWAYS_INLINE static int##size##_t __remill_read_memory_s##size(RuntimeManager *runtime_manager, \
                                                                   addr_t addr) { \
@@ -212,14 +211,14 @@ ALWAYS_INLINE static T _Read(RnW<T> reg) {
 
 // Make read operators for reading integral values from memory.
 #define MAKE_MREAD(size, ret_size, type_prefix, access_suffix) \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(uint8_t *arena_ptr, \
                                                           Mn<type_prefix##size##_t> op) { \
-    return __remill_read_memory_macro##access_suffix(runtime_manager, op.addr); \
+    return __remill_read_memory_macro##access_suffix(arena_ptr, op.addr); \
   } \
 \
-  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(RuntimeManager *&runtime_manager, \
+  ALWAYS_INLINE static type_prefix##ret_size##_t _ReadMem(uint8_t *arena_ptr, \
                                                           MnW<type_prefix##size##_t> op) { \
-    return __remill_read_memory_macro##access_suffix(runtime_manager, op.addr); \
+    return __remill_read_memory_macro##access_suffix(arena_ptr, op.addr); \
   }
 
 MAKE_MREAD(8, 8, uint, 8)
@@ -272,9 +271,9 @@ MAKE_RWRITE(float64_t)
 
 // Make write operators for writing values to memory.
 #define MAKE_MWRITE(size, write_size, mem_prefix, type_prefix, access_suffix) \
-  ALWAYS_INLINE static void _MWrite(RuntimeManager *runtime_manager, MnW<mem_prefix##size##_t> op, \
+  ALWAYS_INLINE static void _MWrite(uint8_t *arena_ptr, MnW<mem_prefix##size##_t> op, \
                                     type_prefix##write_size##_t val) { \
-    __remill_write_memory_macro##access_suffix(runtime_manager, op.addr, val); \
+    __remill_write_memory_macro##access_suffix(arena_ptr, op.addr, val); \
   }
 
 MAKE_MWRITE(8, 8, uint, uint, 8)
@@ -365,25 +364,25 @@ MAKE_READRV(F, 64, doubles, float64_t)
 // res_vec = memV
 #define MAKE_MREADV(prefix, size, vec_accessor, mem_accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVn<T> mem) \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(uint8_t *arena_ptr, MVn<T> mem) \
       ->decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
       vec.elems[i] = \
-          __remill_read_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+          __remill_read_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * el_size)); \
     } \
     return vec; \
   } \
 \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadV##size(RuntimeManager *runtime_manager, MVnW<T> mem) \
+  ALWAYS_INLINE static auto _##prefix##ReadV##size(uint8_t *arena_ptr, MVnW<T> mem) \
       ->decltype(T().vec_accessor) { \
     decltype(T().vec_accessor) vec = {}; \
     const addr_t el_size = sizeof(vec.elems[0]); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec); ++i) { \
       vec.elems[i] = \
-          __remill_read_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size)); \
+          __remill_read_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * el_size)); \
     } \
     return vec; \
   }
@@ -447,13 +446,13 @@ MAKE_READVI(F, 64, float64_t)
 
 #define MAKE_READMVI(prefix, size, base_type, mem_accessor) \
   template <typename T> \
-  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(RuntimeManager *runtime_manager, MVI<T> mem) \
+  ALWAYS_INLINE static auto _##prefix##ReadMVI##size(uint8_t *arena_ptr, MVI<T> mem) \
       ->typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT { \
     using vector_type = typename EcvVectorType<base_type, sizeof(T) / sizeof(base_type)>::VT; \
     vector_type vec = {}; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      vec[i] = __remill_read_memory_macro##mem_accessor(runtime_manager, \
-                                                        mem.addr + (i * sizeof(base_type))); \
+      vec[i] = \
+          __remill_read_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * sizeof(base_type))); \
     } \
     return vec; \
   }
@@ -558,19 +557,19 @@ MAKE_WRITEV(F, 64, doubles, RVnW, float64_t)
 // memV = {{srcv}, ...}
 #define MAKE_MWRITEV(prefix, size, vec_accessor, mem_accessor, base_type) \
   template <typename T> \
-  ALWAYS_INLINE static void _##prefix##WriteV##size(RuntimeManager *runtime_manager, MVnW<T> mem, \
+  ALWAYS_INLINE static void _##prefix##WriteV##size(uint8_t *arena_ptr, MVnW<T> mem, \
                                                     base_type val) { \
     T vec{}; \
     const addr_t el_size = sizeof(base_type); \
     vec.vec_accessor.elems[0] = val; \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(vec.vec_accessor); ++i) { \
-      __remill_write_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+      __remill_write_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * el_size), \
                                                 vec.vec_accessor.elems[i]); \
     } \
   } \
 \
   template <typename T, typename V> /* _UWriteV32(runtime_manager, dstv, srcv) */ \
-  ALWAYS_INLINE static void _##prefix##WriteV##size(RuntimeManager *runtime_manager, MVnW<T> mem, \
+  ALWAYS_INLINE static void _##prefix##WriteV##size(uint8_t *arena_ptr, MVnW<T> mem, \
                                                     const V &val) { \
     static_assert(sizeof(T) == sizeof(V), "Invalid value size for MVnW."); \
     typedef decltype(T().vec_accessor) BT; \
@@ -580,7 +579,7 @@ MAKE_WRITEV(F, 64, doubles, RVnW, float64_t)
     const addr_t el_size = sizeof(base_type); \
     _Pragma("unroll") for (addr_t i = 0; i < NumVectorElems(val); ++i) { \
 \
-      __remill_write_memory_macro##mem_accessor(runtime_manager, mem.addr + (i * el_size), \
+      __remill_write_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * el_size), \
                                                 val.elems[i]); \
     } \
   }
@@ -611,27 +610,27 @@ MAKE_MWRITEV(F, 64, doubles, f64, float64_t)
 
 #define MAKE_WRITEMVI(prefix, size, mem_accessor, base_type) \
   template <typename VT> \
-  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
-                                                      MVI<VT> mem, base_type val) { \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(uint8_t *arena_ptr, MVI<VT> mem, \
+                                                      base_type val) { \
     static_assert(sizeof(VT) >= sizeof(base_type), "Invaild vector size of WriteMVI method."); \
     using vector_type = typename EcvVectorType<base_type, sizeof(VT) / sizeof(base_type)>::VT; \
     vector_type vec{}; \
     vec[0] = val; \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      __remill_write_memory_macro##mem_accessor(runtime_manager, \
-                                                mem.addr + (i * sizeof(base_type)), vec[i]); \
+      __remill_write_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * sizeof(base_type)), \
+                                                vec[i]); \
     } \
   } \
 \
   template <typename VT1, typename VT2> /* _UWriteMVI32(runtime_manager, dstv, srcv) */ \
-  ALWAYS_INLINE static void _##prefix##WriteMVI##size(RuntimeManager *runtime_manager, \
-                                                      MVI<VT1> mem, const VT2 &vec) { \
+  ALWAYS_INLINE static void _##prefix##WriteMVI##size(uint8_t *arena_ptr, MVI<VT1> mem, \
+                                                      const VT2 &vec) { \
     static_assert(sizeof(VT1) == sizeof(VT2), "Invalid value size for MVI."); \
     static_assert(sizeof(base_type) == sizeof(typename EcvBaseType<VT2>::BT), \
                   "Incompatible types to a write to a vector register"); \
     _Pragma("unroll") for (addr_t i = 0; i < GetVectorElemsNum(vec); ++i) { \
-      __remill_write_memory_macro##mem_accessor(runtime_manager, \
-                                                mem.addr + (i * sizeof(base_type)), vec[i]); \
+      __remill_write_memory_macro##mem_accessor(arena_ptr, mem.addr + (i * sizeof(base_type)), \
+                                                vec[i]); \
     } \
   }
 
@@ -793,7 +792,7 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
 // operands, we use this macros to implicitly pass in the `memory` operand,
 // which we know will be defined in semantics functions.
 // ReadMem(op) accesses the runtime memory so that it needs RuntimeManager* for the argument
-#define ReadMem(op) _ReadMem(runtime_manager, op)
+#define ReadMem(arena_ptr, op) _ReadMem(arena_ptr, op)
 // Read(op) doesn't access the runtime memory
 #define Read(op) _Read(op)
 
@@ -805,15 +804,15 @@ MAKE_ATOMIC(XorFetch, xor_and_fetch, ^)
     _Write(op, (val)); \
   } while (false)
 
-#define MWrite(op, val) \
+#define MWrite(arena_ptr, op, val) \
   do { \
     static_assert(sizeof(typename BaseType<decltype(op)>::BT) == sizeof(val), "Bad write!"); \
-    _MWrite(runtime_manager, op, (val)); \
+    _MWrite(arena_ptr, op, (val)); \
   } while (false)
 
-#define Write_Dc_Zva(op, diff, val) \
+#define Write_Dc_Zva(arena_ptr, op, diff, val) \
   do { \
-    __remill_write_memory_macro32(runtime_manager, op.addr + diff, val); \
+    __remill_write_memory_macro32(arena_ptr, op.addr + diff, val); \
   } while (false)
 
 #if !defined(issignaling)
@@ -1086,9 +1085,9 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, TruncTo<decltype(op)>(val)); \
   } while (false)
 
-#define MWriteTrunc(op, val) \
+#define MWriteTrunc(arena_ptr, op, val) \
   do { \
-    MWrite(op, TruncTo<decltype(op)>(val)); \
+    MWrite(arena_ptr, op, TruncTo<decltype(op)>(val)); \
   } while (false)
 
 // Handle writes of N-bit values to M-bit values with N <= M. If N < M then the
@@ -1101,9 +1100,9 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, ZExtTo<decltype(op)>(val)); \
   } while (false)
 
-#define MWriteZExt(op, val) \
+#define MWriteZExt(arena_ptr, op, val) \
   do { \
-    MWrite(op, ZExtTo<decltype(op)>(val)); \
+    MWrite(arena_ptr, op, ZExtTo<decltype(op)>(val)); \
   } while (false)
 
 #define WriteSExt(op, val) \
@@ -1111,9 +1110,9 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     Write(op, Unsigned(SExtTo<decltype(op)>(val))); \
   } while (false)
 
-#define MWriteSExt(op, val) \
+#define MWriteSExt(arena_ptr, op, val) \
   do { \
-    MWrite(op, Unsigned(SExtTo<decltype(op)>(val))); \
+    MWrite(arena_ptr, op, Unsigned(SExtTo<decltype(op)>(val))); \
   } while (false)
 
 #define SWriteV8(op, val) \
@@ -1240,66 +1239,66 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
     _FWriteVI64(runtime_manager, op, (val)); \
   } while (false)
 
-#define SWriteMVI8(op, val) \
+#define SWriteMVI8(arena_ptr, op, val) \
   do { \
-    _SWriteMVI8(runtime_manager, op, (val)); \
+    _SWriteMVI8(arena_ptr, op, (val)); \
   } while (false)
 
-#define UWriteMVI8(op, val) \
+#define UWriteMVI8(arena_ptr, op, val) \
   do { \
-    _UWriteMVI8(runtime_manager, op, (val)); \
+    _UWriteMVI8(arena_ptr, op, (val)); \
   } while (false)
 
-#define SWriteMVI16(op, val) \
+#define SWriteMVI16(arena_ptr, op, val) \
   do { \
-    _SWriteMVI16(runtime_manager, op, (val)); \
+    _SWriteMVI16(arena_ptr, op, (val)); \
   } while (false)
 
-#define UWriteMVI16(op, val) \
+#define UWriteMVI16(arena_ptr, op, val) \
   do { \
-    _UWriteMVI16(runtime_manager, op, (val)); \
+    _UWriteMVI16(arena_ptr, op, (val)); \
   } while (false)
 
-#define SWriteMVI32(op, val) \
+#define SWriteMVI32(arena_ptr, op, val) \
   do { \
-    _SWriteMVI32(runtime_manager, op, (val)); \
+    _SWriteMVI32(arena_ptr, op, (val)); \
   } while (false)
 
-#define UWriteMVI32(op, val) \
+#define UWriteMVI32(arena_ptr, op, val) \
   do { \
-    _UWriteMVI32(runtime_manager, op, (val)); \
+    _UWriteMVI32(arena_ptr, op, (val)); \
   } while (false)
 
 #define SWriteMVI64(op, val) \
   do { \
-    _SWriteMVI64(runtime_manager, op, (val)); \
+    _SWriteMVI64(arena_ptr, op, (val)); \
   } while (false)
 
-#define UWriteMVI64(op, val) \
+#define UWriteMVI64(arena_ptr, op, val) \
   do { \
-    _UWriteMVI64(runtime_manager, op, (val)); \
+    _UWriteMVI64(arena_ptr, op, (val)); \
   } while (false)
 
 #if !defined(REMILL_DISABLE_INT128)
-#  define SWriteMVI128(op, val) \
+#  define SWriteMVI128(arena_ptr, op, val) \
     do { \
-      _SWriteMVI128(runtime_manager, op, (val)); \
+      _SWriteMVI128(arena_ptr, op, (val)); \
     } while (false)
 
-#  define UWriteMVI128(op, val) \
+#  define UWriteMVI128(arena_ptr, op, val) \
     do { \
-      _UWriteMVI128(runtime_manager, op, (val)); \
+      _UWriteMVI128(arena_ptr, op, (val)); \
     } while (false)
 #endif
 
-#define FWriteMVI32(op, val) \
+#define FWriteMVI32(arena_ptr, op, val) \
   do { \
-    _FWriteMVI32(runtime_manager, op, (val)); \
+    _FWriteMVI32(arena_ptr, op, (val)); \
   } while (false)
 
-#define FWriteMVI64(op, val) \
+#define FWriteMVI64(arena_ptr, op, val) \
   do { \
-    _FWriteMVI64(runtime_manager, op, (val)); \
+    _FWriteMVI64(arena_ptr, op, (val)); \
   } while (false)
 
 #define SReadV8(op) _SReadV8(runtime_manager, op)
@@ -1342,25 +1341,25 @@ ALWAYS_INLINE static auto TruncTo(T val) -> typename IntegerType<DT>::BT {
 #define FReadVI32(op) _FReadVI32(op)
 #define FReadVI64(op) _FReadVI64(op)
 
-#define SReadMVI8(op) _SReadMVI8(runtime_manager, op)
-#define UReadMVI8(op) _UReadMVI8(runtime_manager, op)
+#define SReadMVI8(arena_ptr, op) _SReadMVI8(arena_ptr, op)
+#define UReadMVI8(arena_ptr, op) _UReadMVI8(arena_ptr, op)
 
-#define SReadMVI16(op) _SReadMVI16(runtime_manager, op)
-#define UReadMVI16(op) _UReadMVI16(runtime_manager, op)
+#define SReadMVI16(arena_ptr, op) _SReadMVI16(arena_ptr, op)
+#define UReadMVI16(arena_ptr, op) _UReadMVI16(arena_ptr, op)
 
-#define SReadMVI32(op) _SReadMVI32(runtime_manager, op)
-#define UReadMVI32(op) _UReadMVI32(runtime_manager, op)
+#define SReadMVI32(arena_ptr, op) _SReadMVI32(arena_ptr, op)
+#define UReadMVI32(arena_ptr, op) _UReadMVI32(arena_ptr, op)
 
-#define SReadMVI64(op) _SReadMVI64(runtime_manager, op)
-#define UReadMVI64(op) _UReadMVI64(runtime_manager, op)
+#define SReadMVI64(arena_ptr, op) _SReadMVI64(arena_ptr, op)
+#define UReadMVI64(arena_ptr, op) _UReadMVI64(arena_ptr, op)
 
 #if !defined(REMILL_DISABLE_INT128)
-#  define SReadMVI128(op) _SReadMVI128(runtime_manager, op)
-#  define UReadMVI128(op) _UReadMVI128(runtime_manager, op)
+#  define SReadMVI128(arena_ptr, op) _SReadMVI128(arena_ptr, op)
+#  define UReadMVI128(arena_ptr, op) _UReadMVI128(arena_ptr, op)
 #endif
 
-#define FReadMVI32(op) _FReadMVI32(runtime_manager, op)
-#define FReadMVI64(op) _FReadMVI64(runtime_manager, op)
+#define FReadMVI32(arena_ptr, op) _FReadMVI32(arena_ptr, op)
+#define FReadMVI64(arena_ptr, op) _FReadMVI64(arena_ptr, op)
 
 // Useful for stubbing out an operator.
 #define MAKE_NOP(...)

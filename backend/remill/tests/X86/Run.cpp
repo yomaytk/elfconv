@@ -298,11 +298,11 @@ Memory *__remill_delay_slot_end(Memory *) {
 }
 void __remill_defer_inlining(void) {}
 
-Memory *__remill_error(State &, addr_t, Memory *) {
+Memory *__remill_error(uint8_t *, State &, addr_t, Memory *) {
   siglongjmp(gJmpBuf, 0);
 }
 
-Memory *__remill_missing_block(State &, addr_t, Memory *memory) {
+Memory *__remill_missing_block(uint8_t *, State &, addr_t, Memory *memory) {
   return memory;
 }
 
@@ -331,19 +331,19 @@ Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
   abort();
 }
 
-Memory *__remill_function_call(State &, addr_t, Memory *) {
+Memory *__remill_function_call(uint8_t *, State &, addr_t, Memory *) {
   abort();
 }
 
-Memory *__remill_function_return(State &, addr_t, Memory *) {
+Memory *__remill_function_return(uint8_t *, State &, addr_t, Memory *) {
   abort();
 }
 
-Memory *__remill_jump(State &, addr_t, Memory *) {
+Memory *__remill_jump(uint8_t *, State &, addr_t, Memory *) {
   abort();
 }
 
-Memory *__remill_async_hyper_call(State &, addr_t, Memory *) {
+Memory *__remill_async_hyper_call(uint8_t *, State &, addr_t, Memory *) {
   abort();
 }
 

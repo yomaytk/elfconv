@@ -38,10 +38,7 @@
   fflush(stdout); \
   abort();
 
-extern "C" uint8_t *MemoryArenaPtr;
-
 // __remill_(read | write)_memory_* functions are not used for the optimization.
-
 uint8_t __remill_read_memory_8(RuntimeManager *rt_m, addr_t addr) {
   elfconv_runtime_error("__remill_read_memory_8 function must not be called!");
 }
@@ -103,14 +100,14 @@ void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
 /*
   tranpoline call for emulating syscall of original ELF binary.
 */
-void __remill_syscall_tranpoline_call(State &state, RuntimeManager *rt_m) {
+void __remill_syscall_tranpoline_call(uint8_t *arena_ptr, State &state, RuntimeManager *rt_m) {
   /* TODO: We should select one syscall emulate process (own implementation, WASI, LKL, etc...) */
 #if defined(TARGET_IS_WASI)
-  rt_m->SVCWasiCall();
+  rt_m->SVCWasiCall(arena_ptr);
 #elif defined(TARGET_IS_BROWSER)
-  rt_m->SVCBrowserCall();
+  rt_m->SVCBrowserCall(arena_ptr);
 #else
-  rt_m->SVCNativeCall();
+  rt_m->SVCNativeCall(arena_ptr);
 #endif
 }
 
@@ -123,16 +120,16 @@ extern "C" void __remill_mark_as_used(void *mem) {
   asm("" ::"m"(mem));
 }
 
-void __remill_function_return(State &state, addr_t fn_ret_vma, RuntimeManager *rt_m) {}
+void __remill_function_return(uint8_t *, State &state, addr_t fn_ret_vma, RuntimeManager *rt_m) {}
 
-void __remill_missing_block(State &, addr_t, RuntimeManager *rt_m) {
+void __remill_missing_block(uint8_t *, State &, addr_t, RuntimeManager *rt_m) {
   std::cout << std::hex << std::setw(16) << std::setfill('0')
             << "[WARNING] reached \"__remill_missing_block\", PC: 0x" << PCREG << std::endl;
 }
 
-void __remill_async_hyper_call(State &, addr_t ret_addr, RuntimeManager *rt_m) {}
+void __remill_async_hyper_call(uint8_t *, State &, addr_t ret_addr, RuntimeManager *rt_m) {}
 
-void __remill_error(State &, addr_t addr, RuntimeManager *) {
+void __remill_error(uint8_t *, State &, addr_t addr, RuntimeManager *) {
   std::cout << "[ERROR] Reached __remill_error. PC: 0x" << std::hex << addr << std::endl;
   exit(EXIT_FAILURE);
 }
@@ -141,7 +138,8 @@ void __remill_error(State &, addr_t addr, RuntimeManager *) {
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
 */
-void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *rt_m) {
+void __remill_function_call(uint8_t *arena_ptr, State &state, addr_t t_fun_vma,
+                            RuntimeManager *rt_m) {
   auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   auto jmp_fun_it =
@@ -150,7 +148,7 @@ void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *rt_m
   if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_fun_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_fun_vma;
-    jmp_fun_it->second(&state, t_fun_vma, rt_m);
+    jmp_fun_it->second(arena_ptr, &state, t_fun_vma, rt_m);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
@@ -160,7 +158,7 @@ void __remill_function_call(State &state, addr_t t_fun_vma, RuntimeManager *rt_m
 }
 
 /* BR instruction */
-void __remill_jump(State &state, addr_t t_vma, RuntimeManager *rt_m) {
+void __remill_jump(uint8_t *arena_ptr, State &state, addr_t t_vma, RuntimeManager *rt_m) {
   auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
   // jump to other function via the function pointer table.
   auto jmp_fun_it =
@@ -169,7 +167,7 @@ void __remill_jump(State &state, addr_t t_vma, RuntimeManager *rt_m) {
   if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
     // target instruction address is used via `PC` register.
     PCREG = t_vma;
-    jmp_fun_it->second(&state, t_vma, rt_m);
+    jmp_fun_it->second(arena_ptr, &state, t_vma, rt_m);
   } else {
     elfconv_runtime_error(
         "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
@@ -278,7 +276,8 @@ extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
   rt_m->cur_ecv_process->cpu_state->func_depth++;
 }
 
-extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr, RuntimeManager *rt_m) {
+extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
+                                   RuntimeManager *rt_m) {
 
   EcvProcess *cur_ecv_pr = rt_m->cur_ecv_process;
   if (cur_ecv_pr->cpu_state->has_fibers > 0) {
@@ -317,9 +316,28 @@ extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr, RuntimeMa
 extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
   FiberArgs *ecv_fiber_arg = (FiberArgs *) fiber_arg;
   auto t_lifted_func = ecv_fiber_arg->lifted_func;
-  t_lifted_func(ecv_fiber_arg->state, ecv_fiber_arg->addr, ecv_fiber_arg->run_mgr);
+  t_lifted_func(nullptr, ecv_fiber_arg->state, ecv_fiber_arg->addr, ecv_fiber_arg->run_mgr);
 }
 
+#elif defined(__FORK_PTHREAD__)
+extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
+  elfconv_runtime_error(
+      "`_ecv_process_context_switch` cannot be used on the __FORK_PTHREAD__ environment.");
+}
+extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
+                                       uint64_t ret_addr) {
+  rt_m->ecv_prs[CurEcvPid]->call_history.push({func_addr, ret_addr});
+  CPUState->func_depth++;
+}
+extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
+                                   RuntimeManager *rt_m) {
+  rt_m->ecv_prs[CurEcvPid]->call_history.pop();
+  CPUState->func_depth--;
+}
+extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
+  elfconv_runtime_error(
+      "`_ecv_fiber_init_wrapper cannot be used on the __FORK_PTHREAD__ environment.");
+}
 #else
 extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
   elfconv_runtime_error("emscritepn Fiber switch cannot be used on the native environment.");
@@ -391,14 +409,14 @@ extern "C" void debug_call_stack_pop(RuntimeManager *rt_m, uint64_t fn_vma) {
 }
 
 // observe the value change of runtime memory
-extern "C" void debug_memory_value_change(RuntimeManager *rt_m, uint64_t pc) {
+extern "C" void debug_memory_value_change(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t pc) {
   // step 1. set target vma
   static uint64_t target_vma = 0x1fffe58c;
   if (0 == target_vma)
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = *(uint64_t *) rt_m->TranslateVMA(target_vma);
+  auto cur_value = *(uint64_t *) rt_m->TranslateVMA(arena_ptr, target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
               << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
@@ -407,13 +425,13 @@ extern "C" void debug_memory_value_change(RuntimeManager *rt_m, uint64_t pc) {
 }
 
 // observe the value of runtime memory
-extern "C" void debug_memory_value(RuntimeManager *rt_m) {
+extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
   // step 1. set target vma
   std::vector<uint64_t> target_vmas = {0xfffff00000ffb98};
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) rt_m->TranslateVMA(target_vma);
+    auto target_pma = (double *) rt_m->TranslateVMA(arena_ptr, target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
@@ -546,8 +564,8 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 }
 
 // temp patch for correct stdout behavior
-extern "C" void temp_patch_f_flags(RuntimeManager *rt_m, uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) rt_m->TranslateVMA(f_flags_vma);
+extern "C" void temp_patch_f_flags(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t f_flags_vma) {
+  uint64_t *pma = (uint64_t *) rt_m->TranslateVMA(arena_ptr, f_flags_vma);
   *pma = 0xfbad2a84;
   return;
 }

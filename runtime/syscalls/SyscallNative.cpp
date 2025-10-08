@@ -89,7 +89,7 @@ struct _ecv_statx {
   arch: x86-64, sycall NR: rax, return: rax, arg0: rdi, arg1: rsi, arg2: rdx, arg3: r10, arg4: r8, arg5: r9
   ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 */
-void RuntimeManager::SVCNativeCall(void) {
+void RuntimeManager::SVCNativeCall(uint8_t *arena_ptr) {
 
   errno = 0;
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
@@ -97,7 +97,7 @@ void RuntimeManager::SVCNativeCall(void) {
 #endif
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
-      getcwd((char *) TranslateVMA(X0_Q), X1_Q);
+      getcwd((char *) TranslateVMA(arena_ptr, X0_Q), X1_Q);
       break;
     case ECV_DUP: /* int dup(int oldfd) */ X0_D = dup(X0_D); break;
     case ECV_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
@@ -121,38 +121,39 @@ void RuntimeManager::SVCNativeCall(void) {
         case TCGETS:
         case TCSETS:
         case TIOCGWINSZ: {
-          X0_D = ioctl(fd, cmd, TranslateVMA(arg));
+          X0_D = ioctl(fd, cmd, TranslateVMA(arena_ptr, arg));
         } break;
         default: X0_Q = -_LINUX_ENOTTY; break;
       }
     } break;
     case ECV_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
-      X0_D = mkdirat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      X0_D = mkdirat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
       break;
     case ECV_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
-      X0_D = unlinkat(X0_D, (char *) TranslateVMA(X1_Q), X2_D);
+      X0_D = unlinkat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
       break;
     case ECV_STATFS: /* int statfs(const char *path, struct statfs *buf) */
-      X0_D = statfs((char *) TranslateVMA(X0_Q), (struct statfs *) TranslateVMA(X1_Q));
+      X0_D = statfs((char *) TranslateVMA(arena_ptr, X0_Q),
+                    (struct statfs *) TranslateVMA(arena_ptr, X1_Q));
       break;
     case ECV_TRUNCATE: /* int truncate(const char *path, off_t length) */
-      X0_D = truncate((char *) TranslateVMA(X0_Q), (_ecv_long) X1_Q);
+      X0_D = truncate((char *) TranslateVMA(arena_ptr, X0_Q), (_ecv_long) X1_Q);
       break;
     case ECV_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
       break;
     case ECV_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
-      X0_D = faccessat(X0_D, (const char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      X0_D = faccessat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
       break;
     case ECV_CHDIR: /* int chdir (const char * path) */
-      X0_D = chdir((const char *) TranslateVMA(X0_Q));
+      X0_D = chdir((const char *) TranslateVMA(arena_ptr, X0_Q));
       break;
     case ECV_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
-      X0_D = openat(X0_D, (char *) TranslateVMA(X1_Q), X2_D, X3_D);
+      X0_D = openat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
       break;
     case ECV_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
     case ECV_GETDENTS: /* long getdents64 (int fd, void *dirp, size_t count) */
-      X0_Q = syscall(ECV_GETDENTS, X0_D, TranslateVMA(X1_Q), X2_Q);
+      X0_Q = syscall(ECV_GETDENTS, X0_D, TranslateVMA(arena_ptr, X1_Q), X2_Q);
       if (X0_Q < 0) {
         errno = -X0_Q;
       }
@@ -161,45 +162,48 @@ void RuntimeManager::SVCNativeCall(void) {
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
     case ECV_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      X0_Q = read(X0_D, (char *) TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = read(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       break;
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
-      X0_Q = write(X0_D, TranslateVMA(X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       break;
     case ECV_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
-      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(X1_Q));
+      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(arena_ptr, X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
-        cache_vec[i].iov_base = TranslateVMA(reinterpret_cast<addr_t>(tr_vec[i].iov_base));
+        cache_vec[i].iov_base =
+            TranslateVMA(arena_ptr, reinterpret_cast<addr_t>(tr_vec[i].iov_base));
         cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
       X0_Q = writev(fd, cache_vec, vlen);
       free(cache_vec);
     } break;
     case ECV_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
-      X0_Q = sendfile(X0_D, X1_D, (off_t *) TranslateVMA(X2_Q), X3_Q);
+      X0_Q = sendfile(X0_D, X1_D, (off_t *) TranslateVMA(arena_ptr, X2_Q), X3_Q);
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
-      X0_D = ppoll((struct pollfd *) TranslateVMA(X0_Q), (unsigned long int) X1_D,
-                   (const struct timespec *) TranslateVMA(X2_Q),
-                   (const sigset_t *) TranslateVMA(X3_Q));
+      X0_D = ppoll((struct pollfd *) TranslateVMA(arena_ptr, X0_Q), (unsigned long int) X1_D,
+                   (const struct timespec *) TranslateVMA(arena_ptr, X2_Q),
+                   (const sigset_t *) TranslateVMA(arena_ptr, X3_Q));
       break;
     case ECV_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
-      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(X1_Q), (char *) TranslateVMA(X2_Q), X3_D);
+      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q),
+                        (char *) TranslateVMA(arena_ptr, X2_Q), X3_D);
       break;
     case ECV_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
-      X0_Q = syscall(ECV_NEWFSTATAT, X0_D, TranslateVMA(X1_Q), TranslateVMA(X2_Q), X3_D);
+      X0_Q = syscall(ECV_NEWFSTATAT, X0_D, TranslateVMA(arena_ptr, X1_Q),
+                     TranslateVMA(arena_ptr, X2_Q), X3_D);
       if (X0_Q < 0) {
         errno = -X0_Q;
       }
       break;
     case ECV_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
-      X0_D = utimensat(X0_D, (char *) TranslateVMA(X1_Q),
-                       (const struct timespec *) TranslateVMA(X2_Q), X3_D);
+      X0_D = utimensat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q),
+                       (const struct timespec *) TranslateVMA(arena_ptr, X2_Q), X3_D);
       break;
     case ECV_EXIT: /* exit (int error_code) */ exit(X0_D); break;
     case ECV_EXIT_GROUP: /* exit_group (int error_code) note. there is no function of 'exit_group', so must use syscall. */
@@ -208,12 +212,12 @@ void RuntimeManager::SVCNativeCall(void) {
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
-      *reinterpret_cast<int *>(TranslateVMA(X0_Q)) = tid;
+      *reinterpret_cast<int *>(TranslateVMA(arena_ptr, X0_Q)) = tid;
       X0_Q = tid;
     } break;
     case ECV_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u32 val3) */
-      X0_Q = syscall(ECV_FUTEX, TranslateVMA(X0_Q), X1_D, X2_D, TranslateVMA(X3_Q),
-                     TranslateVMA(X4_Q), X5_D);
+      X0_Q = syscall(ECV_FUTEX, TranslateVMA(arena_ptr, X0_Q), X1_D, X2_D,
+                     TranslateVMA(arena_ptr, X3_Q), TranslateVMA(arena_ptr, X4_Q), X5_D);
       if (X0_Q < 0) {
         errno = -X0_Q;
       }
@@ -223,18 +227,19 @@ void RuntimeManager::SVCNativeCall(void) {
       clockid_t which_clock = X0_D;
       struct timespec emu_tp;
       int clock_time = clock_gettime(which_clock, &emu_tp);
-      memcpy(TranslateVMA(X1_Q), &emu_tp, sizeof(timespec));
+      memcpy(TranslateVMA(arena_ptr, X1_Q), &emu_tp, sizeof(timespec));
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
     case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
       X0_Q = tgkill(X0_D, X1_D, X2_D);
       break;
     case ECV_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
-      X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(X1_Q),
-                       (struct sigaction *) TranslateVMA(X2_Q));
+      X0_D = sigaction(X0_D, (const struct sigaction *) TranslateVMA(arena_ptr, X1_Q),
+                       (struct sigaction *) TranslateVMA(arena_ptr, X2_Q));
       break;
     case ECV_RT_SIGPROCMASK: /* rt_sigprocmask (int how, sigset_t *set, sigset_t *oset, size_t sigsetsize) */
-      X0_Q = syscall(ECV_RT_SIGPROCMASK, TranslateVMA(X1_Q), TranslateVMA(X2_Q), X3_D);
+      X0_Q = syscall(ECV_RT_SIGPROCMASK, TranslateVMA(arena_ptr, X1_Q),
+                     TranslateVMA(arena_ptr, X2_Q), X3_D);
       if (X0_Q < 0) {
         errno = -X0_Q;
       }
@@ -254,22 +259,22 @@ void RuntimeManager::SVCNativeCall(void) {
     {
       struct utsname _utsname;
       int ret = uname(&_utsname);
-      memcpy(TranslateVMA(X0_Q), &_utsname, sizeof(utsname));
+      memcpy(TranslateVMA(arena_ptr, X0_Q), &_utsname, sizeof(utsname));
       X0_D = ret;
     } break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
-      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(X1_Q));
+      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(arena_ptr, X1_Q));
     case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       auto option = X0_D;
       if (ECV_PR_GET_NAME == option) {
-        X0_D = prctl(option, TranslateVMA(X1_Q));
+        X0_D = prctl(option, TranslateVMA(arena_ptr, X1_Q));
       } else {
         elfconv_runtime_error("prctl unknown option!: %d\n", option);
       }
     } break;
     case ECV_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
-      X0_D = gettimeofday((struct timeval *) TranslateVMA(X0_Q),
+      X0_D = gettimeofday((struct timeval *) TranslateVMA(arena_ptr, X0_Q),
                           (struct timezone *) 0); /* FIXME (second argument) */
       break;
     case ECV_GETPID: /* getpid () */ X0_D = getpid(); break;
@@ -313,16 +318,18 @@ void RuntimeManager::SVCNativeCall(void) {
       }
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
-      X0_D = wait4(X0_D, (int *) TranslateVMA(X1_Q), X2_D, (struct rusage *) TranslateVMA(X3_Q));
+      X0_D = wait4(X0_D, (int *) TranslateVMA(arena_ptr, X1_Q), X2_D,
+                   (struct rusage *) TranslateVMA(arena_ptr, X3_Q));
     case ECV_PRLIMIT64: /* prlimit64 (pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *oldrlim) */
-      X0_Q = syscall(ECV_PRLIMIT64, X0_D, X1_D, TranslateVMA(X2_Q), TranslateVMA(X3_Q));
+      X0_Q = syscall(ECV_PRLIMIT64, X0_D, X1_D, TranslateVMA(arena_ptr, X2_Q),
+                     TranslateVMA(arena_ptr, X3_Q));
       if (X0_Q < 0) {
         errno = -X0_Q;
       }
       break;
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      auto res = getentropy(TranslateVMA(X0_Q), static_cast<size_t>(X1_Q));
+      auto res = getentropy(TranslateVMA(arena_ptr, X0_Q), static_cast<size_t>(X1_Q));
       X0_Q = 0 == res ? X1_Q : -1;
     } break;
     case ECV_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
@@ -348,7 +355,7 @@ void RuntimeManager::SVCNativeCall(void) {
         _statx.stx_ino = _stat.st_ino;
         _statx.stx_size = _stat.st_size;
         _statx.stx_blocks = _stat.st_blocks;
-        memcpy(TranslateVMA(X4_Q), &_statx, sizeof(_statx));
+        memcpy(TranslateVMA(arena_ptr, X4_Q), &_statx, sizeof(_statx));
         X0_Q = 0;
       } else {
         X0_Q = -1;

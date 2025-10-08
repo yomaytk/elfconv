@@ -82,6 +82,7 @@ main() {
     Entry.cpp
     Memory.cpp
     VmIntrinsics.cpp
+    Runtime.cpp
     "${UTILS_DIR}/Util.cpp"
     "${UTILS_DIR}/elfconv.cpp"
   )

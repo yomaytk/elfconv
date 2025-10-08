@@ -464,6 +464,7 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   auto run_mgr_ty = llvm::Type::getInt64PtrTy(context);
   auto void_ty = llvm::Type::getVoidTy(context);
   auto u64_ty = llvm::Type::getInt64Ty(context);
+  auto ptr_ty = llvm::Type::getInt64PtrTy(context);
   auto f64_ty = llvm::Type::getDoubleTy(context);
   auto u8p_ty = llvm::Type::getInt8PtrTy(context);
   auto extern_link = llvm::Function::ExternalLinkage;
@@ -493,8 +494,8 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty}, false), extern_link,
                          debug_memory_value_name, *module);
   // temporary patch fun
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, false), extern_link,
-                         "temp_patch_f_flags", *module);
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, run_mgr_ty, u64_ty}, false),
+                         extern_link, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {}, false), extern_link, debug_insn_name,
                          *module);
