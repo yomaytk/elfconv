@@ -16,8 +16,11 @@
 thread_local State *CPUState;
 thread_local uint64_t CurEcvPid;
 #else
-uint8_t *MemoryArenaPtr = nullptr;
 State *CPUState;
+#endif
+
+#if defined(ELF_IS_AMD64)
+uint8_t *MemoryArenaPtr = nullptr;
 #endif
 
 // Emscripten main fiber data for `fork` emulation.
@@ -47,7 +50,7 @@ int main(int argc, char *argv[], char *envp[]) {
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
 
-#if !defined(__FORK_PTHREAD__)
+#if defined(ELF_IS_AMD64)
   // set the global data of memory arena pointer.
   MemoryArenaPtr = memory_arena->bytes;
 #endif

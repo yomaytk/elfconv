@@ -22,6 +22,9 @@ thread_local extern "C" State *CPUState;
 thread_local extern "C" uint64_t CurEcvPid;
 #else
 extern "C" State *CPUState;
+#endif
+
+#if defined(ELF_IS_AMD64)
 extern "C" uint8_t *MemoryArenaPtr;
 #endif
 
@@ -43,17 +46,14 @@ struct FiberArgs {
   LiftedFunc lifted_func;
   State *state;
   addr_t addr;
-  RuntimeManager *run_mgr;
+  RuntimeManager *rt_m;
 
-  FiberArgs(LiftedFunc __lifted_func, State *__state, addr_t __addr, RuntimeManager *__run_mgr)
+  FiberArgs(LiftedFunc __lifted_func, State *__state, addr_t __addr, RuntimeManager *__rt_m)
       : lifted_func(__lifted_func),
         state(__state),
         addr(__addr),
-        run_mgr(__run_mgr) {}
+        rt_m(__rt_m) {}
 };
-#endif
-
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
 class RuntimeManager {
  public:
   RuntimeManager(EcvProcess *__ecv_process)
@@ -64,7 +64,7 @@ class RuntimeManager {
 
   // translates vma_addr to the address of the memory arena
   void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr) {
-    return cur_memory_arena->bytes + (vma_addr - MEMORY_ARENA_VMA);
+    return arena_ptr + (vma_addr - MEMORY_ARENA_VMA);
   };
 
   // Linux system calls emulation
@@ -91,7 +91,7 @@ class RuntimeManager {
     cur_ecv_process = next_ecv_pr;
     cur_memory_arena = next_ecv_pr->memory_arena;
     CPUState = next_ecv_pr->cpu_state;
-    MemoryArenaPtr = next_ecv_pr->memory_arena->bytes;
+    // MemoryArenaPtr = next_ecv_pr->memory_arena->bytes; // MemoryArenPtr is used for only x86-64 binary, so disable this line.
   }
 
   void InitFiberForEcvProcess(EcvProcess *t_ecv_pr, addr_t t_fiber_func_addr, addr_t t_next_pc) {
@@ -194,14 +194,14 @@ class RuntimeManager {
         cur_memory_arena(__ecv_process->memory_arena) {}
 
   // translates vma_addr to the address of the memory arena
-  void *TranslateVMA(addr_t vma_addr) {
-    return cur_memory_arena->bytes + (vma_addr - MEMORY_ARENA_VMA);
+  void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr) {
+    return arena_ptr + (vma_addr - MEMORY_ARENA_VMA);
   };
 
   // Linux system calls emulation
-  void SVCBrowserCall();  // for browser
-  void SVCWasiCall();  // for wasi
-  void SVCNativeCall();  // for native
+  void SVCBrowserCall(uint8_t *arena_ptr);  // for browser
+  void SVCWasiCall(uint8_t *arena_ptr);  // for wasi
+  void SVCNativeCall(uint8_t *arena_ptr);  // for native
   // unimplemented syscall
   void UnImplementedBrowserSyscall();
   void UnImplementedWasiSyscall();

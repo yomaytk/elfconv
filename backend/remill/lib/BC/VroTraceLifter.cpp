@@ -756,10 +756,10 @@ VirtualRegsOpt::VirtualRegsOpt(llvm::Function *__func, TraceLifter::Impl *__impl
   if (func->getName().str() == "__remill_function_call") {
     auto args = func->args().begin();
     for (size_t i = 0; i < func->arg_size(); i++) {
-      if (0 == i) {
+      if (kStatePointerArgNum == i) {
         CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
         arg_state_val = &args[i];
-      } else if (2 == i) {
+      } else if (kRuntimePointerArgNum == i) {
         CHECK(llvm::dyn_cast<llvm::PointerType>(args[i].getType()));
         arg_runtime_val = &args[i];
       }

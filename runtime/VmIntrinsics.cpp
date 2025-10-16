@@ -315,8 +315,14 @@ extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr
 
 extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
   FiberArgs *ecv_fiber_arg = (FiberArgs *) fiber_arg;
+
   auto t_lifted_func = ecv_fiber_arg->lifted_func;
-  t_lifted_func(nullptr, ecv_fiber_arg->state, ecv_fiber_arg->addr, ecv_fiber_arg->run_mgr);
+  auto state = ecv_fiber_arg->state;
+  auto rt_m = ecv_fiber_arg->rt_m;
+  auto t_pc = ecv_fiber_arg->addr;
+  auto arena_ptr = rt_m->cur_memory_arena->bytes;
+
+  t_lifted_func(arena_ptr, state, t_pc, rt_m);
 }
 
 #elif defined(__FORK_PTHREAD__)
@@ -344,7 +350,8 @@ extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
 }
 extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {}
-extern "C" void _ecv_func_epilogue(State &state, addr_t cur_func_addr, RuntimeManager *rt_m) {}
+extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
+                                   RuntimeManager *rt_m) {}
 extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {}
 #endif
 

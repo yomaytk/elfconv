@@ -65,7 +65,7 @@ void gen_wasm_for_wasi_runtimes() {
 
   auto cmd =
       std::string("${WASI_SDK_PATH}/bin/clang++ -O3 ") + ELFCONV_WASI_MACRO +
-      " -o exe.wasm lift.bc ../../../runtime/Entry.cpp ../../../runtime/Memory.cpp ../../../runtime/Runtime.cpp" +
+      " -o exe.wasm lift.bc ../../../runtime/Entry.cpp ../../../runtime/Memory.cpp ../../../runtime/Runtime.cpp " +
       "../../../runtime/syscalls/SyscallWasi.cpp ../../../runtime/VmIntrinsics.cpp ../../../utils/Util.cpp ../../../utils/elfconv.cpp";
   pipe = popen(cmd.c_str(), "r");
   EXPECT_NE(pipe, nullptr) << "[ERROR] Failed to " << cmd.c_str()

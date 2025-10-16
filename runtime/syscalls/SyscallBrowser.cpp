@@ -616,15 +616,18 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_GETTID: /* getttid () */ X0_D = gettid(); break;
     case ECV_BRK: /* brk (unsigned long brk) */
     {
+      MemoryArena *memory_arena;
 #if defined(__FORK_PTHREAD__)
-      auto cur_memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+      memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#else
+      memory_arena = cur_memory_arena;
 #endif
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = cur_memory_arena->heap_cur;
+        X0_Q = memory_arena->heap_cur;
       } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
         /* change program break */
-        cur_memory_arena->heap_cur = X0_Q;
+        memory_arena->heap_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
@@ -707,16 +710,19 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
+        MemoryArena *memory_arena;
 #if defined(__FORK_PTHREAD__)
-        auto cur_memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+        memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#else
+        memory_arena = cur_memory_arena;
 #endif
         if (X4_D != (uint32_t) -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = cur_memory_arena->heap_cur;
-          cur_memory_arena->heap_cur += X1_Q;
+          X0_Q = memory_arena->heap_cur;
+          memory_arena->heap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
