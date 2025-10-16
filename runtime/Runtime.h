@@ -21,7 +21,7 @@
 thread_local extern "C" State *CPUState;
 thread_local extern "C" uint64_t CurEcvPid;
 #else
-extern "C" State *CPUState;
+extern State *CPUState;
 #endif
 
 #if defined(ELF_IS_AMD64)

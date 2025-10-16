@@ -48,15 +48,15 @@ aarch64_test() {
     ./aarch64_test_lift \
     --arch aarch64 \
     --bc_out ./aarch64_test.bc
-  echo -e "[${GREEN}INFO${NC}] Generate aarch64_lift.bc"
+  echo -e "[${GREEN}INFO${NC}] built aarch64_lift.bc"
   llvm-dis-${LLVM_VERSION} aarch64_test.bc -o aarch64_test.ll
-  echo -e "[${GREEN}INFO${NC}] Generate aarch64_lift.ll"  
+  echo -e "[${GREEN}INFO${NC}] built aarch64_lift.ll"  
 
   RUNTIME_MACRO="${RUNTIME_MACRO} -DELF_IS_AARCH64"
   # generate execute file (lift_test.aarch64)
   $CXX $CLANGFLAGS $RUNTIME_MACRO -o lift_test.aarch64 aarch64_test.ll ${AARCH64_TEST_DIR}/Test.cpp ${AARCH64_TEST_DIR}/TestHelper.cpp \
   ${AARCH64_TEST_DIR}/TestInstructions.cpp $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
-  echo -e "[${GREEN}INFO${NC}] Generate lift_test.aarch64"
+  echo -e "[${GREEN}INFO${NC}] built lift_test.aarch64"
 
 }
 
@@ -78,13 +78,13 @@ lifting() {
 
   fork_emulation_emcc_fiber="0"
   if [ "$FORK_EMULATION_EMCC_FIBER" = "1" ]; then
-    echo -e "[${GREEN}INFO${NC}] fork-emulation-emcc-fiber is enabled."
+    echo -e "[${GREEN}INFO${NC}] FORK emulation (using Fiber) is enabled."
     fork_emulation_emcc_fiber="1"
   fi
 
   fork_emulation_pthread="0"
   if [ "$FORK_EMULATION_PTHREAD" = "1" ]; then
-    echo -e "[${GREEN}INFO${NC}] fork-emulation-pthread is enabled."
+    echo -e "[${GREEN}INFO${NC}] FORK emulation (using pthread) is enabled."
     fork_emulation_pthread="1"
   fi
   
@@ -100,11 +100,11 @@ lifting() {
   --fork_emulation_emcc_fiber "$fork_emulation_emcc_fiber" \
   --fork_emulation_pthread "$fork_emulation_pthread"
  
-  echo -e "[${GREEN}INFO${NC}] lift.bc was generated."
+  echo -e "[${GREEN}INFO${NC}] built lift.bc"
   
   # (optional) for debug
   llvm-dis-${LLVM_VERSION} lift.bc -o lift.ll
-  echo -e "[${GREEN}INFO${NC}] lift.ll was generated."
+  echo -e "[${GREEN}INFO${NC}] built lift.ll "
 
 }
 
@@ -168,7 +168,7 @@ main() {
       fi
       
       $CXX $CLANGFLAGS $RUNTIME_MACRO -o "exe.${HOST_CPU}" $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
-      echo -e " [${GREEN}INFO${NC}] exe.${HOST_CPU} was generated."
+      echo -e " [${GREEN}INFO${NC}] built exe.${HOST_CPU}"
       if [ -n "$OUT_EXE" ]; then
         mv "exe.${HOST_CPU}" "$OUT_EXE"
       fi
@@ -182,11 +182,11 @@ main() {
       if [ -n "$MOUNT_DIR" ]; then
         PRELOAD="--preload-file ${MOUNT_DIR}"
       fi
-      echo -e "[${GREEN}INFO${NC}] Compiling to Wasm and Js (for Browser)... "
       
       if [ -z "$NOT_COMPILED" ]; then
         $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
       fi
+      echo -e "[${GREEN}INFO${NC}] built lift.wasm.o "
 
       EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
       
@@ -203,7 +203,7 @@ main() {
       
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
                               $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
-      echo -e "[${GREEN}INFO${NC}] exe.wasm and exe.js were generated."
+      echo -e "[${GREEN}INFO${NC}] built exe.wasm and exe.js"
       
       # move generated files to `examples/browser`
       if [ -n "$OUT_EXE" ]; then
@@ -233,9 +233,9 @@ main() {
       
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
       $WASISDKCC $WASISDKFLAGS $WASISDK_LINKFLAGS $RUNTIME_MACRO -o exe.wasm $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
-      echo -e "[${GREEN}INFO${NC}] exe.wasm was generated."
+      echo -e "[${GREEN}INFO${NC}] built exe.wasm"
       $WASMEDGE_COMPILE_OPT exe.wasm exe_o3.wasm
-      echo -e "[${GREEN}INFO${NC}] Universal compile optimization was done. (exe_o3.wasm)"
+      echo -e "[${GREEN}INFO${NC}] built exe_opt.wasm"
       return 0
     ;;
   esac  
