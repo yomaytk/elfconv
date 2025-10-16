@@ -639,7 +639,7 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
   if (!sigsetjmp(gJmpBuf, true)) {
     std::fesetenv(FE_DFL_ENV);
     gInNativeTest = false;
-    (void) lifted_func(lifted_state, lifted_state->gpr.pc.aword, nullptr);
+    (void) lifted_func(nullptr, lifted_state, lifted_state->gpr.pc.aword, nullptr);
   } else {
     EXPECT_TRUE(native_test_faulted);
   }

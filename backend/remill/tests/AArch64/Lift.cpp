@@ -193,7 +193,8 @@ extern "C" int main(int argc, char *argv[]) {
   auto arch = remill::Arch::Build(&context, os_name, arch_name);
   auto module = remill::LoadArchSemantics(arch.get());
 
-  auto lift_config = remill::LiftConfig(false, true, remill::kArchAArch64LittleEndian, false);
+  auto lift_config =
+      remill::LiftConfig(false, true, remill::kArchAArch64LittleEndian, false, false);
   remill::EcvReg::target_elf_arch = lift_config.target_elf_arch;
 
   remill::IntrinsicTable intrinsics(module.get());
