@@ -840,7 +840,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     } else if (inst.lift_config.fork_emulation_pthread) {
       GenPthreadForkNearJump(trace_addr);
     } else if (br_bb) {
-      GenIndirectJumpCode(trace_addr);
+      MainIndirectJumpCode(trace_addr);
     } else {
       opt_target_funcs.insert(func);
     }
@@ -863,6 +863,34 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   }
 
   return true;
+}
+
+void TraceLifter::Impl::MainIndirectJumpCode(uint64_t trace_addr) {
+  auto root_bb = &(func->front());
+  auto root_trmi = root_bb->getTerminator();
+  auto org_first_bb = root_trmi->getSuccessor(0);
+
+  _near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump", func);
+  root_trmi->setSuccessor(0, _near_jump_bb);
+  llvm::IRBuilder<> _near_jump_ir(_near_jump_bb);
+
+  // generate the IR code of indirectbr jump.
+  GenIndirectJumpCode(trace_addr);
+
+  _near_jump_ir.CreateBr(br_bb);
+  if (auto br_bb_phi = llvm::dyn_cast<llvm::PHINode>(&br_bb->front()); br_bb_phi) {
+    br_bb_phi->addIncoming(NthArgument(func, kPCArgNum), _near_jump_bb);
+  } else {
+    LOG(FATAL) << "br_bb is not defined correctly.";
+  }
+
+  // Update cache.
+  virtual_regs_opt->bb_parents.insert({_near_jump_bb, {root_bb}});
+  virtual_regs_opt->bb_parents.at(org_first_bb).erase(root_bb);
+  virtual_regs_opt->bb_parents.at(org_first_bb).insert(_near_jump_bb);
+  // Add _near_jump_bb to the bb_reg_info_node_map.
+  virtual_regs_opt->bb_reg_info_node_map.insert(
+      {_near_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
 }
 
 void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
