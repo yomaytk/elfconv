@@ -366,6 +366,7 @@ class TraceLifter::Impl {
 
   void AddStoreForAllSemantics();
   void GenIndirectJumpCode(uint64_t trace_addr);
+  void MainIndirectJumpCode(uint64_t trace_addr);
 
   // emscripten fiber (fork)
   void JoinBasicBlocksForFork();
