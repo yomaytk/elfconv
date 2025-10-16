@@ -25,7 +25,7 @@ add_library(remill_bc STATIC
 
   ABI.cpp
   Annotate.cpp
-  EmscriptenFiberFork.cpp
+  ForkEmulation.cpp
   InstructionLifter.cpp
   InstructionLifter.h
   IntrinsicTable.cpp

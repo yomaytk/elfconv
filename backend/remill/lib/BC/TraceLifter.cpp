@@ -273,14 +273,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
   func = nullptr;
   block = nullptr;
   bb_reg_info_node = nullptr;
-  lifted_block_map.clear();
-  rev_lifted_block_map.clear();
-  lift_all_insn = false;
-  br_bb = nullptr;
-  far_jump_bb = nullptr;
-  _fb_near_jump_bb = nullptr;
-  bb_addrs.clear();
-  bb_addr_vmas.clear();
   inst.Reset();
   delayed_inst.Reset();
 
@@ -317,11 +309,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     func = get_trace_decl(trace_addr);
     blocks.clear();
     lifted_block_map.clear();
-    rev_lifted_block_map.clear();
     br_blocks.clear();
     br_bb = nullptr;
+    lifted_block_map.clear();
+    rev_lifted_block_map.clear();
     lift_all_insn = false;
-
+    far_jump_bb = nullptr;
+    _near_jump_bb = nullptr;
+    bb_addrs.clear();
+    bb_addr_vmas.clear();
+    lift_or_system_calling_bbs.clear();
     inst_nums_in_bb.clear();
 
     lifted_funcs.insert(func);
@@ -336,6 +333,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     // of the trace.
     arch->InitializeEmptyLiftedFunction(func);
 
+    arena_ptr = NthArgument(func, kArenaPointerArgNum);
     state_ptr = NthArgument(func, kStatePointerArgNum);
     runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
 
@@ -378,7 +376,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       const auto inst_addr = PopInstructionAddress();
 
       block = GetOrCreateBlock(inst_addr);
-      lifted_block_map.insert({inst_addr, block});
 
       // always be vrp_opt_mode.
       // if (!vrp_opt_mode) {
@@ -429,7 +426,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
         auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
-        std::vector<llvm::Value *> args = {runtime_ptr,
+        std::vector<llvm::Value *> args = {arena_ptr, runtime_ptr,
                                            ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
         auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
         ir.CreateCall(tmp_patch_fn, args);
@@ -536,7 +533,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           // if the next instruction is not included in this function, jumping to it is illegal.
           // Therefore, we force to return at this block because we assume that this instruction don't come back to.
-          if (inst.lift_config.fork_emulation_emcc_fiber) {
+          if (inst.lift_config.fork_emulation_emcc_fiber ||
+              inst.lift_config.fork_emulation_pthread) {
             lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           }
           if (manager.isFunctionEntry(inst.next_pc)) {
@@ -554,7 +552,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::IRBuilder<> ir(block);
           llvm::Value *t_func_addr = FindIndirectBrAddress(block);
 
-          if (inst.lift_config.fork_emulation_emcc_fiber) {
+          if (inst.lift_config.fork_emulation_emcc_fiber ||
+              inst.lift_config.fork_emulation_pthread) {
             // call "_ecv_save_call_history"
             llvm::Value *cur_func_addr =
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
@@ -635,7 +634,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           trace_work_list.insert(inst.branch_taken_pc);
           llvm::IRBuilder<> ir(block);
 
-          if (inst.lift_config.fork_emulation_emcc_fiber) {
+          if (inst.lift_config.fork_emulation_emcc_fiber ||
+              inst.lift_config.fork_emulation_pthread) {
             // call "_ecv_save_call_history"
             llvm::Value *cur_func_addr =
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
@@ -837,6 +837,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     if (inst.lift_config.fork_emulation_emcc_fiber) {
       FiberContextSwitchMain(trace_addr);
+    } else if (inst.lift_config.fork_emulation_pthread) {
+      GenPthreadForkNearJump(trace_addr);
     } else if (br_bb) {
       GenIndirectJumpCode(trace_addr);
     } else {
@@ -871,7 +873,7 @@ void TraceLifter::Impl::GenIndirectJumpCode(uint64_t trace_addr) {
   // Complete br_bb definition.
   llvm::IRBuilder<> br_ir(br_bb);
 
-  // IR to get jump target VMA `from` every BR basic block.
+  // IR to get jump target VMA `from` all BR basic blocks.
   // i.e. t_vma_phi = phi i64 [ %t_vma1, $%br_bb_1 ], [ %t_vma2, %br_bb_2 ], [ %t_vma3, %br_bb_3 ], ...
   auto t_vma_phi = br_ir.CreatePHI(u64ty, br_blocks.size());
   for (auto &[br_bb, t_vma] : br_blocks) {

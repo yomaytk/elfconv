@@ -12,8 +12,16 @@
 #include <stdio.h>
 
 // MemoryArenaPtr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
-uint8_t *MemoryArenaPtr = nullptr;
+#if defined(__FORK_PTHREAD__)
+thread_local State *CPUState;
+thread_local uint64_t CurEcvPid;
+#else
 State *CPUState;
+#endif
+
+#if defined(ELF_IS_AMD64)
+uint8_t *MemoryArenaPtr = nullptr;
+#endif
 
 // Emscripten main fiber data for `fork` emulation.
 #if defined(__EMSCRIPTEN_FORK_FIBER__)
@@ -42,8 +50,10 @@ int main(int argc, char *argv[], char *envp[]) {
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
 
+#if defined(ELF_IS_AMD64)
   // set the global data of memory arena pointer.
   MemoryArenaPtr = memory_arena->bytes;
+#endif
 
   for (size_t i = 0; i < _ecv_data_sec_num; i++) {
     // remove covered section
@@ -67,26 +77,24 @@ int main(int argc, char *argv[], char *envp[]) {
 
   EcvProcess *main_ecv_process;
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
+#if defined(__EMSCRIPTEN_FORK_FIBER__) || defined(__FORK_PTHREAD__)
   main_ecv_process = new EcvProcess(memory_arena, cpu_state, {});
 #else
   main_ecv_process = new EcvProcess(memory_arena, cpu_state);
 #endif
 
-  auto runtime_manager = new RuntimeManager(main_ecv_process);
+  auto rt_m = new RuntimeManager(main_ecv_process);
 
   // Set lifted function pointer table
   for (size_t i = 0; _ecv_fun_vmas[i] && _ecv_fun_ptrs[i]; i++) {
-    runtime_manager->addr_funptr_srt_list.push_back({_ecv_fun_vmas[i], _ecv_fun_ptrs[i]});
+    rt_m->addr_funptr_srt_list.push_back({_ecv_fun_vmas[i], _ecv_fun_ptrs[i]});
   }
-  std::sort(runtime_manager->addr_funptr_srt_list.begin(),
-            runtime_manager->addr_funptr_srt_list.end());
+  std::sort(rt_m->addr_funptr_srt_list.begin(), rt_m->addr_funptr_srt_list.end());
 
 #if defined(LIFT_CALLSTACK_DEBUG)
   //  Set lifted function symbol table (for debug)
   for (int i = 0; __g_fn_vmas_second[i] && __g_fn_symbol_table[i]; i++) {
-    runtime_manager->addr_fn_symbol_map[__g_fn_vmas_second[i]] =
-        (const char *) __g_fn_symbol_table[i];
+    rt_m->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char *) __g_fn_symbol_table[i];
   }
 #endif
 
@@ -97,7 +105,7 @@ int main(int argc, char *argv[], char *envp[]) {
     for (size_t j = 0; j < bb_num; j++) {
       vma_bb_map.insert({_ecv_block_address_vmas_array[i][j], _ecv_block_address_ptrs_array[i][j]});
     }
-    runtime_manager->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
+    rt_m->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
 
 #if defined(__EMSCRIPTEN_FORK_FIBER__)
@@ -105,13 +113,18 @@ int main(int argc, char *argv[], char *envp[]) {
   emscripten_fiber_init_from_current_context(&MainFB, MainAstack, MAIN_ASTACK_SIZE);
   main_ecv_process->fb_t = &MainFB;
   main_ecv_process->astack = MainAstack;
-  runtime_manager->cur_ecv_process->call_history.emplace(_ecv_entry_pc, _ecv_entry_pc);
+  rt_m->cur_ecv_process->call_history.emplace(_ecv_entry_pc, _ecv_entry_pc);
 #endif
 
-  //  Go to the entry function (__g_entry_func is injected by lifted LLVM IR)
-  _ecv_entry_func(CPUState, _ecv_entry_pc, runtime_manager);
+#if defined(__FORK_PTHREAD__)
+  rt_m->ecv_prs[rt_m->ecv_pthread_pid] = main_ecv_process;
+  CurEcvPid = rt_m->ecv_pthread_pid;
+#endif
 
-  delete (runtime_manager);
+  //  Go to the entry function (_ecv_entry_func is injected by lifted LLVM IR)
+  _ecv_entry_func(memory_arena->bytes, CPUState, _ecv_entry_pc, rt_m);
+
+  delete (rt_m);
 
   return 0;
 }

@@ -60,6 +60,9 @@ typedef int16_t addr_diff_t;
 // Note: We are re-defining the `std::is_signed` type trait because we can't
 //       always explicitly specialize it inside of the `std` namespace.
 
+// Entry function of the original ELF
+typedef void (*LiftedFunc)(State *state, addr_t pc, RuntimeManager *runtime_manager);
+
 template <typename T>
 struct is_signed {
 #ifdef __PIN__

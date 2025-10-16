@@ -16,9 +16,10 @@
 
 namespace {
 
-extern "C" void emulate_system_call(State &state, RuntimeManager *runtime_manager, I32 imm) {
+extern "C" void emulate_system_call(uint8_t *arena_ptr, State &state,
+                                    RuntimeManager *runtime_manager, I32 imm) {
   // Linux always get 0 for the argument of `svc` exception (I32 imm).
-  __remill_syscall_tranpoline_call(state, runtime_manager);
+  __remill_syscall_tranpoline_call(arena_ptr, state, runtime_manager);
 }
 
 DEF_SEM_VOID_STATE_RUN(BREAKPOINT, I32 imm) {

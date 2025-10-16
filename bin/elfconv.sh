@@ -23,7 +23,7 @@ setting() {
   RUNTIME_MACRO=''
   ELFPATH=$( realpath "$1" )
   HOST_CPU=$(uname -p)
-  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
+  ELFCONV_SHARED_RUNTIMES="${RUNTIME_DIR}/Entry.cpp ${RUNTIME_DIR}/Memory.cpp ${RUNTIME_DIR}/Runtime.cpp ${RUNTIME_DIR}/VmIntrinsics.cpp ${UTILS_DIR}/Util.cpp ${UTILS_DIR}/elfconv.cpp"
   FLOAT_STATUS_FLAG='0'
   EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
 
@@ -54,6 +54,12 @@ main() {
   if [ "$FORK_EMULATION_EMCC_FIBER" == "1" ]; then
     EMCC_ASYNC_OPTION="-sASYNCIFY"
     RUNTIME_MACRO="$RUNTIME_MACRO -D__EMSCRIPTEN_FORK_FIBER__"
+  fi
+
+  # fork emulation using pthread.
+  if [ "$FORK_EMULATION_PTHREAD" == "1" ]; then
+    EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
+    RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
   fi
 
   # input ELF CPU architecture
@@ -91,6 +97,7 @@ main() {
     --target_arch "$target_arch" \
     --float_exception "$FLOAT_STATUS_FLAG" \
     --fork_emulation_emcc_fiber "$FORK_EMULATION_EMCC_FIBER"
+    --fork_emulation_pthread "$FORK_EMULATION_PTHREAD"
   echo -e "[${GREEN}INFO${NC}] LLVM bitcode (lift.bc) was generated."
 
   # LLVM bc -> target file

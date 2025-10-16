@@ -153,6 +153,7 @@ llvm::CallInst *AddCall(llvm::IRBuilder<> &ir, llvm::BasicBlock *source_block,
     return ir.CreateCall(func, args);
   } else {
     llvm::Type *arg_types[kNumBlockArgs];
+    arg_types[kArenaPointerArgNum] = args[kArenaPointerArgNum]->getType();
     arg_types[kStatePointerArgNum] = args[kStatePointerArgNum]->getType();
     arg_types[kRuntimePointerArgNum] = args[kRuntimePointerArgNum]->getType();
     arg_types[kPCArgNum] = args[kPCArgNum]->getType();
@@ -317,7 +318,7 @@ llvm::Value *LoadStatePointer(llvm::Function *function) {
       << "Invalid block-like function. Expected three arguments: state "
       << "pointer, program counter, and memory pointer in function " << function->getName().str();
 
-  static_assert(0 == kStatePointerArgNum, "Expected state pointer to be the first operand.");
+  static_assert(1 == kStatePointerArgNum, "Expected state pointer to be the first operand.");
 
   return NthArgument(function, kStatePointerArgNum);
 }
@@ -328,7 +329,7 @@ llvm::Value *LoadProgramCounterArg(llvm::Function *function) {
       << "Invalid block-like function. Expected three arguments: state "
       << "pointer, program counter, and memory pointer in function " << function->getName().str();
 
-  static_assert(1 == kPCArgNum, "Expected state pointer to be the first operand.");
+  static_assert(2 == kPCArgNum, "Expected state pointer to be the first operand.");
 
   return NthArgument(function, kPCArgNum);
 }
@@ -756,6 +757,7 @@ std::array<llvm::Value *, kNumBlockArgs> LiftedFunctionArgs(llvm::BasicBlock *bl
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
+  args[kArenaPointerArgNum] = NthArgument(func, kArenaPointerArgNum);
   args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
   args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
 
@@ -776,6 +778,7 @@ LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &int
   // Set up arguments according to our ABI.
   std::array<llvm::Value *, kNumBlockArgs> args;
 
+  args[kArenaPointerArgNum] = NthArgument(func, kArenaPointerArgNum);
   args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
   args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
   args[kPCArgNum] = pc_value;

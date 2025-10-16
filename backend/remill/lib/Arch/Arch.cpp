@@ -692,9 +692,11 @@ llvm::Function *Arch::DeclareLiftedFunction(std::string_view name_, llvm::Module
   auto func =
       llvm::Function::Create(func_type, llvm::GlobalValue::ExternalLinkage, 0u, name, module);
 
+  auto arena = remill::NthArgument(func, kArenaPointerArgNum);
   auto runtime_manager = remill::NthArgument(func, kRuntimePointerArgNum);
   auto state = remill::NthArgument(func, kStatePointerArgNum);
   auto pc = remill::NthArgument(func, kPCArgNum);
+  arena->setName("arena_ptr");
   runtime_manager->setName("runtime_manager");
   state->setName("state");
   pc->setName("program_counter");

@@ -375,6 +375,9 @@ class TraceLifter::Impl {
   void AddFarJumpBB();
   void FiberContextSwitchMain(uint64_t trace_addr);
 
+  // emscripten pthread (fork)
+  void GenPthreadForkNearJump(uint64_t trace_addr);
+
   void Optimize();
 
   const Arch *const arch;
@@ -387,7 +390,7 @@ class TraceLifter::Impl {
 
   llvm::Function *func;
   llvm::BasicBlock *block;
-  llvm::Argument *state_ptr, *runtime_ptr;
+  llvm::Argument *arena_ptr, *state_ptr, *runtime_ptr;
   llvm::BasicBlock *br_bb, *far_jump_bb;
   std::vector<llvm::Constant *> bb_addrs, bb_addr_vmas;
   BBRegInfoNode *bb_reg_info_node;
@@ -408,8 +411,8 @@ class TraceLifter::Impl {
   // process management
   std::set<llvm::BasicBlock *> lift_or_system_calling_bbs;
   std::map<llvm::BasicBlock *, uint64_t> inst_nums_in_bb;
-  llvm::BasicBlock *_fb_near_jump_bb;
 
+  llvm::BasicBlock *_near_jump_bb;
 
   LiftConfig lift_config;
 

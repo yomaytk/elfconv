@@ -461,9 +461,10 @@ void MainLifter::WrapImpl::AddTestFailedBlock() {
 /* Declare debug function */
 llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
 
-  auto run_mgr_ty = llvm::Type::getInt64PtrTy(context);
+  auto rt_m_ty = llvm::Type::getInt64PtrTy(context);
   auto void_ty = llvm::Type::getVoidTy(context);
   auto u64_ty = llvm::Type::getInt64Ty(context);
+  auto ptr_ty = llvm::Type::getInt64PtrTy(context);
   auto f64_ty = llvm::Type::getDoubleTy(context);
   auto u8p_ty = llvm::Type::getInt8PtrTy(context);
   auto extern_link = llvm::Function::ExternalLinkage;
@@ -481,20 +482,20 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {f64_ty}, false), extern_link,
                          debug_llvmir_f64value_name, *module);
   /* void debug_call_stack_push() */
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, false), extern_link,
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, false), extern_link,
                          debug_call_stack_push_name, *module);
   /* void debug_call_stack_pop() */
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, false), extern_link,
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, false), extern_link,
                          debug_call_stack_pop_name, *module);
   // void debug_memory_value_change()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, false), extern_link,
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, false), extern_link,
                          debug_memory_value_change_name, *module);
   // void debug_memory_value()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty}, false), extern_link,
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty}, false), extern_link,
                          debug_memory_value_name, *module);
   // temporary patch fun
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, false), extern_link,
-                         "temp_patch_f_flags", *module);
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, rt_m_ty, u64_ty}, false),
+                         extern_link, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {}, false), extern_link, debug_insn_name,
                          *module);
@@ -508,7 +509,7 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty, u64_ty}, true), extern_link,
                          debug_vma_and_registers_name, *module);
   // void debug_check_state_with_qemu()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {run_mgr_ty, u64_ty}, true), extern_link,
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, true), extern_link,
                          "debug_check_state_with_qemu", *module);
   // void debug_gprs_nzcv()
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty}, true), extern_link,

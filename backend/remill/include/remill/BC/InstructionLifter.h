@@ -66,15 +66,17 @@ class LiftConfig {
   bool norm_mode;
   ArchName target_elf_arch;
   bool fork_emulation_emcc_fiber;
+  bool fork_emulation_pthread;
 
   LiftConfig() = delete;
 
   LiftConfig(bool __float_exception_enabled, bool __norm_mode, ArchName __target_elf_arch,
-             bool __fork_emulation_emcc_fiber)
+             bool __fork_emulation_emcc_fiber, bool __fork_emulation_pthread)
       : float_exception_enabled(__float_exception_enabled),
         norm_mode(__norm_mode),
         target_elf_arch(__target_elf_arch),
-        fork_emulation_emcc_fiber(__fork_emulation_emcc_fiber) {}
+        fork_emulation_emcc_fiber(__fork_emulation_emcc_fiber),
+        fork_emulation_pthread(__fork_emulation_pthread) {}
 };
 
 // Instruction independent lifting

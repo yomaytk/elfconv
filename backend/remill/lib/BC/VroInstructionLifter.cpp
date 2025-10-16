@@ -16,11 +16,14 @@
 #include "InstructionLifter.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
+#include "remill/BC/ABI.h"
 #include "remill/BC/HelperMacro.h"
 #include "remill/BC/InstructionLifter.h"
+#include "remill/BC/Util.h"
 
 #include <cstdint>
 #include <glog/logging.h>
+#include <iostream>
 #include <type_traits>
 
 namespace remill {
@@ -506,13 +509,15 @@ InstructionLifter::LiftAArch64EveryOperand(Instruction &arch_inst, llvm::BasicBl
 
   std::vector<std::pair<EcvReg, ERC>> sema_func_args_regs;
 
+  auto arena_ptr = NthArgument(func, kArenaPointerArgNum);
   auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
 
   // set the State ptr or RuntimeManager ptr to the semantics function.
   switch (arch_inst.sema_func_arg_type) {
     case SemaFuncArgType::Nothing: arg_num = 0; break;
     case SemaFuncArgType::Runtime:
-      arg_num = 1;
+      arg_num = 2;
+      args.push_back(arena_ptr);
       args.push_back(runtime_ptr);
       break;
     case SemaFuncArgType::State:
@@ -520,7 +525,8 @@ InstructionLifter::LiftAArch64EveryOperand(Instruction &arch_inst, llvm::BasicBl
       args.push_back(state_ptr);
       break;
     case SemaFuncArgType::StateRuntime:
-      arg_num = 2;
+      arg_num = 3;
+      args.push_back(arena_ptr);
       args.push_back(state_ptr);
       args.push_back(runtime_ptr);
       break;
@@ -617,7 +623,8 @@ InstructionLifter::LiftAArch64EveryOperand(Instruction &arch_inst, llvm::BasicBl
 
   llvm::IRBuilder<> ir(block);
 
-  if (arch_inst.lift_config.fork_emulation_emcc_fiber) {
+  if (arch_inst.lift_config.fork_emulation_emcc_fiber ||
+      arch_inst.lift_config.fork_emulation_pthread) {
     if (arch_inst.function.starts_with("SVC_EX")) {
       llvm::Value *fiber_fun_addr_ref, *pc_ref;
       // save fiber func addr

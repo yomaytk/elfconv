@@ -155,9 +155,9 @@ void TraceLifter::Impl::AddFiberNearJump() {
   auto root_trmi = root_bb->getTerminator();
   auto org_first_bb = root_trmi->getSuccessor(0);
 
-  root_trmi->setSuccessor(0, _fb_near_jump_bb);
+  root_trmi->setSuccessor(0, _near_jump_bb);
 
-  llvm::IRBuilder<> _fb_near_jump_ir(_fb_near_jump_bb);
+  llvm::IRBuilder<> _fb_near_jump_ir(_near_jump_bb);
 
   // PHI to get the target VMA.
   // i.e. t_pc_phi = phi i64 [ %PC, %root_bb ], [ %fiber_switch_phi, %L_fiber_switch ], [ %br_bb_phi, %br_bb ]
@@ -170,12 +170,12 @@ void TraceLifter::Impl::AddFiberNearJump() {
   // Value from `root_bb`: PC
   t_pc_phi->addIncoming(NthArgument(func, kPCArgNum), root_bb);
   if (br_bb) {
-    // Pass BB VMA ( `br_bb` --> `_fb_near_jump_bb` )
+    // Pass BB VMA ( `br_bb` --> `_near_jump_bb` )
     auto br_bb_phi = llvm::dyn_cast<llvm::PHINode>(&br_bb->front());
     t_pc_phi->addIncoming(br_bb_phi, br_bb);
-    // Pass BB VMA (`_fb_near_jump_bb` --> `far_jump_bb`)
+    // Pass BB VMA (`_near_jump_bb` --> `far_jump_bb`)
     auto far_jump_bb_phi = llvm::dyn_cast<llvm::PHINode>(&far_jump_bb->front());
-    far_jump_bb_phi->addIncoming(t_pc_phi, _fb_near_jump_bb);
+    far_jump_bb_phi->addIncoming(t_pc_phi, _near_jump_bb);
     // Set default BB of switch_br to `L_far_jump`.
     switch_br->setDefaultDest(far_jump_bb);
     unreached_bb->eraseFromParent();
@@ -192,15 +192,15 @@ void TraceLifter::Impl::AddFiberNearJump() {
 
   // Update cache.
   // Parent-child relationship.
-  virtual_regs_opt->bb_parents.insert({_fb_near_jump_bb, {root_bb}});
+  virtual_regs_opt->bb_parents.insert({_near_jump_bb, {root_bb}});
   virtual_regs_opt->bb_parents.at(org_first_bb).erase(root_bb);
-  virtual_regs_opt->bb_parents.at(org_first_bb).insert(_fb_near_jump_bb);
-  // Add _fb_near_jump_bb to the bb_reg_info_node_map.
+  virtual_regs_opt->bb_parents.at(org_first_bb).insert(_near_jump_bb);
+  // Add _near_jump_bb to the bb_reg_info_node_map.
   virtual_regs_opt->bb_reg_info_node_map.insert(
-      {_fb_near_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
+      {_near_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
 }
 
-// requires: `_fb_near_jump_bb`, `inst_nums_in_bb`, `br_bb (BB*)`
+// requires: `_near_jump_bb`, `inst_nums_in_bb`, `br_bb (BB*)`
 void TraceLifter::Impl::AddFiberSwitchBB() {
 
   llvm::BasicBlock *entry_bb;
@@ -219,13 +219,13 @@ void TraceLifter::Impl::AddFiberSwitchBB() {
 
   // Get the target BB to come back this process after switching.
   auto fiber_switch_phi = fiber_switch_ir.CreatePHI(u64ty, inst_nums_in_bb.size());
-  // Pass target VMA ( `fiber_switch_bb` --> `_fb_near_jump_bb` )
-  auto first_inst = llvm::dyn_cast<llvm::PHINode>(&_fb_near_jump_bb->front());
+  // Pass target VMA ( `fiber_switch_bb` --> `_near_jump_bb` )
+  auto first_inst = llvm::dyn_cast<llvm::PHINode>(&_near_jump_bb->front());
   first_inst->addIncoming(fiber_switch_phi, fiber_switch_bb);
   // call `_ecv_process_context_switch`
   auto ecv_process_switch_fun = module->getFunction("_ecv_process_context_switch");
   fiber_switch_ir.CreateCall(ecv_process_switch_fun, {runtime_ptr});
-  fiber_switch_ir.CreateBr(_fb_near_jump_bb);
+  fiber_switch_ir.CreateBr(_near_jump_bb);
 
   // Add IR code `inst_count += 1; br %L_fiber_switch;` to the specified BB.
   for (auto &[tbb, tbb_inst_nums] : inst_nums_in_bb) {
@@ -267,19 +267,19 @@ void TraceLifter::Impl::AddFiberSwitchBB() {
   }
 }
 
-// requires: `_fb_near_jump_bb (BB*)`, `br_bb (BB*)`
+// requires: `_near_jump_bb (BB*)`, `br_bb (BB*)`
 void TraceLifter::Impl::AddBrBBIR() {
   //  Define IR for `br_bb`.
-  llvm::IRBuilder<> indirectbr_ir(br_bb);
+  llvm::IRBuilder<> br_bb_ir(br_bb);
   //  function to calculate the target basic block address
-  auto br_vma_phi = indirectbr_ir.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
+  auto br_vma_phi = br_bb_ir.CreatePHI(llvm::Type::getInt64Ty(context), br_blocks.size());
   for (auto &br_pair : br_blocks) {
     auto br_block = br_pair.first;
     auto dest_addr = br_pair.second;
     br_vma_phi->addIncoming(dest_addr, br_block);
     virtual_regs_opt->bb_parents[br_block].insert(br_bb);
   }
-  indirectbr_ir.CreateBr(_fb_near_jump_bb);
+  br_bb_ir.CreateBr(_near_jump_bb);
 }
 
 // requires `br_bb (BB*)`
@@ -311,8 +311,8 @@ void TraceLifter::Impl::FiberContextSwitchMain(uint64_t trace_addr) {
     JoinBasicBlocksForFork();
   }
 
-  // `_fb_near_jump_bb`: BB to jump to any target within the function.
-  _fb_near_jump_bb = llvm::BasicBlock::Create(context, "L_fb_near_jump", func);
+  // `_near_jump_bb`: BB to jump to any target within the function.
+  _near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump", func);
 
   if (br_bb) {
     AddFarJumpBB();
@@ -324,6 +324,63 @@ void TraceLifter::Impl::FiberContextSwitchMain(uint64_t trace_addr) {
   AddStoreForAllSemantics();
 
   AddFiberSwitchBB();
+}
+
+
+/// fork pthread helper function
+void TraceLifter::Impl::GenPthreadForkNearJump(uint64_t trace_addr) {
+
+  auto u64ty = llvm::Type::getInt64Ty(context);
+
+  auto root_bb = &(func->front());
+  auto root_trmi = root_bb->getTerminator();
+  auto org_first_bb = root_trmi->getSuccessor(0);
+
+  _near_jump_bb = llvm::BasicBlock::Create(context, "L_near_jump", func);
+  root_trmi->setSuccessor(0, _near_jump_bb);
+  llvm::IRBuilder<> _near_jump_ir(_near_jump_bb);
+
+  if (br_bb) {
+    // generate the indirect jump IR code to `br_bb`.
+    GenIndirectJumpCode(trace_addr);
+    // delegates the indirect jump process to the `br_bb`.
+    _near_jump_ir.CreateBr(br_bb);
+    if (auto br_bb_phi = llvm::dyn_cast<llvm::PHINode>(&br_bb->front()); br_bb_phi) {
+      br_bb_phi->addIncoming(NthArgument(func, kPCArgNum), _near_jump_bb);
+    } else {
+      LOG(FATAL) << "br_bb is not defined correctly.";
+    }
+  }
+  // Add switch jump IR code to `_near_jump_bb`.
+  else {
+
+    auto t_pc = NthArgument(func, kPCArgNum);
+
+    // IR to get actual basic block address using `t_vma_phi`.
+    // i.e. t_bb_ptr = call _ecv_get_indirectbr_block_address (t_vma_phi);
+    //      indirectbr ptr <t_bb_ptr>, [ %L1, %L2, ..., %Ln ]
+    auto unreached_bb = llvm::BasicBlock::Create(context, "L_unreached_1", func);
+    llvm::IRBuilder<> unreached_ir(unreached_bb);
+    unreached_ir.CreateCall(module->getFunction("_ecv_unreached"), {t_pc});
+    unreached_ir.CreateRetVoid();
+    auto near_switch_jump = _near_jump_ir.CreateSwitch(t_pc, unreached_bb);
+
+    // Add all next bbs of function or system calling.
+    for (auto t_bb : lift_or_system_calling_bbs) {
+      near_switch_jump->addCase(llvm::ConstantInt::get(u64ty, rev_lifted_block_map.at(t_bb)), t_bb);
+    }
+    // Add entry pc.
+    near_switch_jump->addCase(llvm::ConstantInt::get(u64ty, trace_addr), org_first_bb);
+  }
+
+  // Update cache.
+  // Parent-child relationship.
+  virtual_regs_opt->bb_parents.insert({_near_jump_bb, {root_bb}});
+  virtual_regs_opt->bb_parents.at(org_first_bb).erase(root_bb);
+  virtual_regs_opt->bb_parents.at(org_first_bb).insert(_near_jump_bb);
+  // Add _near_jump_bb to the bb_reg_info_node_map.
+  virtual_regs_opt->bb_reg_info_node_map.insert(
+      {_near_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
 }
 
 }  // namespace remill
