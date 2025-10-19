@@ -795,8 +795,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
     {
-#if defined(__FORK_PTHREAD__)
       int res = 0;
+
+#if defined(__FORK_PTHREAD__)
       uint32_t par_ecv_pid = CurEcvPid;
 
       auto par_ecv_pr = ecv_prs[par_ecv_pid];

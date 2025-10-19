@@ -112,7 +112,7 @@ class EcvProcess {
              std::stack<std::pair<uint64_t, uint64_t>> __call_history)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state),
-        ecv_pid(++org_ecv_pid),
+        ecv_pid(GetNewEcvPid()),
         fb_t(nullptr),
         call_history(__call_history),
         fiber_call_history(__call_history) {}
