@@ -1,7 +1,12 @@
 #pragma once
 
+#include <cassert>
 #include <cstring>
 #include <map>
+#include <mutex>
+#include <pthread.h>
+#include <queue>
+#include <set>
 #include <stack>
 #include <string>
 #include <unistd.h>
@@ -119,14 +124,19 @@ class EcvProcess {
     // These will be freed by simple GC.
   }
 
+  static uint32_t GetNewEcvPid() {
+    ecv_order_pid++;
+    return ecv_order_pid;
+  }
+
   EcvProcess *EcvProcessCopied();
 
-  static inline uint64_t org_ecv_pid = 42;
+  static inline uint32_t ecv_order_pid = 42;
   MemoryArena *memory_arena;
   State *cpu_state;
 
-  // fiber
-  uint64_t ecv_pid;
+  // fork emulation
+  uint32_t ecv_pid;
   emscripten_fiber_t *fb_t;
   void *cstack;
   void *astack;
@@ -141,28 +151,38 @@ class EcvProcess {
              std::stack<std::pair<uint64_t, uint64_t>> __call_history)
       : memory_arena(__memory_arena),
         cpu_state(__cpu_state),
-        ecv_pid(++org_ecv_pid),
+        ecv_pid(GetNewEcvPid()),
         call_history(__call_history),
         parent_call_history(__call_history) {}
 
   ~EcvProcess() {
     delete (memory_arena);
     free(cpu_state);
-    // skip free of *fb_t, *cstack, *astack.
-    // These will be freed by simple GC.
   }
 
   EcvProcess *EcvProcessCopied();
 
-  static inline uint64_t org_ecv_pid = 42;
+  static uint32_t GetNewEcvPid() {
+    std::lock_guard<std::mutex> lock(ecv_pr_mtx);
+    return ecv_order_pid++;
+  }
+
   MemoryArena *memory_arena;
   State *cpu_state;
 
-  // fiber
-  uint64_t ecv_pid;
+  // fork emulation
+  static inline uint32_t ecv_order_pid = 42;
+  static inline std::mutex ecv_pr_mtx;
+  uint32_t ecv_pid;
   std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>> call_history;
   std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
       parent_call_history;
+  uint32_t par_ecv_pid;
+  std::set<uint32_t> childs;
+
+  // wait emulation
+  std::queue<uint32_t> child_wait_queue;
+  pthread_mutex_t wait_queue_mtx_;
 };
 #else
 class EcvProcess {

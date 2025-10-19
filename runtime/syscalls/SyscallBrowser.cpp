@@ -15,9 +15,11 @@
 #include <cstring>
 #include <ctime>
 #include <dirent.h>
+#include <emscripten/threading.h>
 #include <fcntl.h>
 #include <iostream>
 #include <poll.h>
+#include <pthread.h>
 #include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -38,10 +40,6 @@
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
-#if defined(__FORK_PTHREAD__)
-#  include <pthread.h>
-#endif
-
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
 #  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #  sysnum "\" is empty now.\n");
 #  define NOP_SYSCALL(sysnum) \
@@ -61,6 +59,11 @@ typedef uint64_t _ecv_long;
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
 
+#if defined(__FORK_PTHREAD__)
+extern pthread_mutex_t WaitMutex;
+extern pthread_cond_t WaitCond;
+extern bool ThWake;
+#endif
 /*
   for ioctl syscall
 */
@@ -121,6 +124,12 @@ struct _elfarm64df_stat {
   int __glibc_reserved[2];
 };
 
+/* timeval */
+struct _linux_timeval {
+  int64_t tv_sec;
+  int64_t tv_usec;
+};
+
 /* 
   for statx 
 */
@@ -128,7 +137,8 @@ struct _ecv_statx_timestamp {
   int64_t tv_sec;
   uint32_t tv_nsec;
 };
-struct _ecv_statx {
+
+struct _linux_statx {
   uint32_t stx_mask;
   uint32_t stx_blksize;
   uint64_t stx_attributes;
@@ -152,6 +162,28 @@ struct _ecv_statx {
   uint32_t stx_dio_mem_align;
   uint32_t stx_dio_offset_align;
   uint64_t __spare3[12];
+};
+
+/*
+  for rusage
+*/
+struct _linux_rusage {
+  struct _linux_timeval ru_utime;
+  struct _linux_timeval ru_stime;
+  long ru_maxrss;
+  long ru_ixrss;
+  long ru_idrss;
+  long ru_isrss;
+  long ru_minflt;
+  long ru_majflt;
+  long ru_nswap;
+  long ru_inblock;
+  long ru_oublock;
+  long ru_msgsnd;
+  long ru_msgrcv;
+  long ru_nsignals;
+  long ru_nvcsw;
+  long ru_nivcsw;
 };
 
 #ifndef WASI_ERRNO_MAX_VALUE
@@ -468,7 +500,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         exit(X0_D);
       }
 
-      uint64_t cur_ecv_pid, next_ecv_pid;
+      uint32_t cur_ecv_pid, next_ecv_pid;
       EcvProcess *next_ecv_pr;
       emscripten_fiber_t *cur_fb_t;
 
@@ -497,6 +529,20 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       GcUnusedFibers();
       // swap
       emscripten_fiber_swap(cur_fb_t, next_ecv_pr->fb_t);
+#elif defined(__FORK_PTHREAD__)
+      uint32_t cur_ecv_pid = CurEcvPid;
+      auto cur_ecv_pr = ecv_prs[cur_ecv_pid];
+      if (cur_ecv_pr->par_ecv_pid > 0) {
+        pthread_mutex_lock(&WaitMutex);
+
+        // atomic process for adding the child pid to wait_queue.
+        PushWaitChPid(cur_ecv_pr->par_ecv_pid, cur_ecv_pid);
+
+        pthread_cond_signal(&WaitCond);
+        ThWake = true;
+        pthread_mutex_unlock(&WaitMutex);
+      }
+      exit(X0_D);
 #else
       exit(X0_D);
 #endif
@@ -584,7 +630,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     } break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
     {
-      int res = getrusage(X0_D, (struct rusage *) TranslateVMA(arena_ptr, X1_Q));
+      struct rusage tmp_rusage;
+      int res = getrusage(X0_D, &tmp_rusage);
+      _linux_rusage _ecv_usage{.ru_utime.tv_sec = tmp_rusage.ru_utime.tv_sec,
+                               .ru_utime.tv_usec = tmp_rusage.ru_utime.tv_usec,
+                               .ru_stime.tv_sec = tmp_rusage.ru_stime.tv_sec,
+                               .ru_stime.tv_usec = tmp_rusage.ru_stime.tv_usec};
+      memcpy(TranslateVMA(arena_ptr, X1_Q), &_ecv_usage, sizeof(_linux_rusage));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
     case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
@@ -608,7 +660,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       X0_D = getpid();
 #endif
       break;
-    case ECV_GETPPID: /* getppid () */ X0_D = getppid(); break;
+    case ECV_GETPPID: /* getppid () */
+#if defined(__FORK_PTHREAD__)
+      X0_D = ecv_prs[CurEcvPid]->par_ecv_pid;
+#else
+      X0_D = getppid();
+#endif
+      break;
     case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
     case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
     case ECV_GETGID: /* getgid () */ X0_D = getgid(); break;
@@ -673,17 +731,24 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       State *cur_state, *new_state;
       LiftedFunc t_func;
       uint64_t t_func_addr, t_next_pc;
+      uint32_t cur_ecv_pid;
 
-      cur_ecv_pr = ecv_prs[CurEcvPid];
+      cur_ecv_pid = CurEcvPid;
+      cur_ecv_pr = ecv_prs[cur_ecv_pid];
       cur_state = CPUState;
 
       // make new copied ecv_process
       new_ecv_pr = cur_ecv_pr->EcvProcessCopied();
+      ecv_prs[new_ecv_pr->ecv_pid] = new_ecv_pr;
+
       new_state = new_ecv_pr->cpu_state;
       new_state->func_depth = 1;
       new_state->gpr.x0.qword = 0;  // child
-
       cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
+
+      // update the EcvProcess relationship.
+      cur_ecv_pr->childs.insert(new_ecv_pr->ecv_pid);
+      new_ecv_pr->par_ecv_pid = cur_ecv_pid;
 
       // assumes that generated LLVM IR save these two values before calling syscall.
       t_func_addr = CPUState->fiber_fun_addr;
@@ -699,7 +764,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
                               t_func_addr);
       }
 
-      auto _ecv_pthread_arg = new EcvPthreadArg(new_ecv_pr, this, t_func, t_next_pc);
+      auto _ecv_pthread_arg = new EcvPthreadArg(this, new_ecv_pr, t_func, t_next_pc);
       auto p_th = (pthread_t *) malloc(sizeof(pthread_t));
 
       pthread_create(p_th, NULL, ManageNewForkPthread, _ecv_pthread_arg);
@@ -730,8 +795,31 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
     {
-      int res = wait4(X0_D, (int *) TranslateVMA(arena_ptr, X1_Q), X2_D,
-                      (struct rusage *) TranslateVMA(arena_ptr, X3_Q));
+#if defined(__FORK_PTHREAD__)
+      int res = 0;
+      uint32_t par_ecv_pid = CurEcvPid;
+
+      auto par_ecv_pr = ecv_prs[par_ecv_pid];
+      if (par_ecv_pr->child_wait_queue.empty()) {
+        pthread_mutex_lock(&WaitMutex);
+        while (!ThWake) {
+          pthread_cond_wait(&WaitCond, &WaitMutex);
+        }
+        ThWake = false;
+        pthread_mutex_unlock(&WaitMutex);
+      }
+
+      // atomic process for wait_queue.
+      auto t_ch_pid = GetNextWaitChPid(par_ecv_pid);
+
+      // remove the child process meta data.
+      ecv_prs[t_ch_pid] = nullptr;
+      par_ecv_pr->childs.erase(t_ch_pid);
+      res = t_ch_pid;
+#else
+      UNIMPLEMENTED_SYSCALL;
+      res = -1;
+#endif
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
@@ -755,7 +843,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       // execute fstat
       errno = fstat(dfd, &_stat);
       if (errno == 0) {
-        struct _ecv_statx _statx;
+        struct _linux_statx _statx;
         memset(&_statx, 0, sizeof(_statx));
         _statx.stx_mask = _statx.stx_mask = _LINUX_STATX_BASIC_STATS;
         _statx.stx_blksize = _stat.st_blksize;

@@ -1,6 +1,9 @@
 #include "Memory.h"
 #include "Runtime.h"
 #include "runtime/syscalls/SysTable.h"
+#if defined(__FORK_PTHREAD__)
+#  include "pthread.h"
+#endif
 
 #include <algorithm>
 #include <cstdint>
@@ -14,7 +17,10 @@
 // MemoryArenaPtr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
 #if defined(__FORK_PTHREAD__)
 thread_local State *CPUState;
-thread_local uint64_t CurEcvPid;
+thread_local uint32_t CurEcvPid;
+pthread_mutex_t WaitMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t WaitCond = PTHREAD_COND_INITIALIZER;
+bool ThWake = false;
 #else
 State *CPUState;
 #endif
@@ -117,8 +123,8 @@ int main(int argc, char *argv[], char *envp[]) {
 #endif
 
 #if defined(__FORK_PTHREAD__)
-  rt_m->ecv_prs[rt_m->ecv_pthread_pid] = main_ecv_process;
-  CurEcvPid = rt_m->ecv_pthread_pid;
+  rt_m->ecv_prs[main_ecv_process->ecv_pid] = main_ecv_process;
+  CurEcvPid = main_ecv_process->ecv_pid;
 #endif
 
   //  Go to the entry function (_ecv_entry_func is injected by lifted LLVM IR)

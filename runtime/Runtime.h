@@ -2,6 +2,8 @@
 
 #include "Memory.h"
 #include "utils/Util.h"
+
+#include <pthread.h>
 #if defined(ELF_IS_AARCH64)
 #  include "remill/Arch/Runtime/Types.h"
 #else
@@ -19,7 +21,7 @@
 //  State machine which represents all CPU registers */
 #if defined(__FORK_PTHREAD__)
 thread_local extern "C" State *CPUState;
-thread_local extern "C" uint64_t CurEcvPid;
+thread_local extern "C" uint32_t CurEcvPid;
 #else
 extern State *CPUState;
 #endif
@@ -151,18 +153,37 @@ class RuntimeManager {
   void UnImplementedWasiSyscall();
   void UnImplementedNativeSyscall();
 
-  uint64_t GetNewEcvPID() {
-    std::lock_guard<std::mutex> lock(mtx_);
-    ecv_pthread_pid++;
-    return ecv_pthread_pid;
-  }
-
-  inline static uint64_t ecv_pthread_pid = 42;
   inline static EcvProcess *ecv_prs[100];
 
+  // wait4 emulation
+  uint32_t GetNextWaitChPid(uint32_t par_ecv_pid) {
+    // check this method is called on the parent-side ecv process.
+    assert(CurEcvPid == par_ecv_pid);
+    auto par_ecv_pr = ecv_prs[par_ecv_pid];
+
+    pthread_mutex_lock(&par_ecv_pr->wait_queue_mtx_);
+    auto &wait_queue = par_ecv_pr->child_wait_queue;
+    auto t_ch_pid = wait_queue.front();
+    wait_queue.pop();
+    pthread_mutex_unlock(&par_ecv_pr->wait_queue_mtx_);
+
+    return t_ch_pid;
+  }
+
+  void PushWaitChPid(uint32_t par_ecv_pid, uint32_t ch_ecv_pid) {
+    // check this method is called on the child-side ecv process.
+    assert(CurEcvPid == ch_ecv_pid);
+    auto par_ecv_pr = ecv_prs[par_ecv_pid];
+
+    pthread_mutex_lock(&par_ecv_pr->wait_queue_mtx_);
+    auto &wait_queue = par_ecv_pr->child_wait_queue;
+    wait_queue.push(ch_ecv_pid);
+    pthread_mutex_unlock(&par_ecv_pr->wait_queue_mtx_);
+  }
+
   // elfconv psuedo-process
-  uint64_t main_ecv_pid;
-  std::mutex mtx_;
+  uint32_t main_ecv_pid;
+  std::mutex rt_mtx_;
 
   std::vector<std::pair<addr_t, LiftedFunc>> addr_funptr_srt_list;
   std::unordered_map<addr_t, const char *> addr_fun_symbol_map;
@@ -173,14 +194,14 @@ class RuntimeManager {
 };
 
 struct EcvPthreadArg {
-  EcvProcess *ecv_pr;
   RuntimeManager *rt_m;
+  EcvProcess *ecv_pr;
   LiftedFunc t_func;
   uint64_t next_pc;
 
-  EcvPthreadArg(EcvProcess *_ecv_pr, RuntimeManager *_rt_m, LiftedFunc _t_func, uint64_t _next_pc)
-      : ecv_pr(_ecv_pr),
-        rt_m(_rt_m),
+  EcvPthreadArg(RuntimeManager *_rt_m, EcvProcess *_ecv_pr, LiftedFunc _t_func, uint64_t _next_pc)
+      : rt_m(_rt_m),
+        ecv_pr(_ecv_pr),
         t_func(_t_func),
         next_pc(_next_pc) {}
 };

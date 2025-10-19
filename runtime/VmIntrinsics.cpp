@@ -444,7 +444,7 @@ extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
 }
 
 extern "C" void debug_string(const char *str) {
-  std::cout << str << std::endl;
+  std::cout << str << " (" << CurEcvPid << ")" << std::endl;
 }
 
 
