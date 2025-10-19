@@ -2,6 +2,8 @@
 
 #include "utils/Util.h"
 
+#include <cassert>
+
 #if defined(__FORK_PTHREAD__)
 
 // Entry point of the pthread for fork emulation.
@@ -14,11 +16,12 @@ void *ManageNewForkPthread(void *arg) {
   auto t_func = ecv_pthread_arg->t_func;
   auto next_pc = ecv_pthread_arg->next_pc;
 
-  auto new_ecv_pid = rt_m->GetNewEcvPID();
-
   // set global (actually, thread_local) state data.
   CPUState = ecv_pr->cpu_state;
-  CurEcvPid = new_ecv_pid;
+  CurEcvPid = ecv_pr->ecv_pid;
+
+  // simple assertion for new EcvProcess.
+  assert(42 < ecv_pr->ecv_pid && ecv_pr->ecv_pid < 100);
 
   // call the target function (must be the function which issue fork syscall).
   t_func(ecv_pr->memory_arena->bytes, CPUState, next_pc, rt_m);
@@ -45,7 +48,7 @@ void *ManageNewForkPthread(void *arg) {
       CPUState->func_depth = 1;
       ecv_pr->call_history.pop();
 
-      // jmp to the function the top of history.
+      // jump to the function the top of history.
       tn_func(ecv_pr->memory_arena->bytes, CPUState, tn_func_next_pc, rt_m);
     } else {
       elfconv_runtime_error(
