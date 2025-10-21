@@ -630,6 +630,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     } break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
     {
+      printf(
+          "[WARN] `getrusage` is called but this is only implemented as a stub in emscripten.\n");
       struct rusage tmp_rusage;
       int res = getrusage(X0_D, &tmp_rusage);
       _linux_rusage _ecv_usage{.ru_utime.tv_sec = tmp_rusage.ru_utime.tv_sec,
