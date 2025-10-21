@@ -411,9 +411,9 @@
 #undef NOSTRUCTASSIGN /* Define if compiler can't assign structures */
 
 /* define only one of the next three defines */
-#define GETRUSAGE /* Use getrusage(2) time function */
-/*#define TIMES			/* Use times(2) time function */
-/*#define TIME			/* Use time(2) time function */
+/* #define GETRUSAGE /* Use getrusage(2) time function */
+/* #define TIMES /* Use times(2) time function */
+#define TIME /* Use time(2) time function */
 
 /* define the granularity of your times(2) function (when used) */
 /*#define HZ	60		/* times(2) returns 1/60 second (most) */
@@ -423,7 +423,7 @@
 /*#define GOOF			/* Define if you want the goofed up version */
 
 /* default number of threads that will be spawned */
-#define DEFAULT_THREADS 1
+#define DEFAULT_THREADS 3
 
 /* Dhrystones per second obtained on VAX11/780 -- a notional 1MIPS machine. */
 /* Used in DMIPS calculation. */
@@ -503,21 +503,19 @@ extern boolean Func2(String30 StrParI1, String30 StrParI2);
 #ifdef GETRUSAGE
 #  include <sys/resource.h>
 #endif
-#include <time.h>
-#include <unistd.h>
-#if !defined(__wasm__)
-#  include <sys/wait.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/wait.h>
+#include <time.h>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
   int num_threads = DEFAULT_THREADS;
   int runtime = 0;
   int delay = 0;
-  long mloops = 100;
+  long mloops = 500;
 
   if (runtime && mloops) {
     fprintf(stderr, "-r and -l options cannot be specified at the same time.\n");
@@ -546,7 +544,6 @@ void run_dhrystone(int duration, int num_threads, long num_loops, int delay) {
 
   long i;
   int actual_duration;
-#if !defined(__wasm__)
   for (i = 0; i < (num_threads - 1); i++) {
     pid_t c = fork();
     if (c == 0) {
@@ -560,25 +557,20 @@ void run_dhrystone(int duration, int num_threads, long num_loops, int delay) {
     children[i] = c;
     sleep(delay);
   }
-#endif
 
   actual_duration = duration - delay * (num_threads - 1);
   if (actual_duration < 0)
     actual_duration = 0;
   run_for_duration(actual_duration, loops_per_thread);
 
-#if !defined(__wasm__)
   for (i = 0; i < num_threads; i++) {
     int status, w;
     do {
       w = wait(&status);
     } while (w != -1 && (!WIFEXITED(status) && !WIFSIGNALED(status)));
   }
-#endif
 
   clock_t run_end = clock();
-  printf("\nTotal dhrystone run time: %f seconds.\n",
-         (double) (run_end - run_start) / CLOCKS_PER_SEC);
 
   exit(0);
 }
@@ -641,7 +633,7 @@ void Proc0(long numloops, boolean print_result) {
 
   register unsigned int i;
 #ifdef TIME
-  long time();
+  // long time();
   long starttime;
   long benchtime;
   long nulltime;
