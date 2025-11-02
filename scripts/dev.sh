@@ -33,6 +33,7 @@ setting() {
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=''
   FLOAT_STATUS_FLAG='0'
+  EMCC_ALL_OPTION=
 
   if [ -n "$DEBUG" ]; then
     RUNTIME_MACRO="${RUNTIME_MACRO} -DELFC_RUNTIME_SYSCALL_DEBUG=1 -DELFC_RUNTIME_MULSECTIONS_WARNING=1 "
@@ -200,19 +201,32 @@ main() {
         EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
         RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
       fi
+
+      if [ -n "$EXEC_MODULE" ]; then
+        EMCC_ALL_OPTION="-sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
+      else
+        EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js"
+      fi
       
-      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js \
-                              $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+      $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ALL_OPTION $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] built exe.wasm and exe.js"
       
       # move generated files to `examples/browser`
+
+      out_js="exe.js"
+      
+      if [ -n "$OUT_JS" ]; then
+        out_js="$OUT_JS"
+        cp exe.js $out_js
+      fi
+
       if [ -n "$OUT_EXE" ]; then
         cp exe.wasm ${ROOT_DIR}/examples/browser/${OUT_EXE}
-        sed -i "s/exe\.wasm/${OUT_EXE}/g" exe.js
-        sed -i "s/this\.program/${OUT_EXE}/g" exe.js
-        cp exe.js ${ROOT_DIR}/examples/browser
+        sed -i "s/exe\.wasm/${OUT_EXE}/g" $out_js
+        sed -i "s/this\.program/${OUT_EXE}/g" $out_js
+        cp $out_js ${ROOT_DIR}/examples/browser
       else
-        cp exe.js ${ROOT_DIR}/examples/browser
+        cp $out_js ${ROOT_DIR}/examples/browser
         cp exe.wasm ${ROOT_DIR}/examples/browser
       fi
       
