@@ -494,42 +494,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */
     {
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-      // only one process.
-      if (CPUState->has_fibers == 0 || ecv_processes.size() == 1) {
-        exit(X0_D);
-      }
-
-      uint32_t cur_ecv_pid, next_ecv_pid;
-      EcvProcess *next_ecv_pr;
-      emscripten_fiber_t *cur_fb_t;
-
-      cur_ecv_pid = cur_ecv_process->ecv_pid;
-
-      // kill only the current process.
-      if (main_ecv_pid != cur_ecv_pid) {
-        unused_fibers.emplace_back(cur_ecv_process->fb_t, cur_ecv_process->cstack,
-                                   cur_ecv_process->astack);
-      }
-      ecv_processes.erase(cur_ecv_pid);
-      cur_fb_t = cur_ecv_process->fb_t;
-      delete (cur_ecv_process);
-
-      // switch to the other process.
-      if (ecv_pid_queue.empty()) {
-        elfconv_runtime_error("cannot switch to the other process at exit_group syscall.\n");
-      }
-      next_ecv_pid = ecv_pid_queue.front();
-      ecv_pid_queue.pop();
-      next_ecv_pr = ecv_processes.at(next_ecv_pid);
-
-      // switch ecv process context.
-      SwitchEcvProcessContext(cur_ecv_process, next_ecv_pr);
-
-      GcUnusedFibers();
-      // swap
-      emscripten_fiber_swap(cur_fb_t, next_ecv_pr->fb_t);
-#elif defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
       uint32_t cur_ecv_pid = CurEcvPid;
       auto cur_ecv_pr = ecv_prs[cur_ecv_pid];
       if (cur_ecv_pr->par_ecv_pid > 0) {
@@ -654,9 +619,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       }
     } break;
     case ECV_GETPID: /* getpid () */
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-      X0_D = cur_ecv_process->ecv_pid;
-#elif defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
       X0_D = CurEcvPid;
 #else
       X0_D = getpid();
@@ -695,40 +658,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-      EcvProcess *cur_ecv_pr, *new_ecv_pr;
-      State *cur_state, *new_state;
-
-      cur_ecv_pr = cur_ecv_process;
-      cur_state = cur_ecv_process->cpu_state;
-
-      // make new copied ecv_process
-      cur_state->has_fibers = 1;
-      cur_state->inst_count = 0;
-      new_ecv_pr = cur_ecv_process->EcvProcessCopied();
-      new_state = new_ecv_pr->cpu_state;
-      new_state->func_depth = 0;
-      ecv_processes.insert({new_ecv_pr->ecv_pid, new_ecv_pr});
-
-      // set the return value of `clone` syscall.
-      new_state->gpr.x0.qword = 0;  // child
-      cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
-
-      // append current ecv process to the task queue.
-      ecv_pid_queue.push(cur_ecv_pr->ecv_pid);
-
-      // Initialize fiber for new ecv process.
-      InitFiberForEcvProcess(new_ecv_pr, cur_state->fiber_fun_addr, cur_state->gpr.pc.qword);
-
-      // switch ecv process context.
-      SwitchEcvProcessContext(cur_ecv_pr, new_ecv_pr);
-
-      // execute simple GC for cleaning unused fibers.
-      GcUnusedFibers();
-
-      // switch process.
-      emscripten_fiber_swap(cur_ecv_pr->fb_t, new_ecv_pr->fb_t);
-#elif defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
       EcvProcess *cur_ecv_pr, *new_ecv_pr;
       State *cur_state, *new_state;
       LiftedFunc t_func;
@@ -753,7 +683,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       new_ecv_pr->par_ecv_pid = cur_ecv_pid;
 
       // assumes that generated LLVM IR save these two values before calling syscall.
-      t_func_addr = CPUState->fiber_fun_addr;
+      t_func_addr = CPUState->fork_entry_fun_addr;
       t_next_pc = CPUState->gpr.pc.qword;
 
       auto t_func_it =

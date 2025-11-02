@@ -533,8 +533,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           //         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           // if the next instruction is not included in this function, jumping to it is illegal.
           // Therefore, we force to return at this block because we assume that this instruction don't come back to.
-          if (inst.lift_config.fork_emulation_emcc_fiber ||
-              inst.lift_config.fork_emulation_pthread) {
+          if (inst.lift_config.fork_emulation_pthread) {
             lift_or_system_calling_bbs.insert(GetOrCreateNextBlock());
           }
           if (manager.isFunctionEntry(inst.next_pc)) {
@@ -552,8 +551,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           llvm::IRBuilder<> ir(block);
           llvm::Value *t_func_addr = FindIndirectBrAddress(block);
 
-          if (inst.lift_config.fork_emulation_emcc_fiber ||
-              inst.lift_config.fork_emulation_pthread) {
+          if (inst.lift_config.fork_emulation_pthread) {
             // call "_ecv_save_call_history"
             llvm::Value *cur_func_addr =
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
@@ -634,8 +632,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           trace_work_list.insert(inst.branch_taken_pc);
           llvm::IRBuilder<> ir(block);
 
-          if (inst.lift_config.fork_emulation_emcc_fiber ||
-              inst.lift_config.fork_emulation_pthread) {
+          if (inst.lift_config.fork_emulation_pthread) {
             // call "_ecv_save_call_history"
             llvm::Value *cur_func_addr =
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr);
@@ -835,9 +832,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       goto inst_lifting_start;
     }
 
-    if (inst.lift_config.fork_emulation_emcc_fiber) {
-      FiberContextSwitchMain(trace_addr);
-    } else if (inst.lift_config.fork_emulation_pthread) {
+    if (inst.lift_config.fork_emulation_pthread) {
       GenPthreadForkNearJump(trace_addr);
     } else if (br_bb) {
       MainIndirectJumpCode(trace_addr);

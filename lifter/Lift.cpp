@@ -53,8 +53,6 @@ DEFINE_string(float_exception, "0", "Whether the floating-point exception status
 DEFINE_string(
     norm_mode, "0",
     "Whether the test mode is on or off");  // We use `test_mode` for not only test mode but also `no VRP` mode.
-DEFINE_string(fork_emulation_emcc_fiber, "",
-              "enable the function of emulating fork syscall using emscripten Fiber.");
 DEFINE_string(fork_emulation_pthread, "",
               "enable the function of emulating fork syscall using pthread.");
 
@@ -110,10 +108,8 @@ int main(int argc, char *argv[]) {
 
   // Set various lifting config.
   auto lift_config = LiftConfig(FLAGS_float_exception == "1",
-                                FLAGS_norm_mode == "1" || FLAGS_fork_emulation_emcc_fiber == "1" ||
-                                    FLAGS_fork_emulation_pthread == "1",
-                                arch_name, FLAGS_fork_emulation_emcc_fiber == "1",
-                                FLAGS_fork_emulation_pthread == "1");
+                                FLAGS_norm_mode == "1" || FLAGS_fork_emulation_pthread == "1",
+                                arch_name, FLAGS_fork_emulation_pthread == "1");
 
   remill::EcvReg::target_elf_arch = arch_name;
   remill::IntrinsicTable intrinsics(module.get());

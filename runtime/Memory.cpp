@@ -171,7 +171,7 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
                          bytes, HEAPS_START_VMA, (STACK_LOWEST_VMA + STACK_SIZE) - sp);
 }
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__) || defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
 EcvProcess *EcvProcess::EcvProcessCopied() {
   auto new_memory_arena = new MemoryArena();
   auto new_cpu_state = (State *) malloc(sizeof(State));

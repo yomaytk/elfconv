@@ -368,13 +368,9 @@ class TraceLifter::Impl {
   void GenIndirectJumpCode(uint64_t trace_addr);
   void MainIndirectJumpCode(uint64_t trace_addr);
 
-  // emscripten fiber (fork)
   void JoinBasicBlocksForFork();
-  void AddFiberNearJump();
-  void AddFiberSwitchBB();
   void AddBrBBIR();
   void AddFarJumpBB();
-  void FiberContextSwitchMain(uint64_t trace_addr);
 
   // emscripten pthread (fork)
   void GenPthreadForkNearJump(uint64_t trace_addr);
