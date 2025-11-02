@@ -223,113 +223,7 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma,
   return res;
 }
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
-  EcvProcess *cur_ecv_pr, *next_ecv_pr;
-
-  cur_ecv_pr = rt_m->cur_ecv_process;
-
-  if (cur_ecv_pr->cpu_state->has_fibers == 0) {
-    elfconv_runtime_error("_ecv_process_context_switch must not be with only one fiber execution.");
-  }
-
-  if (rt_m->ecv_processes.size() == 1) {
-    return;
-  }
-
-  // switch ecv_pid
-  uint64_t cur_ecv_pid, next_ecv_pid;
-
-  next_ecv_pid = rt_m->ecv_pid_queue.front();
-  cur_ecv_pid = cur_ecv_pr->ecv_pid;
-
-  // reset current inst_count
-  cur_ecv_pr->cpu_state->inst_count = 0;
-
-  // if there is a other ecv process in the task queue, we switch to it.
-  if (next_ecv_pid != cur_ecv_pid) {
-
-    // get next ecv process from the task queue.
-    rt_m->ecv_pid_queue.pop();
-    rt_m->ecv_pid_queue.push(cur_ecv_pid);
-    next_ecv_pr = rt_m->ecv_processes.at(next_ecv_pid);
-
-    // switch to next ecv process
-    rt_m->SwitchEcvProcessContext(cur_ecv_pr, next_ecv_pr);
-
-    // execute simple GC for cleaning unused fibers.
-    rt_m->GcUnusedFibers();
-
-    // swap
-    emscripten_fiber_swap(cur_ecv_pr->fb_t, next_ecv_pr->fb_t);
-  } else {
-    elfconv_runtime_error(
-        "[ERROR] cur_ecv_pid (%llx) is equal to next_ecv_pid (%llx) at _ecv_process_context_switch.\n",
-        cur_ecv_pid, next_ecv_pid);
-    return;
-  }
-}
-
-extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
-                                       uint64_t ret_addr) {
-  rt_m->cur_ecv_process->call_history.push({func_addr, ret_addr});
-  rt_m->cur_ecv_process->cpu_state->func_depth++;
-}
-
-extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
-                                   RuntimeManager *rt_m) {
-
-  EcvProcess *cur_ecv_pr = rt_m->cur_ecv_process;
-  if (cur_ecv_pr->cpu_state->has_fibers > 0) {
-    if (cur_ecv_pr->cpu_state->func_depth == 0) {
-      emscripten_fiber_t *cur_fb_t, *new_fb_t;
-
-      // should do fiber_swap instead of returning.
-      auto [top_func_addr, top_func_next_pc] = cur_ecv_pr->fiber_call_history.top();
-      cur_ecv_pr->fiber_call_history.pop();
-
-      // Note. must execute before updating unused_fibers.
-      rt_m->GcUnusedFibers();
-
-      // Add current unused fiber to the unused_fibers (must append after GcUnusedFibers).
-      rt_m->unused_fibers.emplace_back(cur_ecv_pr->fb_t, cur_ecv_pr->cstack, cur_ecv_pr->astack);
-      // new fiber settings
-      cur_fb_t = cur_ecv_pr->fb_t;
-
-      // Initialize new fiber.
-      rt_m->InitFiberForEcvProcess(cur_ecv_pr, top_func_addr, top_func_next_pc);
-      new_fb_t = cur_ecv_pr->fb_t;
-
-      // re-set the fiber info of cur_ecv_process
-      cur_ecv_pr->cpu_state->gpr.pc.qword = top_func_next_pc;
-      cur_ecv_pr->cpu_state->func_depth = 0;
-      cur_ecv_pr->call_history.pop();
-
-      // switch process.
-      emscripten_fiber_swap(cur_fb_t, new_fb_t);
-    }
-  }
-  cur_ecv_pr->cpu_state->func_depth--;
-  cur_ecv_pr->call_history.pop();
-}
-
-extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
-  FiberArgs *ecv_fiber_arg = (FiberArgs *) fiber_arg;
-
-  auto t_lifted_func = ecv_fiber_arg->lifted_func;
-  auto state = ecv_fiber_arg->state;
-  auto rt_m = ecv_fiber_arg->rt_m;
-  auto t_pc = ecv_fiber_arg->addr;
-  auto arena_ptr = rt_m->cur_memory_arena->bytes;
-
-  t_lifted_func(arena_ptr, state, t_pc, rt_m);
-}
-
-#elif defined(__FORK_PTHREAD__)
-extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
-  elfconv_runtime_error(
-      "`_ecv_process_context_switch` cannot be used on the __FORK_PTHREAD__ environment.");
-}
+#if defined(__FORK_PTHREAD__)
 extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {
   rt_m->ecv_prs[CurEcvPid]->call_history.push({func_addr, ret_addr});
@@ -340,19 +234,11 @@ extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr
   rt_m->ecv_prs[CurEcvPid]->call_history.pop();
   CPUState->func_depth--;
 }
-extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {
-  elfconv_runtime_error(
-      "`_ecv_fiber_init_wrapper cannot be used on the __FORK_PTHREAD__ environment.");
-}
 #else
-extern "C" void _ecv_process_context_switch(RuntimeManager *rt_m) {
-  elfconv_runtime_error("emscritepn Fiber switch cannot be used on the native environment.");
-}
 extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {}
 extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
                                    RuntimeManager *rt_m) {}
-extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg) {}
 #endif
 
 extern "C" void _ecv_unreached(uint64_t value) {

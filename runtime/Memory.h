@@ -13,10 +13,6 @@
 #include <unordered_map>
 #include <vector>
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-#  include <emscripten/fiber.h>
-#endif
-
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #  include <remill/Arch/Runtime/Types.h>
@@ -65,8 +61,6 @@ extern "C" const uint64_t _ecv_block_address_size_array[];
 extern "C" const uint64_t _ecv_block_address_fn_vma_array[];
 extern "C" const uint64_t _ecv_block_address_array_size;
 
-extern "C" void _ecv_fiber_init_wrapper(void *fiber_arg);
-
 enum class MemoryAreaType : uint8_t {
   STACK,
   HEAP,
@@ -105,46 +99,7 @@ class MemoryArena {
   uint64_t stack_init_diff;
 };
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-class EcvProcess {
- public:
-  EcvProcess(MemoryArena *__memory_arena, State *__cpu_state,
-             std::stack<std::pair<uint64_t, uint64_t>> __call_history)
-      : memory_arena(__memory_arena),
-        cpu_state(__cpu_state),
-        ecv_pid(GetNewEcvPid()),
-        fb_t(nullptr),
-        call_history(__call_history),
-        fiber_call_history(__call_history) {}
-
-  ~EcvProcess() {
-    delete (memory_arena);
-    free(cpu_state);
-    // skip free of *fb_t, *cstack, *astack.
-    // These will be freed by simple GC.
-  }
-
-  static uint32_t GetNewEcvPid() {
-    ecv_order_pid++;
-    return ecv_order_pid;
-  }
-
-  EcvProcess *EcvProcessCopied();
-
-  static inline uint32_t ecv_order_pid = 42;
-  MemoryArena *memory_arena;
-  State *cpu_state;
-
-  // fork emulation
-  uint32_t ecv_pid;
-  emscripten_fiber_t *fb_t;
-  void *cstack;
-  void *astack;
-  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>> call_history;
-  std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
-      fiber_call_history;
-};
-#elif defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
 class EcvProcess {
  public:
   EcvProcess(MemoryArena *__memory_arena, State *__cpu_state,

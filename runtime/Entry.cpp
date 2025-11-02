@@ -29,13 +29,6 @@ State *CPUState;
 uint8_t *MemoryArenaPtr = nullptr;
 #endif
 
-// Emscripten main fiber data for `fork` emulation.
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-#  define MAIN_ASTACK_SIZE 64 * 1024
-emscripten_fiber_t MainFB;
-char MainAstack[MAIN_ASTACK_SIZE];
-#endif
-
 #if defined(__wasm__)
 int main(int argc, char *argv[]) {
 #else
@@ -48,7 +41,6 @@ int main(int argc, char *argv[], char *envp[]) {
   // set the global data of CPU state.
   CPUState = cpu_state;
   cpu_state->inst_count = 0;
-  cpu_state->has_fibers = 0;
 
 #if defined(__wasm__)
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
@@ -83,7 +75,7 @@ int main(int argc, char *argv[], char *envp[]) {
 
   EcvProcess *main_ecv_process;
 
-#if defined(__EMSCRIPTEN_FORK_FIBER__) || defined(__FORK_PTHREAD__)
+#if defined(__FORK_PTHREAD__)
   main_ecv_process = new EcvProcess(memory_arena, cpu_state, {});
 #else
   main_ecv_process = new EcvProcess(memory_arena, cpu_state);
@@ -113,14 +105,6 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     rt_m->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
-
-#if defined(__EMSCRIPTEN_FORK_FIBER__)
-  // register current cotext to the main fiber.
-  emscripten_fiber_init_from_current_context(&MainFB, MainAstack, MAIN_ASTACK_SIZE);
-  main_ecv_process->fb_t = &MainFB;
-  main_ecv_process->astack = MainAstack;
-  rt_m->cur_ecv_process->call_history.emplace(_ecv_entry_pc, _ecv_entry_pc);
-#endif
 
 #if defined(__FORK_PTHREAD__)
   rt_m->ecv_prs[main_ecv_process->ecv_pid] = main_ecv_process;

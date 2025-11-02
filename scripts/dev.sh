@@ -77,12 +77,6 @@ lifting() {
     norm_mode="1"
   fi
 
-  fork_emulation_emcc_fiber="0"
-  if [ "$FORK_EMULATION_EMCC_FIBER" = "1" ]; then
-    echo -e "[${GREEN}INFO${NC}] FORK emulation (using Fiber) is enabled."
-    fork_emulation_emcc_fiber="1"
-  fi
-
   fork_emulation_pthread="0"
   if [ "$FORK_EMULATION_PTHREAD" = "1" ]; then
     echo -e "[${GREEN}INFO${NC}] FORK emulation (using pthread) is enabled."
@@ -98,7 +92,6 @@ lifting() {
   --target_arch "$target_arch" \
   --float_exception "$FLOAT_STATUS_FLAG" \
   --norm_mode "$norm_mode" \
-  --fork_emulation_emcc_fiber "$fork_emulation_emcc_fiber" \
   --fork_emulation_pthread "$fork_emulation_pthread"
  
   echo -e "[${GREEN}INFO${NC}] built lift.bc"
@@ -191,12 +184,6 @@ main() {
 
       EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
       
-      # Linux fork emulation
-      if [ -n "$FORK_EMULATION_EMCC_FIBER" ]; then
-        EMCC_ASYNC_OPTION="-sASYNCIFY"
-        RUNTIME_MACRO="$RUNTIME_MACRO -D__EMSCRIPTEN_FORK_FIBER__"
-      fi
-
       if [ -n "$FORK_EMULATION_PTHREAD" ]; then
         EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
         RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"

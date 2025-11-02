@@ -623,14 +623,14 @@ InstructionLifter::LiftAArch64EveryOperand(Instruction &arch_inst, llvm::BasicBl
 
   llvm::IRBuilder<> ir(block);
 
-  if (arch_inst.lift_config.fork_emulation_emcc_fiber ||
-      arch_inst.lift_config.fork_emulation_pthread) {
+  if (arch_inst.lift_config.fork_emulation_pthread) {
     if (arch_inst.function.starts_with("SVC_EX")) {
-      llvm::Value *fiber_fun_addr_ref, *pc_ref;
-      // save fiber func addr
-      fiber_fun_addr_ref = LoadRegAddress(block, state_ptr, kFiberFunAddrVariableName).first;
+      llvm::Value *fork_entry_fun_addr_ref, *pc_ref;
+      // save `fork_entry_func_addr`
+      fork_entry_fun_addr_ref =
+          LoadRegAddress(block, state_ptr, kForkEntryFunAddrVariableName).first;
       pc_ref = LoadRegAddress(block, state_ptr, kPCVariableName).first;
-      ir.CreateStore(remill::NthArgument(func, kPCArgNum), fiber_fun_addr_ref);
+      ir.CreateStore(remill::NthArgument(func, kPCArgNum), fork_entry_fun_addr_ref);
       // save next pc
       ir.CreateStore(
           llvm::ConstantInt::get(llvm::Type::getInt64Ty(module->getContext()), arch_inst.next_pc),
