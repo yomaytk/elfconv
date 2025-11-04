@@ -779,9 +779,9 @@ LiftedFunctionArgsWithPCValue(llvm::BasicBlock *block, const IntrinsicTable &int
   std::array<llvm::Value *, kNumBlockArgs> args;
 
   args[kArenaPointerArgNum] = NthArgument(func, kArenaPointerArgNum);
-  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
   args[kStatePointerArgNum] = NthArgument(func, kStatePointerArgNum);
   args[kPCArgNum] = pc_value;
+  args[kRuntimePointerArgNum] = NthArgument(func, kRuntimePointerArgNum);
 
   return args;
 }

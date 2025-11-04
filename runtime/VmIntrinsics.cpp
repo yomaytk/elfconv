@@ -32,6 +32,8 @@
 #  define PCREG CPUState.gpr.pc.qword
 #endif
 
+extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+
 #define UNDEFINED_INTRINSICS(intrinsics) \
   printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
   debug_state_machine(); \
@@ -223,22 +225,21 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma,
   return res;
 }
 
-#if defined(__FORK_PTHREAD__)
-extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
+#if defined(_FORK_EMULATION_)
+extern "C" void _ecv_save_call_history(State &state, RuntimeManager &rt_m, uint64_t cur_func_addr,
                                        uint64_t ret_addr) {
-  rt_m->ecv_prs[CurEcvPid]->call_history.push({func_addr, ret_addr});
-  CPUState->func_depth++;
+  rt_m.main_ecv_pr->call_history.push({cur_func_addr, ret_addr});
+  state.func_depth++;
 }
-extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
-                                   RuntimeManager *rt_m) {
-  rt_m->ecv_prs[CurEcvPid]->call_history.pop();
-  CPUState->func_depth--;
+extern "C" void _ecv_func_epilogue(State &state, RuntimeManager &rt_m) {
+  auto [t_func_addr, t_next_pc] = rt_m.main_ecv_pr->call_history.top();
+  rt_m.main_ecv_pr->call_history.pop();
+  state.func_depth--;
 }
 #else
-extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
+extern "C" void _ecv_save_call_history(State &state, RuntimeManager &rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {}
-extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
-                                   RuntimeManager *rt_m) {}
+extern "C" void _ecv_func_epilogue(State &state, RuntimeManager &rt_m) {}
 #endif
 
 extern "C" void _ecv_unreached(uint64_t value) {
@@ -309,7 +310,7 @@ extern "C" void debug_memory_value_change(uint8_t *arena_ptr, RuntimeManager *rt
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = *(uint64_t *) rt_m->TranslateVMA(arena_ptr, target_vma);
+  auto cur_value = *(uint64_t *) TranslateVMA(arena_ptr, target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
               << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
@@ -324,17 +325,13 @@ extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) rt_m->TranslateVMA(arena_ptr, target_vma);
+    auto target_pma = (double *) TranslateVMA(arena_ptr, target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
 
 extern "C" void debug_string(const char *str) {
-#if defined(__FORK_PTHREAD__)
-  std::cout << str << " (" << CurEcvPid << ")" << std::endl;
-#else
   std::cout << str << std::endl;
-#endif
 }
 
 
@@ -462,7 +459,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) rt_m->TranslateVMA(arena_ptr, f_flags_vma);
+  uint64_t *pma = (uint64_t *) TranslateVMA(arena_ptr, f_flags_vma);
   *pma = 0xfbad2a84;
   return;
 }

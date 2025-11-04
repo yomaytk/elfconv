@@ -421,21 +421,21 @@ void MainLifter::WrapImpl::DeclareHelperFunction() {
                                                  {llvm::Type::getInt64PtrTy(context)}, false),
                          llvm::Function::ExternalLinkage, "_ecv_process_context_switch", *module);
 
-  // void _ecv_save_call_history(RuntimeManager *, uint64_t, uint64_t);
+  // void _ecv_save_call_history(State &state, RuntimeManager &rt_m, uint64_t, uint64_t);
   llvm::Function::Create(
       llvm::FunctionType::get(llvm::Type::getVoidTy(context),
-                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
+                              {llvm::Type::getInt64PtrTy(context),
+                               llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
                                llvm::Type::getInt64Ty(context)},
                               false),
       llvm::Function::ExternalLinkage, "_ecv_save_call_history", *module);
 
-  // void _ecv_func_epilogue(State &, addr_t, RuntimeManager *);
-  llvm::Function::Create(
-      llvm::FunctionType::get(llvm::Type::getVoidTy(context),
-                              {llvm::Type::getInt64PtrTy(context), llvm::Type::getInt64Ty(context),
-                               llvm::Type::getInt64PtrTy(context)},
-                              false),
-      llvm::Function::ExternalLinkage, "_ecv_func_epilogue", *module);
+  // void _ecv_func_epilogue(State &, addr_t, RuntimeManager &);
+  llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),
+                                                 {llvm::Type::getInt64PtrTy(context),
+                                                  llvm::Type::getInt64PtrTy(context)},
+                                                 false),
+                         llvm::Function::ExternalLinkage, "_ecv_func_epilogue", *module);
 
   // void _ecv_unreached();
   llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(context),

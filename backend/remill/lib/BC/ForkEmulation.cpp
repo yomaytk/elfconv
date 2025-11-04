@@ -176,8 +176,8 @@ void TraceLifter::Impl::AddFarJumpBB() {
       {far_jump_bb, new BBRegInfoNode(func, state_ptr, runtime_ptr)});
 }
 
-/// fork pthread helper function
-void TraceLifter::Impl::GenPthreadForkNearJump(uint64_t trace_addr) {
+/// fork emulation helper function
+void TraceLifter::Impl::GenForkNearJump(uint64_t trace_addr) {
 
   auto u64ty = llvm::Type::getInt64Ty(context);
 

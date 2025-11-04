@@ -10,6 +10,5 @@
 // #define OPT_GEN_IR_DEBUG 1
 // #define OPT_CALL_FUNC_DEBUG 1
 // #define OPT_REAL_REGS_DEBUG 1
-// #define NOOPT_REAL_REGS_DEBUG 1  // TEST_MODE should be enabled too.
 
 // #define SIMPLE_OPT 1
