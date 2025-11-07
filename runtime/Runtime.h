@@ -35,11 +35,6 @@ class RuntimeManager {
  public:
   RuntimeManager(EcvProcess *__ecv_process) : main_ecv_pid(__ecv_process->ecv_pid) {}
 
-  // translates vma_addr to the address of the memory arena
-  void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr) {
-    return arena_ptr + (vma_addr - MEMORY_ARENA_VMA);
-  };
-
   // Linux system calls emulation
   void SVCBrowserCall(uint8_t *arena_ptr);  // for browser
   void SVCWasiCall(uint8_t *arena_ptr);  // for wasi
@@ -109,11 +104,6 @@ class RuntimeManager {
       : ecv_processes({{42, __ecv_process}}),
         cur_ecv_process(__ecv_process),
         cur_memory_arena(__ecv_process->memory_arena) {}
-
-  // translates vma_addr to the address of the memory arena
-  void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr) {
-    return arena_ptr + (vma_addr - MEMORY_ARENA_VMA);
-  };
 
   // Linux system calls emulation
   void SVCBrowserCall(uint8_t *arena_ptr);  // for browser

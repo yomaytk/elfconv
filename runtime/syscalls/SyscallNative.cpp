@@ -79,6 +79,8 @@ struct _ecv_statx {
   uint64_t __spare3[12];
 };
 
+extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+
 /*
   syscall emulate function
   

@@ -100,6 +100,8 @@ struct _ecv_statx {
 
 #define ERROR_CODE -1
 
+extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+
 /*
   syscall emulate function
   

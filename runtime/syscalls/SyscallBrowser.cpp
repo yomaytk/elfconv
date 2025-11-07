@@ -59,6 +59,8 @@ typedef uint64_t _ecv_long;
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
 
+extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+
 #if defined(__FORK_PTHREAD__)
 extern pthread_mutex_t WaitMutex;
 extern pthread_cond_t WaitCond;
@@ -271,6 +273,51 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /* 75 __WASI_ERRNO_XDEV         */ _LINUX_EXDEV,
     /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
 };
+
+EM_JS(uint32_t, ecvProxySyscallJs, (uint32_t sysNum, int argsNum, int callArgvPtr), {
+  // get shared array buffer for notification.
+  // i32 [0]: head pointer to the necessary data on the shared memory
+  // content of head pointer: [sysNum (8byte); argsNum (8byte); args (8 * sysNum byte); sysRval (8byte)]
+  // i32 [1]: notification space. 0: js-kernel is waiting 1: js-kernel is waking up
+  // i32 [2]: exec-side wait space
+  const i32Gem = Module.GlobalExecMemory;
+  if (!i32Gem || !i32Gem.buffer) {
+    throw new Error('Shared buffer is not available');
+  }
+
+  var sp = stackSave();
+  var newAllocSz = 8 + 8 + argsNum * 8 + 8;
+  var headPtr = stackAlloc(newAllocSz);
+  var headPtr64 = headPtr >> 3;
+
+  HEAP64[headPtr64] = sysNum;
+  HEAP64[headPtr64 + 1] = argsNum;
+
+  for (var i = 0; i < argsNum; i++) {
+    // TODO update memory to the target exec worker.
+    HEAP64[headPtr64 + 2 + i] = callArgvPtr[i];
+  }
+
+  // save head pointer on the ExecMemory
+  Atomics.store(i32Gem, 0, headPtr64);
+  // init exec-side wait space
+  Atomics.store(i32Gem, 2, 0);
+
+  var jsKernelStatus = Atomics.load(i32Gem, 1);
+  if (jsKenelStatus != 0) {
+    throw "js kernel has already waked up";
+  }
+
+  // notify
+  Atomics.store(i32Gem, 1, 1);
+  Atomics.notify(i32Gem, 1, 1);
+  // return
+  Atomics.wait(i32Gem, 2, 0);
+  var sysRval = HEAP64[headPtr64 + ((newAllocSz - 8) >> 3)];
+
+  stackRestore(sp);
+  return sysRval;
+});
 
 /*
   syscall emulate function

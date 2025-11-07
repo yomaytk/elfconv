@@ -32,6 +32,8 @@
 #  define PCREG CPUState.gpr.pc.qword
 #endif
 
+extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+
 #define UNDEFINED_INTRINSICS(intrinsics) \
   printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
   debug_state_machine(); \
@@ -309,7 +311,7 @@ extern "C" void debug_memory_value_change(uint8_t *arena_ptr, RuntimeManager *rt
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = *(uint64_t *) rt_m->TranslateVMA(arena_ptr, target_vma);
+  auto cur_value = *(uint64_t *) TranslateVMA(arena_ptr, target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
               << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
@@ -324,7 +326,7 @@ extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) rt_m->TranslateVMA(arena_ptr, target_vma);
+    auto target_pma = (double *) TranslateVMA(arena_ptr, target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
@@ -462,7 +464,7 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
 // temp patch for correct stdout behavior
 extern "C" void temp_patch_f_flags(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) rt_m->TranslateVMA(arena_ptr, f_flags_vma);
+  uint64_t *pma = (uint64_t *) TranslateVMA(arena_ptr, f_flags_vma);
   *pma = 0xfbad2a84;
   return;
 }
