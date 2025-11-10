@@ -39,6 +39,10 @@ compile_commands.json
 *.amd64
 *.x86-64
 examples/assets/**
+node_modules
+package-lock.json
+package.json
+eslint.config.mjs
 
 third_party/*
 build/*
@@ -129,3 +133,5 @@ elfconv-v*
 !bin/exe.html
 !release/outdir/index.html
 !examples/browser/js-kernel.js
+!examples/browser/hello.js
+!examples/browser/syscall-proxy.js
