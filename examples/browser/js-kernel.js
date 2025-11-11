@@ -10,7 +10,6 @@ var Module = (() => {
     var ENVIRONMENT_IS_WEB = typeof window == "object";
     var ENVIRONMENT_IS_WORKER = typeof WorkerGlobalScope != "undefined";
     // var ENVIRONMENT_IS_NODE = typeof process == "object" && process.versions?.node && process.type != "renderer";
-    var ENVIRONMENT_IS_JS_KERNEL_PROXY = ENVIRONMENT_IS_WORKER && self.name?.startsWith("em-js-kernel-proxy");
     var arguments_ = [];
     var thisProgram = "./this.program";
     var quit_ = (status, toThrow) => {
@@ -22,7 +21,6 @@ var Module = (() => {
     var GlobalSharedBuffer = new SharedArrayBuffer(12);
     var wasmMemory = undefined;
     var SyscallPtrMap = new Map();
-    var gMemoryBufView = new Int32Array(GlobalSharedBuffer)
 
     var jsKernelProxyWorker = undefined;
     var initProcessWorker = undefined;
@@ -99,14 +97,49 @@ var Module = (() => {
         name: "init-process-worker"
       });
 
-      if (!wasmMemory) {
-        throw "wasmMemory has not been initialized yet (at js-kernel).";
+      initProcessWorker.onmessage = e => {
+        let d = e["data"];
+        if (d.cmd === "sysRun") {
+
+          let workerMemory = wasmMemory; // (FIXME) select the target linear memory using d.workerId.
+          setMemoryViews(workerMemory);
+
+          let headPtr32 = d.spHead32;
+          let sysNum = HEAP32[headPtr32];
+          let argsNum = HEAP32[headPtr32 + 1];
+
+          let sysRvalPtr = headPtr32 + 2 + argsNum;
+          let waitPtr = sysRvalPtr + 1;
+
+          let sysArgs = new Int32Array(argsNum);
+
+          for (var i = 0; i < sysNum; i++) {
+            sysArgs[i] = HEAP32[headPtr32 + 2 + i];
+          }
+
+          let tgtKernelFunction = SyscallPtrMap.get(sysNum);
+          if (tgtKernelFunction.length != argsNum) {
+            throw `argsNum (${argsNum}) must be equal to the args number (length: ${tgtKernelFunction.length}) of the syscall (sysNum: ${sysNum}).`;
+          }
+
+          console.log(sysArgs);
+
+          // call the target kernel function.
+          let sysRval = tgtKernelFunction(...sysArgs);
+          // store the return value of syscall function executing.
+          HEAP32[sysRvalPtr] = sysRval;
+
+          // notify to process worker
+          Atomics.store(HEAP32, waitPtr, 1);
+          Atomics.notify(HEAP32, waitPtr, 1);
+        } else {
+          throw e;
+        }
       }
 
       // share the linear memory.
       initProcessWorker.postMessage({
         cmd: "initMemory",
-        gMemoryBuf: GlobalSharedBuffer,
         pWasmMemory: wasmMemory,
       });
 
@@ -127,9 +160,6 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-        throw "js-kernel-proxy must not call initRuntime.";
-      }
       // runtimeInitialized = true;
       if (!Module["noFSInit"] && !FS.initialized) FS.init();
       TTY.init();
@@ -140,9 +170,6 @@ var Module = (() => {
     function preMain() { }
 
     function postRun() {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-        return
-      }
       if (Module["postRun"]) {
         if (typeof Module["postRun"] == "function") Module["postRun"] = [Module["postRun"]];
         while (Module["postRun"].length) {
@@ -656,96 +683,6 @@ var Module = (() => {
     //     argc: _argc,
     //   });
     // }
-
-    if (ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-      self.onmessage = e => {
-        let d = e["data"];
-        if (d.cmd === "kernelProxyStart") {
-
-          // memory settings.
-          GlobalSharedBuffer = d.gMemoryBuf;
-          wasmMemory = d.pWasmMemory;
-          console.log(d.pWasmMemory);
-          gMemoryBufView = new Int32Array(GlobalSharedBuffer);
-
-          // js-kernel-proxy main loop
-          jsKernelProxyRun();
-
-        } else {
-          throw e;
-        }
-      }
-    }
-
-    function initJsKernelProxy() {
-
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-        throw "initJsKernelProxy must not be called from js-kernel-proxy script.";
-      }
-
-      jsKernelProxyWorker = new Worker(new URL("js-kernel.js", import.meta.url), {
-        type: "module",
-        name: "em-js-kernel-proxy"
-      });
-
-      jsKernelProxyWorker.onmessage = e => {
-
-        let d = e["data"];
-        let cmd = d.cmd;
-
-        // js-kernel-proxy is ready.
-        if (cmd === "kernelProxyReady") {
-
-          preInit();
-          run();
-
-          // execute process worker
-          initializeProcess();
-          console.log("initializeProcesss done (js-kernel).");
-
-        } else if (cmd === "sysRun") {
-
-          setMemoryViews(d.processWorkerMemory);
-
-          let headPtr32 = Atomics.load(gMemoryBufView, 0);
-          let sysNum = HEAP32[headPtr32];
-          let argsNum = HEAP32[headPtr32 + 1];
-
-          let sysArgs = new Int32Array(argsNum);
-
-          for (var i = 0; i < sysNum; i++) {
-            sysArgs[i] = HEAP32[headPtr32 + 2 + i];
-          }
-
-          let tgtKernelFunction = SyscallPtrMap.get(sysNum);
-          if (tgtKernelFunction.length != argsNum) {
-            throw `argsNum (${argsNum}) must be equal to the args number (length: ${tgtKernelFunction.length}) of the syscall (sysNum: ${sysNum}).`;
-          }
-
-          console.log(sysArgs);
-          // call the target kernel function.
-          let sysRval = tgtKernelFunction(...sysArgs);
-          // store the return value of syscall function executing.
-          HEAP32[headPtr32 + 2 + argsNum] = sysRval;
-
-          // notify to js-kernel-proxy
-          Atomics.store(gMemoryBufView, 1, 2);
-          Atomics.notify(gMemoryBufView, 1, 1);
-        } else {
-          throw e;
-        }
-      }
-
-      // share the memory with js-kernel-proxy
-      jsKernelProxyWorker.postMessage({
-        cmd: "kernelProxyStart",
-        gMemoryBuf: GlobalSharedBuffer,
-        pWasmMemory: wasmMemory
-      });
-
-      console.log("initJsKernelProxy done (js-kernel).");
-
-    }
 
     class ExceptionInfo {
       constructor(excPtr) {
@@ -3068,7 +3005,6 @@ var Module = (() => {
     };
 
     function ___syscall_chdir(path) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_chdir must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         FS.chdir(path);
@@ -3080,7 +3016,6 @@ var Module = (() => {
     }
 
     function ___syscall_dup(fd) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_dup must not be called from js-kernel-proxy.`;
       try {
         var old = SYSCALLS.getStreamFromFD(fd);
         return FS.dupStream(old).fd
@@ -3091,7 +3026,6 @@ var Module = (() => {
     }
 
     function ___syscall_dup3(fd, newfd, flags) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_dup3 must not be called from js-kernel-proxy.`;
       try {
         var old = SYSCALLS.getStreamFromFD(fd);
         if (old.fd === newfd) return -28;
@@ -3106,7 +3040,6 @@ var Module = (() => {
     }
 
     function ___syscall_faccessat(dirfd, path, amode, flags) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_faccessat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         path = SYSCALLS.calculateAt(dirfd, path);
@@ -3141,7 +3074,6 @@ var Module = (() => {
     var syscallGetVarargP = syscallGetVarargI;
 
     function ___syscall_fcntl64(fd, cmd, varargs) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_fcntl64 must not be called from js-kernel-proxy.`;
       SYSCALLS.varargs = varargs;
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
@@ -3186,7 +3118,6 @@ var Module = (() => {
     }
 
     function ___syscall_fstat64(fd, buf) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_fstat64 must not be called from js-kernel-proxy.`;
       try {
         return SYSCALLS.writeStat(buf, FS.fstat(fd))
       } catch (e) {
@@ -3199,7 +3130,6 @@ var Module = (() => {
     var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
 
     function ___syscall_ftruncate64(fd, length) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_ftruncate64 must not be called from js-kernel-proxy.`;
       length = bigintToI53Checked(length);
       try {
         if (isNaN(length)) return -61;
@@ -3213,7 +3143,6 @@ var Module = (() => {
     var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
 
     function ___syscall_getcwd(buf, size) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_getcwd must not be called from js-kernel-proxy.`;
       try {
         if (size === 0) return -28;
         var cwd = FS.cwd();
@@ -3228,7 +3157,6 @@ var Module = (() => {
     }
 
     function ___syscall_getdents64(fd, dirp, count) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_getdents64 must not be called from js-kernel-proxy.`;
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         stream.getdents ||= FS.readdir(stream.path);
@@ -3279,7 +3207,6 @@ var Module = (() => {
     }
 
     function ___syscall_ioctl(fd, op, varargs) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_ioctl must not be called from js-kernel-proxy.`;
       SYSCALLS.varargs = varargs;
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
@@ -3376,7 +3303,6 @@ var Module = (() => {
     }
 
     function ___syscall_lstat64(path, buf) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_lstat64 must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         return SYSCALLS.writeStat(buf, FS.lstat(path))
@@ -3387,7 +3313,6 @@ var Module = (() => {
     }
 
     function ___syscall_mkdirat(dirfd, path, mode) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_mkdirat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         path = SYSCALLS.calculateAt(dirfd, path);
@@ -3400,7 +3325,6 @@ var Module = (() => {
     }
 
     function ___syscall_newfstatat(dirfd, path, buf, flags) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_newfstatat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         var nofollow = flags & 256;
@@ -3415,7 +3339,6 @@ var Module = (() => {
     }
 
     function ___syscall_openat(dirfd, path, flags, varargs) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_openat must not be called from js-kernel-proxy.`;
       SYSCALLS.varargs = varargs;
       try {
         path = SYSCALLS.getStr(path);
@@ -3429,7 +3352,6 @@ var Module = (() => {
     }
 
     function ___syscall_poll(fds, nfds, timeout) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_poll must not be called from js-kernel-proxy.`;
       try {
         var nonzero = 0;
         for (var i = 0; i < nfds; i++) {
@@ -3456,7 +3378,6 @@ var Module = (() => {
     }
 
     function ___syscall_readlinkat(dirfd, path, buf, bufsize) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_readlinkat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         path = SYSCALLS.calculateAt(dirfd, path);
@@ -3474,7 +3395,6 @@ var Module = (() => {
     }
 
     function ___syscall_stat64(path, buf) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_stat64 must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         return SYSCALLS.writeStat(buf, FS.stat(path))
@@ -3485,7 +3405,6 @@ var Module = (() => {
     }
 
     function ___syscall_statfs64(path, size, buf) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_statfs64 must not be called from js-kernel-proxy.`;
       try {
         SYSCALLS.writeStatFs(buf, FS.statfs(SYSCALLS.getStr(path)));
         return 0
@@ -3496,7 +3415,6 @@ var Module = (() => {
     }
 
     function ___syscall_truncate64(path, length) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_truncate64 must not be called from js-kernel-proxy.`;
       length = bigintToI53Checked(length);
       try {
         if (isNaN(length)) return -61;
@@ -3510,7 +3428,6 @@ var Module = (() => {
     }
 
     function ___syscall_unlinkat(dirfd, path, flags) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_unlinkat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         path = SYSCALLS.calculateAt(dirfd, path);
@@ -3530,7 +3447,6 @@ var Module = (() => {
     var readI53FromI64 = ptr => HEAPU32[ptr >> 2] + HEAP32[ptr + 4 >> 2] * 4294967296;
 
     function ___syscall_utimensat(dirfd, path, times, flags) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw `___syscall_utimensat must not be called from js-kernel-proxy.`;
       try {
         path = SYSCALLS.getStr(path);
         path = SYSCALLS.calculateAt(dirfd, path, true);
@@ -3702,7 +3618,6 @@ var Module = (() => {
     var keepRuntimeAlive = () => noExitRuntime || runtimeKeepaliveCounter > 0;
 
     function _proc_exit(code) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) throw "_proc_exit must not be called from js-kernel-proxy.";
       EXITSTATUS = code;
       if (!keepRuntimeAlive()) {
         Module["onExit"]?.(code);
@@ -3717,7 +3632,6 @@ var Module = (() => {
     var _exit = exitJS;
 
     function _fd_close(fd) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) return proxyToMainThread(ECV_CLOSE, 1);
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         FS.close(stream);
@@ -3745,7 +3659,6 @@ var Module = (() => {
     };
 
     function _fd_read(fd, iov, iovcnt, pnum) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) return proxyToMainThread(ECV_READ, 4);
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doReadv(stream, iov, iovcnt);
@@ -3758,7 +3671,6 @@ var Module = (() => {
     }
 
     function _fd_seek(fd, offset, whence, newOffset) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) return proxyToMainThread(ECV_LSEEK, 4);
       offset = bigintToI53Checked(offset);
       try {
         if (isNaN(offset)) return 61;
@@ -3774,7 +3686,6 @@ var Module = (() => {
     }
 
     function _fd_sync(fd) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) return proxyToMainThread(ECV_SYNC, 1);
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         if (stream.stream_ops?.fsync) {
@@ -3806,7 +3717,6 @@ var Module = (() => {
     };
 
     function _fd_write(fd, iov, iovcnt, pnum) {
-      if (ENVIRONMENT_IS_JS_KERNEL_PROXY) return proxyToMainThread(ECV_WRITE, 4);
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doWritev(stream, iov, iovcnt);
@@ -3841,12 +3751,10 @@ var Module = (() => {
     //   return ret
     // };
 
-    if (!ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-      FS.createPreloadedFile = FS_createPreloadedFile;
-      FS.staticInit();
-      MEMFS.doesNotExistError = new FS.ErrnoError(44);
-      MEMFS.doesNotExistError.stack = "<generic error, no stack>";
-    }
+    FS.createPreloadedFile = FS_createPreloadedFile;
+    FS.staticInit();
+    MEMFS.doesNotExistError = new FS.ErrnoError(44);
+    MEMFS.doesNotExistError.stack = "<generic error, no stack>";
     {
       if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
       if (Module["preloadPlugins"]) preloadPlugins = Module["preloadPlugins"];
@@ -4104,69 +4012,15 @@ var Module = (() => {
       }
     }
 
-    // function of js-kernel-proxy side.
-    function jsKernelProxyRun() {
-      if (runDependencies > 0) {
-        dependenciesFulfilled = null; /// FIXME?
-        return;
-      }
+    initwasmMemory();
+    preInit();
+    run();
 
-      // tell main thread having finished the ready.
-      postMessage({
-        cmd: "kernelProxyReady"
-      });
-
-      for (; ;) {
-
-        console.log("jsKernelProxyRun reach the top of loop.");
-
-        // waiting the syscall request from the process worker.
-        Atomics.store(gMemoryBufView, 1, 0);
-        Atomics.wait(gMemoryBufView, 1, 0);
-
-        console.log("wake up! (jsKernelProxyRun).");
-
-        /// wake up (from process worker).
-        let notifyVal1 = Atomics.load(gMemoryBufView, 1);
-        if (notifyVal1 === 1) {
-          // 0: proxy worker is waiting mode.
-          Atomics.store(gMemoryBufView, 1, 0);
-          postMessage({
-            cmd: "sysRun",
-            processWorkerMemory: wasmMemory, // (FIXME) get the process process worker memory.
-          });
-        } else {
-          throw `notifyVal1 (${notifyVal1}) at jsKernelProxyRun() is strange.`;
-        }
-
-        // waiting for syscall finishing (of js-kernel).
-        Atomics.wait(gMemoryBufView, 1, 0);
-
-        let notifyVal2 = Atomics.load(gMemoryBufView, 1);
-        if (notifyVal2 != 2) {
-          throw `notifyVal2 (${notifyVal2}) at jsKernelProxyRun() is strange.`;
-        }
-
-        // wake up after syscall finishing (from js-kernel).
-        // notify to process worker.
-        Atomics.store(gMemoryBufView, 2, 1);
-        Atomics.notify(gMemoryBufView, 2, 1);
-
-        console.log("jsKernelProxyRun reach the tail of loop.");
-      }
-    }
-
-    if (!ENVIRONMENT_IS_JS_KERNEL_PROXY) {
-      initwasmMemory();
-      initJsKernelProxy();
-    }
+    // execute process worker
+    initializeProcess();
 
     moduleRtn = readyPromise;
     return moduleRtn;
   });
 })();
 export default Module;
-
-if (self?.name === "em-js-kernel-proxy") {
-  Module();
-}

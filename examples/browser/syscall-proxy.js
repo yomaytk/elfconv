@@ -1,41 +1,35 @@
 /// syscall-proxy.js 
-var GlobalSharedBuffer = undefined;
 var wasmMemory = undefined;
-var gMemoryBufView;
 var pMemory32View;
 
 // register the process of postMessage from js-kernel-proxy.
 self.onmessage = e => {
   let d = e["data"];
   if (d.cmd === "initMemory") {
-    GlobalSharedBuffer = d.gMemoryBuf;
     wasmMemory = d.pWasmMemory;
-    gMemoryBufView = new Int32Array(GlobalSharedBuffer);
     pMemory32View = new Int32Array(wasmMemory.buffer);
     assignWasmImports();
   } else if (d.cmd === "startWorker") {
     startWorker();
+  } else {
+    throw e;
   }
 }
 
+// This function assumes that emscripten JS syscall is executed synchronously.
 function ecvProxySyscallJs(sysNum, ...callArgs) {
 
-  // get shared array buffer for notification.
-  // i32 [0]: head pointer to the necessary data on the shared memory
-  // content of head pointer: [sysNum (8byte); argsNum (8byte); args (8 * sysNum byte); sysRval (8byte)]
-  // i32 [1]: notification space. 0: js-kernel is waiting 1: js-kernel is waking up
-  // i32 [2]: exec-side wait space
+  // setting of pMemory32
+  // [sysNum (4byte); argsNum (4byte); args (4 * sysNum byte); sysRval (4byte); waitSpace (4byte)]
 
   console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (hello.js).`);
 
-  if (!GlobalSharedBuffer || !wasmMemory) {
-    throw "Wasm memory have not been initialized yet.";
-  }
-
   let sp = stackSave();
-  let newAllocSz = 4 + 4 + callArgs.length * 4 + 4;
+  let newAllocSz = 4 + 4 + (callArgs.length * 4) + 4 + 4;
   let headPtr = stackAlloc(newAllocSz);
   let headPtr32 = headPtr >> 2;
+  let sysRvalPtr = headPtr32 + (newAllocSz >> 2) - 2;
+  let waitPtr = sysRvalPtr + 1;
 
   pMemory32View[headPtr32] = sysNum;
 
@@ -48,32 +42,28 @@ function ecvProxySyscallJs(sysNum, ...callArgs) {
   }
 
   pMemory32View[headPtr32 + 1] = argsNum;
+  Atomics.store(pMemory32View, waitPtr, 0);
 
-  // save head pointer on the ExecMemory
-  Atomics.store(gMemoryBufView, 0, headPtr32);
-  // init exec-side wait space
-  Atomics.store(gMemoryBufView, 2, 0);
+  // notify to js-kernel.
+  postMessage({
+    cmd: "sysRun",
+    workerId: 0,
+    spHead32: headPtr32
+  });
 
-  var jsKernelStatus = Atomics.load(gMemoryBufView, 1);
-  if (jsKernelStatus != 0) {
-    throw "js kernel has already waked up";
-  }
-
-  // notify (to js-kernel-proxy)
-  Atomics.store(gMemoryBufView, 1, 1);
-  Atomics.notify(gMemoryBufView, 1, 1);
-  console.log("notify to js-kernel-proxy (hello.js).");
+  console.log("post to js-kernel (hello.js).");
 
   // waiting for syscall finishing (of js-kernel-proxy).
-  Atomics.wait(gMemoryBufView, 2, 0);
+  // (FIXME?) It seems that we can't guarantee the consistency?
+  Atomics.wait(pMemory32View, waitPtr, 0);
 
-  // wake up (from js-kernel-proxy).
-  let notifyVal = Atomics.load(gMemoryBufView, 2);
+  // wake up (from js-kernel).
+  let notifyVal = Atomics.load(pMemory32View, waitPtr);
   if (notifyVal != 1) {
     throw `nofityVal (${notifyVal}) at ecvProxySyscallJs(sysNum, ...callArgs) is strange.`;
   }
 
-  var sysRval = pMemory32View[headPtr32 + 2 + argsNum];
+  let sysRval = pMemory32View[sysRvalPtr];
   console.log(`sysRval: ${sysRval}`);
 
   stackRestore(sp);
