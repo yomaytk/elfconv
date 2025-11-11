@@ -852,7 +852,7 @@ var Module = (() => {
       var endPtr = idx;
       while (heapOrArray[endPtr] && !(endPtr >= endIdx)) ++endPtr;
       if (endPtr - idx > 16 && heapOrArray.buffer && UTF8Decoder) {
-        return UTF8Decoder.decode(heapOrArray.subarray(idx, endPtr))
+        return UTF8Decoder.decode(heapOrArray.buffer instanceof ArrayBuffer ? heapOrArray.subarray(idx, endPtr) : heapOrArray.slice(idx, endPtr))
       }
       var str = "";
       while (idx < endPtr) {
@@ -881,7 +881,18 @@ var Module = (() => {
       }
       return str
     };
-    var FS_stdin_getChar_buffer = [];
+    var PTY_signalNameToCode = {
+      SIGINT: 2,
+      SIGQUIT: 3,
+      SIGTSTP: 20,
+      SIGWINCH: 28
+    };
+    var PTY = Module["pty"];
+    var PTY_pollTimeout = 0;
+    var PTY_askToWaitAgain = timeout => {
+      PTY_pollTimeout = timeout;
+      throw new FS.ErrnoError(1006)
+    };
     var lengthBytesUTF8 = str => {
       var len = 0;
       for (var i = 0; i < str.length; ++i) {
@@ -939,22 +950,6 @@ var Module = (() => {
       if (dontAddNull) u8array.length = numBytesWritten;
       return u8array
     };
-    var FS_stdin_getChar = () => {
-      if (!FS_stdin_getChar_buffer.length) {
-        var result = null;
-        if (typeof window != "undefined" && typeof window.prompt == "function") {
-          result = window.prompt("Input: ");
-          if (result !== null) {
-            result += "\n"
-          }
-        } else { }
-        if (!result) {
-          return null
-        }
-        FS_stdin_getChar_buffer = intArrayFromString(result, true)
-      }
-      return FS_stdin_getChar_buffer.shift()
-    };
     var TTY = {
       ttys: [],
       init() { },
@@ -982,80 +977,56 @@ var Module = (() => {
         fsync(stream) {
           stream.tty.ops.fsync(stream.tty)
         },
-        read(stream, buffer, offset, length, pos) {
-          if (!stream.tty || !stream.tty.ops.get_char) {
-            throw new FS.ErrnoError(60)
+        read: (stream, buffer, offset, length) => {
+          let readBytes = PTY.read(length);
+          if (length && !readBytes.length) {
+            PTY_askToWaitAgain(-1)
           }
-          var bytesRead = 0;
-          for (var i = 0; i < length; i++) {
-            var result;
-            try {
-              result = stream.tty.ops.get_char(stream.tty)
-            } catch (e) {
-              throw new FS.ErrnoError(29)
-            }
-            if (result === undefined && bytesRead === 0) {
-              throw new FS.ErrnoError(6)
-            }
-            if (result === null || result === undefined) break;
-            bytesRead++;
-            buffer[offset + i] = result
-          }
-          if (bytesRead) {
-            stream.node.atime = Date.now()
-          }
-          return bytesRead
+          buffer.set(readBytes, offset);
+          return readBytes.length
         },
-        write(stream, buffer, offset, length, pos) {
-          if (!stream.tty || !stream.tty.ops.put_char) {
-            throw new FS.ErrnoError(60)
+        write: (stream, buffer, offset, length) => {
+          if (buffer === HEAP8) {
+            buffer = HEAPU8
+          } else if (!(buffer instanceof Uint8Array)) {
+            throw new Error(`Unexpected buffer type: ${buffer.constructor.name}`)
           }
-          try {
-            for (var i = 0; i < length; i++) {
-              stream.tty.ops.put_char(stream.tty, buffer[offset + i])
-            }
-          } catch (e) {
-            throw new FS.ErrnoError(29)
+          PTY.write(Array.from(buffer.subarray(offset, offset + length)));
+          return length
+        },
+        poll: (stream, timeout) => {
+          if (!PTY.readable && timeout) {
+            PTY_askToWaitAgain(timeout)
           }
-          if (length) {
-            stream.node.mtime = stream.node.ctime = Date.now()
-          }
-          return i
+          return (PTY.readable ? 1 : 0) | (PTY.writable ? 4 : 0)
         }
       },
       default_tty_ops: {
-        get_char(tty) {
-          return FS_stdin_getChar()
+        get_char() { },
+        put_char() { },
+        fsync() { },
+        ioctl_tcgets: () => {
+          const termios = PTY.ioctl("TCGETS");
+          const data = {
+            c_iflag: termios.iflag,
+            c_oflag: termios.oflag,
+            c_cflag: termios.cflag,
+            c_lflag: termios.lflag,
+            c_cc: termios.cc
+          };
+          return data
         },
-        put_char(tty, val) {
-          if (val === null || val === 10) {
-            out(UTF8ArrayToString(tty.output));
-            tty.output = []
-          } else {
-            if (val != 0) tty.output.push(val)
-          }
-        },
-        fsync(tty) {
-          if (tty.output?.length > 0) {
-            out(UTF8ArrayToString(tty.output));
-            tty.output = []
-          }
-        },
-        ioctl_tcgets(tty) {
-          return {
-            c_iflag: 25856,
-            c_oflag: 5,
-            c_cflag: 191,
-            c_lflag: 35387,
-            c_cc: [3, 28, 127, 21, 4, 0, 1, 0, 17, 19, 26, 0, 18, 15, 23, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-          }
-        },
-        ioctl_tcsets(tty, optional_actions, data) {
+        ioctl_tcsets: (_tty, _optional_actions, data) => {
+          PTY.ioctl("TCSETS", {
+            iflag: data.c_iflag,
+            oflag: data.c_oflag,
+            cflag: data.c_cflag,
+            lflag: data.c_lflag,
+            cc: data.c_cc
+          });
           return 0
         },
-        ioctl_tiocgwinsz(tty) {
-          return [24, 80]
-        }
+        ioctl_tiocgwinsz: () => PTY.ioctl("TIOCGWINSZ").reverse()
       },
       default_tty1_ops: {
         put_char(tty, val) {
@@ -3351,7 +3322,7 @@ var Module = (() => {
       }
     }
 
-    function ___syscall_poll(fds, nfds, timeout) {
+    function xterm_pty_old_poll(fds, nfds, timeout) {
       try {
         var nonzero = 0;
         for (var i = 0; i < nfds; i++) {
@@ -3375,6 +3346,70 @@ var Module = (() => {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return -e.errno
       }
+    }
+    var PTY_waitForReadableWithCallback = callback => {
+      if (PTY_pollTimeout === 0) {
+        return callback(PTY.readable ? 0 : 2)
+      }
+      let handlerReadable, handlerSignal, timeoutId;
+      new Promise(resolve => {
+        handlerReadable = PTY.onReadable(() => resolve(0));
+        handlerSignal = PTY.onSignal(() => resolve(1));
+        if (PTY_pollTimeout >= 0) {
+          timeoutId = setTimeout(resolve, PTY_pollTimeout, 2)
+        }
+      }).then(type => {
+        handlerReadable.dispose();
+        handlerSignal.dispose();
+        clearTimeout(timeoutId);
+        callback(type)
+      })
+    };
+    var PTY_waitForReadableWithAtomicImpl = function (atomicIndex) {
+      if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(18, 0, 0, atomicIndex);
+      PTY_waitForReadableWithCallback(type => {
+        Atomics.store(HEAP32, atomicIndex, type);
+        Atomics.notify(HEAP32, atomicIndex)
+      })
+    };
+    var PTY_atomicIndex = 0;
+    var PTY_waitForReadableWithAtomic = callback => {
+      if (!PTY_atomicIndex) {
+        PTY_atomicIndex = _malloc(4) >> 2
+      } HEAP32[PTY_atomicIndex] = -1;
+      PTY_waitForReadableWithAtomicImpl(PTY_atomicIndex);
+      Atomics.wait(HEAP32, PTY_atomicIndex, -1);
+      callback(HEAP32[PTY_atomicIndex])
+    };
+    var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
+    var PTY_handleSleepWithAtomic = startAsync => {
+      let result;
+      startAsync(r => result = r);
+      return result
+    };
+    var PTY_handleSleep = PTY_handleSleepWithAtomic;
+    var PTY_wrapPoll = impl => PTY_handleSleep(wakeUp => {
+      let result = impl();
+      if (result === -1006) {
+        PTY_waitForReadable(type => {
+          switch (type) {
+            case 0:
+              wakeUp(impl());
+              break;
+            case 1:
+              wakeUp(-27);
+              break;
+            case 2:
+              wakeUp(0);
+              break
+          }
+        })
+      } else {
+        wakeUp(result)
+      }
+    });
+    function ___syscall_poll(fds, nfds, timeout) {
+      return PTY_wrapPoll(() => xterm_pty_old_poll(fds, nfds, timeout));
     }
 
     function ___syscall_readlinkat(dirfd, path, buf, bufsize) {
@@ -3658,7 +3693,7 @@ var Module = (() => {
       return ret
     };
 
-    function _fd_read(fd, iov, iovcnt, pnum) {
+    function xterm_pty_old_fd_read(fd, iov, iovcnt, pnum) {
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doReadv(stream, iov, iovcnt);
@@ -3669,6 +3704,41 @@ var Module = (() => {
         return e.errno
       }
     }
+
+    function _fd_read(fd, iov, iovcnt, pnum) {
+      return PTY_handleSleep(wakeUp => {
+        let result = xterm_pty_old_fd_read(fd, iov, iovcnt, pnum);
+        if (result === 1006) {
+          PTY_waitForReadable(type => {
+            switch (type) {
+              case 0:
+                wakeUp(xterm_pty_old_fd_read(fd, iov, iovcnt, pnum));
+                break;
+              case 1:
+                wakeUp(27);
+                break;
+              case 2:
+                wakeUp(0);
+                break
+            }
+          })
+        } else {
+          wakeUp(result)
+        }
+      });
+    }
+
+    // function _fd_read(fd, iov, iovcnt, pnum) {
+    //   try {
+    //     var stream = SYSCALLS.getStreamFromFD(fd);
+    //     var num = doReadv(stream, iov, iovcnt);
+    //     HEAPU32[pnum >> 2] = num;
+    //     return 0
+    //   } catch (e) {
+    //     if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+    //     return e.errno
+    //   }
+    // }
 
     function _fd_seek(fd, offset, whence, newOffset) {
       offset = bigintToI53Checked(offset);
