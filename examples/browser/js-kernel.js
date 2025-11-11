@@ -31,6 +31,27 @@ var Module = (() => {
     //   }
     //   return scriptDirectory + path
     // }
+
+    function growMemViews(pWasmMemory) {
+      if (pWasmMemory.buffer != HEAP8.buffer) {
+        updateMemoryViews(pWasmMemory);
+      }
+    }
+
+    function updateMemoryViews(pWasmMemory) {
+      var b = pWasmMemory.buffer;
+      HEAP8 = new Int8Array(b);
+      HEAP16 = new Int16Array(b);
+      HEAPU8 = new Uint8Array(b);
+      HEAPU16 = new Uint16Array(b);
+      HEAP32 = new Int32Array(b);
+      HEAPU32 = new Uint32Array(b);
+      HEAPF32 = new Float32Array(b);
+      HEAPF64 = new Float64Array(b);
+      HEAP64 = new BigInt64Array(b);
+      HEAPU64 = new BigUint64Array(b)
+    }
+
     var readAsync, readBinary;
     if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
       try {
@@ -63,20 +84,6 @@ var Module = (() => {
     var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAP64, HEAPU64, HEAPF64;
     // var runtimeInitialized = false;
 
-    function setMemoryViews(pMemory) {
-      var b = pMemory.buffer;
-      HEAP8 = new Int8Array(b);
-      HEAP16 = new Int16Array(b);
-      HEAPU8 = new Uint8Array(b);
-      HEAPU16 = new Uint16Array(b);
-      HEAP32 = new Int32Array(b);
-      HEAPU32 = new Uint32Array(b);
-      HEAPF32 = new Float32Array(b);
-      HEAPF64 = new Float64Array(b);
-      HEAP64 = new BigInt64Array(b);
-      HEAPU64 = new BigUint64Array(b)
-    }
-
     function initwasmMemory() {
       var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 16777216;
       wasmMemory = new WebAssembly.Memory({
@@ -84,7 +91,7 @@ var Module = (() => {
         maximum: 32768,
         shared: true
       })
-      setMemoryViews(wasmMemory);
+      updateMemoryViews(wasmMemory);
     }
 
     function initializeProcess() {
@@ -102,11 +109,11 @@ var Module = (() => {
         if (d.cmd === "sysRun") {
 
           let workerMemory = wasmMemory; // (FIXME) select the target linear memory using d.workerId.
-          setMemoryViews(workerMemory);
+          updateMemoryViews(workerMemory);
 
           let headPtr32 = d.spHead32;
-          let sysNum = HEAP32[headPtr32];
-          let argsNum = HEAP32[headPtr32 + 1];
+          let sysNum = (growMemViews(wasmMemory), HEAP32)[headPtr32];
+          let argsNum = (growMemViews(wasmMemory), HEAP32)[headPtr32 + 1];
 
           let sysRvalPtr = headPtr32 + 2 + argsNum;
           let waitPtr = sysRvalPtr + 1;
@@ -114,7 +121,7 @@ var Module = (() => {
           let sysArgs = new Int32Array(argsNum);
 
           for (var i = 0; i < sysNum; i++) {
-            sysArgs[i] = HEAP32[headPtr32 + 2 + i];
+            sysArgs[i] = (growMemViews(wasmMemory), HEAP32)[headPtr32 + 2 + i];
           }
 
           let tgtKernelFunction = SyscallPtrMap.get(sysNum);
@@ -127,11 +134,11 @@ var Module = (() => {
           // call the target kernel function.
           let sysRval = tgtKernelFunction(...sysArgs);
           // store the return value of syscall function executing.
-          HEAP32[sysRvalPtr] = sysRval;
+          (growMemViews(wasmMemory), HEAP32)[sysRvalPtr] = sysRval;
 
           // notify to process worker
-          Atomics.store(HEAP32, waitPtr, 1);
-          Atomics.notify(HEAP32, waitPtr, 1);
+          Atomics.store((growMemViews(wasmMemory), HEAP32), waitPtr, 1);
+          Atomics.notify((growMemViews(wasmMemory), HEAP32), waitPtr, 1);
         } else {
           throw e;
         }
@@ -690,30 +697,30 @@ var Module = (() => {
         this.ptr = excPtr - 24
       }
       set_type(type) {
-        HEAPU32[this.ptr + 4 >> 2] = type
+        (growMemViews(wasmMemory), HEAPU32)[this.ptr + 4 >> 2] = type
       }
       get_type() {
-        return HEAPU32[this.ptr + 4 >> 2]
+        return (growMemViews(wasmMemory), HEAPU32)[this.ptr + 4 >> 2]
       }
       set_destructor(destructor) {
-        HEAPU32[this.ptr + 8 >> 2] = destructor
+        (growMemViews(wasmMemory), HEAPU32)[this.ptr + 8 >> 2] = destructor
       }
       get_destructor() {
-        return HEAPU32[this.ptr + 8 >> 2]
+        return (growMemViews(wasmMemory), HEAPU32)[this.ptr + 8 >> 2]
       }
       set_caught(caught) {
         caught = caught ? 1 : 0;
-        HEAP8[this.ptr + 12] = caught
+        (growMemViews(wasmMemory), HEAP8)[this.ptr + 12] = caught
       }
       get_caught() {
-        return HEAP8[this.ptr + 12] != 0
+        return (growMemViews(wasmMemory), HEAP8)[this.ptr + 12] != 0
       }
       set_rethrown(rethrown) {
         rethrown = rethrown ? 1 : 0;
-        HEAP8[this.ptr + 13] = rethrown
+        (growMemViews(wasmMemory), HEAP8)[this.ptr + 13] = rethrown
       }
       get_rethrown() {
-        return HEAP8[this.ptr + 13] != 0
+        return (growMemViews(wasmMemory), HEAP8)[this.ptr + 13] != 0
       }
       init(type, destructor) {
         this.set_adjusted_ptr(0);
@@ -721,10 +728,10 @@ var Module = (() => {
         this.set_destructor(destructor)
       }
       set_adjusted_ptr(adjustedPtr) {
-        HEAPU32[this.ptr + 16 >> 2] = adjustedPtr
+        (growMemViews(wasmMemory), HEAPU32)[this.ptr + 16 >> 2] = adjustedPtr
       }
       get_adjusted_ptr() {
-        return HEAPU32[this.ptr + 16 >> 2]
+        return (growMemViews(wasmMemory), HEAPU32)[this.ptr + 16 >> 2]
       }
     }
     var exceptionLast = 0;
@@ -986,8 +993,8 @@ var Module = (() => {
           return readBytes.length
         },
         write: (stream, buffer, offset, length) => {
-          if (buffer === HEAP8) {
-            buffer = HEAPU8
+          if (buffer === (growMemViews(wasmMemory), HEAP8)) {
+            buffer = (growMemViews(wasmMemory), HEAPU8);
           } else if (!(buffer instanceof Uint8Array)) {
             throw new Error(`Unexpected buffer type: ${buffer.constructor.name}`)
           }
@@ -1256,7 +1263,7 @@ var Module = (() => {
           return size
         },
         write(stream, buffer, offset, length, position, canOwn) {
-          if (buffer.buffer === HEAP8.buffer) {
+          if (buffer.buffer === (growMemViews(wasmMemory), HEAP8).buffer) {
             canOwn = false
           }
           if (!length) return 0;
@@ -1308,7 +1315,7 @@ var Module = (() => {
           var ptr;
           var allocated;
           var contents = stream.node.contents;
-          if (!(flags & 2) && contents && contents.buffer === HEAP8.buffer) {
+          if (!(flags & 2) && contents && contents.buffer === (growMemViews(wasmMemory), HEAP8).buffer) {
             allocated = false;
             ptr = contents.byteOffset
           } else {
@@ -1325,7 +1332,7 @@ var Module = (() => {
                   contents = Array.prototype.slice.call(contents, position, position + length)
                 }
               }
-              HEAP8.set(contents, ptr)
+              (growMemViews(wasmMemory), HEAP8).set(contents, ptr)
             }
           }
           return {
@@ -2888,7 +2895,7 @@ var Module = (() => {
           if (!ptr) {
             throw new FS.ErrnoError(48)
           }
-          writeChunks(stream, HEAP8, ptr, length, position);
+          writeChunks(stream, (growMemViews(wasmMemory), HEAP8), ptr, length, position);
           return {
             ptr,
             allocated: true
@@ -2898,7 +2905,7 @@ var Module = (() => {
         return node
       }
     };
-    var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
+    var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString((growMemViews(wasmMemory), HEAPU8), ptr, maxBytesToRead) : "";
     var SYSCALLS = {
       DEFAULT_POLLMASK: 5,
       calculateAt(dirfd, path, allowEmpty) {
@@ -2921,38 +2928,38 @@ var Module = (() => {
         return dir + "/" + path
       },
       writeStat(buf, stat) {
-        HEAP32[buf >> 2] = stat.dev;
-        HEAP32[buf + 4 >> 2] = stat.mode;
-        HEAPU32[buf + 8 >> 2] = stat.nlink;
-        HEAP32[buf + 12 >> 2] = stat.uid;
-        HEAP32[buf + 16 >> 2] = stat.gid;
-        HEAP32[buf + 20 >> 2] = stat.rdev;
-        HEAP64[buf + 24 >> 3] = BigInt(stat.size);
-        HEAP32[buf + 32 >> 2] = 4096;
-        HEAP32[buf + 36 >> 2] = stat.blocks;
+        (growMemViews(wasmMemory), HEAP32)[buf >> 2] = stat.dev;
+        (growMemViews(wasmMemory), HEAP32)[buf + 4 >> 2] = stat.mode;
+        (growMemViews(wasmMemory), HEAPU32)[buf + 8 >> 2] = stat.nlink;
+        (growMemViews(wasmMemory), HEAP32)[buf + 12 >> 2] = stat.uid;
+        (growMemViews(wasmMemory), HEAP32)[buf + 16 >> 2] = stat.gid;
+        (growMemViews(wasmMemory), HEAP32)[buf + 20 >> 2] = stat.rdev;
+        (growMemViews(wasmMemory), HEAP64)[buf + 24 >> 3] = BigInt(stat.size);
+        (growMemViews(wasmMemory), HEAP32)[buf + 32 >> 2] = 4096;
+        (growMemViews(wasmMemory), HEAP32)[buf + 36 >> 2] = stat.blocks;
         var atime = stat.atime.getTime();
         var mtime = stat.mtime.getTime();
         var ctime = stat.ctime.getTime();
-        HEAP64[buf + 40 >> 3] = BigInt(Math.floor(atime / 1e3));
-        HEAPU32[buf + 48 >> 2] = atime % 1e3 * 1e3 * 1e3;
-        HEAP64[buf + 56 >> 3] = BigInt(Math.floor(mtime / 1e3));
-        HEAPU32[buf + 64 >> 2] = mtime % 1e3 * 1e3 * 1e3;
-        HEAP64[buf + 72 >> 3] = BigInt(Math.floor(ctime / 1e3));
-        HEAPU32[buf + 80 >> 2] = ctime % 1e3 * 1e3 * 1e3;
-        HEAP64[buf + 88 >> 3] = BigInt(stat.ino);
+        (growMemViews(wasmMemory), HEAP64)[buf + 40 >> 3] = BigInt(Math.floor(atime / 1e3));
+        (growMemViews(wasmMemory), HEAPU32)[buf + 48 >> 2] = atime % 1e3 * 1e3 * 1e3;
+        (growMemViews(wasmMemory), HEAP64)[buf + 56 >> 3] = BigInt(Math.floor(mtime / 1e3));
+        (growMemViews(wasmMemory), HEAPU32)[buf + 64 >> 2] = mtime % 1e3 * 1e3 * 1e3;
+        (growMemViews(wasmMemory), HEAP64)[buf + 72 >> 3] = BigInt(Math.floor(ctime / 1e3));
+        (growMemViews(wasmMemory), HEAPU32)[buf + 80 >> 2] = ctime % 1e3 * 1e3 * 1e3;
+        (growMemViews(wasmMemory), HEAP64)[buf + 88 >> 3] = BigInt(stat.ino);
         return 0
       },
       writeStatFs(buf, stats) {
-        HEAP32[buf + 4 >> 2] = stats.bsize;
-        HEAP32[buf + 40 >> 2] = stats.bsize;
-        HEAP32[buf + 8 >> 2] = stats.blocks;
-        HEAP32[buf + 12 >> 2] = stats.bfree;
-        HEAP32[buf + 16 >> 2] = stats.bavail;
-        HEAP32[buf + 20 >> 2] = stats.files;
-        HEAP32[buf + 24 >> 2] = stats.ffree;
-        HEAP32[buf + 28 >> 2] = stats.fsid;
-        HEAP32[buf + 44 >> 2] = stats.flags;
-        HEAP32[buf + 36 >> 2] = stats.namelen
+        (growMemViews(wasmMemory), HEAP32)[buf + 4 >> 2] = stats.bsize;
+        (growMemViews(wasmMemory), HEAP32)[buf + 40 >> 2] = stats.bsize;
+        (growMemViews(wasmMemory), HEAP32)[buf + 8 >> 2] = stats.blocks;
+        (growMemViews(wasmMemory), HEAP32)[buf + 12 >> 2] = stats.bfree;
+        (growMemViews(wasmMemory), HEAP32)[buf + 16 >> 2] = stats.bavail;
+        (growMemViews(wasmMemory), HEAP32)[buf + 20 >> 2] = stats.files;
+        (growMemViews(wasmMemory), HEAP32)[buf + 24 >> 2] = stats.ffree;
+        (growMemViews(wasmMemory), HEAP32)[buf + 28 >> 2] = stats.fsid;
+        (growMemViews(wasmMemory), HEAP32)[buf + 44 >> 2] = stats.flags;
+        (growMemViews(wasmMemory), HEAP32)[buf + 36 >> 2] = stats.namelen
       },
       doMsync(addr, stream, len, flags, offset) {
         if (!FS.isFile(stream.node.mode)) {
@@ -2961,7 +2968,7 @@ var Module = (() => {
         if (flags & 2) {
           return 0
         }
-        var buffer = HEAPU8.slice(addr, addr + len);
+        var buffer = (growMemViews(wasmMemory), HEAPU8).slice(addr, addr + len);
         FS.msync(stream, buffer, offset, len, flags)
       },
       getStreamFromFD(fd) {
@@ -2974,6 +2981,18 @@ var Module = (() => {
         return ret
       }
     };
+
+    function ___syscall_clone() {
+
+    }
+
+    function ___syscall_wait() {
+
+    }
+
+    function ___syscall_exec() {
+
+    }
 
     function ___syscall_chdir(path) {
       try {
@@ -3038,7 +3057,7 @@ var Module = (() => {
       }
     }
     var syscallGetVarargI = () => {
-      var ret = HEAP32[+SYSCALLS.varargs >> 2];
+      var ret = (growMemViews(wasmMemory), HEAP32)[+SYSCALLS.varargs >> 2];
       SYSCALLS.varargs += 4;
       return ret
     };
@@ -3074,7 +3093,7 @@ var Module = (() => {
           case 12: {
             var arg = syscallGetVarargP();
             var offset = 0;
-            HEAP16[arg + offset >> 1] = 2;
+            (growMemViews(wasmMemory), HEAP16)[arg + offset >> 1] = 2;
             return 0
           }
           case 13:
@@ -3111,7 +3130,7 @@ var Module = (() => {
         return -e.errno
       }
     }
-    var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
+    var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, (growMemViews(wasmMemory), HEAPU8), outPtr, maxBytesToWrite);
 
     function ___syscall_getcwd(buf, size) {
       try {
@@ -3162,10 +3181,10 @@ var Module = (() => {
             id = child.id;
             type = FS.isChrdev(child.mode) ? 2 : FS.isDir(child.mode) ? 4 : FS.isLink(child.mode) ? 10 : 8
           }
-          HEAP64[dirp + pos >> 3] = BigInt(id);
-          HEAP64[dirp + pos + 8 >> 3] = BigInt((idx + 1) * struct_size);
-          HEAP16[dirp + pos + 16 >> 1] = 280;
-          HEAP8[dirp + pos + 18] = type;
+          (growMemViews(wasmMemory), HEAP64)[dirp + pos >> 3] = BigInt(id);
+          (growMemViews(wasmMemory), HEAP64)[dirp + pos + 8 >> 3] = BigInt((idx + 1) * struct_size);
+          (growMemViews(wasmMemory), HEAP16)[dirp + pos + 16 >> 1] = 280;
+          (growMemViews(wasmMemory), HEAP8)[dirp + pos + 18] = type;
           stringToUTF8(name, dirp + pos + 19, 256);
           pos += struct_size
         }
@@ -3191,12 +3210,12 @@ var Module = (() => {
             if (stream.tty.ops.ioctl_tcgets) {
               var termios = stream.tty.ops.ioctl_tcgets(stream);
               var argp = syscallGetVarargP();
-              HEAP32[argp >> 2] = termios.c_iflag || 0;
-              HEAP32[argp + 4 >> 2] = termios.c_oflag || 0;
-              HEAP32[argp + 8 >> 2] = termios.c_cflag || 0;
-              HEAP32[argp + 12 >> 2] = termios.c_lflag || 0;
+              (growMemViews(wasmMemory), HEAP32)[argp >> 2] = termios.c_iflag || 0;
+              (growMemViews(wasmMemory), HEAP32)[argp + 4 >> 2] = termios.c_oflag || 0;
+              (growMemViews(wasmMemory), HEAP32)[argp + 8 >> 2] = termios.c_cflag || 0;
+              (growMemViews(wasmMemory), HEAP32)[argp + 12 >> 2] = termios.c_lflag || 0;
               for (var i = 0; i < 32; i++) {
-                HEAP8[argp + i + 17] = termios.c_cc[i] || 0
+                (growMemViews(wasmMemory), HEAP8)[argp + i + 17] = termios.c_cc[i] || 0
               }
               return 0
             }
@@ -3214,13 +3233,13 @@ var Module = (() => {
             if (!stream.tty) return -59;
             if (stream.tty.ops.ioctl_tcsets) {
               var argp = syscallGetVarargP();
-              var c_iflag = HEAP32[argp >> 2];
-              var c_oflag = HEAP32[argp + 4 >> 2];
-              var c_cflag = HEAP32[argp + 8 >> 2];
-              var c_lflag = HEAP32[argp + 12 >> 2];
+              var c_iflag = (growMemViews(wasmMemory), HEAP32)[argp >> 2];
+              var c_oflag = (growMemViews(wasmMemory), HEAP32)[argp + 4 >> 2];
+              var c_cflag = (growMemViews(wasmMemory), HEAP32)[argp + 8 >> 2];
+              var c_lflag = (growMemViews(wasmMemory), HEAP32)[argp + 12 >> 2];
               var c_cc = [];
               for (var i = 0; i < 32; i++) {
-                c_cc.push(HEAP8[argp + i + 17])
+                c_cc.push((growMemViews(wasmMemory), HEAP8)[argp + i + 17])
               }
               return stream.tty.ops.ioctl_tcsets(stream.tty, op, {
                 c_iflag,
@@ -3235,7 +3254,7 @@ var Module = (() => {
           case 21519: {
             if (!stream.tty) return -59;
             var argp = syscallGetVarargP();
-            HEAP32[argp >> 2] = 0;
+            (growMemViews(wasmMemory), HEAP32)[argp >> 2] = 0;
             return 0
           }
           case 21520: {
@@ -3251,8 +3270,8 @@ var Module = (() => {
             if (stream.tty.ops.ioctl_tiocgwinsz) {
               var winsize = stream.tty.ops.ioctl_tiocgwinsz(stream.tty);
               var argp = syscallGetVarargP();
-              HEAP16[argp >> 1] = winsize[0];
-              HEAP16[argp + 2 >> 1] = winsize[1]
+              (growMemViews(wasmMemory), HEAP16)[argp >> 1] = winsize[0];
+              (growMemViews(wasmMemory), HEAP16)[argp + 2 >> 1] = winsize[1]
             }
             return 0
           }
@@ -3327,8 +3346,8 @@ var Module = (() => {
         var nonzero = 0;
         for (var i = 0; i < nfds; i++) {
           var pollfd = fds + 8 * i;
-          var fd = HEAP32[pollfd >> 2];
-          var events = HEAP16[pollfd + 4 >> 1];
+          var fd = (growMemViews(wasmMemory), HEAP32)[pollfd >> 2];
+          var events = (growMemViews(wasmMemory), HEAP16)[pollfd + 4 >> 1];
           var mask = 32;
           var stream = FS.getStream(fd);
           if (stream) {
@@ -3339,7 +3358,7 @@ var Module = (() => {
           }
           mask &= events | 8 | 16;
           if (mask) nonzero++;
-          HEAP16[pollfd + 6 >> 1] = mask
+          (growMemViews(wasmMemory), HEAP16)[pollfd + 6 >> 1] = mask
         }
         return nonzero
       } catch (e) {
@@ -3368,18 +3387,18 @@ var Module = (() => {
     var PTY_waitForReadableWithAtomicImpl = function (atomicIndex) {
       if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(18, 0, 0, atomicIndex);
       PTY_waitForReadableWithCallback(type => {
-        Atomics.store(HEAP32, atomicIndex, type);
-        Atomics.notify(HEAP32, atomicIndex)
+        Atomics.store((growMemViews(wasmMemory), HEAP32), atomicIndex, type);
+        Atomics.notify((growMemViews(wasmMemory), HEAP32), atomicIndex)
       })
     };
     var PTY_atomicIndex = 0;
     var PTY_waitForReadableWithAtomic = callback => {
       if (!PTY_atomicIndex) {
         PTY_atomicIndex = _malloc(4) >> 2
-      } HEAP32[PTY_atomicIndex] = -1;
+      } (growMemViews(wasmMemory), HEAP32)[PTY_atomicIndex] = -1;
       PTY_waitForReadableWithAtomicImpl(PTY_atomicIndex);
-      Atomics.wait(HEAP32, PTY_atomicIndex, -1);
-      callback(HEAP32[PTY_atomicIndex])
+      Atomics.wait((growMemViews(wasmMemory), HEAP32), PTY_atomicIndex, -1);
+      callback((growMemViews(wasmMemory), HEAP32)[PTY_atomicIndex])
     };
     var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
     var PTY_handleSleepWithAtomic = startAsync => {
@@ -3419,9 +3438,9 @@ var Module = (() => {
         if (bufsize <= 0) return -28;
         var ret = FS.readlink(path);
         var len = Math.min(bufsize, lengthBytesUTF8(ret));
-        var endChar = HEAP8[buf + len];
+        var endChar = (growMemViews(wasmMemory), HEAP8)[buf + len];
         stringToUTF8(ret, buf, bufsize + 1);
-        HEAP8[buf + len] = endChar;
+        (growMemViews(wasmMemory), HEAP8)[buf + len] = endChar;
         return len
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -3479,7 +3498,7 @@ var Module = (() => {
         return -e.errno
       }
     }
-    var readI53FromI64 = ptr => HEAPU32[ptr >> 2] + HEAP32[ptr + 4 >> 2] * 4294967296;
+    var readI53FromI64 = ptr => (growMemViews(wasmMemory), HEAPU32)[ptr >> 2] + (growMemViews(wasmMemory), HEAP32)[ptr + 4 >> 2] * 4294967296;
 
     function ___syscall_utimensat(dirfd, path, times, flags) {
       try {
@@ -3492,7 +3511,7 @@ var Module = (() => {
           mtime = now
         } else {
           var seconds = readI53FromI64(times);
-          var nanoseconds = HEAP32[times + 8 >> 2];
+          var nanoseconds = (growMemViews(wasmMemory), HEAP32)[times + 8 >> 2];
           if (nanoseconds == 1073741823) {
             atime = now
           } else if (nanoseconds == 1073741822) {
@@ -3502,7 +3521,7 @@ var Module = (() => {
           }
           times += 16;
           seconds = readI53FromI64(times);
-          nanoseconds = HEAP32[times + 8 >> 2];
+          nanoseconds = (growMemViews(wasmMemory), HEAP32)[times + 8 >> 2];
           if (nanoseconds == 1073741823) {
             mtime = now
           } else if (nanoseconds == 1073741822) {
@@ -3679,10 +3698,10 @@ var Module = (() => {
     var doReadv = (stream, iov, iovcnt, offset) => {
       var ret = 0;
       for (var i = 0; i < iovcnt; i++) {
-        var ptr = HEAPU32[iov >> 2];
-        var len = HEAPU32[iov + 4 >> 2];
+        var ptr = (growMemViews(wasmMemory), HEAPU32)[iov >> 2];
+        var len = (growMemViews(wasmMemory), HEAPU32)[iov + 4 >> 2];
         iov += 8;
-        var curr = FS.read(stream, HEAP8, ptr, len, offset);
+        var curr = FS.read(stream, (growMemViews(wasmMemory), HEAP8), ptr, len, offset);
         if (curr < 0) return -1;
         ret += curr;
         if (curr < len) break;
@@ -3697,7 +3716,7 @@ var Module = (() => {
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doReadv(stream, iov, iovcnt);
-        HEAPU32[pnum >> 2] = num;
+        (growMemViews(wasmMemory), HEAPU32)[pnum >> 2] = num;
         return 0
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -3746,7 +3765,7 @@ var Module = (() => {
         if (isNaN(offset)) return 61;
         var stream = SYSCALLS.getStreamFromFD(fd);
         FS.llseek(stream, offset, whence);
-        HEAP64[newOffset >> 3] = BigInt(stream.position);
+        (growMemViews(wasmMemory), HEAP64)[newOffset >> 3] = BigInt(stream.position);
         if (stream.getdents && offset === 0 && whence === 0) stream.getdents = null;
         return 0
       } catch (e) {
@@ -3770,10 +3789,10 @@ var Module = (() => {
     var doWritev = (stream, iov, iovcnt, offset) => {
       var ret = 0;
       for (var i = 0; i < iovcnt; i++) {
-        var ptr = HEAPU32[iov >> 2];
-        var len = HEAPU32[iov + 4 >> 2];
+        var ptr = (growMemViews(wasmMemory), HEAPU32)[iov >> 2];
+        var len = (growMemViews(wasmMemory), HEAPU32)[iov + 4 >> 2];
         iov += 8;
-        var curr = FS.write(stream, HEAP8, ptr, len, offset);
+        var curr = FS.write(stream, (growMemViews(wasmMemory), HEAP8), ptr, len, offset);
         if (curr < 0) return -1;
         ret += curr;
         if (curr < len) {
@@ -3790,7 +3809,7 @@ var Module = (() => {
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doWritev(stream, iov, iovcnt);
-        HEAPU32[pnum >> 2] = num;
+        (growMemViews(wasmMemory), HEAPU32)[pnum >> 2] = num;
         return 0
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -3800,7 +3819,7 @@ var Module = (() => {
 
     function _random_get(buffer, size) {
       try {
-        randomFill(HEAPU8.subarray(buffer, buffer + size));
+        randomFill((growMemViews(wasmMemory), HEAPU8).subarray(buffer, buffer + size));
         return 0
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
