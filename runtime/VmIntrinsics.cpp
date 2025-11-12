@@ -225,15 +225,15 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma,
   return res;
 }
 
-#if defined(__FORK_PTHREAD__)
+#if defined(_FORK_EMULATION_)
 extern "C" void _ecv_save_call_history(RuntimeManager *rt_m, uint64_t func_addr,
                                        uint64_t ret_addr) {
-  rt_m->ecv_prs[CurEcvPid]->call_history.push({func_addr, ret_addr});
+  rt_m->main_ecv_pr->call_history.push({func_addr, ret_addr});
   CPUState->func_depth++;
 }
 extern "C" void _ecv_func_epilogue(uint8_t *, State &state, addr_t cur_func_addr,
                                    RuntimeManager *rt_m) {
-  rt_m->ecv_prs[CurEcvPid]->call_history.pop();
+  rt_m->main_ecv_pr->call_history.pop();
   CPUState->func_depth--;
 }
 #else
@@ -332,11 +332,7 @@ extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
 }
 
 extern "C" void debug_string(const char *str) {
-#if defined(__FORK_PTHREAD__)
-  std::cout << str << " (" << CurEcvPid << ")" << std::endl;
-#else
   std::cout << str << std::endl;
-#endif
 }
 
 

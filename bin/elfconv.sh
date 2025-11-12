@@ -51,7 +51,7 @@ main() {
   fi
 
   # fork emulation using pthread.
-  if [ "$FORK_EMULATION_PTHREAD" == "1" ]; then
+  if [ "$FORK_EMULATION" == "1" ]; then
     EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
     RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
   fi
@@ -90,7 +90,7 @@ main() {
     --dbg_fun_cfg "$2" \
     --target_arch "$target_arch" \
     --float_exception "$FLOAT_STATUS_FLAG" \
-    --fork_emulation_pthread "$FORK_EMULATION_PTHREAD"
+    --fork_emulation "$FORK_EMULATION"
   echo -e "[${GREEN}INFO${NC}] LLVM bitcode (lift.bc) was generated."
 
   # LLVM bc -> target file

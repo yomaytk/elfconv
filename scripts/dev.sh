@@ -77,10 +77,10 @@ lifting() {
     norm_mode="1"
   fi
 
-  fork_emulation_pthread="0"
-  if [ "$FORK_EMULATION_PTHREAD" = "1" ]; then
-    echo -e "[${GREEN}INFO${NC}] FORK emulation (using pthread) is enabled."
-    fork_emulation_pthread="1"
+  fork_emulation="0"
+  if [ "$FORK_EMULATION" = "1" ]; then
+    echo -e "[${GREEN}INFO${NC}] FORK emulation (on emscripten browser) is enabled."
+    fork_emulation="1"
   fi
   
   ${BUILD_LIFTER_DIR}/elflift \
@@ -92,7 +92,7 @@ lifting() {
   --target_arch "$target_arch" \
   --float_exception "$FLOAT_STATUS_FLAG" \
   --norm_mode "$norm_mode" \
-  --fork_emulation_pthread "$fork_emulation_pthread"
+  --fork_emulation "$fork_emulation"
  
   echo -e "[${GREEN}INFO${NC}] built lift.bc"
   
@@ -188,17 +188,17 @@ main() {
         echo -e "[${GREEN}INFO${NC}] NO_COPMILED is ON."
       fi
 
-      EMCC_ASYNC_OPTION="-sPTHREAD_POOL_SIZE=0 -pthread"
+      EMCC_ASYNC_OPTION="-sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
       
-      if [ -n "$FORK_EMULATION_PTHREAD" ]; then
-        EMCC_ASYNC_OPTION="-sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
-        RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
+      if [ -n "$FORK_EMULATION" ]; then
+        EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=0 -pthread"
+        RUNTIME_MACRO="$RUNTIME_MACRO -D_FORK_EMULATION_"
       fi
 
-      if [ -n "$INDEPENDENT_WASM_BUILD" ]; then
-        EMCC_ALL_OPTION="-sASYNCIFY=0 -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
+      if [ -n "$INDEPENDENT_WASM" ]; then
+        EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
       else
-        EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD"
+        EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js"
       fi
 
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ALL_OPTION $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp

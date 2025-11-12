@@ -623,7 +623,7 @@ InstructionLifter::LiftAArch64EveryOperand(Instruction &arch_inst, llvm::BasicBl
 
   llvm::IRBuilder<> ir(block);
 
-  if (arch_inst.lift_config.fork_emulation_pthread) {
+  if (arch_inst.lift_config.fork_emulation) {
     if (arch_inst.function.starts_with("SVC_EX")) {
       llvm::Value *fork_entry_fun_addr_ref, *pc_ref;
       // save `fork_entry_func_addr`

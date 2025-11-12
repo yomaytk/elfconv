@@ -59,14 +59,8 @@ typedef uint64_t _ecv_long;
 #endif
 
 extern _ecv_reg64_t TASK_STRUCT_VMA;
-
 extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
 
-#if defined(__FORK_PTHREAD__)
-extern pthread_mutex_t WaitMutex;
-extern pthread_cond_t WaitCond;
-extern bool ThWake;
-#endif
 /*
   for ioctl syscall
 */
@@ -274,6 +268,17 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /* 75 __WASI_ERRNO_XDEV         */ _LINUX_EXDEV,
     /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
 };
+
+EM_JS(void, _wrap_ecv_proxy_syscall_js, (uint32_t sys_num, uint32_t ptr, uint32_t len), {
+  let ptr32 = ptr >> 2;
+  const args = HEAP32.subarray(ptr32, ptr32 + len);
+  printf("enter _wrap_ecv_proxy_syscall_js!");
+  ecvProxySyscallJs(sys_num, args);
+});
+
+extern EMSCRIPTEN_KEEPALIVE void _wrap_wrap() {
+  return _wrap_ecv_proxy_syscall_js(0, 0, 0);
+}
 
 /*
   syscall emulate function
@@ -497,20 +502,21 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */
     {
 
-#if defined(__FORK_PTHREAD__)
-      uint32_t cur_ecv_pid = CurEcvPid;
-      auto cur_ecv_pr = ecv_prs[cur_ecv_pid];
-      if (cur_ecv_pr->par_ecv_pid > 0) {
-        pthread_mutex_lock(&WaitMutex);
+#if defined(_FORK_EMULATION_)
+      exit(0);  // FIXME
+      // uint32_t cur_ecv_pid = CurEcvPid;
+      // auto cur_ecv_pr = ecv_prs[cur_ecv_pid];
+      // if (cur_ecv_pr->par_ecv_pid > 0) {
+      //   pthread_mutex_lock(&WaitMutex);
 
-        // atomic process for adding the child pid to wait_queue.
-        PushWaitChPid(cur_ecv_pr->par_ecv_pid, cur_ecv_pid);
+      //   // atomic process for adding the child pid to wait_queue.
+      //   PushWaitChPid(cur_ecv_pr->par_ecv_pid, cur_ecv_pid);
 
-        pthread_cond_signal(&WaitCond);
-        ThWake = true;
-        pthread_mutex_unlock(&WaitMutex);
-      }
-      exit(X0_D);
+      //   pthread_cond_signal(&WaitCond);
+      //   ThWake = true;
+      //   pthread_mutex_unlock(&WaitMutex);
+      // }
+      // exit(X0_D);
 #else
       exit(X0_D);
 #endif
@@ -622,15 +628,15 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       }
     } break;
     case ECV_GETPID: /* getpid () */
-#if defined(__FORK_PTHREAD__)
-      X0_D = CurEcvPid;
+#if defined(_FORK_EMULATION_)
+      X0_D = main_ecv_pr->ecv_pid;
 #else
       X0_D = getpid();
 #endif
       break;
     case ECV_GETPPID: /* getppid () */
-#if defined(__FORK_PTHREAD__)
-      X0_D = ecv_prs[CurEcvPid]->par_ecv_pid;
+#if defined(_FORK_EMULATION_)
+      X0_D = 1000;  // (FIXME)
 #else
       X0_D = getppid();
 #endif
@@ -643,8 +649,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_BRK: /* brk (unsigned long brk) */
     {
       MemoryArena *memory_arena;
-#if defined(__FORK_PTHREAD__)
-      memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#if defined(_FORK_EMULATION_)
+      memory_arena = main_ecv_pr->memory_arena;
 #else
       memory_arena = cur_memory_arena;
 #endif
@@ -661,48 +667,84 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
 
-#if defined(__FORK_PTHREAD__)
-      EcvProcess *cur_ecv_pr, *new_ecv_pr;
+#if defined(_FORK_EMULATION_)
+      printf("enter clone!");
       State *cur_state, *new_state;
-      LiftedFunc t_func;
       uint64_t t_func_addr, t_next_pc;
-      uint32_t cur_ecv_pid;
 
-      cur_ecv_pid = CurEcvPid;
-      cur_ecv_pr = ecv_prs[cur_ecv_pid];
       cur_state = CPUState;
+      new_state = new State();
+      memcpy(new_state, cur_state, sizeof(State));
 
-      // make new copied ecv_process
-      new_ecv_pr = cur_ecv_pr->EcvProcessCopied();
-      ecv_prs[new_ecv_pr->ecv_pid] = new_ecv_pr;
-
-      new_state = new_ecv_pr->cpu_state;
       new_state->func_depth = 1;
-      new_state->gpr.x0.qword = 0;  // child
-      cur_state->gpr.x0.qword = new_ecv_pr->ecv_pid;  // parent
+      new_state->gpr.x0.qword = 0;  // child side
+      cur_state->gpr.x0.qword = 100;  // parent side (FIXME)
 
       // update the EcvProcess relationship.
-      cur_ecv_pr->childs.insert(new_ecv_pr->ecv_pid);
-      new_ecv_pr->par_ecv_pid = cur_ecv_pid;
+      // <- should do this on the js-kernel side.
 
       // assumes that generated LLVM IR save these two values before calling syscall.
       t_func_addr = CPUState->fork_entry_fun_addr;
       t_next_pc = CPUState->gpr.pc.qword;
 
-      auto t_func_it =
-          std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_func_addr,
-                           [](auto const &lhs, addr_t value) { return lhs.first < value; });
-      t_func = t_func_it->second;
+      /// copy some data to give the new process worker through js-kernel.
+      /// memory content:
+      /// [ CPUState (sizeof(CPUState) byte); memory_arena_type: (4 byte); vma (4 byte); len (4 byte);
+      ///   heap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
+      ///   call_history_len (4 byte); [ t_func_addr_1, t_func_next_pc_1, ..., t_func_addr_n, t_func_next_pc_n ] (8 * call_history_len byte); ]
 
-      if (!t_func) {
-        elfconv_runtime_error("The function corresponding to t_func_addr (0x%lx) is not found.\n",
-                              t_func_addr);
+      uint32_t shared_data_len = sizeof(State) +
+                                 4 /* memory_area_type */
+                                 // + 4 /* name<ptr> */
+                                 + 4 /* vma */
+                                 + 4 /* len */
+                                 //  + 4 /* bytes<ptr>*/
+                                 + 4 /* heap_cur */
+                                 + 4 /* t_func_addr */
+                                 + 4 /* t_next_pc */
+                                 + 4 /* call_history_len */
+                                 +
+                                 4 * main_ecv_pr->call_history.size() * 2; /* parent_call_history */
+      uint8_t *shared_data_for_process = (uint8_t *) malloc(shared_data_len);
+
+      // CPUState
+      memcpy(shared_data_for_process, new_state, sizeof(State));
+      // MemoryArena
+      uint32_t *mem_p = (uint32_t *) (shared_data_for_process + sizeof(State));
+      mem_p[0] = (uint32_t) main_memory_arena->memory_area_type;
+      // skip `name` field.
+      mem_p[1] = (uint32_t) main_memory_arena->vma;
+      mem_p[2] = (uint32_t) main_memory_arena->len;
+      mem_p[3] = (uint32_t) main_memory_arena->heap_cur;
+      // next address info
+      uint32_t *next_addr_p = mem_p + 4;
+      next_addr_p[0] = t_func_addr;
+      next_addr_p[1] = t_next_pc;
+      // call history
+      uint32_t *history_p = next_addr_p + 2;
+      auto copied_history = main_ecv_pr->call_history;
+      history_p[0] = copied_history.size();
+      for (int i = 0; !copied_history.empty(); i += 2) {
+        auto [f_addr, j_addr] = copied_history.top();
+        copied_history.pop();
+        history_p[1 + i] = f_addr;
+        history_p[1 + i + 1] = j_addr;
       }
 
-      auto _ecv_pthread_arg = new EcvPthreadArg(this, new_ecv_pr, t_func, t_next_pc);
-      auto p_th = (pthread_t *) malloc(sizeof(pthread_t));
+      // argument for clone syscall.
+      // future work: does not handle the actual arguments of original syscall for simplicity now.
+      uint32_t *args = (uint32_t *) malloc(sizeof(uint32_t) * 4);
+      args[0] = (uint32_t) shared_data_for_process;
+      args[1] = shared_data_len;
+      args[2] = (uint32_t) main_memory_arena->bytes;
+      args[3] = (uint32_t) MEMORY_ARENA_SIZE;
 
-      pthread_create(p_th, NULL, ManageNewForkPthread, _ecv_pthread_arg);
+      for (int i = 0; i < 4; i++) {
+        printf("clone args[%d]: %d\n", i, args[i]);
+      }
+
+      // issue clone syscall of js-kernel.
+      _wrap_ecv_proxy_syscall_js(ECV_CLONE, (uint32_t) args, 4);
 #else
       UNIMPLEMENTED_SYSCALL;
 #endif
@@ -711,8 +753,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       /* FIXME */
       {
         MemoryArena *memory_arena;
-#if defined(__FORK_PTHREAD__)
-        memory_arena = ecv_prs[CurEcvPid]->memory_arena;
+#if defined(_FORK_EMULATION_)
+        memory_arena = main_ecv_pr->memory_arena;
 #else
         memory_arena = cur_memory_arena;
 #endif
@@ -732,26 +774,27 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     {
       int res = 0;
 
-#if defined(__FORK_PTHREAD__)
-      uint32_t par_ecv_pid = CurEcvPid;
+#if defined(_FORK_EMULATION_)
+      UNIMPLEMENTED_SYSCALL;
+      // uint32_t par_ecv_pid = CurEcvPid;
 
-      auto par_ecv_pr = ecv_prs[par_ecv_pid];
-      if (par_ecv_pr->child_wait_queue.empty()) {
-        pthread_mutex_lock(&WaitMutex);
-        while (!ThWake) {
-          pthread_cond_wait(&WaitCond, &WaitMutex);
-        }
-        ThWake = false;
-        pthread_mutex_unlock(&WaitMutex);
-      }
+      // auto par_ecv_pr = ecv_prs[par_ecv_pid];
+      // if (par_ecv_pr->child_wait_queue.empty()) {
+      //   pthread_mutex_lock(&WaitMutex);
+      //   while (!ThWake) {
+      //     pthread_cond_wait(&WaitCond, &WaitMutex);
+      //   }
+      //   ThWake = false;
+      //   pthread_mutex_unlock(&WaitMutex);
+      // }
 
-      // atomic process for wait_queue.
-      auto t_ch_pid = GetNextWaitChPid(par_ecv_pid);
+      // // atomic process for wait_queue.
+      // auto t_ch_pid = GetNextWaitChPid(par_ecv_pid);
 
-      // remove the child process meta data.
-      ecv_prs[t_ch_pid] = nullptr;
-      par_ecv_pr->childs.erase(t_ch_pid);
-      res = t_ch_pid;
+      // // remove the child process meta data.
+      // ecv_prs[t_ch_pid] = nullptr;
+      // par_ecv_pr->childs.erase(t_ch_pid);
+      // res = t_ch_pid;
 #else
       UNIMPLEMENTED_SYSCALL;
       res = -1;
