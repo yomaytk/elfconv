@@ -296,7 +296,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  // printf("syscall: %llu\n", SYSNUMREG);
+  printf("syscall: %llu\n", SYSNUMREG);
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
@@ -733,7 +733,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 
       // argument for clone syscall.
       // future work: does not handle the actual arguments of original syscall for simplicity now.
-      uint32_t *args = (uint32_t *) malloc(sizeof(uint32_t) * 4);
+      uint32_t *args = (uint32_t *) malloc(sizeof(uint32_t) * 5);
       args[0] = (uint32_t) shared_data_for_process;
       args[1] = shared_data_len;
       args[2] = (uint32_t) main_memory_arena->bytes;

@@ -45,36 +45,40 @@ var Module = (() => {
         assignWasmImports();
         updateMemoryViews(wasmMemory);
         initPromise = initWasmModule();
+        console.log("2");
+        initPromise = initWasmModule().then(() => {
+          postMessage({ cmd: "initOk" });
+        });
+
       } else if (d.cmd === "startWorker") {
         if (d.entry === "main") {
           // entry main.
           initPromise.then(() => run());
         } else if (d.entry === "forkMain") {
-          console.log("forkMain prepared!");
           // entry fork process.
           initPromise.then(() => {
+            console.log("6");
             // waits copySData finishing on the js-kernel side. 
-            let bellView = new Int32Array(copyNoteBell);
-            Atomics.wait(bellView, 0, 0);
+            // let bellView = new Int32Array(copyNoteBell);
+            // Atomics.wait(bellView, 0, 0);
+            console.log("New process invoked!");
             _fork_main();
           });
         } else {
           throw e;
         }
       } else if (d.cmd === "takeSDataP") {
-        console.log(`enter takeSDataP! ${_get_shared_data_p}`);
         initPromise.then(() => {
-          console.log(`enter takeSDataP! ${_get_shared_data_p}`);
+          console.log("4");
           let sDataP32 = _get_shared_data_p() >> 2;
           let _mBytesP8 = (growMemViews(wasmMemory), HEAP32)[sDataP32];
           let _sDataP8 = (growMemViews(wasmMemory), HEAP32)[sDataP32 + 1];
-          console.log(`done get shared data p on the process worker side. sDataP32: ${sDataP32}`);
           postMessage({
             cmd: "giveSDataP",
             mBytesP8: _mBytesP8,
             sDataP8: _sDataP8,
           });
-        })
+        });
       } else {
         throw e;
       }
@@ -86,7 +90,7 @@ var Module = (() => {
       // setting of pMemory32
       // [sysNum (4byte); argsNum (4byte); args (4 * sysNum byte); sysRval (4byte); waitSpace (4byte)]
 
-      console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (process-worker.js).`);
+      // console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (process-worker.js).`);
 
       let sp = stackSave();
       let newAllocSz = 4 // sysNum 
@@ -118,8 +122,6 @@ var Module = (() => {
         spHead32: headPtr32
       });
 
-      console.log("post to js-kernel (process-worker.js).");
-
       // waiting for syscall finishing (of js-kernel).
       // (FIXME?) It seems that we can't guarantee the consistency?
       Atomics.wait((growMemViews(wasmMemory), pMemory32View), waitPtr, 0);
@@ -131,17 +133,15 @@ var Module = (() => {
       }
 
       let sysRval = (growMemViews(wasmMemory), pMemory32View)[sysRvalPtr];
-      console.log(`sysRval: ${sysRval}`);
+      // console.log(`sysRval: ${sysRval}`);
 
       stackRestore(sp);
       return sysRval;
     }
 
     function _wrap_ecv_proxy_syscall_js(sys_num, ptr, len) {
-      console.log("wrap in!");
       let ptr32 = ptr >> 2;
       const args = (growMemViews(wasmMemory), HEAP32).subarray(ptr32, ptr32 + len);
-      console.log("wrap 2!");
       ecvProxySyscallJs(sys_num, ...args)
     }
 
@@ -207,7 +207,6 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      // runtimeInitialized = true;
       wasmExports["Y"]();
     }
 
@@ -1072,8 +1071,6 @@ var Module = (() => {
       stringToUTF8(str, ret, size);
       return ret
     };
-    // MEMFS.doesNotExistError = new FS.ErrnoError(44);
-    // MEMFS.doesNotExistError.stack = "<generic error, no stack>";
     {
       if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
       if (Module["preloadPlugins"]) preloadPlugins = Module["preloadPlugins"];
@@ -1173,166 +1170,15 @@ var Module = (() => {
       // init Wasm module
       wasmExports = await createWasm();
       _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["kc"])(a0, a1);
-      // _pthread_self = () => (_pthread_self = wasmExports["zc"])();
-      // __emscripten_thread_init = (a0, a1, a2, a3, a4, a5) => (__emscripten_thread_init = wasmExports["Ac"])(a0, a1, a2, a3, a4, a5);
-      // __emscripten_thread_crashed = () => (__emscripten_thread_crashed = wasmExports["Bc"])();
-      // __emscripten_run_on_main_thread_js = (a0, a1, a2, a3, a4) => (__emscripten_run_on_main_thread_js = wasmExports["Cc"])(a0, a1, a2, a3, a4);
-      // __emscripten_thread_free_data = a0 => (__emscripten_thread_free_data = wasmExports["Dc"])(a0);
-      // __emscripten_thread_exit = a0 => (__emscripten_thread_exit = wasmExports["Ec"])(a0);
-      // __emscripten_check_mailbox = () => (__emscripten_check_mailbox = wasmExports["Fc"])();
-      // _emscripten_stack_set_limits = (a0, a1) => (_emscripten_stack_set_limits = wasmExports["Gc"])(a0, a1);
       __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Lc"])(a0);
       __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Mc"])(a0);
       _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Nc"])();
       _get_shared_data_p = Module["_get_shared_data_p"] = () => (_get_shared_data_p = Module["_get_shared_data_p"] = wasmExports["lc"])();
       _fork_main = Module["_fork_main"] = () => (_fork_main = Module["_fork_main"] = wasmExports["mc"])();
 
-      console.log(`_get_shared_data_p: ${_get_shared_data_p}`);
       preInit();
       moduleRtn = readyPromise;
     }
-
-    function startWorker() {
-      run();
-    }
-
-    // var ___wasm_call_ctors = wasmExports["P"];
-    // var ___remill_flag_computation_overflow = Module["___remill_flag_computation_overflow"] = wasmExports["Q"];
-    // var ___remill_barrier_store_store = Module["___remill_barrier_store_store"] = wasmExports["R"];
-    // var ___remill_barrier_load_store = Module["___remill_barrier_load_store"] = wasmExports["S"];
-    // var ___remill_syscall_tranpoline_call = Module["___remill_syscall_tranpoline_call"] = wasmExports["T"];
-    // var ___remill_read_memory_8 = Module["___remill_read_memory_8"] = wasmExports["U"];
-    // var ___remill_read_memory_16 = Module["___remill_read_memory_16"] = wasmExports["V"];
-    // var ___remill_read_memory_32 = Module["___remill_read_memory_32"] = wasmExports["W"];
-    // var ___remill_read_memory_64 = Module["___remill_read_memory_64"] = wasmExports["X"];
-    // var ___remill_read_memory_128 = Module["___remill_read_memory_128"] = wasmExports["Y"];
-    // var ___remill_write_memory_8 = Module["___remill_write_memory_8"] = wasmExports["Z"];
-    // var ___remill_write_memory_16 = Module["___remill_write_memory_16"] = wasmExports["_"];
-    // var ___remill_write_memory_32 = Module["___remill_write_memory_32"] = wasmExports["$"];
-    // var ___remill_write_memory_64 = Module["___remill_write_memory_64"] = wasmExports["aa"];
-    // var ___remill_write_memory_128 = Module["___remill_write_memory_128"] = wasmExports["ba"];
-    // var ___remill_read_memory_f32 = Module["___remill_read_memory_f32"] = wasmExports["ca"];
-    // var ___remill_read_memory_f64 = Module["___remill_read_memory_f64"] = wasmExports["da"];
-    // var ___remill_read_memory_f128 = Module["___remill_read_memory_f128"] = wasmExports["ea"];
-    // var ___remill_write_memory_f32 = Module["___remill_write_memory_f32"] = wasmExports["fa"];
-    // var ___remill_write_memory_f64 = Module["___remill_write_memory_f64"] = wasmExports["ga"];
-    // var ___remill_write_memory_f128 = Module["___remill_write_memory_f128"] = wasmExports["ha"];
-    // var ___remill_barrier_load_load = Module["___remill_barrier_load_load"] = wasmExports["ia"];
-    // var ___remill_barrier_store_load = Module["___remill_barrier_store_load"] = wasmExports["ja"];
-    // var ___remill_atomic_begin = Module["___remill_atomic_begin"] = wasmExports["ka"];
-    // var ___remill_atomic_end = Module["___remill_atomic_end"] = wasmExports["la"];
-    // var ___remill_delay_slot_begin = Module["___remill_delay_slot_begin"] = wasmExports["ma"];
-    // var ___remill_delay_slot_end = Module["___remill_delay_slot_end"] = wasmExports["na"];
-    // var ___remill_compare_exchange_memory_8 = Module["___remill_compare_exchange_memory_8"] = wasmExports["oa"];
-    // var ___remill_compare_exchange_memory_16 = Module["___remill_compare_exchange_memory_16"] = wasmExports["pa"];
-    // var ___remill_compare_exchange_memory_32 = Module["___remill_compare_exchange_memory_32"] = wasmExports["qa"];
-    // var ___remill_compare_exchange_memory_64 = Module["___remill_compare_exchange_memory_64"] = wasmExports["ra"];
-    // var ___remill_fetch_and_add_8 = Module["___remill_fetch_and_add_8"] = wasmExports["sa"];
-    // var ___remill_fetch_and_add_16 = Module["___remill_fetch_and_add_16"] = wasmExports["ta"];
-    // var ___remill_fetch_and_add_32 = Module["___remill_fetch_and_add_32"] = wasmExports["ua"];
-    // var ___remill_fetch_and_add_64 = Module["___remill_fetch_and_add_64"] = wasmExports["va"];
-    // var ___remill_fetch_and_sub_8 = Module["___remill_fetch_and_sub_8"] = wasmExports["wa"];
-    // var ___remill_fetch_and_sub_16 = Module["___remill_fetch_and_sub_16"] = wasmExports["xa"];
-    // var ___remill_fetch_and_sub_32 = Module["___remill_fetch_and_sub_32"] = wasmExports["ya"];
-    // var ___remill_fetch_and_sub_64 = Module["___remill_fetch_and_sub_64"] = wasmExports["za"];
-    // var ___remill_fetch_and_or_8 = Module["___remill_fetch_and_or_8"] = wasmExports["Aa"];
-    // var ___remill_fetch_and_or_16 = Module["___remill_fetch_and_or_16"] = wasmExports["Ba"];
-    // var ___remill_fetch_and_or_32 = Module["___remill_fetch_and_or_32"] = wasmExports["Ca"];
-    // var ___remill_fetch_and_or_64 = Module["___remill_fetch_and_or_64"] = wasmExports["Da"];
-    // var ___remill_fetch_and_and_8 = Module["___remill_fetch_and_and_8"] = wasmExports["Ea"];
-    // var ___remill_fetch_and_and_16 = Module["___remill_fetch_and_and_16"] = wasmExports["Fa"];
-    // var ___remill_fetch_and_and_32 = Module["___remill_fetch_and_and_32"] = wasmExports["Ga"];
-    // var ___remill_fetch_and_and_64 = Module["___remill_fetch_and_and_64"] = wasmExports["Ha"];
-    // var ___remill_fetch_and_xor_8 = Module["___remill_fetch_and_xor_8"] = wasmExports["Ia"];
-    // var ___remill_fetch_and_xor_16 = Module["___remill_fetch_and_xor_16"] = wasmExports["Ja"];
-    // var ___remill_fetch_and_xor_32 = Module["___remill_fetch_and_xor_32"] = wasmExports["Ka"];
-    // var ___remill_fetch_and_xor_64 = Module["___remill_fetch_and_xor_64"] = wasmExports["La"];
-    // var ___remill_fpu_exception_test_and_clear = Module["___remill_fpu_exception_test_and_clear"] = wasmExports["Ma"];
-    // var ___remill_error = Module["___remill_error"] = wasmExports["Na"];
-    // var ___remill_function_call = Module["___remill_function_call"] = wasmExports["Oa"];
-    // var ___remill_function_return = Module["___remill_function_return"] = wasmExports["Pa"];
-    // var ___remill_jump = Module["___remill_jump"] = wasmExports["Qa"];
-    // var ___remill_missing_block = Module["___remill_missing_block"] = wasmExports["Ra"];
-    // var __ecv_func_epilogue = Module["__ecv_func_epilogue"] = wasmExports["Sa"];
-    // var ___remill_async_hyper_call = Module["___remill_async_hyper_call"] = wasmExports["Ta"];
-    // var ___remill_undefined_8 = Module["___remill_undefined_8"] = wasmExports["Ua"];
-    // var ___remill_undefined_16 = Module["___remill_undefined_16"] = wasmExports["Va"];
-    // var ___remill_undefined_32 = Module["___remill_undefined_32"] = wasmExports["Wa"];
-    // var ___remill_undefined_64 = Module["___remill_undefined_64"] = wasmExports["Xa"];
-    // var ___remill_undefined_f32 = Module["___remill_undefined_f32"] = wasmExports["Ya"];
-    // var ___remill_undefined_f64 = Module["___remill_undefined_f64"] = wasmExports["Za"];
-    // var ___remill_flag_computation_zero = Module["___remill_flag_computation_zero"] = wasmExports["_a"];
-    // var ___remill_flag_computation_sign = Module["___remill_flag_computation_sign"] = wasmExports["$a"];
-    // var ___remill_flag_computation_carry = Module["___remill_flag_computation_carry"] = wasmExports["ab"];
-    // var ___remill_compare_sle = Module["___remill_compare_sle"] = wasmExports["bb"];
-    // var ___remill_compare_slt = Module["___remill_compare_slt"] = wasmExports["cb"];
-    // var ___remill_compare_sgt = Module["___remill_compare_sgt"] = wasmExports["db"];
-    // var ___remill_compare_sge = Module["___remill_compare_sge"] = wasmExports["eb"];
-    // var ___remill_compare_eq = Module["___remill_compare_eq"] = wasmExports["fb"];
-    // var ___remill_compare_neq = Module["___remill_compare_neq"] = wasmExports["gb"];
-    // var ___remill_compare_ugt = Module["___remill_compare_ugt"] = wasmExports["hb"];
-    // var ___remill_compare_uge = Module["___remill_compare_uge"] = wasmExports["ib"];
-    // var ___remill_compare_ult = Module["___remill_compare_ult"] = wasmExports["jb"];
-    // var ___remill_compare_ule = Module["___remill_compare_ule"] = wasmExports["kb"];
-    // var ___remill_x86_set_segment_es = Module["___remill_x86_set_segment_es"] = wasmExports["lb"];
-    // var ___remill_x86_set_segment_ss = Module["___remill_x86_set_segment_ss"] = wasmExports["mb"];
-    // var ___remill_x86_set_segment_ds = Module["___remill_x86_set_segment_ds"] = wasmExports["nb"];
-    // var ___remill_x86_set_segment_fs = Module["___remill_x86_set_segment_fs"] = wasmExports["ob"];
-    // var ___remill_x86_set_segment_gs = Module["___remill_x86_set_segment_gs"] = wasmExports["pb"];
-    // var ___remill_x86_set_debug_reg = Module["___remill_x86_set_debug_reg"] = wasmExports["qb"];
-    // var ___remill_x86_set_control_reg_0 = Module["___remill_x86_set_control_reg_0"] = wasmExports["rb"];
-    // var ___remill_x86_set_control_reg_1 = Module["___remill_x86_set_control_reg_1"] = wasmExports["sb"];
-    // var ___remill_x86_set_control_reg_2 = Module["___remill_x86_set_control_reg_2"] = wasmExports["tb"];
-    // var ___remill_x86_set_control_reg_3 = Module["___remill_x86_set_control_reg_3"] = wasmExports["ub"];
-    // var ___remill_x86_set_control_reg_4 = Module["___remill_x86_set_control_reg_4"] = wasmExports["vb"];
-    // var ___remill_amd64_set_debug_reg = Module["___remill_amd64_set_debug_reg"] = wasmExports["wb"];
-    // var ___remill_amd64_set_control_reg_0 = Module["___remill_amd64_set_control_reg_0"] = wasmExports["xb"];
-    // var ___remill_amd64_set_control_reg_1 = Module["___remill_amd64_set_control_reg_1"] = wasmExports["yb"];
-    // var ___remill_amd64_set_control_reg_2 = Module["___remill_amd64_set_control_reg_2"] = wasmExports["zb"];
-    // var ___remill_amd64_set_control_reg_3 = Module["___remill_amd64_set_control_reg_3"] = wasmExports["Ab"];
-    // var ___remill_amd64_set_control_reg_4 = Module["___remill_amd64_set_control_reg_4"] = wasmExports["Bb"];
-    // var ___remill_amd64_set_control_reg_8 = Module["___remill_amd64_set_control_reg_8"] = wasmExports["Cb"];
-    // var ___remill_aarch64_emulate_instruction = Module["___remill_aarch64_emulate_instruction"] = wasmExports["Db"];
-    // var ___remill_aarch32_emulate_instruction = Module["___remill_aarch32_emulate_instruction"] = wasmExports["Eb"];
-    // var ___remill_aarch32_check_not_el2 = Module["___remill_aarch32_check_not_el2"] = wasmExports["Fb"];
-    // var ___remill_sparc_set_asi_register = Module["___remill_sparc_set_asi_register"] = wasmExports["Gb"];
-    // var ___remill_sparc_unimplemented_instruction = Module["___remill_sparc_unimplemented_instruction"] = wasmExports["Hb"];
-    // var ___remill_sparc_unhandled_dcti = Module["___remill_sparc_unhandled_dcti"] = wasmExports["Ib"];
-    // var ___remill_sparc_window_underflow = Module["___remill_sparc_window_underflow"] = wasmExports["Jb"];
-    // var ___remill_sparc_trap_cond_a = Module["___remill_sparc_trap_cond_a"] = wasmExports["Kb"];
-    // var ___remill_sparc_trap_cond_n = Module["___remill_sparc_trap_cond_n"] = wasmExports["Lb"];
-    // var ___remill_sparc_trap_cond_ne = Module["___remill_sparc_trap_cond_ne"] = wasmExports["Mb"];
-    // var ___remill_sparc_trap_cond_e = Module["___remill_sparc_trap_cond_e"] = wasmExports["Nb"];
-    // var ___remill_sparc_trap_cond_g = Module["___remill_sparc_trap_cond_g"] = wasmExports["Ob"];
-    // var ___remill_sparc_trap_cond_le = Module["___remill_sparc_trap_cond_le"] = wasmExports["Pb"];
-    // var ___remill_sparc_trap_cond_ge = Module["___remill_sparc_trap_cond_ge"] = wasmExports["Qb"];
-    // var ___remill_sparc_trap_cond_l = Module["___remill_sparc_trap_cond_l"] = wasmExports["Rb"];
-    // var ___remill_sparc_trap_cond_gu = Module["___remill_sparc_trap_cond_gu"] = wasmExports["Sb"];
-    // var ___remill_sparc_trap_cond_leu = Module["___remill_sparc_trap_cond_leu"] = wasmExports["Tb"];
-    // var ___remill_sparc_trap_cond_cc = Module["___remill_sparc_trap_cond_cc"] = wasmExports["Ub"];
-    // var ___remill_sparc_trap_cond_cs = Module["___remill_sparc_trap_cond_cs"] = wasmExports["Vb"];
-    // var ___remill_sparc_trap_cond_pos = Module["___remill_sparc_trap_cond_pos"] = wasmExports["Wb"];
-    // var ___remill_sparc_trap_cond_neg = Module["___remill_sparc_trap_cond_neg"] = wasmExports["Xb"];
-    // var ___remill_sparc_trap_cond_vc = Module["___remill_sparc_trap_cond_vc"] = wasmExports["Yb"];
-    // var ___remill_sparc_trap_cond_vs = Module["___remill_sparc_trap_cond_vs"] = wasmExports["Zb"];
-    // var ___remill_sparc32_emulate_instruction = Module["___remill_sparc32_emulate_instruction"] = wasmExports["_b"];
-    // var ___remill_sparc64_emulate_instruction = Module["___remill_sparc64_emulate_instruction"] = wasmExports["$b"];
-    // var _main = Module["_main"] = wasmExports["bc"];
-    // var ___remill_undefined_f128 = Module["___remill_undefined_f128"] = wasmExports["cc"];
-    // var ___remill_compare_exchange_memory_128 = Module["___remill_compare_exchange_memory_128"] = wasmExports["dc"];
-    // var ___remill_fetch_and_nand_8 = Module["___remill_fetch_and_nand_8"] = wasmExports["ec"];
-    // var ___remill_fetch_and_nand_16 = Module["___remill_fetch_and_nand_16"] = wasmExports["fc"];
-    // var ___remill_fetch_and_nand_32 = Module["___remill_fetch_and_nand_32"] = wasmExports["gc"];
-    // var ___remill_fetch_and_nand_64 = Module["___remill_fetch_and_nand_64"] = wasmExports["hc"];
-    // var ___remill_read_io_port_8 = Module["___remill_read_io_port_8"] = wasmExports["ic"];
-    // var ___remill_read_io_port_16 = Module["___remill_read_io_port_16"] = wasmExports["jc"];
-    // var ___remill_read_io_port_32 = Module["___remill_read_io_port_32"] = wasmExports["kc"];
-    // var ___remill_write_io_port_8 = Module["___remill_write_io_port_8"] = wasmExports["lc"];
-    // var ___remill_write_io_port_16 = Module["___remill_write_io_port_16"] = wasmExports["mc"];
-    // var ___remill_write_io_port_32 = Module["___remill_write_io_port_32"] = wasmExports["nc"];
-    // var ___remill_ppc_emulate_instruction = Module["___remill_ppc_emulate_instruction"] = wasmExports["oc"];
-    // var ___remill_ppc_syscall = Module["___remill_ppc_syscall"] = wasmExports["pc"];
-    // var __emscripten_stack_alloc = wasmExports["qc"];
 
     function callMain(args = []) {
       var entryFunction = _main;

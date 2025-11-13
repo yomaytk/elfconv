@@ -178,6 +178,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE void fork_main() {
   // RuntimeManager
   auto rt_m = new RuntimeManager(main_ecv_pr);
 
+  printf("middle!\n");
+
   // Set lifted function pointer table
   for (size_t i = 0; _ecv_fun_vmas[i] && _ecv_fun_ptrs[i]; i++) {
     rt_m->addr_funptr_srt_list.push_back({_ecv_fun_vmas[i], _ecv_fun_ptrs[i]});
@@ -193,6 +195,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE void fork_main() {
     }
     rt_m->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
+
+  printf("middle333!\n");
 
   /// execute functions.
   LiftedFunc t_func;
@@ -222,6 +226,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE void fork_main() {
 
       auto [tn_func_addr, tn_func_next_pc] = main_ecv_pr->parent_call_history.top();
       main_ecv_pr->parent_call_history.pop();
+
+      printf("tn_func_adr: %llu", tn_func_addr);
 
       auto tn_func_it = std::lower_bound(
           rt_m->addr_funptr_srt_list.begin(), rt_m->addr_funptr_srt_list.end(), tn_func_addr,
