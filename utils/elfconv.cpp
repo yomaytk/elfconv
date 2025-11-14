@@ -18,6 +18,10 @@
 
 extern State *CPUState;
 
+#if defined(__EMSCRIPTEN__)
+extern "C" uint32_t me_forked;
+#endif
+
 #define SR_ECV_NZCV__N ((ecv_nzcv & 0b1000) >> 3)
 #define SR_ECV_NZCV__Z ((ecv_nzcv & 0b100) >> 2)
 #define SR_ECV_NZCV__C ((ecv_nzcv & 0b10) >> 1)

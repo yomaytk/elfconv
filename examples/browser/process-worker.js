@@ -23,7 +23,7 @@ var Module = (() => {
     var wasmMemory;
     var pMemory32View;
     var workerId;
-    var copyNoteBell;
+    var copyFinBell;
     var initPromise;
 
     function growMemViews(pWasmMemory) {
@@ -40,47 +40,39 @@ var Module = (() => {
         wasmMemory = d.pWasmMemory;
         pMemory32View = new Int32Array(wasmMemory.buffer);
         workerId = d.workerId;
-        copyNoteBell = d.copyBell;
+        copyFinBell = d.copyFinBell;
 
         assignWasmImports();
         updateMemoryViews(wasmMemory);
         initPromise = initWasmModule();
-        console.log("2");
-        initPromise = initWasmModule().then(() => {
+        initPromise.then(() => {
           postMessage({ cmd: "initOk" });
         });
 
       } else if (d.cmd === "startWorker") {
-        if (d.entry === "main") {
-          // entry main.
-          initPromise.then(() => run());
-        } else if (d.entry === "forkMain") {
-          // entry fork process.
-          initPromise.then(() => {
-            console.log("6");
-            // waits copySData finishing on the js-kernel side. 
-            // let bellView = new Int32Array(copyNoteBell);
-            // Atomics.wait(bellView, 0, 0);
-            console.log("New process invoked!");
-            _fork_main();
-          });
-        } else {
-          throw e;
-        }
+        initPromise.then(() => run());
       } else if (d.cmd === "takeSDataP") {
-        initPromise.then(() => {
-          console.log("4");
-          let sDataP32 = _get_shared_data_p() >> 2;
-          let _mBytesP8 = (growMemViews(wasmMemory), HEAP32)[sDataP32];
-          let _sDataP8 = (growMemViews(wasmMemory), HEAP32)[sDataP32 + 1];
-          postMessage({
-            cmd: "giveSDataP",
-            mBytesP8: _mBytesP8,
-            sDataP8: _sDataP8,
-          });
-        });
+        (growMemViews(wasmMemory), HEAP32)[_me_forked >> 2] = 1;
+        postMessage({
+          cmd: "giveSDataP",
+        })
       } else {
         throw e;
+      }
+    }
+
+    function ecv_proxy_process_memory_copy_req(memory_arena_bytes, shared_data) {
+      let bellView = new Int32Array(copyFinBell);
+      Atomics.store(bellView, 0, 0);
+      postMessage({
+        cmd: "mCopy",
+        mBytesDstP: memory_arena_bytes,
+        sDataDstP: shared_data,
+      });
+      Atomics.wait(bellView, 0, 0);
+      let resBell = Atomics.load(bellView, 0);
+      if (resBell != 1) {
+        throw new Error(`mCopyBell(${resBell}) is strange.`)
       }
     }
 
@@ -90,7 +82,7 @@ var Module = (() => {
       // setting of pMemory32
       // [sysNum (4byte); argsNum (4byte); args (4 * sysNum byte); sysRval (4byte); waitSpace (4byte)]
 
-      // console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (process-worker.js).`);
+      console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (workerId: ${workerId}).`);
 
       let sp = stackSave();
       let newAllocSz = 4 // sysNum 
@@ -133,16 +125,33 @@ var Module = (() => {
       }
 
       let sysRval = (growMemViews(wasmMemory), pMemory32View)[sysRvalPtr];
-      // console.log(`sysRval: ${sysRval}`);
+      console.log(`sysRval: ${sysRval}`);
 
       stackRestore(sp);
       return sysRval;
     }
 
+    // clone syscall wrapper.
     function _wrap_ecv_proxy_syscall_js(sys_num, ptr, len) {
+
       let ptr32 = ptr >> 2;
       const args = (growMemViews(wasmMemory), HEAP32).subarray(ptr32, ptr32 + len);
-      ecvProxySyscallJs(sys_num, ...args)
+
+      let bellView = new Int32Array(copyFinBell);
+      Atomics.store(bellView, 0, 0);
+
+      // clone syscall entry.
+      let sysRes = ecvProxySyscallJs(sys_num, ...args);
+
+      // waiting until process state copy has been finished.
+      Atomics.wait(bellView, 0, 0);
+
+      let copyFinBellRes = Atomics.load(bellView, 0);
+      if (copyFinBellRes != 1) {
+        throw new Error(`copyFinBellRes (${copyFinBellRes}) is strange.`);
+      }
+
+      return sysRes;
     }
 
     function locateFile(path) {
@@ -207,7 +216,7 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      wasmExports["Y"]();
+      wasmExports["Z"]();
     }
 
     function preMain() { }
@@ -314,7 +323,7 @@ var Module = (() => {
       function receiveInstance(instance, module) {
         wasmExports = instance.exports;
         updateMemoryViews();
-        wasmTable = wasmExports["jc"];
+        wasmTable = wasmExports["kc"];
         removeRunDependency("wasm-instantiate");
         return wasmExports
       }
@@ -1108,45 +1117,48 @@ var Module = (() => {
       console.log("[call] _emscripten_exit_with_live_runtime.");
     };
 
+
+    /// These data is interface between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
         A: ___call_sighandler,
         j: ___cxa_throw,
-        x: ___syscall_chdir,
-        m: ___syscall_dup,
-        l: ___syscall_dup3,
-        X: ___syscall_faccessat,
+        n: ___syscall_chdir,
+        l: ___syscall_dup,
+        k: ___syscall_dup3,
+        W: ___syscall_faccessat,
         c: ___syscall_fcntl64,
-        U: ___syscall_fstat64,
-        P: ___syscall_ftruncate64,
-        O: ___syscall_getcwd,
-        N: ___syscall_getdents64,
+        T: ___syscall_fstat64,
+        O: ___syscall_ftruncate64,
+        N: ___syscall_getcwd,
+        M: ___syscall_getdents64,
         g: ___syscall_ioctl,
-        R: ___syscall_lstat64,
-        I: ___syscall_mkdirat,
-        S: ___syscall_newfstatat,
-        H: ___syscall_openat,
-        G: ___syscall_poll,
+        Q: ___syscall_lstat64,
+        H: ___syscall_mkdirat,
+        R: ___syscall_newfstatat,
+        G: ___syscall_openat,
+        F: ___syscall_poll,
         z: ___syscall_readlinkat,
-        T: ___syscall_stat64,
+        S: ___syscall_stat64,
         y: ___syscall_statfs64,
         v: ___syscall_truncate64,
         u: ___syscall_unlinkat,
         t: ___syscall_utimensat,
-        F: __abort_js,
-        L: __emscripten_init_main_thread_js,
+        x: __abort_js,
+        K: __emscripten_init_main_thread_js,
         w: __emscripten_notify_mailbox_postmessage,
         E: __emscripten_receive_on_main_thread_js,
         C: __emscripten_runtime_keepalive_clear,
         o: __emscripten_thread_cleanup,
-        K: __emscripten_thread_mailbox_await,
-        W: __emscripten_thread_set_strongref,
+        J: __emscripten_thread_mailbox_await,
+        V: __emscripten_thread_set_strongref,
         p: __tzset_js,
         i: _wrap_ecv_proxy_syscall_js,
-        n: _clock_time_get,
+        m: _clock_time_get,
+        Y: ecv_proxy_process_memory_copy_req,
         D: _emscripten_check_blocking_allowed,
-        k: _emscripten_date_now,
-        V: _emscripten_exit_with_live_runtime,
+        X: _emscripten_date_now,
+        U: _emscripten_exit_with_live_runtime,
         b: _emscripten_get_now,
         s: _emscripten_resize_heap,
         q: _environ_get,
@@ -1154,31 +1166,31 @@ var Module = (() => {
         f: _exit,
         e: _fd_close,
         h: _fd_read,
-        J: _fd_seek,
-        Q: _fd_sync,
+        I: _fd_seek,
+        P: _fd_sync,
         d: _fd_write,
         a: wasmMemory,
         B: _proc_exit,
-        M: _random_get
+        L: _random_get
       }
     }
 
     var wasmExports, _main, __emscripten_stack_restore, __emscripten_stack_alloc, _emscripten_stack_get_current;
-    var _get_shared_data_p, _fork_main;
+    var _me_forked;
 
     async function initWasmModule() {
       // init Wasm module
       wasmExports = await createWasm();
-      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["kc"])(a0, a1);
-      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Lc"])(a0);
-      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Mc"])(a0);
-      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Nc"])();
-      _get_shared_data_p = Module["_get_shared_data_p"] = () => (_get_shared_data_p = Module["_get_shared_data_p"] = wasmExports["lc"])();
-      _fork_main = Module["_fork_main"] = () => (_fork_main = Module["_fork_main"] = wasmExports["mc"])();
+      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["lc"])(a0, a1);
+      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Kc"])(a0);
+      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Lc"])(a0);
+      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Mc"])();
+      _me_forked = Module["_me_forked"] = 471896;
 
       preInit();
       moduleRtn = readyPromise;
     }
+    /// interface end.
 
     function callMain(args = []) {
       var entryFunction = _main;

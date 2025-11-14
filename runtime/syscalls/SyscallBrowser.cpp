@@ -272,7 +272,6 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
 EM_JS(void, _wrap_ecv_proxy_syscall_js, (uint32_t sys_num, uint32_t ptr, uint32_t len), {
   let ptr32 = ptr >> 2;
   const args = HEAP32.subarray(ptr32, ptr32 + len);
-  printf("enter _wrap_ecv_proxy_syscall_js!");
   ecvProxySyscallJs(sys_num, args);
 });
 
@@ -296,7 +295,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  printf("syscall: %llu\n", SYSNUMREG);
+  // printf("[pid %u] syscall: %llu\n", main_ecv_pr->ecv_pid, SYSNUMREG);
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
@@ -668,7 +667,6 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     {
 
 #if defined(_FORK_EMULATION_)
-      printf("enter clone!");
       State *cur_state, *new_state;
       uint64_t t_func_addr, t_next_pc;
 
@@ -680,14 +678,11 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       new_state->gpr.x0.qword = 0;  // child side
       cur_state->gpr.x0.qword = 100;  // parent side (FIXME)
 
-      // update the EcvProcess relationship.
-      // <- should do this on the js-kernel side.
-
       // assumes that generated LLVM IR save these two values before calling syscall.
       t_func_addr = CPUState->fork_entry_fun_addr;
       t_next_pc = CPUState->gpr.pc.qword;
 
-      /// copy some data to give the new process worker through js-kernel.
+      /// copy shared data to give the new process worker through js-kernel.
       /// memory content:
       /// [ CPUState (sizeof(CPUState) byte); memory_arena_type: (4 byte); vma (4 byte); len (4 byte);
       ///   heap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
@@ -739,11 +734,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       args[2] = (uint32_t) main_memory_arena->bytes;
       args[3] = (uint32_t) MEMORY_ARENA_SIZE;
 
-      for (int i = 0; i < 4; i++) {
-        printf("clone args[%d]: %d\n", i, args[i]);
-      }
-
-      // issue clone syscall of js-kernel.
+      // issue clone syscall to js-kernel.
       _wrap_ecv_proxy_syscall_js(ECV_CLONE, (uint32_t) args, 4);
 #else
       UNIMPLEMENTED_SYSCALL;
