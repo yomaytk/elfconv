@@ -77,10 +77,10 @@ lifting() {
     norm_mode="1"
   fi
 
-  fork_emulation_pthread="0"
-  if [ "$FORK_EMULATION_PTHREAD" = "1" ]; then
-    echo -e "[${GREEN}INFO${NC}] FORK emulation (using pthread) is enabled."
-    fork_emulation_pthread="1"
+  fork_emulation="0"
+  if [ "$FORK_EMULATION" = "1" ]; then
+    echo -e "[${GREEN}INFO${NC}] FORK emulation (on emscripten browser) is enabled."
+    fork_emulation="1"
   fi
   
   ${BUILD_LIFTER_DIR}/elflift \
@@ -92,7 +92,7 @@ lifting() {
   --target_arch "$target_arch" \
   --float_exception "$FLOAT_STATUS_FLAG" \
   --norm_mode "$norm_mode" \
-  --fork_emulation_pthread "$fork_emulation_pthread"
+  --fork_emulation "$fork_emulation"
  
   echo -e "[${GREEN}INFO${NC}] built lift.bc"
   
@@ -124,7 +124,11 @@ main() {
   fi
 
   # ELF -> LLVM bc
-  if [ -z "$NOT_LIFTED" ] && [ -z "$NOT_COMPILED" ]; then
+  if [ -n "$NO_LIFTED" ]; then
+    echo -e "[${GREEN}INFO${NC}] NO_LIFTED is ON."
+  fi
+
+  if [ -z "$NO_LIFTED" ] && [ -z "$NO_COMPILED" ]; then
     arch_name=${TARGET%%-*}
     lifting "$1" "$arch_name" "$2" "$3"
   fi
@@ -157,7 +161,7 @@ main() {
       echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for $HOST_CPU)... "
       TARGET_PRG=lift.o
       
-      if [ -z "$NOT_COMPILED" ]; then
+      if [ -z "$NO_COMPILED" ]; then
         $CXX $CLANGFLAGS $RUNTIME_MACRO -c lift.ll -o lift.o
       fi
       
@@ -177,24 +181,26 @@ main() {
         PRELOAD="--preload-file ${MOUNT_DIR}"
       fi
       
-      if [ -z "$NOT_COMPILED" ]; then
+      if [ -z "$NO_COMPILED" ]; then
         $EMCC $EMCCFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasm.o
+        echo -e "[${GREEN}INFO${NC}] built lift.wasm.o"
+      else
+        echo -e "[${GREEN}INFO${NC}] NO_COPMILED is ON."
       fi
-      echo -e "[${GREEN}INFO${NC}] built lift.wasm.o "
 
-      EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
+      EMCC_ASYNC_OPTION="-sPTHREAD_POOL_SIZE=2 -pthread -sPROXY_TO_PTHREAD"
       
-      if [ -n "$FORK_EMULATION_PTHREAD" ]; then
-        EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=10 -pthread -sPROXY_TO_PTHREAD"
-        RUNTIME_MACRO="$RUNTIME_MACRO -D__FORK_PTHREAD__"
+      if [ -n "$FORK_EMULATION" ]; then
+        EMCC_ASYNC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=0 -pthread"
+        RUNTIME_MACRO="$RUNTIME_MACRO -D_FORK_EMULATION_"
       fi
 
-      if [ -n "$EXEC_MODULE" ]; then
-        EMCC_ALL_OPTION="-sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
+      if [ -n "$INDEPENDENT_WASM" ]; then
+        EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
       else
         EMCC_ALL_OPTION="$EMCC_ASYNC_OPTION -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD --js-library ${ROOT_DIR}/xterm-pty/emscripten-pty.js"
       fi
-      
+
       $EMCC $EMCCFLAGS $RUNTIME_MACRO -o exe.js $EMCC_ALL_OPTION $TARGET_PRG $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] built exe.wasm and exe.js"
       
@@ -207,10 +213,10 @@ main() {
         cp exe.js $out_js
       fi
 
-      if [ -n "$OUT_EXE" ]; then
-        cp exe.wasm ${ROOT_DIR}/examples/browser/${OUT_EXE}
-        sed -i "s/exe\.wasm/${OUT_EXE}/g" $out_js
-        sed -i "s/this\.program/${OUT_EXE}/g" $out_js
+      if [ -n "$OUT_WASM" ]; then
+        cp exe.wasm ${ROOT_DIR}/examples/browser/${OUT_WASM}
+        sed -i "s/exe\.wasm/${OUT_WASM}/g" $out_js
+        sed -i "s/this\.program/${OUT_WASM}/g" $out_js
         cp $out_js ${ROOT_DIR}/examples/browser
       else
         cp $out_js ${ROOT_DIR}/examples/browser
@@ -228,7 +234,7 @@ main() {
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_WASI=1"
       TARGET_PRG=lift.wasi.o
 
-      if [ -z "$NOT_COMPILED" ]; then
+      if [ -z "$NO_COMPILED" ]; then
         $WASISDKCC $WASISDKFLAGS $RUNTIME_MACRO -c lift.ll -o lift.wasi.o
       fi
       

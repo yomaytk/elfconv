@@ -16,10 +16,10 @@
 #define PRINT_GPR(index) \
   std::cout << std::hex << "X" << #index << ": 0x" << CPUState->gpr.x##index.qword << " ";
 
-#if defined(__FORK_PTHREAD__)
-thread_local extern State *CPUState;
-#else
 extern State *CPUState;
+
+#if defined(__EMSCRIPTEN__)
+extern "C" uint32_t me_forked;
 #endif
 
 #define SR_ECV_NZCV__N ((ecv_nzcv & 0b1000) >> 3)

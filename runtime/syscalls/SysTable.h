@@ -1,7 +1,5 @@
 #pragma once
 
-#include <runtime/Runtime.h>
-
 #define _LINUX_EPERM 1 /* Operation not permitted */
 #define _LINUX_ENOENT 2 /* No such file or directory */
 #define _LINUX_ESRCH 3 /* No such process */

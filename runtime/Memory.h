@@ -21,13 +21,13 @@
 #  include <remill/Arch/X86/Runtime/State.h>
 #endif
 
-const size_t MEMORY_ARENA_SIZE = 512 * 1024 * 1024; /* 512 MiB */
+const size_t MEMORY_ARENA_SIZE = 128 * 1024 * 1024; /* 128 MiB */
 const addr_t MEMORY_ARENA_VMA = 0;
 const size_t STACK_SIZE = 8 * 1024 * 1024; /* 8 MiB */
 const addr_t STACK_LOWEST_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
-const size_t HEAP_UNIT_SIZE = 252 * 1024 * 1024; /* 252 MiB */
-const addr_t HEAPS_START_VMA = 256 * 1024 * 1024;
-const addr_t THREAD_PTR = 244 * 1024 * 1024;
+const size_t HEAP_UNIT_SIZE = 64 * 1024 * 1024; /* 64 MiB */
+const addr_t HEAPS_START_VMA = 64 * 1024 * 1024;
+const addr_t THREAD_PTR = 52 * 1024 * 1024;
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
@@ -74,14 +74,13 @@ class MemoryArena {
 
  public:
   MemoryArena(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-              uint8_t *__bytes, addr_t __heap_cur, uint64_t __stack_init_diff)
+              uint8_t *__bytes, addr_t __heap_cur)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
         len(__len),
         bytes(__bytes),
-        heap_cur(__heap_cur),
-        stack_init_diff(__stack_init_diff) {}
+        heap_cur(__heap_cur) {}
   MemoryArena() {}
   ~MemoryArena() {
     free(bytes);
@@ -96,57 +95,26 @@ class MemoryArena {
   uint64_t len;
   uint8_t *bytes;
   uint64_t heap_cur; /* for Heap */
-  uint64_t stack_init_diff;
 };
 
-#if defined(__FORK_PTHREAD__)
 class EcvProcess {
  public:
-  EcvProcess(MemoryArena *__memory_arena, State *__cpu_state,
-             std::stack<std::pair<uint64_t, uint64_t>> __call_history)
-      : memory_arena(__memory_arena),
+  EcvProcess(uint32_t __ecv_pid, uint32_t __par_ecv_pid, MemoryArena *__memory_arena,
+             State *__cpu_state, std::stack<std::pair<uint64_t, uint64_t>> __call_history)
+      : ecv_pid(__ecv_pid),
+        par_ecv_pid(__par_ecv_pid),
+        memory_arena(__memory_arena),
         cpu_state(__cpu_state),
-        ecv_pid(GetNewEcvPid()),
         call_history(__call_history),
         parent_call_history(__call_history) {}
 
-  ~EcvProcess() {
-    delete (memory_arena);
-    free(cpu_state);
-  }
-
-  EcvProcess *EcvProcessCopied();
-
-  static uint32_t GetNewEcvPid() {
-    std::lock_guard<std::mutex> lock(ecv_pr_mtx);
-    return ecv_order_pid++;
-  }
-
+  uint32_t ecv_pid;
+  uint32_t par_ecv_pid;
   MemoryArena *memory_arena;
   State *cpu_state;
 
-  // fork emulation
-  static inline uint32_t ecv_order_pid = 42;
-  static inline std::mutex ecv_pr_mtx;
-  uint32_t ecv_pid;
+  // for multi process.
   std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>> call_history;
   std::stack<std::pair</* func addr */ uint64_t, /* return addresss */ uint64_t>>
       parent_call_history;
-  uint32_t par_ecv_pid;
-  std::set<uint32_t> childs;
-
-  // wait emulation
-  std::queue<uint32_t> child_wait_queue;
-  pthread_mutex_t wait_queue_mtx_;
 };
-#else
-class EcvProcess {
- public:
-  EcvProcess(MemoryArena *__memory_arena, State *__cpu_state)
-      : memory_arena(__memory_arena),
-        cpu_state(__cpu_state) {}
-
-  MemoryArena *memory_arena;
-  State *cpu_state;
-};
-#endif

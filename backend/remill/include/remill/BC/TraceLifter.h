@@ -372,8 +372,8 @@ class TraceLifter::Impl {
   void AddBrBBIR();
   void AddFarJumpBB();
 
-  // emscripten pthread (fork)
-  void GenPthreadForkNearJump(uint64_t trace_addr);
+  // emscripten browser fork emulation
+  void GenForkNearJump(uint64_t trace_addr);
 
   void Optimize();
 

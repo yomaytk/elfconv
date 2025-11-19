@@ -275,7 +275,7 @@ void __remill_function_return(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-void _ecv_func_epilogue(uint8_t *, State &, addr_t, RuntimeManager *) {
+void _ecv_func_epilogue(State &, RuntimeManager &) {
   abort();
 }
 
