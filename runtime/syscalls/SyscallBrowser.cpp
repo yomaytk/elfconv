@@ -269,13 +269,13 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
 };
 
-EM_JS(uint32_t, _wrap_clone_syscall_js,
-      (uint32_t sysNum, uint32_t sData, uint32_t sDataLen, uint32_t mBytes, uint32_t mBytesLen), {
+EM_JS(uint32_t, ___syscall_clone,
+      (uint32_t ecvPid, uint32_t sData, uint32_t sDataLen, uint32_t mBytes, uint32_t mBytesLen), {
         let bellView = new Int32Array(copyFinBell);
         Atomics.store(bellView, 0, 0);
 
         // clone syscall entry.
-        let sysRes = ecvProxySyscallJs(sysNum, sData, sDataLen, mBytes, mBytesLen);
+        let sysRes = ecvProxySyscallJs(ECV_CLONE, sData, sDataLen, mBytes, mBytesLen);
 
         // waiting until process state copy has been finished.
         Atomics.wait(bellView, 0, 0);
@@ -288,7 +288,7 @@ EM_JS(uint32_t, _wrap_clone_syscall_js,
         return sysRes;
       });
 
-EM_JS(uint32_t, _wrap_wait_syscall_js, (uint32_t sysNum, uint32_t ecvPid), {
+EM_JS(uint32_t, ___syscall_wait4, (uint32_t ecvPid), {
   let childMonitorView = new Int32Array(childMonitor);
 
   // if no child exited process is on the ring buffer, the parent should wait.
@@ -304,7 +304,7 @@ EM_JS(uint32_t, _wrap_wait_syscall_js, (uint32_t sysNum, uint32_t ecvPid), {
   // Lock ringBufferLock.
   Atomics.store(childMonitorView, 0, 1);
 
-  let sysRes = ecvProxySyscallJs(sysNum, ecvPid);
+  let sysRes = ecvProxySyscallJs(ECV_WAIT4, ecvPid);
 
   // Free ringBufferLock.
   Atomics.store(childMonitorView, 0, 0);
@@ -313,7 +313,7 @@ EM_JS(uint32_t, _wrap_wait_syscall_js, (uint32_t sysNum, uint32_t ecvPid), {
   return sysRes;
 });
 
-EM_JS(void, _wrap_exit_syscall_js, (uint32_t sysNum, uint32_t ecvPid, uint32_t code), {
+EM_JS(void, ___syscall_exit, (uint32_t ecvPid, uint32_t code), {
   if (parMonitor) {
     // has parent
     let parMonitorView = new Int32Array(parMonitor);
@@ -326,17 +326,38 @@ EM_JS(void, _wrap_exit_syscall_js, (uint32_t sysNum, uint32_t ecvPid, uint32_t c
     // Lock ringBufferLock.
     Atomics.store(parMonitorView, 0, 1);
 
-    ecvProxySyscallJs(sysNum, ecvPid, code);
+    ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
 
     // Free ringBufferLock.
     Atomics.store(parMonitorView, 0, 0);
     Atomics.notify(parMonitorView, 0, 1);
   } else {
     // init process.
-    ecvProxySyscallJs(sysNum, ecvPid, code);
+    ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
   }
 
   throw new Error(`exit process(${ecvPid})`);
+});
+
+EM_JS(int, ___syscall_execve, (uint32_t fileNameP, uint32_t argvP, uint32_t envpP), {
+  let execveBellView = new Int32Array(execveBell);
+  Atomics.store(execveBellView, 0, 0);
+
+  ecvProxySyscallJs(ECV_EXECVE, ecvPid, fileNameP, argvP, envpP);
+
+  // waiting until this worker is noted whether or not `execve` succeeds.
+  Atomics.wait(execveBellView, 0, 0);
+
+  if (Atomics.load(execveBellView, 0) == 1) {
+    // `execve` failed.
+    Atomics.store(execveBellView, 0, 0);
+  } else {
+    throw new Error(`execveBell is strange at ___syscall_execve.`);
+  }
+
+  // this worker being waked up shows that `execve` has failed.
+  // (FIXME) should set valid error code.
+  return -1;
 });
 /*
   syscall emulate function
@@ -561,7 +582,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     {
 
 #if defined(_FORK_EMULATION_)
-      _wrap_exit_syscall_js(ECV_EXIT, main_ecv_pr->ecv_pid, X0_D);
+      ___syscall_exit(main_ecv_pr->ecv_pid, X0_D);
 #else
       exit(X0_D);
 #endif
@@ -777,13 +798,39 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       // issue clone syscall to js-kernel.
       // future work: does not handle the actual arguments of original syscall for simplicity now.
       uint32_t child_pid =
-          _wrap_clone_syscall_js(ECV_CLONE, (uint32_t) shared_data, shared_data_len,
-                                 (uint32_t) main_memory_arena->bytes, (uint32_t) MEMORY_ARENA_SIZE);
+          ___syscall_clone(main_ecv_pr->ecv_pid, (uint32_t) shared_data, shared_data_len,
+                           (uint32_t) main_memory_arena->bytes, (uint32_t) MEMORY_ARENA_SIZE);
 
       uint32_t *child_pid_p = history_p + 1 + history_size * 2;
       *child_pid_p = child_pid;
       cur_state->gpr.x0.qword = child_pid;
 
+#else
+      UNIMPLEMENTED_SYSCALL;
+#endif
+    } break;
+    case ECV_EXECVE: /* int execve(const char * filename , char *const argv [], char *const envp []) */
+    {
+#if defined(_FORK_EMULATION_)
+#  if defined(__wasm64__)
+#    error elfconv cannot support 64bit address space for `execve` emulation.
+#  endif
+      // every component of `argv` and `envp` should be translated because memory access in JS world doesn't translates VMA.
+      auto _execve_argv_p = (char **) calloc(400, 1);
+      auto _execve_envp_p = (char **) calloc(400, 1);
+      auto argv_p = (char **) TranslateVMA(arena_ptr, X1_Q);
+      auto envp_p = (char **) TranslateVMA(arena_ptr, X2_Q);
+      // Note. ELF memory address is located based on 64 bit address space.
+      for (int i = 0; argv_p[i * 2]; i++) {
+        _execve_argv_p[i] = (char *) TranslateVMA(arena_ptr, (uint32_t) argv_p[i * 2]);
+      }
+      for (int i = 0; envp_p[i * 2]; i++) {
+        _execve_envp_p[i] = (char *) TranslateVMA(arena_ptr, (uint32_t) envp_p[i * 2]);
+      }
+      X0_D = ___syscall_execve((uint32_t) TranslateVMA(arena_ptr, X0_Q), (uint32_t) _execve_argv_p,
+                               (uint32_t) _execve_envp_p);
+      free(_execve_argv_p);
+      free(_execve_envp_p);
 #else
       UNIMPLEMENTED_SYSCALL;
 #endif
@@ -814,7 +861,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       int res = 0;
 
 #if defined(_FORK_EMULATION_)
-      res = _wrap_wait_syscall_js(ECV_WAIT4, main_ecv_pr->ecv_pid);
+      res = ___syscall_wait4(main_ecv_pr->ecv_pid);
 #else
       UNIMPLEMENTED_SYSCALL;
       res = -1;

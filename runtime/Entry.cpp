@@ -27,6 +27,8 @@ uint8_t *MemoryArenaPtr = nullptr;
 #endif
 
 #if defined(__EMSCRIPTEN__) && defined(_FORK_EMULATION_)
+
+/// `fork` syscall emulation
 extern "C" EMSCRIPTEN_KEEPALIVE uint32_t me_forked = 0;
 
 EM_JS(uint32_t, ecv_proxy_process_memory_copy_req,
@@ -45,12 +47,11 @@ EM_JS(uint32_t, ecv_proxy_process_memory_copy_req,
         }
       });
 
-/// code for fork emulation on emscripten and browser
 
-/// shared_data content:
-/// [ CPUState (sizeof(CPUState) byte); memory_arena_type: (4 byte); vma (4 byte); len (4 byte);
-///   heap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
-///   parent_call_history_len (4 byte); [ t_func_addr_1, t_func_next_pc_1, ..., t_func_addr_n, t_func_next_pc_n ] (8 * parent_call_history_len byte); ]
+// shared_data content:
+// [ CPUState (sizeof(CPUState) byte); memory_arena_type: (4 byte); vma (4 byte); len (4 byte);
+//   heap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
+//   parent_call_history_len (4 byte); [ t_func_addr_1, t_func_next_pc_1, ..., t_func_addr_n, t_func_next_pc_n ] (8 * parent_call_history_len byte); ]
 
 // entry function when this program starts as forked process.
 void fork_main(uint8_t *memory_arena_bytes, uint8_t *shared_data) {
@@ -160,6 +161,32 @@ void fork_main(uint8_t *memory_arena_bytes, uint8_t *shared_data) {
 
   elfconv_runtime_error("This point must be reached.");
 }
+
+/// `execve` syscall emulation
+extern "C" EMSCRIPTEN_KEEPALIVE uint32_t me_execved = 0;
+
+EM_JS(int, execve_memory_copy_req,
+      (uint32_t argv_p, uint32_t envp_p, uint32_t argv_content_p, uint32_t envp_content_p,
+       uint32_t ecv_pids_p),
+      {
+        let copyBufView = new Int32Array(execveCopyBuf);
+        Atomics.store(copyBufView, 0, 0);
+        postMessage({
+          cmd: "execveArgsCopy",
+          argvP: argv_p,
+          envpP: envp_p,
+          argvContentP: argv_content_p,
+          envpContentP: envp_content_p,
+          ecvPidsP: ecv_pids_p,
+        });
+        Atomics.wait(copyBufView, 0, 0);
+        let resBell = Atomics.load(copyBufView, 0);
+        if (resBell != 1) {
+          throw new Error(`mCopyBell(${resBell}) is strange.`)
+        }
+
+        return Atomics.load(copyBufView, 1);
+      });
 #endif
 
 #if defined(__wasm__)
@@ -168,22 +195,42 @@ int main(int argc, char *argv[]) {
 int main(int argc, char *argv[], char *envp[]) {
 #endif
 
+  int _argc = argc;
+  char **_argv = argv;
+  char **_envp = NULL;
+
+  uint32_t this_ecv_pid = 42, par_ecv_pid = 0;
+
 #if defined(__EMSCRIPTEN__)
-  // if this Wasm module is invoked as forked process, fork_main is called.
+
+  // preprocess of `fork`
   if (me_forked) {
 
     auto memory_arena_bytes = (uint8_t *) malloc(MEMORY_ARENA_SIZE);
     auto shared_data = (uint8_t *) malloc(2000);
-    // request the memory copy request to js-kernel.
-    auto res =
-        ecv_proxy_process_memory_copy_req((uint32_t) memory_arena_bytes, (uint32_t) shared_data);
-
-    if (res) {
-      elfconv_runtime_error("memory_arena_req failed.\n");
-    }
-
-    // entry to the forked process.
+    // shared data copy request
+    ecv_proxy_process_memory_copy_req((uint32_t) memory_arena_bytes, (uint32_t) shared_data);
+    // entry
     fork_main(memory_arena_bytes, shared_data);
+  }
+
+  // preproces of `execve`
+  if (me_execved) {
+
+    auto argv_p = (char **) malloc(400);
+    auto envp_p = (char **) malloc(400);
+    auto argv_content_p = (uint8_t *) malloc(1000);
+    auto envp_content_p = (uint8_t *) malloc(5000);
+
+    uint32_t ecv_pids[2];
+    // `argv` and `envp` copy request
+    _argc = execve_memory_copy_req((uint32_t) argv_p, (uint32_t) envp_p, (uint32_t) argv_content_p,
+                                   (uint32_t) envp_content_p, (uint32_t) ecv_pids);
+    _argv = argv_p;
+    _envp = envp_p;
+    this_ecv_pid = ecv_pids[0];
+    par_ecv_pid = ecv_pids[1];
+    // succeeding code is the same as init process
   }
 #endif
 
@@ -194,7 +241,7 @@ int main(int argc, char *argv[], char *envp[]) {
   CPUState = cpu_state;
 
 #if defined(__wasm__)
-  memory_arena = MemoryArena::MemoryArenaInit(argc, argv, NULL, cpu_state);
+  memory_arena = MemoryArena::MemoryArenaInit(_argc, _argv, _envp, cpu_state);
 #else
   memory_arena = MemoryArena::MemoryArenaInit(argc, argv, envp, cpu_state);
 #endif
@@ -224,7 +271,7 @@ int main(int argc, char *argv[], char *envp[]) {
   cpu_state->sr.dczid_el0 = {.qword = 0x4};
 #endif
 
-  auto main_ecv_pr = new EcvProcess(42, 0, memory_arena, cpu_state, {});
+  auto main_ecv_pr = new EcvProcess(this_ecv_pid, par_ecv_pid, memory_arena, cpu_state, {});
   auto rt_m = new RuntimeManager(main_ecv_pr);
 
   // Set lifted function pointer table

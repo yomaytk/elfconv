@@ -22,7 +22,8 @@
     xterm.loadAddon(master);
 
     await initEmscripten({
-      pty: slave
+      pty: slave,
+      initProgram: 'exe.wasm'
     });
   </script>
 </body>
