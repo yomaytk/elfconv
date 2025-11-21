@@ -10,7 +10,6 @@ var Module = (() => {
     var ENVIRONMENT_IS_WEB = typeof window == "object";
     var ENVIRONMENT_IS_WORKER = typeof WorkerGlobalScope != "undefined";
     var arguments_ = [];
-    var thisProgram = "./fork.wasm";
     var quit_ = (status, toThrow) => {
       throw toThrow
     };
@@ -19,14 +18,20 @@ var Module = (() => {
 
     var wasmBinary;
 
-    /// syscall-proxy.js 
+    var processType;
     var wasmMemory;
-    var pMemory32View;
     var ecvPid;
     var copyFinBell;
     var childMonitor;
     var parMonitor;
+    var thisProgram;
     var initPromise;
+
+    var execveBell;
+    var execveCopyBuf;
+
+    var meForkedP = 474680;
+    var meExecvedP = 474684;
 
     function growMemViews(pWasmMemory) {
       if (pWasmMemory.buffer != HEAP8.buffer) {
@@ -39,27 +44,32 @@ var Module = (() => {
       let d = e["data"];
       if (d.cmd === "initState") {
 
+        processType = d.processType;
+        thisProgram = d.wasmProgram;
         wasmMemory = d.pWasmMemory;
-        pMemory32View = new Int32Array(wasmMemory.buffer);
+
+        updateMemoryViews(wasmMemory);
+
         ecvPid = d.ecvPid;
         copyFinBell = d.copyFinBell;
         childMonitor = d.childMonitor;
         parMonitor = d.parMonitor;
+        execveBell = d.execveBell;
+        execveCopyBuf = d.execveCopyBuf;
 
         assignWasmImports();
-        updateMemoryViews(wasmMemory);
         initPromise = initWasmModule();
-        initPromise.then(() => {
-          postMessage({ cmd: "initOk" });
-        });
 
-      } else if (d.cmd === "startWorker") {
+        initPromise.then(() => {
+          if (processType === "forked") {
+            (growMemViews(wasmMemory), HEAP32)[meForkedP >> 2] = 1;
+          } else if (processType === "execved") {
+            (growMemViews(wasmMemory), HEAP32)[meExecvedP >> 2] = 1;
+          }
+          postMessage({ cmd: "wasmReady" });
+        });
+      } else if (d.cmd === "startMain") {
         initPromise.then(() => run());
-      } else if (d.cmd === "takeSDataP") {
-        (growMemViews(wasmMemory), HEAP32)[_me_forked >> 2] = 1;
-        postMessage({
-          cmd: "giveSDataP",
-        })
       } else {
         throw e;
       }
@@ -69,7 +79,7 @@ var Module = (() => {
       let bellView = new Int32Array(copyFinBell);
       Atomics.store(bellView, 0, 0);
       postMessage({
-        cmd: "mCopy",
+        cmd: "forkedMemCp",
         mBytesDstP: memory_arena_bytes,
         sDataDstP: shared_data,
       });
@@ -80,134 +90,24 @@ var Module = (() => {
       }
     }
 
-    // This function assumes that emscripten JS syscall is executed synchronously.
-    function ecvProxySyscallJs(sysNum, ...callArgs) {
-
-      // setting of pMemory32
-      // [sysNum (4byte); argsNum (4byte); args (4 * sysNum byte); sysRval (4byte); waitSpace (4byte)]
-
-      // console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (ecvPid: ${ecvPid}).`);
-
-      let sp = stackSave();
-      let newAllocSz = 4 // sysNum
-        + 4 // argsNum
-        + (callArgs.length * 4) // args
-        + 4 // sysRval
-        + 4; // waitSpace
-      let headPtr = stackAlloc(newAllocSz);
-      let headPtr32 = headPtr >> 2;
-      let sysRvalPtr = headPtr32 + (newAllocSz >> 2) - 2;
-      let waitPtr = sysRvalPtr + 1;
-
-      (growMemViews(wasmMemory), pMemory32View)[headPtr32] = sysNum;
-
-      let argsNum = 0;
-
-      for (let i = 0; i < callArgs.length; i++) {
-        (growMemViews(wasmMemory), pMemory32View)[headPtr32 + 2 + i] = callArgs[i];
-        argsNum += 1;
-      }
-
-      (growMemViews(wasmMemory), pMemory32View)[headPtr32 + 1] = argsNum;
-      Atomics.store((growMemViews(wasmMemory), pMemory32View), waitPtr, 0);
-
-      // notify to js-kernel.
+    function execve_memory_copy_req(argv_p, envp_p, argv_content_p, envp_content_p, ecv_pids_p) {
+      let copyBufView = new Int32Array(execveCopyBuf);
+      Atomics.store(copyBufView, 0, 0);
       postMessage({
-        cmd: "sysRun",
-        ecvPid: ecvPid,
-        spHead32: headPtr32
+        cmd: "execveArgsCopy",
+        argvP: argv_p,
+        envpP: envp_p,
+        argvContentP: argv_content_p,
+        envpContentP: envp_content_p,
+        ecvPidsP: ecv_pids_p,
       });
-
-      // waiting for syscall finishing (of js-kernel).
-      // (FIXME?) It seems that we can't guarantee the consistency?
-      Atomics.wait((growMemViews(wasmMemory), pMemory32View), waitPtr, 0);
-
-      // wake up (from js-kernel).
-      let notifyVal = Atomics.load((growMemViews(wasmMemory), pMemory32View), waitPtr);
-      if (notifyVal != 1) {
-        throw `nofityVal (${notifyVal}) at ecvProxySyscallJs(sysNum, ...callArgs) is strange.`;
+      Atomics.wait(copyBufView, 0, 0);
+      let resBell = Atomics.load(copyBufView, 0);
+      if (resBell != 1) {
+        throw new Error(`mCopyBell(${resBell}) is strange.`)
       }
 
-      let sysRval = (growMemViews(wasmMemory), pMemory32View)[sysRvalPtr];
-      // console.log(`sysRval: ${sysRval}`);
-
-      stackRestore(sp);
-      return sysRval;
-    }
-
-    // clone syscall wrapper.
-    function _wrap_clone_syscall_js(sysNum, sData, sDataLen, mBytes, mBytesLen) {
-
-      let bellView = new Int32Array(copyFinBell);
-      Atomics.store(bellView, 0, 0);
-
-      // clone syscall entry.
-      let sysRes = ecvProxySyscallJs(sysNum, sData, sDataLen, mBytes, mBytesLen);
-
-      // waiting until process state copy has been finished.
-      Atomics.wait(bellView, 0, 0);
-
-      let copyFinBellRes = Atomics.load(bellView, 0);
-      if (copyFinBellRes != 1) {
-        throw new Error(`copyFinBellRes (${copyFinBellRes}) is strange.`);
-      }
-
-      return sysRes;
-    }
-
-    // wait syscall wrapper.
-    function _wrap_wait_syscall_js(sysNum, ecvPid) {
-
-      let childMonitorView = new Int32Array(childMonitor);
-
-      // if no child exited process is on the ring buffer, the parent should wait.
-      Atomics.wait(childMonitorView, 1, 1);
-
-      // waked up. Atomics.load(childMonitorView, 1) is `0`.
-
-      // should wait during the other process is operating the ring buffer. (FIXME?)
-      Atomics.wait(childMonitorView, 0, 1);
-
-      // waked up. Atomics.load(childMonitorView, 0) is `0`.
-
-      // Lock ringBufferLock.
-      Atomics.store(childMonitorView, 0, 1);
-
-      let sysRes = ecvProxySyscallJs(sysNum, ecvPid);
-
-      // Free ringBufferLock.
-      Atomics.store(childMonitorView, 0, 0);
-      Atomics.notify(childMonitorView, 0, 1);
-
-      return sysRes;
-    }
-
-    // exit syscall wrapper.
-    function _wrap_exit_syscall_js(sysNum, ecvPid, code) {
-
-      if (parMonitor) {
-        // has parent
-        let parMonitorView = new Int32Array(parMonitor);
-
-        // should wait during the other process is operating the ring buffer. (FIXME?)
-        Atomics.wait(parMonitorView, 0, 1);
-
-        // waked up. Atomics.load(parMonitorView, 0) is `0`
-
-        // Lock ringBufferLock.
-        Atomics.store(parMonitorView, 0, 1);
-
-        ecvProxySyscallJs(sysNum, ecvPid, code);
-
-        // Free ringBufferLock.
-        Atomics.store(parMonitorView, 0, 0);
-        Atomics.notify(parMonitorView, 0, 1);
-      } else {
-        // init process.
-        ecvProxySyscallJs(sysNum, ecvPid, code);
-      }
-
-      throw new Error(`exit process (${ecvPid})`);
+      return Atomics.load(copyBufView, 1);
     }
 
     function locateFile(path) {
@@ -272,7 +172,7 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      wasmExports["$"]();
+      wasmExports["ba"]();
     }
 
     function preMain() { }
@@ -379,7 +279,7 @@ var Module = (() => {
       function receiveInstance(instance, module) {
         wasmExports = instance.exports;
         updateMemoryViews();
-        wasmTable = wasmExports["mc"];
+        wasmTable = wasmExports["oc"];
         removeRunDependency("wasm-instantiate");
         return wasmExports
       }
@@ -855,16 +755,149 @@ var Module = (() => {
     // const ECV_ENVIRON_GET = 1001;
     // const ECV_ENVIRON_SIZES_GET = 1002;
 
-    function ___syscall_clone() {
-      throw "___syscall_clone must not be called on the process worker side.";
+    // This function assumes that emscripten JS syscall is executed synchronously.
+    function ecvProxySyscallJs(sysNum, ...callArgs) {
+
+      // setting of pMemory32
+      // [sysNum (4byte); argsNum (4byte); args (4 * sysNum byte); sysRval (4byte); waitSpace (4byte)]
+
+      // console.log(`ecvProxySyscallJs start [sysNum: ${sysNum}] (ecvPid: ${ecvPid}).`);
+
+      let sp = stackSave();
+      let newAllocSz = 4 // sysNum
+        + 4 // argsNum
+        + (callArgs.length * 4) // args
+        + 4 // sysRval
+        + 4; // waitSpace
+      let headPtr = stackAlloc(newAllocSz);
+      let headPtr32 = headPtr >> 2;
+      let sysRvalPtr = headPtr32 + (newAllocSz >> 2) - 2;
+      let waitPtr = sysRvalPtr + 1;
+
+      (growMemViews(wasmMemory), HEAP32)[headPtr32] = sysNum;
+
+      let argsNum = 0;
+
+      for (let i = 0; i < callArgs.length; i++) {
+        (growMemViews(wasmMemory), HEAP32)[headPtr32 + 2 + i] = callArgs[i];
+        argsNum += 1;
+      }
+
+      (growMemViews(wasmMemory), HEAP32)[headPtr32 + 1] = argsNum;
+      Atomics.store((growMemViews(wasmMemory), HEAP32), waitPtr, 0);
+
+      // notify to js-kernel.
+      postMessage({
+        cmd: "sysRun",
+        ecvPid: ecvPid,
+        spHead32: headPtr32
+      });
+
+      // waiting for syscall finishing (of js-kernel).
+      // (FIXME?) It seems that we can't guarantee the consistency?
+      Atomics.wait((growMemViews(wasmMemory), HEAP32), waitPtr, 0);
+
+      // wake up (from js-kernel).
+      let notifyVal = Atomics.load((growMemViews(wasmMemory), HEAP32), waitPtr);
+      if (notifyVal != 1) {
+        throw `nofityVal (${notifyVal}) at ecvProxySyscallJs(sysNum, ...callArgs) is strange.`;
+      }
+
+      let sysRval = (growMemViews(wasmMemory), HEAP32)[sysRvalPtr];
+      // console.log(`sysRval: ${sysRval}`);
+
+      stackRestore(sp);
+      return sysRval;
     }
 
-    function ___syscall_wait() {
-      throw "___syscall_wait must not be called on the process worker side.";
+    function ___syscall_clone(ecvPid, sData, sDataLen, mBytes, mBytesLen) {
+
+      let bellView = new Int32Array(copyFinBell);
+      Atomics.store(bellView, 0, 0);
+
+      // clone syscall entry.
+      let sysRes = ecvProxySyscallJs(ECV_CLONE, ecvPid, sData, sDataLen, mBytes, mBytesLen);
+
+      // waiting until process state copy has been finished.
+      Atomics.wait(bellView, 0, 0);
+
+      let copyFinBellRes = Atomics.load(bellView, 0);
+      if (copyFinBellRes != 1) {
+        throw new Error(`copyFinBellRes (${copyFinBellRes}) is strange.`);
+      }
+
+      return sysRes;
     }
 
-    function ___syscall_exec() {
-      throw "___syscall_exec must not be called on the process worker side.";
+    function ___syscall_wait4(ecvPid) {
+
+      let childMonitorView = new Int32Array(childMonitor);
+
+      // if no child exited process is on the ring buffer, the parent should wait.
+      Atomics.wait(childMonitorView, 1, 1);
+
+      // waked up. Atomics.load(childMonitorView, 1) is `0`.
+
+      // should wait during the other process is operating the ring buffer. (FIXME?)
+      Atomics.wait(childMonitorView, 0, 1);
+
+      // waked up. Atomics.load(childMonitorView, 0) is `0`.
+
+      // Lock ringBufferLock.
+      Atomics.store(childMonitorView, 0, 1);
+
+      let sysRes = ecvProxySyscallJs(ECV_WAIT4, ecvPid);
+
+      // Free ringBufferLock.
+      Atomics.store(childMonitorView, 0, 0);
+      Atomics.notify(childMonitorView, 0, 1);
+
+      return sysRes;
+    }
+
+    function ___syscall_exit(ecvPid, code) {
+
+      if (parMonitor) {
+        // has parent
+        let parMonitorView = new Int32Array(parMonitor);
+
+        // should wait during the other process is operating the ring buffer. (FIXME?)
+        Atomics.wait(parMonitorView, 0, 1);
+
+        // waked up. Atomics.load(parMonitorView, 0) is `0`
+
+        // Lock ringBufferLock.
+        Atomics.store(parMonitorView, 0, 1);
+
+        ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
+      } else {
+        // init process.
+        ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
+      }
+
+      throw new Error(`exit process (${ecvPid})`);
+    }
+
+    function ___syscall_execve(fileNameP, argvP, envpP) {
+
+      let execveBellView = new Int32Array(execveBell);
+      Atomics.store(execveBellView, 0, 0);
+
+      ecvProxySyscallJs(ECV_EXECVE, ecvPid, fileNameP, argvP, envpP);
+
+      // waiting until this worker is noted whether or not `execve` succeeds.
+      Atomics.wait(execveBellView, 0, 0);
+
+      if (Atomics.load(execveBellView, 0) == 1) {
+        // `execve` failed.
+        Atomics.store(execveBellView, 0, 0);
+      } else {
+        throw new Error(`execveBell is strange at ___syscall_execve.`);
+      }
+
+      // this worker being waked up shows that `execve` has failed.
+      // (FIXME) should set valid error code.
+      return -1;
     }
 
     function ___syscall_chdir(path) {
@@ -1174,12 +1207,16 @@ var Module = (() => {
     };
 
 
-    /// These data is interface between process-worker.js and Wasm module.
+    /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        z: ___call_sighandler,
+        r: ___syscall_clone,
+        m: ___syscall_execve,
+        z: ___syscall_exit,
+        l: ___syscall_wait4,
+        A: ___call_sighandler,
         i: ___cxa_throw,
-        k: ___syscall_chdir,
+        j: ___syscall_chdir,
         Z: ___syscall_dup,
         Y: ___syscall_dup3,
         W: ___syscall_faccessat,
@@ -1190,37 +1227,35 @@ var Module = (() => {
         M: ___syscall_getdents64,
         f: ___syscall_ioctl,
         Q: ___syscall_lstat64,
-        G: ___syscall_mkdirat,
+        H: ___syscall_mkdirat,
         R: ___syscall_newfstatat,
-        F: ___syscall_openat,
-        E: ___syscall_poll,
+        G: ___syscall_openat,
+        F: ___syscall_poll,
         y: ___syscall_readlinkat,
         S: ___syscall_stat64,
-        w: ___syscall_statfs64,
-        u: ___syscall_truncate64,
-        t: ___syscall_unlinkat,
-        s: ___syscall_utimensat,
-        l: __abort_js,
+        x: ___syscall_statfs64,
+        v: ___syscall_truncate64,
+        u: ___syscall_unlinkat,
+        t: ___syscall_utimensat,
+        k: __abort_js,
         K: __emscripten_init_main_thread_js,
-        v: __emscripten_notify_mailbox_postmessage,
-        D: __emscripten_receive_on_main_thread_js,
-        B: __emscripten_runtime_keepalive_clear,
-        m: __emscripten_thread_cleanup,
+        w: __emscripten_notify_mailbox_postmessage,
+        E: __emscripten_receive_on_main_thread_js,
+        C: __emscripten_runtime_keepalive_clear,
+        n: __emscripten_thread_cleanup,
         J: __emscripten_thread_mailbox_await,
         V: __emscripten_thread_set_strongref,
-        n: __tzset_js,
-        x: _wrap_clone_syscall_js,
-        H: _wrap_exit_syscall_js,
-        o: _wrap_wait_syscall_js,
-        j: _clock_time_get,
-        _: ecv_proxy_process_memory_copy_req,
-        C: _emscripten_check_blocking_allowed,
+        o: __tzset_js,
+        _: _clock_time_get,
+        $: ecv_proxy_process_memory_copy_req,
+        D: _emscripten_check_blocking_allowed,
         X: _emscripten_date_now,
         U: _emscripten_exit_with_live_runtime,
         b: _emscripten_get_now,
-        r: _emscripten_resize_heap,
+        s: _emscripten_resize_heap,
         p: _environ_get,
         q: _environ_sizes_get,
+        aa: execve_memory_copy_req,
         h: _exit,
         e: _fd_close,
         g: _fd_read,
@@ -1228,22 +1263,20 @@ var Module = (() => {
         P: _fd_sync,
         d: _fd_write,
         a: wasmMemory,
-        A: _proc_exit,
+        B: _proc_exit,
         L: _random_get
       }
     }
 
     var wasmExports, _main, __emscripten_stack_restore, __emscripten_stack_alloc, _emscripten_stack_get_current;
-    var _me_forked;
 
     async function initWasmModule() {
       // init Wasm module
       wasmExports = await createWasm();
-      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["nc"])(a0, a1);
-      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Lc"])(a0);
-      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Mc"])(a0);
-      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Nc"])();
-      _me_forked = Module["_me_forked"] = 473976;
+      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["pc"])(a0, a1);
+      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Nc"])(a0);
+      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Oc"])(a0);
+      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Pc"])();
 
       preInit();
       moduleRtn = readyPromise;
