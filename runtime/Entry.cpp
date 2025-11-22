@@ -26,7 +26,7 @@ extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
 uint8_t *MemoryArenaPtr = nullptr;
 #endif
 
-#if defined(__EMSCRIPTEN__) && defined(_FORK_EMULATION_)
+#if defined(__EMSCRIPTEN__)
 
 /// `fork` syscall emulation
 extern "C" EMSCRIPTEN_KEEPALIVE uint32_t me_forked = 0;

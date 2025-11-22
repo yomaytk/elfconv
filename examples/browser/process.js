@@ -30,8 +30,9 @@ var Module = (() => {
     var execveBell;
     var execveCopyBuf;
 
-    var meForkedP = 474680;
-    var meExecvedP = 474684;
+    // edited by *.generated.js
+    var meForkedP = 0;
+    var meExecvedP = 0;
 
     function growMemViews(pWasmMemory) {
       if (pWasmMemory.buffer != HEAP8.buffer) {
