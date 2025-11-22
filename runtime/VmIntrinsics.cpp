@@ -225,14 +225,13 @@ extern "C" uint64_t *_ecv_noopt_get_bb(RuntimeManager *rt_m, addr_t cur_fun_vma,
   return res;
 }
 
-#if defined(_FORK_EMULATION_)
+#if defined(__EMSCRIPTEN__)
 extern "C" void _ecv_save_call_history(State &state, RuntimeManager &rt_m, uint64_t cur_func_addr,
                                        uint64_t ret_addr) {
   rt_m.main_ecv_pr->call_history.push({cur_func_addr, ret_addr});
   state.func_depth++;
 }
 extern "C" void _ecv_func_epilogue(State &state, RuntimeManager &rt_m) {
-  auto [t_func_addr, t_next_pc] = rt_m.main_ecv_pr->call_history.top();
   rt_m.main_ecv_pr->call_history.pop();
   state.func_depth--;
 }

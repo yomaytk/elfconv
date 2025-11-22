@@ -94,12 +94,6 @@
 #define _LINUX_AT_EMPTY_PATH 0x1000
 #define _LINUX_STATX_BASIC_STATS 0x000007ffU
 
-#if defined(NOSYS_EXIT)
-#  define NOSYS_CODE(sysnum) elfconv_runtime_error("Unimplemented syscall number: %ld\n", sysnum)
-#else
-#  define NOSYS_CODE(sysnum) X0_Q = -_ECV_ENOSYS
-#endif
-
 #define UNIMPLEMENTED_SYSCALL \
   do { \
     X0_Q = -1; \

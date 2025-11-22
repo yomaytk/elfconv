@@ -580,12 +580,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_EXIT: /* exit (int error_code) */
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */
     {
-
-#if defined(_FORK_EMULATION_)
       ___syscall_exit(main_ecv_pr->ecv_pid, X0_D);
-#else
-      exit(X0_D);
-#endif
     } break;
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
@@ -693,20 +688,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         default: X0_D = -_LINUX_EINVAL; break;
       }
     } break;
-    case ECV_GETPID: /* getpid () */
-#if defined(_FORK_EMULATION_)
-      X0_D = main_ecv_pr->ecv_pid;
-#else
-      X0_D = getpid();
-#endif
-      break;
-    case ECV_GETPPID: /* getppid () */
-#if defined(_FORK_EMULATION_)
-      X0_D = main_ecv_pr->par_ecv_pid;
-#else
-      X0_D = getppid();
-#endif
-      break;
+    case ECV_GETPID: /* getpid () */ X0_D = main_ecv_pr->ecv_pid; break;
+    case ECV_GETPPID: /* getppid () */ X0_D = main_ecv_pr->par_ecv_pid; break;
     case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
     case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
     case ECV_GETGID: /* getgid () */ X0_D = getgid(); break;
@@ -715,11 +698,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_BRK: /* brk (unsigned long brk) */
     {
       MemoryArena *memory_arena;
-#if defined(_FORK_EMULATION_)
       memory_arena = main_ecv_pr->memory_arena;
-#else
-      memory_arena = cur_memory_arena;
-#endif
       if (X0_Q == 0) {
         /* init program break (FIXME) */
         X0_Q = memory_arena->heap_cur;
@@ -732,8 +711,6 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     } break;
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
-
-#if defined(_FORK_EMULATION_)
       State *cur_state, *new_state;
       uint64_t t_func_addr, t_next_pc;
 
@@ -804,18 +781,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       uint32_t *child_pid_p = history_p + 1 + history_size * 2;
       *child_pid_p = child_pid;
       cur_state->gpr.x0.qword = child_pid;
-
-#else
-      UNIMPLEMENTED_SYSCALL;
-#endif
     } break;
     case ECV_EXECVE: /* int execve(const char * filename , char *const argv [], char *const envp []) */
     {
-#if defined(_FORK_EMULATION_)
-#  if defined(__wasm64__)
-#    error elfconv cannot support 64bit address space for `execve` emulation.
-#  endif
-      // every component of `argv` and `envp` should be translated because memory access in JS world doesn't translates VMA.
+#if defined(__wasm64__)
+#  error elfconv cannot support 64bit address space for `execve` emulation.
+#endif
+      // The every virtual address of `argv` and `envp` should be translated because memory access in JS world doesn't have MMU.
       auto _execve_argv_p = (char **) calloc(400, 1);
       auto _execve_envp_p = (char **) calloc(400, 1);
       auto argv_p = (char **) TranslateVMA(arena_ptr, X1_Q);
@@ -831,19 +803,12 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
                                (uint32_t) _execve_envp_p);
       free(_execve_argv_p);
       free(_execve_envp_p);
-#else
-      UNIMPLEMENTED_SYSCALL;
-#endif
     } break;
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
         MemoryArena *memory_arena;
-#if defined(_FORK_EMULATION_)
         memory_arena = main_ecv_pr->memory_arena;
-#else
-        memory_arena = cur_memory_arena;
-#endif
         if (X4_D != (uint32_t) -1)
           elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
         if (X5_D != 0)
@@ -858,14 +823,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       break;
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
     {
-      int res = 0;
-
-#if defined(_FORK_EMULATION_)
-      res = ___syscall_wait4(main_ecv_pr->ecv_pid);
-#else
-      UNIMPLEMENTED_SYSCALL;
-      res = -1;
-#endif
+      int res = ___syscall_wait4(main_ecv_pr->ecv_pid);
       X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
     } break;
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
