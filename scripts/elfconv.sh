@@ -143,7 +143,7 @@ prepare_js() {
     cp -p exe.data ${BROWSER_DIR}
   fi
 
-  rm "${BROWSER_DIR}/process.js"
+  rm "${CUR_DIR}/process.js"
 }
 
 # $1: path to ELF

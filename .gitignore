@@ -129,8 +129,7 @@ examples/tests
 SHA*
 elfconv-v*
 
-!examples/browser/exe.html
-!bin/exe.html
+!browser/main.html
+!browser/js-kernel.js
+!browser/process.js
 !release/outdir/index.html
-!examples/browser/js-kernel.js
-!examples/browser/process.js
