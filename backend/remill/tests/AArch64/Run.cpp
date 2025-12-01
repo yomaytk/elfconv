@@ -560,6 +560,10 @@ Memory *__remill_sparc64_emulate_instruction(Memory *) {
   abort();
 }
 
+void __ecv_warning(uint8_t *, State &, addr_t addr, RuntimeManager *) {
+  abort();
+}
+
 // Marks `mem` as being used. This is used for making sure certain symbols are
 // kept around through optimization, and makes sure that optimization doesn't
 // perform dead-argument elimination on any of the intrinsics.

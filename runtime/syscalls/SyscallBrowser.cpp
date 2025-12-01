@@ -393,8 +393,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
   // if (SYSNUMREG == ECV_IOCTL) {
-  printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
-         main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
+  // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
+  //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
   // }
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */

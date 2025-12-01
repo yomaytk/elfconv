@@ -508,6 +508,4 @@
   do { \
     X0_Q = -1; \
     errno = -_LINUX_ENOSYS; \
-    std::cout << "[WARN] unimplemented system call (" << SYSNUMREG << ") was called." \
-              << std::endl; \
   } while (0)
