@@ -26,7 +26,7 @@ In the past, there have been many Wasm porting projects (e.g., [PostgreSQL on Wa
 ## Status
 > [!WARNING]
 > "**elfconv is WORK IN PROGRESS**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated Wasm binary. Current limitations are as follows. However, we will resolve these issues in the future.
-- Only support for AArch64 ELF binary as an input binary (The support for x86-64 is in progress)
+- Supports converting only AArch64 ELF binaries (The support for x86-64 is in progress)
 - No support for shared objects
 - Only a part of the Linux system calls are implemented (ref: [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
 
@@ -55,31 +55,32 @@ You can try elfconv using the Docker container (x86-64 and ARM64) by executing t
 
 ### Browser
 ```bash
+### build container
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
 elfconv/$ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
 elfconv/$ docker run -it --rm -p 8080:8080 --name <container-name> <image-name>
-### running build and test ...
-# You can test elfconv using `bin/elfconv.sh`
+
+### try coversion
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=aarch64-wasm ./elfconv.sh /path/to/ELF # e.g., ../examples/hello/c/a.aarch64
-# exe.js and exe.wasm should be generated.
-~/elfconv/bin# emrun --no_browser --port 8080 exe.html
+~/elfconv/bin# TARGET=aarch64-wasm INITWASM=1 ./exe.sh /path/to/ELF # e.g., ../examples/hello/c/a.aarch64
+~/elfconv/bin# emrun --no_browser --port 8080 <ELFNAME>.html
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
 ```
-Now, the Wasm application server has started, so that you can access it (e.g., http://localhost:8080/exe.html) from outside the container.
+Now, the Wasm application server has started, so that you can access it (e.g., http://localhost:8080/<ELFNAME>.html) from outside the container.
 ### Host (WASI runtimes)
 ```bash
+### build container
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
 $ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
 $ docker run -it --name <container-name> <image-name>
-### running build and test ...
-# You can test elfconv using `bin/elfconv.sh`
+
+### try conversion
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=aarch64-wasi32 ./elfconv.sh /path/to/ELF # e.g. ../examples/hello/c/a.aarch64
-~/elfconv/bin# wasmedge exe.wasm # wasmedge is preinstalled
+~/elfconv/bin# TARGET=aarch64-wasi32 ./exe.sh /path/to/ELF # e.g. ../examples/hello/c/a.aarch64
+~/elfconv/bin# wasmedge <ELFNAME>.wasm # wasmedge is preinstalled
 ```
 ## Source code build
 ### 1. Dev Container
@@ -117,19 +118,17 @@ After finishing the build, you can find the directory `elfconv/build/`, and you 
 
 You can compile the ELF binary to the Wasm binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation (ELF -> LLVM bitcode by *'lifter'*) and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the Wasm binary. When you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
 ```bash
-# TARGET=<elf_arch>-<target_arch> (e.g., ELF/aarch64 -> Wasm for wasi32: aarch64-wasi32)
-
 ### Native
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-native ../scripts/dev.sh path/to/ELF # generate the Native binary (Host architecture) under the elfconv/build/lifter
-~/elfconv/build# ./exe.${HOST_CPU}
+~/elfconv/build# TARGET=aarch64-native ../scripts/dev.sh path/to/ELF
+~/elfconv/build# ./<ELFNAME>.${HOST_CPU}
 ------------------------
-### Browser (use xterm-pty (https://github.com/mame/xterm-pty))
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasm ../scripts/dev.sh path/to/ELF # generate the Wasm binary under the elfconv/build/lifter
-~/elfconv/build# emrun --no_browser --port 8080 ../examples/browser/exe.html # execute the generated Wasm binary with emscripten
+### Browser
+~/elfconv/build# TARGET=aarch64-wasm INITWASM=1 ../scripts/dev.sh path/to/ELF
+~/elfconv/build# emrun --no_browser --port 8080 <ELFNAME>.html
 ------------------------
 ### Host (WASI Runtimes)
-~/elfconv/build# NEW_ROOT=/path/to/elfconv TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
-~/elfconv/build# wasmedge ./exe.wasm # or wasmedge ./exe_o3.wasm
+~/elfconv/build# TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
+~/elfconv/build# wasmedge <ELFNAME>.wasm # or wasmedge <ELFNAME>_o3.wasm
 ```
 ## Acknowledgement
 elfconv uses or references some projects as follows. Great thanks to all its developers!
