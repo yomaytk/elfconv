@@ -421,7 +421,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
           arch->DecodeInstruction(inst_addr, inst_bytes, inst, this->arch->CreateInitialContext());
 
       // Lift instruction
-      auto lift_status = inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);
+      inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);
 
       if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
         llvm::IRBuilder<> ir(block);
@@ -431,18 +431,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
         ir.CreateCall(tmp_patch_fn, args);
         tmp_patch_fn_check = true;
-      }
-
-      if (kLiftedInstruction != lift_status) {
-        // LOG(FATAL) << "lifted_status is invalid at: " << inst.function;
-        AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr,
-                               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
-#if defined(WARNING_OUTPUT)
-        if (manager.isWithinFunction(trace_addr, inst.next_pc)) {
-          DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
-        }
-#endif
-        continue;
       }
 
       // Handle lifting a delayed instruction.
@@ -479,7 +467,15 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       // Connect together the basic blocks.
       switch (inst.category) {
-        case Instruction::kCategoryInvalid:
+        case Instruction::kCategoryInvalid: {
+          llvm::IRBuilder<> ir_inv(block);
+          ir_inv.CreateCall(module->getFunction("__ecv_warning"),
+                            {arena_ptr, state_ptr,
+                             llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                             runtime_ptr});
+          DirectBranchWithSaveParents(GetOrCreateNextBlock(), block);
+          break;
+        }
         case Instruction::kCategoryError:
           AddTerminatingTailCall(
               block, intrinsics->error, *intrinsics, trace_addr,

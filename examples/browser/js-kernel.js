@@ -80,6 +80,13 @@ var Module = (() => {
     var EXITSTATUS;
     var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAP64, HEAPU64, HEAPF64;
 
+    function newSession(pid) {
+      return {
+        sessionId: pid,
+        controllingTTY: TTY.ttys[FS.makedev(5, 0)], // /dev/tty
+      };
+    }
+
     // system call handling.
     function syscallRun(d) {
       gWasmMemory = processes.get(d.ecvPid).wMemory;
@@ -118,6 +125,9 @@ var Module = (() => {
       Atomics.notify(m32View, waitPtr, 1);
     }
 
+    // create new process
+    // We assumes that init Wasm process (!isForked) already has `session` and `controlling terminal`
+    // and the assumption is likely acceptable for many Linux processes.
     function newProcess(path, isForked, parEcvPid, sDataSrcP, sDataLen, mBytesSrcP, mBytesLen) {
 
       // init Wasm Memory.
@@ -127,7 +137,17 @@ var Module = (() => {
         shared: true
       });
 
+      // various ids.
       let ecvPid = getNewEcvPid();
+      let ecvParPid = isForked ? parEcvPid : 0;
+      let ecvPgid = isForked ? processes.get(parEcvPid).ecvPgid : ecvPid;
+      // assumes that session has been set, so init Wasm call `newSession` instead of `undefined`.
+      let session = isForked ? processes.get(parEcvPid).session : newSession(ecvPid);
+
+      // register foreground process group for controlling terminal.
+      if (!isForked) {
+        session.controllingTTY.fgPgid = ecvPgid;
+      }
 
       // shared array buffer for synchronous process between js-kernel and process-worker.
       let copyFinBell = new SharedArrayBuffer(4);
@@ -149,7 +169,9 @@ var Module = (() => {
 
       processes.set(ecvPid, {
         ecvPid: ecvPid,
-        ecvParPid: isForked ? parEcvPid : 0,
+        ecvParPid: ecvParPid,
+        ecvPgid: ecvPgid,
+        session: session,
         wasmProgram: wasmProgram,
         worker: processWorker,
         wMemory: newWMemory,
@@ -172,6 +194,7 @@ var Module = (() => {
         childMonitor: childMonitor,
         parMonitor: parMonitor,
         execveBell: execveBell,
+        PTY_AtomicBuffer: PTY_AtomicBuffer,
       });
 
       let copySData;
@@ -187,8 +210,9 @@ var Module = (() => {
           (growMemViews(newWMemory), HEAPU8).set(parWMemory8_1.subarray(mBytesSrcP, mBytesSrcP + mBytesLen), d.mBytesDstP);
           // write `child_pid` and `parent_pid` to the shared data buffer before copy.
           let parWMemory32 = new Uint32Array(parWMemory.buffer);
-          parWMemory32[sDataSrcP + (sDataLen - 8) >> 2] = ecvPid;
-          parWMemory32[sDataSrcP + (sDataLen - 4) >> 2] = parEcvPid;
+          parWMemory32[sDataSrcP + (sDataLen - 12) >> 2] = ecvPid;
+          parWMemory32[sDataSrcP + (sDataLen - 8) >> 2] = parEcvPid;
+          parWMemory32[sDataSrcP + (sDataLen - 4) >> 2] = ecvPgid;
           // copy `shared_data`
           let parWMemory8_2 = new Uint8Array(parWMemory.buffer);
           (growMemViews(newWMemory), HEAPU8).set(parWMemory8_2.subarray(sDataSrcP, sDataSrcP + sDataLen), d.sDataDstP);
@@ -229,6 +253,10 @@ var Module = (() => {
           let chBellView = new Int32Array(copyFinBell);
           Atomics.store(chBellView, 0, 1);
           Atomics.notify(chBellView, 0, 1);
+        }
+        // check whether PTY is ready or not
+        else if (d.cmd === "PTY_ReadableCheck") {
+          PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
         } else {
           throw e;
         }
@@ -248,8 +276,8 @@ var Module = (() => {
     }
 
     function initRuntime() {
+      TTY.init(); // actually, this do nothing.
       if (!Module["noFSInit"] && !FS.initialized) FS.init();
-      TTY.init();
       FS.ignorePermissions = false
     }
 
@@ -606,8 +634,10 @@ var Module = (() => {
     const ECV_FUTEX_WAITV = 449;
 
     // macro specified to the emscripten runtime
-    const ECV_ENVIRON_GET = 1001;
-    const ECV_ENVIRON_SIZES_GET = 1002;
+    const ECV_LSTAT64 = 1000;
+    // const ECV_ENVIRON_GET = 1001;
+    // const ECV_ENVIRON_SIZES_GET = 1002;
+    const ECV_POLL_SCAN = 1003;
 
     SyscallPtrMap.set(ECV_CLONE, ___syscall_clone);
     SyscallPtrMap.set(ECV_WAIT4, ___syscall_wait4);
@@ -622,11 +652,11 @@ var Module = (() => {
     SyscallPtrMap.set(ECV_GETCWD, ___syscall_getcwd);
     SyscallPtrMap.set(ECV_GETDENTS, ___syscall_getdents64);
     SyscallPtrMap.set(ECV_IOCTL, ___syscall_ioctl);
-    // missing? ___syscall_lstat64
     SyscallPtrMap.set(ECV_MKDIRAT, ___syscall_mkdirat);
     SyscallPtrMap.set(ECV_NEWFSTATAT, ___syscall_newfstatat);
     SyscallPtrMap.set(ECV_OPENAT, ___syscall_openat);
-    SyscallPtrMap.set(ECV_PPOLL, ___syscall_poll);
+    // unused.
+    // SyscallPtrMap.set(ECV_PPOLL, ___syscall_poll);
     SyscallPtrMap.set(ECV_READLINKAT, ___syscall_readlinkat);
     SyscallPtrMap.set(ECV_STATX, ___syscall_stat64);
     SyscallPtrMap.set(ECV_STATFS, ___syscall_statfs64);
@@ -639,10 +669,14 @@ var Module = (() => {
     SyscallPtrMap.set(ECV_WRITE, _fd_write);
     SyscallPtrMap.set(ECV_EXIT, ___syscall_exit);
     SyscallPtrMap.set(ECV_GETRANDOM, _random_get);
+    SyscallPtrMap.set(ECV_SETPGID, ___syscall_setpgid);
+    SyscallPtrMap.set(ECV_GETPGID, ___syscall_getpgid);
 
     // emscripten runtimes
-    SyscallPtrMap.set(ECV_ENVIRON_GET, 1001);
-    SyscallPtrMap.set(ECV_ENVIRON_SIZES_GET, 1002);
+    SyscallPtrMap.set(ECV_LSTAT64, ___syscall_lstat64);
+    // SyscallPtrMap.set(ECV_ENVIRON_GET, 1001);
+    // SyscallPtrMap.set(ECV_ENVIRON_SIZES_GET, 1002);
+    SyscallPtrMap.set(ECV_POLL_SCAN, ___syscall_poll_scan);
 
     class ExitStatus {
       name = "ExitStatus";
@@ -866,6 +900,7 @@ var Module = (() => {
       SIGWINCH: 28
     };
     var PTY = Module["pty"];
+    var PTY_AtomicBuffer = new SharedArrayBuffer(4);
     var PTY_pollTimeout = 0;
     var PTY_askToWaitAgain = timeout => {
       PTY_pollTimeout = timeout;
@@ -936,6 +971,7 @@ var Module = (() => {
         TTY.ttys[dev] = {
           input: [],
           output: [],
+          fgPgid: null,
           ops
         };
         FS.registerDevice(dev, TTY.stream_ops)
@@ -1237,7 +1273,6 @@ var Module = (() => {
           return size
         },
         write(stream, buffer, offset, length, position, canOwn) {
-          console.log(`MEMFS write! ${position}`);
           if (buffer.buffer === (growMemViews(gWasmMemory), HEAP8).buffer) {
             canOwn = false
           }
@@ -2548,11 +2583,11 @@ var Module = (() => {
         if (error) {
           FS.createDevice("/dev", "stderr", null, error)
         } else {
-          FS.symlink("/dev/tty1", "/dev/stderr")
+          FS.symlink("/dev/tty", "/dev/stderr")
         }
-        var stdin = FS.open("/dev/stdin", 0);
-        var stdout = FS.open("/dev/stdout", 1);
-        var stderr = FS.open("/dev/stderr", 1)
+        var stdin = FS.open("/dev/stdin", 0); // fd = 0
+        var stdout = FS.open("/dev/stdout", 1); // fd = 1
+        var stderr = FS.open("/dev/stderr", 1); // fd = 2
       },
       staticInit() {
         FS.nameTable = new Array(4096);
@@ -3082,6 +3117,7 @@ var Module = (() => {
           parMonitor: thisPr.parMonitor,
           execveBell: thisPr.execveBell, // should allocate new buffer for clarity?
           execveCopyBuf: execveCopyBuf,
+          PTY_AtomicBuffer: PTY_AtomicBuffer,
         });
 
         execveWorker.onmessage = e => {
@@ -3100,6 +3136,10 @@ var Module = (() => {
             execveWorker.postMessage({
               cmd: "startMain",
             });
+          }
+          // check whether PTY is ready or not
+          else if (d.cmd === "PTY_ReadableCheck") {
+            PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
           }
           // handle the request of copying argv and envp.
           else if (d.cmd === "execveArgsCopy") {
@@ -3126,7 +3166,7 @@ var Module = (() => {
               argId++;
               argsTotal += argSpace;
             }
-            // (FIXME) default args bytes length threshold is 1,000.
+            // default args bytes length threshold is 1,000.
             if (argsTotal >= 1000) {
               throw new Error(`argsTotal is too large at ___syscall_execve. execveWasm: ${execveWasm}, bytes len: ${argId}.`);
             }
@@ -3150,7 +3190,7 @@ var Module = (() => {
               envId++;
               envsTotal += envSpace;
             }
-            // (FIXME) default envs bytes length threshold is 1,000.
+            // default envs bytes length threshold is 5,000.
             if (envsTotal >= 5000) {
               throw new Error(`envsTotal is too large at ___syscall_execve. execveWasm: ${execveWasm}, bytes len: ${envId}.`);
             }
@@ -3159,7 +3199,8 @@ var Module = (() => {
 
             // `ecvPid` (this and parent)
             dst32View[(d.ecvPidsP >> 2)] = thisPr.ecvPid;
-            dst32View[(d.ecvPidsP >> 2) + 1] = thisPr.ecvParPid; // FIXME!
+            dst32View[(d.ecvPidsP >> 2) + 1] = thisPr.ecvParPid;
+            dst32View[(d.ecvPidsP >> 2) + 2] = thisPr.ecvPgid;
 
             // notify
             Atomics.store(execveCopyBufview, 0, 1);
@@ -3228,6 +3269,29 @@ var Module = (() => {
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return -e.errno;
+      }
+    }
+
+    function ___syscall_setpgid(tEcvPid, ecvPgid, myEcvPid) {
+      try {
+        if (tEcvPid == 0) {
+          processes.get(myEcvPid).ecvPgid = ecvPgid;
+        } else {
+          processes.get(tEcvPid).ecvPgid = ecvPgid;
+        }
+        return 0;
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -1
+      }
+    }
+
+    function ___syscall_getpgid(tEcvPid, myEcvPid) {
+      try {
+        return tEcvPid == 0 ? processes.get(myEcvPid).ecvPgid : processes.get(tEcvPid).ecvPgid;
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -1
       }
     }
 
@@ -3488,10 +3552,13 @@ var Module = (() => {
             }
             return 0
           }
-          case 21519: {
+          case 21519: { // TIOCGPGRP
             if (!stream.tty) return -59;
             var argp = syscallGetVarargP();
-            (growMemViews(gWasmMemory), HEAP32)[argp >> 2] = 0;
+            if (stream.tty.fgPgid <= 0) {
+              console.error(`foreground process group id (${stream.tty.fgPgid}) may be invalid? (tty: ${stream.tty})`);
+            }
+            (growMemViews(gWasmMemory), HEAP32)[argp >> 2] = stream.tty.fgPgid;
             return 0
           }
           case 21520: {
@@ -3579,7 +3646,7 @@ var Module = (() => {
       }
     }
 
-    function xterm_pty_old_poll(fds, nfds, timeout) {
+    function ___syscall_poll_scan(fds, nfds, timeout) {
       try {
         var nonzero = 0;
         for (var i = 0; i < nfds; i++) {
@@ -3604,7 +3671,7 @@ var Module = (() => {
         return -e.errno
       }
     }
-    var PTY_waitForReadableWithCallback = callback => {
+    var PTY_ReadableAtomicCheckImpl = callback => {
       if (PTY_pollTimeout === 0) {
         return callback(PTY.readable ? 0 : 2)
       }
@@ -3622,52 +3689,13 @@ var Module = (() => {
         callback(type)
       })
     };
-    var PTY_waitForReadableWithAtomicImpl = function (atomicIndex) {
-      if (ENVIRONMENT_IS_PTHREAD) return proxyToMainThread(18, 0, 0, atomicIndex);
-      PTY_waitForReadableWithCallback(type => {
-        Atomics.store((growMemViews(gWasmMemory), HEAP32), atomicIndex, type);
-        Atomics.notify((growMemViews(gWasmMemory), HEAP32), atomicIndex)
+    var PTY_ReadableAtomicCheck = function (atomicBuffer) {
+      PTY_ReadableAtomicCheckImpl(type => {
+        let PTY_AtomicView = new Int32Array(atomicBuffer);
+        Atomics.store(PTY_AtomicView, 0, type);
+        Atomics.notify(PTY_AtomicView, 0);
       })
     };
-    var PTY_atomicIndex = 0;
-    var PTY_waitForReadableWithAtomic = callback => {
-      if (!PTY_atomicIndex) {
-        PTY_atomicIndex = _malloc(4) >> 2
-      } (growMemViews(gWasmMemory), HEAP32)[PTY_atomicIndex] = -1;
-      PTY_waitForReadableWithAtomicImpl(PTY_atomicIndex);
-      Atomics.wait((growMemViews(gWasmMemory), HEAP32), PTY_atomicIndex, -1);
-      callback((growMemViews(gWasmMemory), HEAP32)[PTY_atomicIndex])
-    };
-    var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
-    var PTY_handleSleepWithAtomic = startAsync => {
-      let result;
-      startAsync(r => result = r);
-      return result
-    };
-    var PTY_handleSleep = PTY_handleSleepWithAtomic;
-    var PTY_wrapPoll = impl => PTY_handleSleep(wakeUp => {
-      let result = impl();
-      if (result === -1006) {
-        PTY_waitForReadable(type => {
-          switch (type) {
-            case 0:
-              wakeUp(impl());
-              break;
-            case 1:
-              wakeUp(-27);
-              break;
-            case 2:
-              wakeUp(0);
-              break
-          }
-        })
-      } else {
-        wakeUp(result)
-      }
-    });
-    function ___syscall_poll(fds, nfds, timeout) {
-      return PTY_wrapPoll(() => xterm_pty_old_poll(fds, nfds, timeout));
-    }
 
     function ___syscall_readlinkat(dirfd, path, buf, bufsize) {
       try {
@@ -3848,7 +3876,7 @@ var Module = (() => {
       return ret
     };
 
-    function xterm_pty_old_fd_read(fd, iov, iovcnt, pnum) {
+    function _fd_read(fd, iov, iovcnt, pnum) {
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doReadv(stream, iov, iovcnt);
@@ -3858,29 +3886,6 @@ var Module = (() => {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return e.errno
       }
-    }
-
-    function _fd_read(fd, iov, iovcnt, pnum) {
-      return PTY_handleSleep(wakeUp => {
-        let result = xterm_pty_old_fd_read(fd, iov, iovcnt, pnum);
-        if (result === 1006) {
-          PTY_waitForReadable(type => {
-            switch (type) {
-              case 0:
-                wakeUp(xterm_pty_old_fd_read(fd, iov, iovcnt, pnum));
-                break;
-              case 1:
-                wakeUp(27);
-                break;
-              case 2:
-                wakeUp(0);
-                break
-            }
-          })
-        } else {
-          wakeUp(result)
-        }
-      });
     }
 
     function _fd_seek(fd, offset, whence, newOffset) {

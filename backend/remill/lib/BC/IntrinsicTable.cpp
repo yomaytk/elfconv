@@ -75,6 +75,7 @@ static llvm::Function *SetMemoryReadNone(llvm::Function *func) {
 
 IntrinsicTable::IntrinsicTable(llvm::Module *module)
     : error(FindIntrinsic(module, "__remill_error")),
+      warning(FindIntrinsic(module, "__ecv_warning")),
 
       // Control-flow.
       function_call(FindIntrinsic(module, "__remill_function_call")),

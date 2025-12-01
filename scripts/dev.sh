@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 
 LLVM_VERSION=16
-ROOT_DIR=${HOME}/workspace/compiler/elfconv
 
 GREEN="\033[32m"
+RED="\033[31m"
 NC="\033[0m"
 
 set -e
 
 setting() {
 
-  if [ -n "$NEW_ROOT" ]; then
-    ROOT_DIR="$NEW_ROOT"
+  ROOT_DIR=$( dirname "$PWD" )
+
+  if [[ $( basename "$ROOT_DIR" ) != "elfconv" ]]; then
+    echo "[${RED}ERROR${NC}]: This script must be executed at path/to/elfconv/build."
+    exit 1
   fi
 
   # elf
@@ -30,7 +33,7 @@ setting() {
   HOST_CPU=$(uname -p)
   RUNTIME_MACRO=
   FLOAT_STATUS_FLAG='0'
-  MAINIR=
+  MAINIR="$ELFNAME.bc"
   MAINOBJ=
   # native
   CXX=clang++-16
@@ -97,10 +100,36 @@ lifting() {
     MAINIR="$ELFNAME.ll"
     llvm-dis-${LLVM_VERSION} "$ELFNAME.bc" -o "$ELFNAME.ll"
     echo -e "[${GREEN}INFO${NC}] built $ELFNAME.ll "
-  else
-    MAINIR="$ELFNAME.bc"
   fi
 
+}
+
+prepare_js() {
+
+  MAINGENJS="${BUILD_DIR}/$ELFNAME.generated.js"
+  MAINGENWASM="${BUILD_DIR}/$ELFNAME.generated.wasm"
+  OUTWASM="${BROWSER_DIR}/$ELFNAME.wasm"
+  OUTJS="${BROWSER_DIR}/$ELFNAME.js"
+
+  # prepares js and Wasm
+  cp $MAINGENWASM $OUTWASM
+  cp ${BROWSER_DIR}/process.js $OUTJS
+  # copy `_me_forked`.
+  me_forked_val=$(sed -n 's/.*Module\["_me_forked"\]=\([0-9]*\).*/\1/p' $MAINGENJS)
+  sed -i "s/\(var[[:space:]]\+meForkedP[[:space:]]*=[[:space:]]*\).*/\1$me_forked_val;/" $OUTJS
+  # copy `_me_execved`.
+  me_execved_val=$(sed -n 's/.*Module\["_me_execved"\]=\([0-9]*\).*/\1/p' $MAINGENJS)
+  sed -i "s/\(var[[:space:]]\+meExecvedP[[:space:]]*=[[:space:]]*\).*/\1$me_execved_val;/" $OUTJS
+  
+  # set entry Wasm program.
+  if [ -n "$INITWASM" ]; then
+    sed -i "s/initProgram: '[^']*\.wasm'/initProgram: '$ELFNAME.wasm'/" ${BROWSER_DIR}/exe.html
+  fi
+  
+  # --preload-file generates the mapped data file `exe.data`.
+  if [ -f "exe.data" ]; then
+    cp exe.data ${ROOT_DIR}/examples/browser
+  fi
 }
 
 # $1: path to ELF
@@ -111,6 +140,11 @@ main() {
   # environment variable settings
   setting "$1"
 
+  if [ -n "$READYJS" ]; then
+    prepare_js
+    exit 0
+  fi
+  
   cd $BUILD_DIR
 
   # floating-point exception
@@ -124,7 +158,9 @@ main() {
   fi
 
   # skip lifting or compiling to wasm (used for development)
-  if [ -z "$NO_LIFTED" ] && [ -z "$NO_COMPILED" ]; then
+  if [ -n "$NO_LIFTED" ]; then
+    MAINIR="$ELFNAME.ll"
+  else
     arch_name=${TARGET%%-*}
     lifting "$1" "$arch_name" "$2" "$3"
   fi
@@ -161,11 +197,8 @@ main() {
     *-wasm)
       RUNTIME_MACRO="$RUNTIME_MACRO -DTARGET_IS_BROWSER=1"
       MAINOBJ="${BUILD_DIR}/$ELFNAME.wasm.o"
-      MAINGENJS="${BUILD_DIR}/$ELFNAME.generated.js"
-      MAINGENWASM="${BUILD_DIR}/$ELFNAME.generated.wasm"
-      OUTWASM="${BROWSER_DIR}/$ELFNAME.wasm"
-      OUTJS="${BROWSER_DIR}/$ELFNAME.js"
       PRELOAD=
+      MAINGENJS="${BUILD_DIR}/$ELFNAME.generated.js"
       
       if [ -n "$MOUNT_DIR" ]; then
         PRELOAD="--preload-file ${MOUNT_DIR}"
@@ -182,25 +215,8 @@ main() {
       $EMCC $EMCCFLAGS $RUNTIME_MACRO $EMCC_OPTION -o $MAINGENJS $MAINOBJ $ELFCONV_COMMON_RUNTIMES ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] built exe.wasm and exe.js"
       
-      # prepares all files
-      cp $MAINGENWASM $OUTWASM
-      cp ${BROWSER_DIR}/process.js $OUTJS
-      # copy `_me_forked`.
-      me_forked_val=$(sed -n 's/.*Module\["_me_forked"\]=\([0-9]*\).*/\1/p' $MAINGENJS)
-      sed -i "s/\(var[[:space:]]\+meForkedP[[:space:]]*=[[:space:]]*\).*/\1$me_forked_val;/" $OUTJS
-      # copy `_me_execved`.
-      me_execved_val=$(sed -n 's/.*Module\["_me_execved"\]=\([0-9]*\).*/\1/p' $MAINGENJS)
-      sed -i "s/\(var[[:space:]]\+meExecvedP[[:space:]]*=[[:space:]]*\).*/\1$me_execved_val;/" $OUTJS
-      
-      # set entry Wasm program.
-      if [ -n "$INITWASM" ]; then
-        sed -i "s/initProgram: '[^']*\.wasm'/initProgram: '$ELFNAME.wasm'/" ${BROWSER_DIR}/exe.html
-      fi
-      
-      # --preload-file generates the mapped data file `exe.data`.
-      if [ -f "exe.data" ]; then
-        cp exe.data ${ROOT_DIR}/examples/browser
-      fi
+      # prepare Js and Wasm
+      prepare_js
 
       return 0
     ;;

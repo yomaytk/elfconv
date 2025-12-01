@@ -30,6 +30,8 @@ var Module = (() => {
     var execveBell;
     var execveCopyBuf;
 
+    var PTY_AtomicBuffer;
+
     // edited by *.generated.js
     var meForkedP = 0;
     var meExecvedP = 0;
@@ -57,6 +59,7 @@ var Module = (() => {
         parMonitor = d.parMonitor;
         execveBell = d.execveBell;
         execveCopyBuf = d.execveCopyBuf;
+        PTY_AtomicBuffer = d.PTY_AtomicBuffer;
 
         assignWasmImports();
         initPromise = initWasmModule();
@@ -173,7 +176,7 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      wasmExports["ba"]();
+      wasmExports["ea"]();
     }
 
     function preMain() { }
@@ -280,7 +283,7 @@ var Module = (() => {
       function receiveInstance(instance, module) {
         wasmExports = instance.exports;
         updateMemoryViews();
-        wasmTable = wasmExports["oc"];
+        wasmTable = wasmExports["sc"];
         removeRunDependency("wasm-instantiate");
         return wasmExports
       }
@@ -753,8 +756,10 @@ var Module = (() => {
     const ECV_FUTEX_WAITV = 449;
 
     // macro specified to the emscripten runtime
+    const ECV_LSTAT64 = 1000;
     // const ECV_ENVIRON_GET = 1001;
     // const ECV_ENVIRON_SIZES_GET = 1002;
+    const ECV_POLL_SCAN = 1003;
 
     // This function assumes that emscripten JS syscall is executed synchronously.
     function ecvProxySyscallJs(sysNum, ...callArgs) {
@@ -901,6 +906,69 @@ var Module = (() => {
       return -1;
     }
 
+    var PTY_waitForReadableWithAtomic = callback => {
+
+      let PTY_AtomicView = new Int32Array(PTY_AtomicBuffer);
+
+      Atomics.store(PTY_AtomicView, 0, -1);
+
+      postMessage({
+        cmd: "PTY_ReadableCheck",
+      });
+
+      // wait for PTY ready or signal reciving.
+      Atomics.wait(PTY_AtomicView, 0, -1);
+      // `type` is saved on PTY_AtomicBuffer[0]
+      callback(Atomics.load(PTY_AtomicView, 0));
+    };
+    var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
+    var PTY_handleSleepWithAtomic = startAsync => {
+      let result;
+      startAsync(r => result = r);
+      return result
+    };
+    var PTY_handleSleep = PTY_handleSleepWithAtomic;
+    var PTY_handleSleepImpl = impl => {
+      return PTY_handleSleep(wakeup => {
+        let res = impl();
+        if (res == -1006) {
+          PTY_waitForReadable(type => {
+            switch (type) {
+              case 0:
+                wakeup(impl());
+                break;
+              case 1:
+                wakeup(-27); // EINTR
+                break;
+              case 2:
+                wakeup(0) // timeouted
+                break;
+            }
+          })
+        } else {
+          wakeup(res);
+        }
+      });
+    }
+
+    function ___syscall_poll(fd, nfds, timeout) {
+      return PTY_handleSleepImpl(() => ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, timeout));
+    }
+
+    function ___ecv_syscall_ioctl(fd, cmd, arg) {
+      return ecvProxySyscallJs(ECV_IOCTL, fd, cmd, arg);
+    }
+
+    // Note. arguments is different from `___syscall_setpgid` of js-kernel.
+    function ___syscall_setpgid(tEcvPid, ecvPgid) {
+      return ecvProxySyscallJs(ECV_SETPGID, tEcvPid, ecvPgid, ecvPid); // append ecvPid.
+    }
+
+    // Note. arguments is different from `___syscall_getpgid` of js-kernel.
+    function ___syscall_getpgid(tEcvPid) {
+      return ecvProxySyscallJs(ECV_GETPGID, tEcvPid, ecvPid); // append ecvPid.
+    }
+
     function ___syscall_chdir(path) {
       return ecvProxySyscallJs(ECV_CHDIR, path);
     }
@@ -946,7 +1014,7 @@ var Module = (() => {
     }
 
     function ___syscall_lstat64(path, buf) {
-      throw "___syscall_lstat64 is not implemented.";
+      return ecvProxySyscallJs(ECV_LSTAT64, path, buf);
     }
 
     function ___syscall_mkdirat(dirfd, path, mode) {
@@ -1133,7 +1201,26 @@ var Module = (() => {
     }
 
     function _fd_read(fd, iov, iovcnt, pnum) {
-      return ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
+      return PTY_handleSleep(wakeup => {
+        let res = ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
+        if (res == 1006) {
+          PTY_waitForReadable(type => {
+            switch (type) {
+              case 0:
+                wakeup(ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum));
+                break;
+              case 1:
+                wakeup(27); // EINTR
+                break;
+              case 2:
+                wakeup(0) // timeouted
+                break;
+            }
+          })
+        } else {
+          wakeup(res);
+        }
+      });
     }
 
     function _fd_seek(fd, offset, whence, newOffset) {
@@ -1211,61 +1298,64 @@ var Module = (() => {
     /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        r: ___syscall_clone,
-        m: ___syscall_execve,
-        z: ___syscall_exit,
-        l: ___syscall_wait4,
-        A: ___call_sighandler,
+        C: ___ecv_syscall_ioctl,
+        j: ___syscall_clone,
+        ba: ___syscall_execve,
+        m: ___syscall_exit,
+        k: ___syscall_getpgid,
+        u: ___syscall_poll,
+        l: ___syscall_setpgid,
+        aa: ___syscall_wait4,
+        z: ___call_sighandler,
         i: ___cxa_throw,
-        j: ___syscall_chdir,
-        Z: ___syscall_dup,
-        Y: ___syscall_dup3,
-        W: ___syscall_faccessat,
+        _: ___syscall_chdir,
+        Y: ___syscall_dup,
+        X: ___syscall_dup3,
+        V: ___syscall_faccessat,
         c: ___syscall_fcntl64,
-        T: ___syscall_fstat64,
-        O: ___syscall_ftruncate64,
-        N: ___syscall_getcwd,
-        M: ___syscall_getdents64,
+        S: ___syscall_fstat64,
+        N: ___syscall_ftruncate64,
+        M: ___syscall_getcwd,
+        L: ___syscall_getdents64,
         f: ___syscall_ioctl,
-        Q: ___syscall_lstat64,
-        H: ___syscall_mkdirat,
-        R: ___syscall_newfstatat,
-        G: ___syscall_openat,
-        F: ___syscall_poll,
+        P: ___syscall_lstat64,
+        G: ___syscall_mkdirat,
+        Q: ___syscall_newfstatat,
+        F: ___syscall_openat,
         y: ___syscall_readlinkat,
-        S: ___syscall_stat64,
+        R: ___syscall_stat64,
         x: ___syscall_statfs64,
         v: ___syscall_truncate64,
-        u: ___syscall_unlinkat,
-        t: ___syscall_utimensat,
-        k: __abort_js,
-        K: __emscripten_init_main_thread_js,
+        t: ___syscall_unlinkat,
+        s: ___syscall_utimensat,
+        $: __abort_js,
+        J: __emscripten_init_main_thread_js,
         w: __emscripten_notify_mailbox_postmessage,
         E: __emscripten_receive_on_main_thread_js,
-        C: __emscripten_runtime_keepalive_clear,
+        B: __emscripten_runtime_keepalive_clear,
         n: __emscripten_thread_cleanup,
-        J: __emscripten_thread_mailbox_await,
-        V: __emscripten_thread_set_strongref,
+        I: __emscripten_thread_mailbox_await,
+        U: __emscripten_thread_set_strongref,
         o: __tzset_js,
-        _: _clock_time_get,
-        $: ecv_proxy_process_memory_copy_req,
+        Z: _clock_time_get,
+        ca: ecv_proxy_process_memory_copy_req,
         D: _emscripten_check_blocking_allowed,
-        X: _emscripten_date_now,
-        U: _emscripten_exit_with_live_runtime,
+        W: _emscripten_date_now,
+        T: _emscripten_exit_with_live_runtime,
         b: _emscripten_get_now,
-        s: _emscripten_resize_heap,
+        r: _emscripten_resize_heap,
         p: _environ_get,
         q: _environ_sizes_get,
-        aa: execve_memory_copy_req,
+        da: execve_memory_copy_req,
         h: _exit,
         e: _fd_close,
         g: _fd_read,
-        I: _fd_seek,
-        P: _fd_sync,
+        H: _fd_seek,
+        O: _fd_sync,
         d: _fd_write,
         a: wasmMemory,
-        B: _proc_exit,
-        L: _random_get
+        A: _proc_exit,
+        K: _random_get
       }
     }
 
@@ -1274,10 +1364,10 @@ var Module = (() => {
     async function initWasmModule() {
       // init Wasm module
       wasmExports = await createWasm();
-      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["pc"])(a0, a1);
-      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Nc"])(a0);
-      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Oc"])(a0);
-      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Pc"])();
+      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["tc"])(a0, a1);
+      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Rc"])(a0);
+      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Sc"])(a0);
+      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Tc"])();
 
       preInit();
       moduleRtn = readyPromise;

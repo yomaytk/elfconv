@@ -99,10 +99,17 @@ class MemoryArena {
 
 class EcvProcess {
  public:
-  EcvProcess(uint32_t __ecv_pid, uint32_t __par_ecv_pid, MemoryArena *__memory_arena,
-             State *__cpu_state, std::stack<std::pair<uint64_t, uint64_t>> __call_history)
+  EcvProcess(uint32_t __ecv_pid, uint32_t __par_ecv_pid, uint32_t __ecv_pgid,
+             MemoryArena *__memory_arena, State *__cpu_state,
+             std::stack<std::pair<uint64_t, uint64_t>> __call_history)
       : ecv_pid(__ecv_pid),
         par_ecv_pid(__par_ecv_pid),
+        ecv_pgid(__ecv_pgid),  // unused for now
+        ecv_uid(0),
+        ecv_euid(0),
+        ecv_gid(0),
+        ecv_egid(0),
+        ecv_ttid(__ecv_pid),
         memory_arena(__memory_arena),
         cpu_state(__cpu_state),
         call_history(__call_history),
@@ -110,6 +117,12 @@ class EcvProcess {
 
   uint32_t ecv_pid;
   uint32_t par_ecv_pid;
+  uint32_t ecv_pgid;
+  uint32_t ecv_uid;
+  uint32_t ecv_euid;
+  uint32_t ecv_gid;
+  uint32_t ecv_egid;
+  uint32_t ecv_ttid;
   MemoryArena *memory_arena;
   State *cpu_state;
 
