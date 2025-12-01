@@ -26,7 +26,7 @@ In the past, there have been many Wasm porting projects (e.g., [PostgreSQL on Wa
 ## Status
 > [!WARNING]
 > "**elfconv is WORK IN PROGRESS**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated Wasm binary. Current limitations are as follows. However, we will resolve these issues in the future.
-- Only support for AArch64 ELF binary as an input binary
+- Only support for AArch64 ELF binary as an input binary (The support for x86-64 is in progress)
 - No support for shared objects
 - Only a part of the Linux system calls are implemented (ref: [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
 
@@ -68,7 +68,7 @@ elfconv/$ docker run -it --rm -p 8080:8080 --name <container-name> <image-name>
 Web server root directory: /root/elfconv/bin
 Now listening at http://0.0.0.0:8080/
 ```
-Now, the Wasm application server has started, so that you can access it (e.g., http://localhost:8080/exe.wasm.html) from outside the container.
+Now, the Wasm application server has started, so that you can access it (e.g., http://localhost:8080/exe.html) from outside the container.
 ### Host (WASI runtimes)
 ```bash
 $ git clone --recursive https://github.com/yomaytk/elfconv
