@@ -57,7 +57,7 @@ You can try elfconv using the Docker container (x86-64 and ARM64) by executing t
 ```bash
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
-elfconv/$ docker build . -t <image-name>
+elfconv/$ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
 elfconv/$ docker run -it --rm -p 8080:8080 --name <container-name> <image-name>
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
@@ -73,7 +73,7 @@ Now, the Wasm application server has started, so that you can access it (e.g., h
 ```bash
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
-$ docker build . -t <image-name>
+$ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
 $ docker run -it --name <container-name> <image-name>
 ### running build and test ...
 # You can test elfconv using `bin/elfconv.sh`
