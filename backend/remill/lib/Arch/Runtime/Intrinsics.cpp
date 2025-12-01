@@ -120,6 +120,7 @@ extern "C" [[gnu::used]] void __remill_intrinsics(void) {
   //  USED(__remill_defer_inlining);
 
   USED(__remill_error);
+  USED(__ecv_warning);
 
   USED(__remill_function_call);
   USED(__remill_function_return);

@@ -83,22 +83,28 @@
 #define _LINUX_EOWNERDEAD 130
 #define _LINUX_ENOTRECOVERABLE 131
 
+// ioctls cmds (Linux)
 #define _LINUX_TCGETS 0x5401
 #define _LINUX_TCSETS 0x5402
 #define _LINUX_TIOCGWINSZ 0x5413
+#define _LINUX_TIOCGPGRP 0x540f
+#define _LINUX_TIOSGPGRP 0x5410
+
 #define _LINUX_NCCS 19
+
+// ioctls cmds (emscripten)
+#define _EMCC_TCGETS 21505
+#define _EMCC_TCSETS 21506
+#define _EMCC_TIOCGWINSZ 21523
+#define _EMCC_TIOCGPGRP 21519
+#define _EMCC_TIOCSPGRP 21520
+
 
 #define _LINUX_AT_EACCESS 0x200
 #define _LINUX_AT_SYMLINK_NOFOLLOW 0x100
 
 #define _LINUX_AT_EMPTY_PATH 0x1000
 #define _LINUX_STATX_BASIC_STATS 0x000007ffU
-
-#define UNIMPLEMENTED_SYSCALL \
-  do { \
-    X0_Q = -1; \
-    errno = -_LINUX_ENOSYS; \
-  } while (0)
 
 #if defined(ELF_IS_AARCH64)
 
@@ -497,3 +503,9 @@
 #  define ECV_SYS_RSEQ 334
 
 #endif
+
+#define UNIMPLEMENTED_SYSCALL \
+  do { \
+    X0_Q = -1; \
+    errno = -_LINUX_ENOSYS; \
+  } while (0)

@@ -89,11 +89,12 @@ void fork_main(uint8_t *memory_arena_bytes, uint8_t *shared_data) {
   // ecv pid
   uint32_t *ecv_pid_p = history_p + 1 + history_size * 2;
   uint32_t *par_ecv_pid_p = ecv_pid_p + 1;
+  uint32_t *ecv_pgid_p = par_ecv_pid_p + 1;
 
   /// same settings as normal main before jumping to entry lifted function (t_func_addr & t_next_pc).
   // EcvProcess
-  auto main_ecv_pr =
-      new EcvProcess(*ecv_pid_p, *par_ecv_pid_p, memory_arena, cpu_state, par_call_history);
+  auto main_ecv_pr = new EcvProcess(*ecv_pid_p, *par_ecv_pid_p, *ecv_pgid_p, memory_arena,
+                                    cpu_state, par_call_history);
   // RuntimeManager
   auto rt_m = new RuntimeManager(main_ecv_pr);
 
@@ -199,7 +200,7 @@ int main(int argc, char *argv[], char *envp[]) {
   char **_argv = argv;
   char **_envp = NULL;
 
-  uint32_t this_ecv_pid = 42, par_ecv_pid = 0;
+  uint32_t this_ecv_pid = 42, par_ecv_pid = 0, this_ecv_pgid = 42;
 
 #if defined(__EMSCRIPTEN__)
 
@@ -222,7 +223,7 @@ int main(int argc, char *argv[], char *envp[]) {
     auto argv_content_p = (uint8_t *) malloc(1000);
     auto envp_content_p = (uint8_t *) malloc(5000);
 
-    uint32_t ecv_pids[2];
+    uint32_t ecv_pids[3];
     // `argv` and `envp` copy request
     _argc = execve_memory_copy_req((uint32_t) argv_p, (uint32_t) envp_p, (uint32_t) argv_content_p,
                                    (uint32_t) envp_content_p, (uint32_t) ecv_pids);
@@ -230,6 +231,7 @@ int main(int argc, char *argv[], char *envp[]) {
     _envp = envp_p;
     this_ecv_pid = ecv_pids[0];
     par_ecv_pid = ecv_pids[1];
+    this_ecv_pgid = ecv_pids[2];
     // succeeding code is the same as init process
   }
 #endif
@@ -271,7 +273,8 @@ int main(int argc, char *argv[], char *envp[]) {
   cpu_state->sr.dczid_el0 = {.qword = 0x4};
 #endif
 
-  auto main_ecv_pr = new EcvProcess(this_ecv_pid, par_ecv_pid, memory_arena, cpu_state, {});
+  auto main_ecv_pr =
+      new EcvProcess(this_ecv_pid, par_ecv_pid, this_ecv_pgid, memory_arena, cpu_state, {});
   auto rt_m = new RuntimeManager(main_ecv_pr);
 
   // Set lifted function pointer table

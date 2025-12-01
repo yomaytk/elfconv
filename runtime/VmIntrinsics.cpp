@@ -136,6 +136,10 @@ void __remill_error(uint8_t *, State &, addr_t addr, RuntimeManager *) {
   exit(EXIT_FAILURE);
 }
 
+void __ecv_warning(uint8_t *, State &, addr_t addr, RuntimeManager *) {
+  printf("[WARN] No lifted instruction at (0x%llx) was executed.", addr);
+}
+
 /*
   BLR instuction
   The remill semantic sets X30 link register, so this only jumps to target function.
@@ -166,15 +170,26 @@ void __remill_jump(uint8_t *arena_ptr, State &state, addr_t t_vma, RuntimeManage
   auto jmp_fun_it =
       std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), t_vma,
                        [](auto const &lhs, addr_t value) { return lhs.first < value; });
-  if (jmp_fun_it != addr_funptr_srt_list.end() && jmp_fun_it->first == t_vma) {
+  if (jmp_fun_it != addr_funptr_srt_list.end()) {
+    LiftedFunc t_func;
+    if (jmp_fun_it->first == t_vma) {
+      // t_vma is entry of the function.
+      t_func = jmp_fun_it->second;
+    } else {
+      // t_vma is the middle of the function, so the t_vma must be the next inst to `sycall calling` or `function calling`.
+      // If VRP optimization is on, This must be panic.
+      if (jmp_fun_it == addr_funptr_srt_list.begin()) {
+        elfconv_runtime_error("target vma (0x%llx) is too small at __remill_jump.\n", t_vma);
+      }
+      t_func = (jmp_fun_it - 1)->second;
+    }
     // target instruction address is used via `PC` register.
     PCREG = t_vma;
-    jmp_fun_it->second(arena_ptr, &state, t_vma, rt_m);
+    t_func(arena_ptr, &state, t_vma, rt_m);
   } else {
     elfconv_runtime_error(
-        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`."
-        "found vma on lower_bound: 0x%lx\n",
-        t_vma, jmp_fun_it->first);
+        "[ERROR] vma 0x%llx is not included in the lifted function pointer table at `__remill_jump`.",
+        t_vma);
   }
 }
 
@@ -187,19 +202,10 @@ extern "C" uint64_t *_ecv_get_indirectbr_block_address(RuntimeManager *rt_m, uin
     if (vma_bb_map.count(bb_vma) == 1) {
       return vma_bb_map[bb_vma];
     } else {
-      // If the target instruction is not the vma of basic block but the function entry point,
-      // jump to the basic block for `__remill_jump`.
-      auto &addr_funptr_srt_list = rt_m->addr_funptr_srt_list;
-      if (auto fun_it =
-              std::lower_bound(addr_funptr_srt_list.begin(), addr_funptr_srt_list.end(), bb_vma,
-                               [](auto const &lhs, addr_t value) { return lhs.first < value; });
-          fun_it->first == bb_vma) {
-        return vma_bb_map[UINT64_MAX];
-      } else {
-        elfconv_runtime_error(
-            "[ERROR] 0x%llx is neither the block address vma or lifted function vma of '%s'. fun_vma: 0x%llx\n",
-            bb_vma, __func__, fun_vma);
-      }
+      // If the target inst is within the other function, jump to the basic block for `__remill_jump`.
+      // In the current implementation, we are able to jump the `entry` or next to the `system call` and `function call` of the other function.
+      // However, this codes doesn't guaruantee that the target is valid address.
+      return vma_bb_map[UINT64_MAX];
     }
   } else {
     elfconv_runtime_error(

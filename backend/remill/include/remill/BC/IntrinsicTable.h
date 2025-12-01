@@ -34,6 +34,7 @@ class IntrinsicTable {
   explicit IntrinsicTable(llvm::Module *module);
 
   llvm::Function *const error;
+  llvm::Function *const warning;
 
   // Control-flow.
   llvm::Function *const function_call;

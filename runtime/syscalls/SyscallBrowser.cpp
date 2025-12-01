@@ -1,5 +1,6 @@
 #include "SysTable.h"
 #include "emscripten_wasi_errno.h"
+
 #if defined(ELF_IS_AARCH64)
 #  include "remill/Arch/Runtime/Types.h"
 #else
@@ -26,7 +27,6 @@
 #include <stdlib.h>
 #include <string>
 #include <sys/ioctl.h>
-#include <sys/poll.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -68,12 +68,16 @@ typedef uint32_t _ecv_tcflag_t;
 typedef uint8_t _ecv_cc_t;
 
 struct _elfarm64_termios {
-  _ecv_tcflag_t c_iflag;
-  _ecv_tcflag_t c_oflag;
-  _ecv_tcflag_t c_cflag;
-  _ecv_tcflag_t c_lflag;
-  _ecv_cc_t c_line;
-  _ecv_cc_t c_cc[_LINUX_NCCS];
+  tcflag_t c_iflag; /* input mode flags */
+  tcflag_t c_oflag; /* output mode flags */
+  tcflag_t c_cflag; /* control mode flags */
+  tcflag_t c_lflag; /* local mode flags */
+  cc_t c_line; /* line discipline */
+  cc_t c_cc[_LINUX_NCCS]; /* control characters */
+  //   speed_t c_ispeed; /* input speed */
+  //   speed_t c_ospeed; /* output speed */
+  // #define _HAVE_STRUCT_TERMIOS_C_ISPEED 1
+  // #define _HAVE_STRUCT_TERMIOS_C_OSPEED 1
 };
 
 struct _elfarm64_winsize {
@@ -359,6 +363,19 @@ EM_JS(int, ___syscall_execve, (uint32_t fileNameP, uint32_t argvP, uint32_t envp
   // (FIXME) should set valid error code.
   return -1;
 });
+
+EM_JS(int, ___syscall_setpgid, (uint32_t tEcvPid, uint32_t ecvPgid),
+      { return ecvProxySyscallJs(ECV_SETPGID, tEcvPid, ecvPgid, ecvPid); });
+
+EM_JS(int, ___syscall_getpgid, (uint32_t tEcvPid),
+      { return ecvProxySyscallJs(ECV_GETPGID, tEcvPid, ecvPid); });
+
+EM_JS(int, ___ecv_syscall_ioctl, (uint32_t fd, uint32_t cmd, uint32_t arg),
+      { return ecvProxySyscallJs(ECV_IOCTL, fd, cmd, arg); });
+
+EM_JS(int, ___syscall_poll, (uint32_t fd, uint32_t nfds, uint32_t timeout),
+      { return ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, timeout); });  // dummy body
+
 /*
   syscall emulate function
   
@@ -375,7 +392,10 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  // printf("[pid %u] syscall: %llu\n", main_ecv_pr->ecv_pid, SYSNUMREG);
+  // if (SYSNUMREG == ECV_IOCTL) {
+  // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
+  //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
+  // }
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
@@ -424,6 +444,29 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
           } else {
             X0_Q = -wasi2linux_errno[errno];
           }
+          break;
+        }
+        case _LINUX_TCSETS: {
+          struct termios t_wasm;
+          auto t_host = *(_elfarm64_termios *) TranslateVMA(arena_ptr, arg);
+          t_wasm.c_iflag = t_host.c_iflag;
+          t_wasm.c_oflag = t_host.c_oflag;
+          t_wasm.c_cflag = t_host.c_cflag;
+          t_wasm.c_lflag = t_host.c_lflag;
+          t_wasm.c_line = t_host.c_line;
+          memcpy(t_wasm.c_cc, t_host.c_cc, std::min(NCCS, _LINUX_NCCS));
+          int res = tcsetattr(fd, 0 /* TCSANOW */, &t_wasm);
+          if (res == 0) {
+            X0_Q = 0;
+          } else {
+            X0_Q = -wasi2linux_errno[errno];
+          }
+          break;
+        }
+        case _LINUX_TIOCGPGRP: {
+          auto arg_p = TranslateVMA(arena_ptr, arg);
+          int res = ___ecv_syscall_ioctl(X0_D, _EMCC_TIOCGPGRP, (uint32_t) &arg_p);
+          X0_Q = res == -1 ? -_LINUX_ENOTTY : res;
           break;
         }
         case _LINUX_TIOCGWINSZ: X0_Q = -_LINUX_ENOTTY; break;
@@ -517,8 +560,14 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       break;
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
     {
-      int res = poll((struct pollfd *) TranslateVMA(arena_ptr, X0_Q), (unsigned long int) X1_D, 60);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
+      int timeout = X2_Q ? ((_elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q))->tv_sec : -1;
+      int res = ___syscall_poll(X0_D, X1_D, timeout);
+      if (res < 0) {
+        X0_Q = -1;
+        errno = -wasi2linux_errno[-res];
+      } else {
+        X0_Q = res;
+      }
     } break;
     case ECV_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
     {
@@ -633,7 +682,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 
       X0_Q = -res;
     } break;
-    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */ {
+    case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
+    {
       int res = kill(X0_D, X1_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
@@ -642,6 +692,14 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       int res = sigaction(X0_D, (const struct sigaction *) TranslateVMA(arena_ptr, X1_Q),
                           (struct sigaction *) TranslateVMA(arena_ptr, X2_Q));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
+    case ECV_SETPGID: /* int setpgid(pid_t pid, pid_t pgid) */
+    {
+      X0_Q = ___syscall_setpgid(X0_D, X1_D);
+    } break;
+    case ECV_GETPGID: /* void getpgid(pid_t pid) */
+    {
+      X0_Q = ___syscall_getpgid(X0_D);
     } break;
     case ECV_UNAME: /* uname (struct old_utsname* buf) */
     {
@@ -669,10 +727,11 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
           "[WARN] `getrusage` is called but this is only implemented as a stub in emscripten.\n");
       struct rusage tmp_rusage;
       int res = getrusage(X0_D, &tmp_rusage);
-      _linux_rusage _ecv_usage{.ru_utime.tv_sec = tmp_rusage.ru_utime.tv_sec,
-                               .ru_utime.tv_usec = tmp_rusage.ru_utime.tv_usec,
-                               .ru_stime.tv_sec = tmp_rusage.ru_stime.tv_sec,
-                               .ru_stime.tv_usec = tmp_rusage.ru_stime.tv_usec};
+      _linux_rusage _ecv_usage;
+      _ecv_usage.ru_utime.tv_sec = tmp_rusage.ru_utime.tv_sec;
+      _ecv_usage.ru_utime.tv_usec = tmp_rusage.ru_utime.tv_usec;
+      _ecv_usage.ru_stime.tv_sec = tmp_rusage.ru_stime.tv_sec;
+      _ecv_usage.ru_stime.tv_usec = tmp_rusage.ru_stime.tv_usec;
       memcpy(TranslateVMA(arena_ptr, X1_Q), &_ecv_usage, sizeof(_linux_rusage));
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
     } break;
@@ -690,11 +749,11 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     } break;
     case ECV_GETPID: /* getpid () */ X0_D = main_ecv_pr->ecv_pid; break;
     case ECV_GETPPID: /* getppid () */ X0_D = main_ecv_pr->par_ecv_pid; break;
-    case ECV_GETUID: /* getuid () */ X0_D = getuid(); break;
-    case ECV_GETEUID: /* geteuid () */ X0_D = geteuid(); break;
-    case ECV_GETGID: /* getgid () */ X0_D = getgid(); break;
-    case ECV_GETEGID: /* getegid () */ X0_D = getegid(); break;
-    case ECV_GETTID: /* getttid () */ X0_D = gettid(); break;
+    case ECV_GETUID: /* getuid () */ X0_D = main_ecv_pr->ecv_uid; break;
+    case ECV_GETEUID: /* geteuid () */ X0_D = main_ecv_pr->ecv_euid; break;
+    case ECV_GETGID: /* getgid () */ X0_D = main_ecv_pr->ecv_gid; break;
+    case ECV_GETEGID: /* getegid () */ X0_D = main_ecv_pr->ecv_egid; break;
+    case ECV_GETTID: /* getttid () */ X0_D = main_ecv_pr->ecv_ttid; break;
     case ECV_BRK: /* brk (unsigned long brk) */
     {
       MemoryArena *memory_arena;
@@ -743,8 +802,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
                                  + 4 /* call_history_len */
                                  +
                                  4 * main_ecv_pr->call_history.size() * 2 /* parent_call_history */
-                                 + 4 /* child pid */
-                                 + 4; /* parent pid */
+                                 + 4 /* child pid (written by js-kernel) */
+                                 + 4 /* parent pid (written by js-kernel) */
+                                 + 4; /* pgid (written by js-kernel) */
       uint8_t *shared_data = (uint8_t *) malloc(shared_data_len);
 
       // CPUState
@@ -1006,7 +1066,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_SIGALTSTACK: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGSUSPEND: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_RT_SIGACTION: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_RT_SIGPROCMASK: UNIMPLEMENTED_SYSCALL; break;
+    case ECV_RT_SIGPROCMASK: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGPENDING: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGTIMEDWAIT: UNIMPLEMENTED_SYSCALL; break;
     case ECV_RT_SIGQUEUEINFO: UNIMPLEMENTED_SYSCALL; break;
@@ -1025,8 +1085,8 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_SETFSUID: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SETFSGID: UNIMPLEMENTED_SYSCALL; break;
     case ECV_TIMES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETPGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETPGID: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_SETPGID: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_GETPGID: UNIMPLEMENTED_SYSCALL; break;
     case ECV_GETSID: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SETSID: UNIMPLEMENTED_SYSCALL; break;
     case ECV_GETGROUPS: UNIMPLEMENTED_SYSCALL; break;

@@ -112,6 +112,8 @@ extern "C" {
 
 // Generic error.
 [[gnu::used]] extern void __remill_error(uint8_t *, State &, addr_t addr, RuntimeManager *);
+// warning
+[[gnu::used]] extern void __ecv_warning(uint8_t *, State &, addr_t addr, RuntimeManager *);
 
 // Control-flow intrinsics.
 [[gnu::used]] extern void __remill_function_call(uint8_t *, State &, addr_t addr, RuntimeManager *);
