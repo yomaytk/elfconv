@@ -127,10 +127,10 @@ prepare_js() {
   cp ${MAINGENWASM} ${OUTWASM}
   cp ${CUR_DIR}/process.js ${OUTJS}
   # copy `_me_forked`.
-  me_forked_val=$(sed -n 's/.*Module\["_me_forked"\]=\([0-9]*\).*/\1/p' ${MAINGENJS})
+  me_forked_val=$(sed -n 's/.*Module\["_me_forked"\][[:space:]]*=[[:space:]]*\([0-9]\+\).*/\1/p' ${MAINGENJS})
   sed -i "s/\(var[[:space:]]\+meForkedP[[:space:]]*=[[:space:]]*\).*/\1${me_forked_val};/" ${OUTJS}
   # copy `_me_execved`.
-  me_execved_val=$(sed -n 's/.*Module\["_me_execved"\]=\([0-9]*\).*/\1/p' ${MAINGENJS})
+  me_execved_val=$(sed -n 's/.*Module\["_me_execved"\][[:space:]]*=[[:space:]]*\([0-9]\+\).*/\1/p' ${MAINGENJS})
   sed -i "s/\(var[[:space:]]\+meExecvedP[[:space:]]*=[[:space:]]*\).*/\1${me_execved_val};/" ${OUTJS}
   
   # set entry Wasm program.
