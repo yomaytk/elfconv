@@ -376,6 +376,14 @@ EM_JS(int, ___ecv_syscall_ioctl, (uint32_t fd, uint32_t cmd, uint32_t arg),
 EM_JS(int, ___syscall_poll, (uint32_t fd, uint32_t nfds, uint32_t timeout),
       { return ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, timeout); });  // dummy body
 
+EM_JS(int, ___syscall_pselect6,
+      (uint32_t nfds, uint32_t readfdsP, uint32_t writefdsP, uint32_t exceptfdsP, uint32_t timeout,
+       uint32_t sigmaskP),
+      {
+        return ecvProxySyscallJs(ECV_PSELECT6_SCAN, nfds, readfdsP, writefdsP, exceptfdsP, timeout,
+                                 sigmaskP);
+      });  // dummy body
+
 /*
   syscall emulate function
   
@@ -558,6 +566,16 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
       elfconv_runtime_error("sendfile must be implemented for Wasm browser.");
       break;
+    case ECV_PSELECT6: /* pselect6 (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t* sigmask) */
+    {
+      int res = ___syscall_pselect6(X0_D, X1_Q, X2_Q, X3_Q, X4_Q, X5_Q);
+      if (res < 0) {
+        X0_Q = -1;
+        errno = -wasi2linux_errno[-res];
+      } else {
+        X0_Q = res;
+      }
+    } break;
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
     {
       int timeout = X2_Q ? ((_elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q))->tv_sec : -1;
@@ -1003,7 +1021,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     case ECV_PREADV: UNIMPLEMENTED_SYSCALL; break;
     case ECV_PWRITEV: UNIMPLEMENTED_SYSCALL; break;
     /* UNDECLARED! */  // case ECV_SENDFILE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PSELECT6: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_PSELECT6: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_PPOLL: UNIMPLEMENTED_SYSCALL; break;
     case ECV_SIGNALFD4: UNIMPLEMENTED_SYSCALL; break;
     case ECV_VMSPLICE: UNIMPLEMENTED_SYSCALL; break;

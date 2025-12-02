@@ -509,3 +509,4 @@
     X0_Q = -1; \
     errno = -_LINUX_ENOSYS; \
   } while (0)
+// std::cout << "Unimplemented syscall: " << SYSNUMREG << std::endl; \

@@ -19,7 +19,7 @@ var Module = (() => {
 
     var ecvPidCounter = 42;
     var gWasmMemory;
-    var SyscallPtrMap = new Map();
+    var SysFuncMap = new Map();
     var processes = new Map();
 
     const prLingOffset = 4;
@@ -88,7 +88,7 @@ var Module = (() => {
     }
 
     // system call handling.
-    function syscallRun(d) {
+    function runSyscall(d) {
       gWasmMemory = processes.get(d.ecvPid).wMemory;
       updateMemoryViews(gWasmMemory);
 
@@ -107,7 +107,7 @@ var Module = (() => {
         sysArgs[i] = m32View[headPtr32 + 2 + i];
       }
 
-      let tgtKernelFunction = SyscallPtrMap.get(sysNum);
+      let tgtKernelFunction = SysFuncMap.get(sysNum);
       if (!tgtKernelFunction) {
         throw new Error(`unknown syscall: ${sysNum}`);
       }
@@ -230,7 +230,7 @@ var Module = (() => {
 
         // executes system call.
         if (d.cmd === "sysRun") {
-          syscallRun(d);
+          runSyscall(d);
         }
         // wasm initialization is finished.
         else if (d.cmd === "wasmReady") {
@@ -399,8 +399,8 @@ var Module = (() => {
     const ECV_PREADV = 69;
     const ECV_PWRITEV = 70;
     const ECV_SENDFILE = 71;
-    const ECV_PSELECT6 = 72;
-    const ECV_PPOLL = 73;
+    // const ECV_PSELECT6 = 72; // no need
+    // const ECV_PPOLL = 73; // no need
     const ECV_SIGNALFD4 = 74;
     const ECV_VMSPLICE = 75;
     const ECV_SPLICE = 76;
@@ -633,50 +633,56 @@ var Module = (() => {
     const ECV_PROCESS_MRELEASE = 448;
     const ECV_FUTEX_WAITV = 449;
 
+    // Linux macro
+    const __FD_SETSIZE = 1024;
+    const __KERNEL_FD_SETMAXID = 16;
+
     // macro specified to the emscripten runtime
     const ECV_LSTAT64 = 1000;
     // const ECV_ENVIRON_GET = 1001;
     // const ECV_ENVIRON_SIZES_GET = 1002;
     const ECV_POLL_SCAN = 1003;
+    const ECV_PSELECT6_SCAN = 1004;
 
-    SyscallPtrMap.set(ECV_CLONE, ___syscall_clone);
-    SyscallPtrMap.set(ECV_WAIT4, ___syscall_wait4);
-    SyscallPtrMap.set(ECV_EXECVE, ___syscall_execve);
-    SyscallPtrMap.set(ECV_CHDIR, ___syscall_chdir);
-    SyscallPtrMap.set(ECV_DUP, ___syscall_dup);
-    SyscallPtrMap.set(ECV_DUP3, ___syscall_dup3);
-    SyscallPtrMap.set(ECV_FACCESSAT, ___syscall_faccessat);
-    SyscallPtrMap.set(ECV_FCNTL, ___syscall_fcntl64);
-    SyscallPtrMap.set(ECV_NEWFSTAT, ___syscall_fstat64);
-    SyscallPtrMap.set(ECV_FTRUNCATE, ___syscall_ftruncate64);
-    SyscallPtrMap.set(ECV_GETCWD, ___syscall_getcwd);
-    SyscallPtrMap.set(ECV_GETDENTS, ___syscall_getdents64);
-    SyscallPtrMap.set(ECV_IOCTL, ___syscall_ioctl);
-    SyscallPtrMap.set(ECV_MKDIRAT, ___syscall_mkdirat);
-    SyscallPtrMap.set(ECV_NEWFSTATAT, ___syscall_newfstatat);
-    SyscallPtrMap.set(ECV_OPENAT, ___syscall_openat);
+    SysFuncMap.set(ECV_CLONE, ___syscall_clone);
+    SysFuncMap.set(ECV_WAIT4, ___syscall_wait4);
+    SysFuncMap.set(ECV_EXECVE, ___syscall_execve);
+    SysFuncMap.set(ECV_CHDIR, ___syscall_chdir);
+    SysFuncMap.set(ECV_DUP, ___syscall_dup);
+    SysFuncMap.set(ECV_DUP3, ___syscall_dup3);
+    SysFuncMap.set(ECV_FACCESSAT, ___syscall_faccessat);
+    SysFuncMap.set(ECV_FCNTL, ___syscall_fcntl64);
+    SysFuncMap.set(ECV_NEWFSTAT, ___syscall_fstat64);
+    SysFuncMap.set(ECV_FTRUNCATE, ___syscall_ftruncate64);
+    SysFuncMap.set(ECV_GETCWD, ___syscall_getcwd);
+    SysFuncMap.set(ECV_GETDENTS, ___syscall_getdents64);
+    SysFuncMap.set(ECV_IOCTL, ___syscall_ioctl);
+    SysFuncMap.set(ECV_MKDIRAT, ___syscall_mkdirat);
+    SysFuncMap.set(ECV_NEWFSTATAT, ___syscall_newfstatat);
+    SysFuncMap.set(ECV_OPENAT, ___syscall_openat);
     // unused.
-    // SyscallPtrMap.set(ECV_PPOLL, ___syscall_poll);
-    SyscallPtrMap.set(ECV_READLINKAT, ___syscall_readlinkat);
-    SyscallPtrMap.set(ECV_STATX, ___syscall_stat64);
-    SyscallPtrMap.set(ECV_STATFS, ___syscall_statfs64);
-    SyscallPtrMap.set(ECV_TRUNCATE, ___syscall_truncate64);
-    SyscallPtrMap.set(ECV_UNLINKAT, ___syscall_unlinkat);
-    SyscallPtrMap.set(ECV_UTIMENSAT, ___syscall_utimensat);
-    SyscallPtrMap.set(ECV_CLOSE, _fd_close);
-    SyscallPtrMap.set(ECV_READ, _fd_read);
-    SyscallPtrMap.set(ECV_LSEEK, _fd_seek);
-    SyscallPtrMap.set(ECV_WRITE, _fd_write);
-    SyscallPtrMap.set(ECV_EXIT, ___syscall_exit);
-    SyscallPtrMap.set(ECV_GETRANDOM, _random_get);
-    SyscallPtrMap.set(ECV_SETPGID, ___syscall_setpgid);
-    SyscallPtrMap.set(ECV_GETPGID, ___syscall_getpgid);
+    // SysFuncMap.set(ECV_PPOLL, ___syscall_poll);
+    SysFuncMap.set(ECV_READLINKAT, ___syscall_readlinkat);
+    SysFuncMap.set(ECV_STATX, ___syscall_stat64);
+    SysFuncMap.set(ECV_STATFS, ___syscall_statfs64);
+    SysFuncMap.set(ECV_TRUNCATE, ___syscall_truncate64);
+    SysFuncMap.set(ECV_UNLINKAT, ___syscall_unlinkat);
+    SysFuncMap.set(ECV_UTIMENSAT, ___syscall_utimensat);
+    SysFuncMap.set(ECV_CLOSE, _fd_close);
+    SysFuncMap.set(ECV_READ, _fd_read);
+    SysFuncMap.set(ECV_LSEEK, _fd_seek);
+    SysFuncMap.set(ECV_WRITE, _fd_write);
+    SysFuncMap.set(ECV_EXIT, ___syscall_exit);
+    SysFuncMap.set(ECV_GETRANDOM, _random_get);
+    SysFuncMap.set(ECV_SETPGID, ___syscall_setpgid);
+    SysFuncMap.set(ECV_GETPGID, ___syscall_getpgid);
 
     // emscripten runtimes
-    SyscallPtrMap.set(ECV_LSTAT64, ___syscall_lstat64);
-    // SyscallPtrMap.set(ECV_ENVIRON_GET, 1001);
-    // SyscallPtrMap.set(ECV_ENVIRON_SIZES_GET, 1002);
-    SyscallPtrMap.set(ECV_POLL_SCAN, ___syscall_poll_scan);
+    SysFuncMap.set(ECV_LSTAT64, ___syscall_lstat64);
+    // SysFuncMap.set(ECV_ENVIRON_GET, 1001);
+    // SysFuncMap.set(ECV_ENVIRON_SIZES_GET, 1002);
+    SysFuncMap.set(ECV_POLL_SCAN, ___syscall_poll_scan);
+    SysFuncMap.set(ECV_PSELECT6_SCAN, ___syscall_pselect6_scan);
 
     class ExitStatus {
       name = "ExitStatus";
@@ -3125,7 +3131,7 @@ var Module = (() => {
 
           // executes system call.
           if (d.cmd === "sysRun") {
-            syscallRun(d);
+            runSyscall(d);
           }
           // wasm initialization is finished.
           else if (d.cmd === "wasmReady") {
@@ -3671,6 +3677,61 @@ var Module = (() => {
         return -e.errno
       }
     }
+
+    function ___syscall_pselect6_scan(nfds, readfdsP, writefdsP, exceptfdsP, timeoutP, sigmaskP) {
+      try {
+
+        growMemViews(gWasmMemory);
+
+        function checkFDs(fdsP, events) {
+
+          let tFD = 0;
+
+          for (let i = 0; i < __KERNEL_FD_SETMAXID * 2; i++) { // scan 32 bits at a time.
+            for (let j = 0; j < 32; j++) {
+              if ((HEAP32[(fdsP >> 2) + i] & (1 << j)) !== 0) {
+                let stream = FS.getStream(fd);
+                if (stream) {
+                  if (stream.stream_ops.poll) {
+                    mask = stream.stream_ops.poll(stream, -1);
+                  }
+                } else {
+                  throw "FS not having stream is valid?";
+                }
+                if (mask & events) {
+                  // the bit is set
+                  let fdSetId = fd / 32;
+                  let bitId = fd % 32;
+                  HEAP32[(fdsP >> 2) + fdSetId] |= (1 << bitId);
+                  nonzero++;
+                } else {
+                  // the bit is not set
+                  HEAP32[(fdsP >> 2) + fdSetId] &= ~(1 << bitId);
+                }
+              }
+              tFD++;
+              if (tFD == nfds) {
+                // console.log(`pselect6 log. nonzero: ${nonzero}`);
+                return nonzero;
+              }
+            }
+          }
+
+          return nonzero;
+        }
+
+        let nonzero = 0;
+        nonzero += checkFDs(readfdsP, 1); // use POLLIN
+        nonzero += checkFDs(writefdsP, 4); // use POLLOUT
+        // nonzero += checkFDs(exceptfdsP, null); // rarely not used
+
+        return nonzero;
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
     var PTY_ReadableAtomicCheckImpl = callback => {
       if (PTY_pollTimeout === 0) {
         return callback(PTY.readable ? 0 : 2)
