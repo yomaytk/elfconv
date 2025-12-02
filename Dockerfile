@@ -1,5 +1,6 @@
 # Choose your LLVM version (16+)
 ARG LLVM_VERSION=16
+ARG EMCC_VERSION=4.0.9
 ARG UBUNTU_VERSION=22.04
 ARG DISTRO_NAME=jammy
 ARG ROOT_DIR=/root/elfconv
@@ -9,6 +10,7 @@ ARG ECV_X86
 # Run-time dependencies go here
 FROM ubuntu:${UBUNTU_VERSION}
 ARG LLVM_VERSION
+ARG EMCC_VERSION
 ARG UBUNTU_VERSION
 ARG DISTRO_NAME
 ARG ROOT_DIR
@@ -54,7 +56,7 @@ RUN apt-get update && \
 
 # emscripten install
 RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
-  git pull && ./emsdk install latest && ./emsdk activate latest && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
+  git pull && ./emsdk install ${EMCC_VERSION} && ./emsdk activate ${EMCC_VERSION} && . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
 
 # wasi-sdk install
 RUN \

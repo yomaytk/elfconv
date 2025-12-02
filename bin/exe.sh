@@ -6,7 +6,7 @@ ECV_DIR=$( dirname "$PWD" )
 source "${ECV_DIR}/scripts/elfconv.sh"
 
 if [ -n "$CLEAN" ]; then
-  rm *.bc *.ll *.o *.wasm *.js *.html
+  rm *.bc *.ll *.o *.wasm *.js *.html elflift
 fi
 
 main "$@"
