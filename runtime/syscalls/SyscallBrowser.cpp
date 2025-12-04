@@ -384,6 +384,10 @@ EM_JS(int, ___syscall_pselect6,
                                  sigmaskP);
       });  // dummy body
 
+EM_JS(int, ___syscall_pipe2, (uint32_t pipefd, uint32_t flags), {
+  return ecvProxySyscallJs(ECV_PIPE2, pipefd, flags);
+});
+
 /*
   syscall emulate function
   
@@ -526,6 +530,15 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     {
       int res = close(X0_D);
       X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
+    } break;
+    case ECV_PIPE2: /* int pipe2(int pipefd[2], int flags) */
+    {
+      int pipefd[2];
+      int res = ___syscall_pipe2((uint32_t) pipefd, X1_D);
+      int *_res_pipefd = (int *)TranslateVMA(arena_ptr, X0_Q);
+      _res_pipefd[0] = pipefd[0];
+      _res_pipefd[1] = pipefd[1];
+      X0_D = res == 0 ? 0 : -1;
     } break;
     case ECV_GETDENTS: /* long getdents64 (int fd, void *dirp, size_t count) */
     {
@@ -877,6 +890,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       for (int i = 0; envp_p[i * 2]; i++) {
         _execve_envp_p[i] = (char *) TranslateVMA(arena_ptr, (uint32_t) envp_p[i * 2]);
       }
+      printf("execve start! filename: %s, argv[0]: %s\n", (char *) TranslateVMA(arena_ptr, X0_Q),
+             _execve_argv_p[0]);
       X0_D = ___syscall_execve((uint32_t) TranslateVMA(arena_ptr, X0_Q), (uint32_t) _execve_argv_p,
                                (uint32_t) _execve_envp_p);
       free(_execve_argv_p);
@@ -1008,7 +1023,7 @@ void RuntimeManager::UnImplementedBrowserSyscall() {
     // case ECV_OPENAT: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_CLOSE: UNIMPLEMENTED_SYSCALL; break;
     case ECV_VHANGUP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PIPE2: UNIMPLEMENTED_SYSCALL; break;
+    // case ECV_PIPE2: UNIMPLEMENTED_SYSCALL; break;
     case ECV_QUOTACTL: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_GETDENTS: UNIMPLEMENTED_SYSCALL; break;
     // case ECV_LSEEK: UNIMPLEMENTED_SYSCALL; break;

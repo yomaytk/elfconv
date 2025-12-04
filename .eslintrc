@@ -1,0 +1,26 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact"
+  ],
+  "eslint.enable": true,
+  "eslint.alwaysShowStatus": true,
+  "eslint.workingDirectories": [
+    "./"
+  ],
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error"
+  }
+}

@@ -31,10 +31,46 @@ var Module = (() => {
     var execveCopyBuf;
 
     var PTY_AtomicBuffer;
+    var FIFO_AtomicBuf;
 
     // edited by *.generated.js
     var meForkedP = 0;
     var meExecvedP = 0;
+
+    // Linux macro
+    const __FD_SETSIZE = 1024;
+    const __KERNEL_FD_SETMAXID = 16;
+
+    // Basic access modes
+    const O_RDONLY = 0;   // Open for read-only
+    const O_WRONLY = 1;   // Open for write-only
+    const O_RDWR = 2;   // Open for both reading and writing
+
+    // Flags used in the emscripten FS open() implementation
+    const O_CREAT = 64;      // Create file if it does not exist
+    const O_EXCL = 128;     // Error if O_CREAT is used and the file already exists
+    const O_TRUNC = 512;     // Truncate file to zero length if it already exists
+    const O_APPEND = 1024;    // Append data to the end of the file (not used directly in open())
+
+    const O_DIRECTORY = 65536;  // Fail if the path is not a directory
+    const O_NOFOLLOW = 131072; // Do not follow symbolic links
+
+    // File type bits (st_mode)
+    const S_IFMT = 61440;  // Bit mask for the file type field
+    const S_IFREG = 32768;  // Regular file
+    const S_IFDIR = 16384;  // Directory
+    const S_IFIFO = 4096;   // FIFO / pipe
+    const S_IFCHR = 8192;   // Character device
+    const S_IFBLK = 24576;  // Block device
+    const S_IFLNK = 40960;  // Symbolic link
+
+    // Permission bits
+    const S_IRWXU = 0o700;   // Owner: read, write, execute
+    const S_IRWXG = 0o070;   // Group: read, write, execute
+    const S_IRWXO = 0o007;   // Others: read, write, execute
+
+    // Pipe
+    const PIPE_MAX_SZ = 65536;
 
     function growMemViews(pWasmMemory) {
       if (pWasmMemory.buffer != HEAP8.buffer) {
@@ -60,6 +96,7 @@ var Module = (() => {
         execveBell = d.execveBell;
         execveCopyBuf = d.execveCopyBuf;
         PTY_AtomicBuffer = d.PTY_AtomicBuffer;
+        FIFO_AtomicBuf = d.FIFO_AtomicBuf;
 
         assignWasmImports();
         initPromise = initWasmModule();
@@ -176,7 +213,7 @@ var Module = (() => {
     }
 
     function initRuntime() {
-      wasmExports["fa"]();
+      wasmExports["ga"]();
     }
 
     function preMain() { }
@@ -283,7 +320,7 @@ var Module = (() => {
       function receiveInstance(instance, module) {
         wasmExports = instance.exports;
         updateMemoryViews();
-        wasmTable = wasmExports["sc"];
+        wasmTable = wasmExports["uc"];
         removeRunDependency("wasm-instantiate");
         return wasmExports
       }
@@ -756,11 +793,18 @@ var Module = (() => {
     const ECV_FUTEX_WAITV = 449;
 
     // macro specified to the emscripten runtime
-    const ECV_LSTAT64 = 1000;
-    // const ECV_ENVIRON_GET = 1001;
-    // const ECV_ENVIRON_SIZES_GET = 1002;
-    const ECV_POLL_SCAN = 1003;
-    const ECV_PSELECT6_SCAN = 1004;
+    const ECV_LSTAT64 = 10000;
+    // const ECV_ENVIRON_GET = 10001;
+    // const ECV_ENVIRON_SIZES_GET = 10002;
+
+    // select/poll
+    const ECV_POLL_SCAN = 10003;
+    const ECV_PSELECT6_SCAN = 10004;
+
+    // read/write for pipe2
+    const ECV_GET_DEV_TYPE = 10005;
+    const ECV_FIFO_READ = 10006;
+    const ECV_FIFO_WRITE = 10007;
 
     // This function assumes that emscripten JS syscall is executed synchronously.
     function ecvProxySyscallJs(sysNum, ...callArgs) {
@@ -908,29 +952,25 @@ var Module = (() => {
     }
 
     var PTY_waitForReadableWithAtomic = callback => {
-
       let PTY_AtomicView = new Int32Array(PTY_AtomicBuffer);
-
       Atomics.store(PTY_AtomicView, 0, -1);
-
       postMessage({
         cmd: "PTY_ReadableCheck",
       });
-
       // wait for PTY ready or signal reciving.
       Atomics.wait(PTY_AtomicView, 0, -1);
       // `type` is saved on PTY_AtomicBuffer[0]
       callback(Atomics.load(PTY_AtomicView, 0));
     };
     var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
-    var PTY_handleSleepWithAtomic = startAsync => {
+    var PTY_saveResultAtomic = startAsync => {
       let result;
       startAsync(r => result = r);
       return result
     };
-    var PTY_handleSleep = PTY_handleSleepWithAtomic;
+    var PTY_saveResult = PTY_saveResultAtomic;
     var PTY_handleSleepImpl = impl => {
-      return PTY_handleSleep(wakeup => {
+      return PTY_saveResult(wakeup => {
         let res = impl();
         if (res == -1006) {
           PTY_waitForReadable(type => {
@@ -1201,8 +1241,11 @@ var Module = (() => {
       return ecvProxySyscallJs(ECV_CLOSE, fd);
     }
 
-    function _fd_read(fd, iov, iovcnt, pnum) {
-      return PTY_handleSleep(wakeup => {
+    var FILE_Read = (fd, iov, iovcnt, pnum) => {
+      return ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
+    };
+    var PTY_Read = (fd, iov, iovcnt, pnum) => {
+      return PTY_saveResult(wakeup => {
         let res = ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
         if (res == 1006) {
           PTY_waitForReadable(type => {
@@ -1222,6 +1265,63 @@ var Module = (() => {
           wakeup(res);
         }
       });
+    };
+
+    var FIFO_Read = (fd, iov, iovcnt, pnum) => {
+      if (iovcnt != 1) {
+        throw new Error(`iovcnt: ${iovcnt} should be 1 at FIFO_Read.`);
+      }
+      if (4096 < fd) {
+        console.log(`fd: ${fd} is too big for FIFO Device (at FIFO_Read).`);
+        return -1;
+      }
+      let fifoView = new Int32Array(FIFO_AtomicBuf);
+      // wait until the buffer accumulating enough to read.
+      while (true) {
+        let bsz = Atomics.load(fifoView, fd);
+        if (len <= bsz) {
+          Atomics.store(fifoView, fd, -100); // lock FIFO.
+          break;
+        }
+        Atomics.wait(fifoView, fd, bsz);
+      }
+
+      // save the current buffer size of after reading on the stack.
+      let bufP = HEAP32[iov >> 2];
+      let len = HEAP32[iov + 4 >> 2];
+      let sp = stackSave();
+      let bszP = stackAlloc(4);
+      let res = ecvProxySyscallJs(ECV_FIFO_READ, fd, bufP, len, pnum, bszP);
+      console.log(`buffer size after fifo read: ${HEAP32[bszP >> 2]}`);
+      Atomics.store(fifoView, fd, HEAP32[bszP >> 2]);
+      stackRestore(sp);
+      Atomics.notify(fifoView, fd, 1);
+
+      return res;
+    };
+
+    var handleDeviceRead = (devType) => {
+      switch (devType) {
+        // File
+        case S_IFREG:
+          return FILE_Read;
+        // FIFO
+        case S_IFIFO:
+          return FIFO_Read;
+        // Character device (TTY)
+        case S_IFCHR:
+          return PTY_Read;
+        default:
+          throw new Error(`Device Type (${devType}) must be 'S_IFREG' or 'S_IFIFO' or 'S_IFCHR' at _fd_read now.`);
+      }
+    };
+
+    function ___syscall_pipe2(pipefd, flags) {
+      return ecvProxySyscallJs(ECV_PIPE2, pipefd, flags);
+    }
+
+    function _fd_read(fd, iov, iovcnt, pnum) {
+      return handleDeviceRead(ecvProxySyscallJs(ECV_GET_DEV_TYPE, fd))(fd, iov, iovcnt, pnum);
     }
 
     function _fd_seek(fd, offset, whence, newOffset) {
@@ -1232,8 +1332,52 @@ var Module = (() => {
       return ecvProxySyscallJs(ECV_SYNC, fd);
     }
 
-    function _fd_write(fd, iov, iovcnt, pnum) {
+    var FILE_Write = (fd, iov, iovcnt, pnum) => {
       return ecvProxySyscallJs(ECV_WRITE, fd, iov, iovcnt, pnum);
+    };
+
+    var FIFO_Write = (fd, iov, iovcnt, pnum) => {
+      if (iovcnt != 1) {
+        throw new Error(`iovcnt: ${iovcnt} should be 1 at FIFO_Write.`);
+      }
+      if (4096 < fd) {
+        console.log(`fd: ${fd} is too big for FIFO Device (at FIFO_Write).`);
+        return -1;
+      }
+      let fifoView = new Int32Array(FIFO_AtomicBuf);
+      Atomics.wait(fifoView, fd, -100); // wait during `FIFO_Read` executing.
+      Atomics.store(fifoView, fd, -100); // lock FIFO.
+
+      // no blocking for simplicity, and it is ok for almost all of the case.
+
+      let bufP = HEAP32[iov >> 2];
+      let len = HEAP32[iov + 4 >> 2];
+      let sp = stackSave();
+      let bszP = newAllocSz(4);
+      let res = ecvProxySyscallJs(ECV_FIFO_WRITE, fd, bufP, len, bszP, pnum);
+      console.log(`buffer size after fifo write: ${HEAP32[bszP >> 2]}`);
+      Atomics.store(fifoView, fd, HEAP32[bszP >> 2]);
+      stackRestore(sp);
+      Atomics.notify(fifoView, fd, 1);
+
+      return res;
+    };
+
+    var handleDeviceWrite = (devType) => {
+      switch (devType) {
+        // File
+        case S_IFREG:
+          return FILE_Write;
+        // FIFO
+        case S_IFIFO:
+          return FIFO_Write;
+        default:
+          throw new Error(`Device Type (${devType}) must be 'S_IFREG' or 'S_IFIFO' at _fd_write now.`);
+      }
+    };
+
+    function _fd_write(fd, iov, iovcnt, pnum) {
+      return handleDeviceWrite(ecvProxySyscallJs(ECV_GET_DEV_TYPE, fd))(fd, iov, iovcnt, pnum);
     }
 
     function _random_get(buffer, size) {
@@ -1299,14 +1443,15 @@ var Module = (() => {
     /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        D: ___ecv_syscall_ioctl,
+        E: ___ecv_syscall_ioctl,
         ca: ___syscall_clone,
         ba: ___syscall_execve,
-        l: ___syscall_exit,
-        j: ___syscall_getpgid,
-        m: ___syscall_poll,
-        v: ___syscall_pselect6,
-        k: ___syscall_setpgid,
+        k: ___syscall_exit,
+        da: ___syscall_getpgid,
+        w: ___syscall_pipe2,
+        l: ___syscall_poll,
+        m: ___syscall_pselect6,
+        j: ___syscall_setpgid,
         aa: ___syscall_wait4,
         z: ___call_sighandler,
         i: ___cxa_throw,
@@ -1332,15 +1477,15 @@ var Module = (() => {
         s: ___syscall_utimensat,
         $: __abort_js,
         J: __emscripten_init_main_thread_js,
-        w: __emscripten_notify_mailbox_postmessage,
-        E: __emscripten_receive_on_main_thread_js,
+        v: __emscripten_notify_mailbox_postmessage,
+        D: __emscripten_receive_on_main_thread_js,
         B: __emscripten_runtime_keepalive_clear,
         n: __emscripten_thread_cleanup,
         I: __emscripten_thread_mailbox_await,
         U: __emscripten_thread_set_strongref,
         o: __tzset_js,
         Z: _clock_time_get,
-        da: ecv_proxy_process_memory_copy_req,
+        ea: ecv_proxy_process_memory_copy_req,
         C: _emscripten_check_blocking_allowed,
         W: _emscripten_date_now,
         T: _emscripten_exit_with_live_runtime,
@@ -1348,7 +1493,7 @@ var Module = (() => {
         r: _emscripten_resize_heap,
         p: _environ_get,
         q: _environ_sizes_get,
-        ea: execve_memory_copy_req,
+        fa: execve_memory_copy_req,
         h: _exit,
         e: _fd_close,
         g: _fd_read,
@@ -1366,10 +1511,10 @@ var Module = (() => {
     async function initWasmModule() {
       // init Wasm module
       wasmExports = await createWasm();
-      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["uc"])(a0, a1);
-      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Sc"])(a0);
-      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Tc"])(a0);
-      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Uc"])();
+      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["vc"])(a0, a1);
+      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Tc"])(a0);
+      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Uc"])(a0);
+      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Vc"])();
 
       preInit();
       moduleRtn = readyPromise;

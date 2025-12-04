@@ -116,12 +116,10 @@ prepare_js() {
   MAINGENWASM="${CUR_DIR}/${ELFNAME}.generated.wasm"
   OUTWASM="${CUR_DIR}/${ELFNAME}.wasm"
   OUTJS="${CUR_DIR}/${ELFNAME}.js"
-  OUTHTML="${CUR_DIR}/${ELFNAME}.html"
 
-  # copy `js-kernel.js`, `process.js`, `main.html`
+  # copy `js-kernel.js`, `process.js`
   cp -p "${BROWSER_DIR}/js-kernel.js" "${CUR_DIR}"
   cp -p "${BROWSER_DIR}/process.js" "${CUR_DIR}"
-  cp -p "${BROWSER_DIR}/main.html" "${OUTHTML}"
 
   # prepares js and Wasm
   cp ${MAINGENWASM} ${OUTWASM}
@@ -133,9 +131,12 @@ prepare_js() {
   me_execved_val=$(sed -n 's/.*Module\["_me_execved"\][[:space:]]*=[[:space:]]*\([0-9]\+\).*/\1/p' ${MAINGENJS})
   sed -i "s/\(var[[:space:]]\+meExecvedP[[:space:]]*=[[:space:]]*\).*/\1${me_execved_val};/" ${OUTJS}
   
-  # set entry Wasm program.
+  # prepare html file and set entry Wasm program.
   if [[ -n "${INITWASM}" ]]; then
-    sed -i "s/initProgram: '[^']*\.wasm'/initProgram: '${ELFNAME}.wasm'/" ${OUTHTML}
+    OUTHTML="${CUR_DIR}/main.html"
+    # copy `main.html`
+    cp -p "${BROWSER_DIR}/main.html" "${OUTHTML}"
+    sed -i "s/initProgram: '[^']*\.wasm'/initProgram: '${ELFNAME}.wasm'/" "${OUTHTML}"
   fi
   
   # --preload-file generates the mapped data file `exe.data`.

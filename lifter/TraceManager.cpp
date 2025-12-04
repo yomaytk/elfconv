@@ -22,17 +22,17 @@ std::string AArch64TraceManager::AddRestDisasmFunc(uint64_t addr) {
   auto rest_fun_name = GetUniqueLiftedFuncName("_ecv_rest_fun", addr);
   auto upper_addr_1 = disasm_funcs.upper_bound(addr);
   auto upper_addr_2 = rest_disasm_funcs.upper_bound(addr);
-  size_t rest_func_size;
+  uint64_t end_addr;
   if (upper_addr_1 != disasm_funcs.end() && upper_addr_2 != rest_disasm_funcs.end()) {
-    rest_func_size = (uint64_t) std::max(upper_addr_1->first, upper_addr_2->first);
+    end_addr = (uint64_t) std::min(upper_addr_1->first, upper_addr_2->first);
   } else if (upper_addr_1 != disasm_funcs.end()) {
-    rest_func_size = upper_addr_1->first;
-  } else if (upper_addr_2 != disasm_funcs.end()) {
-    rest_func_size = upper_addr_2->first;
+    end_addr = upper_addr_1->first;
+  } else if (upper_addr_2 != rest_disasm_funcs.end()) {
+    end_addr = upper_addr_2->first;
   } else {
     LOG(FATAL) << "[Bug] does not handle the pattern of having last rest_disasm_func.";
   }
-  rest_disasm_funcs.insert({addr, DisasmFunc(rest_fun_name, addr, rest_func_size)});
+  rest_disasm_funcs.insert({addr, DisasmFunc(rest_fun_name, addr, end_addr - addr)});
   return rest_fun_name;
 }
 
@@ -78,28 +78,6 @@ std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, 
   std::stringstream lifted_fn_name;
   lifted_fn_name << func_name << "_____" << to_string(unique_i64++) << "_" << std::hex << vma_s;
   return lifted_fn_name.str();
-}
-
-bool AArch64TraceManager::isWithinFunction(uint64_t trace_addr, uint64_t target_addr) {
-  if (disasm_funcs.count(trace_addr) == 1) {
-    if (trace_addr <= target_addr &&
-        target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
-      return true;
-    } else {
-      return false;
-    }
-  } else if (rest_disasm_funcs.count(trace_addr) == 1) {
-    if (trace_addr <= target_addr &&
-        target_addr < trace_addr + rest_disasm_funcs[trace_addr].func_size) {
-      return true;
-    } else {
-      return false;
-    }
-  } else {
-    elfconv_runtime_error(
-        "[ERROR] trace_addr (0x%lx) is not the entry address of function. (at %s)\n", trace_addr,
-        __func__);
-  }
 }
 
 uint64_t AArch64TraceManager::GetFuncVMA_E(uint64_t vma_s) {

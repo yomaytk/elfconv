@@ -320,6 +320,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     bb_addr_vmas.clear();
     lift_or_system_calling_bbs.clear();
     inst_nums_in_bb.clear();
+    addrset_in_func.clear();
 
     lifted_funcs.insert(func);
 
@@ -377,6 +378,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
       block = GetOrCreateBlock(inst_addr);
 
+      addrset_in_func.insert(inst_addr);
+
       // always be vrp_opt_mode.
       // if (!vrp_opt_mode) {
       //   noopt_all_vma_bbs.push_back({inst_addr, llvm::BlockAddress::get(func, block)});
@@ -402,6 +405,10 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
               block, inst_as_trace, *intrinsics, trace_addr,
               llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
           virtual_regs_opt->lifted_func_caller_set.insert(inst_as_trace_call);
+          if (!addrset_in_func.contains(inst_addr)) {
+            LOG(FATAL) << std::hex << "0x" << inst_addr << " must be included in addrset_in_func.";
+          }
+          addrset_in_func.erase(inst_addr);
           continue;
         }
       }
@@ -493,21 +500,19 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         // the targeted instruction, we'll either tail call to the target
         // trace, or we'll just extend out the current trace. Either way, no
         // sacrifice in correctness is made.
-        case Instruction::kCategoryDirectJump:
+        case Instruction::kCategoryDirectJump: {
           try_add_delay_slot(true, block);
-          if (!manager.isWithinFunction(trace_addr, inst.branch_taken_pc)) {
-            auto callee_def_func = get_trace_decl(inst.branch_taken_pc);
-            if (callee_def_func) {
-              if (VirtualRegsOpt::b_jump_callees_map.contains(func)) {
-                VirtualRegsOpt::b_jump_callees_map.at(func).push_back(callee_def_func);
-              } else {
-                VirtualRegsOpt::b_jump_callees_map.insert({func, {callee_def_func}});
-              }
+          auto callee_def_func = get_trace_decl(inst.branch_taken_pc);
+          if (callee_def_func) {
+            if (VirtualRegsOpt::b_jump_callees_map.contains(func)) {
+              VirtualRegsOpt::b_jump_callees_map.at(func).push_back(callee_def_func);
+            } else {
+              VirtualRegsOpt::b_jump_callees_map.insert({func, {callee_def_func}});
             }
           }
           DirectBranchWithSaveParents(GetOrCreateBranchTakenBlock(), block);
           break;
-
+        }
         /* case: BR instruction (only BR in glibc) */
         case Instruction::kCategoryIndirectJump: {
           try_add_delay_slot(true, block);
@@ -832,8 +837,9 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 
     // if the func includes intraprocedural indirect jump instruction, it is necessary to lift all instructions of the func.
     if (br_bb && !lift_all_insn /* always be vrp_opt_mode || !vrp_opt_mode*/) {
-      for (uint64_t insn_vma = trace_addr; insn_vma < manager.GetFuncVMA_E(trace_addr);
-           insn_vma += 4) {
+      auto end_addr =
+          (uint64_t) std::min(manager.GetFuncVMA_E(trace_addr), *addrset_in_func.begin());
+      for (uint64_t insn_vma = trace_addr; insn_vma < end_addr; insn_vma += 4) {
         if (lifted_block_map.count(insn_vma) == 0) {
           inst_work_list.insert(insn_vma);
         }
@@ -865,6 +871,7 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     callback(trace_addr, func);
     manager.SetLiftedTraceDefinition(trace_addr, func);
     virtual_regs_opt->block_num = lifted_block_map.size();
+
   }
 
   return true;

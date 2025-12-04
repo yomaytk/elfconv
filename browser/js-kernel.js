@@ -21,9 +21,45 @@ var Module = (() => {
     var gWasmMemory;
     var SysFuncMap = new Map();
     var processes = new Map();
+    var FIFO_AtomicBuf = new SharedArrayBuffer(4 * 4096); // FD: 0~4096
 
     const prLingOffset = 4;
     const childProcessMax = 20;
+
+    // Linux macro
+    const __FD_SETSIZE = 1024;
+    const __KERNEL_FD_SETMAXID = 16;
+
+    // Basic access modes
+    const O_RDONLY = 0;   // Open for read-only
+    const O_WRONLY = 1;   // Open for write-only
+    const O_RDWR = 2;   // Open for both reading and writing
+
+    // Flags used in the emscripten FS open() implementation
+    const O_CREAT = 64;      // Create file if it does not exist
+    const O_EXCL = 128;     // Error if O_CREAT is used and the file already exists
+    const O_TRUNC = 512;     // Truncate file to zero length if it already exists
+    const O_APPEND = 1024;    // Append data to the end of the file (not used directly in open())
+
+    const O_DIRECTORY = 65536;  // Fail if the path is not a directory
+    const O_NOFOLLOW = 131072; // Do not follow symbolic links
+
+    // File type bits (st_mode)
+    const S_IFMT = 61440;  // Bit mask for the file type field
+    const S_IFREG = 32768;  // Regular file
+    const S_IFDIR = 16384;  // Directory
+    const S_IFIFO = 4096;   // FIFO / pipe
+    const S_IFCHR = 8192;   // Character device
+    const S_IFBLK = 24576;  // Block device
+    const S_IFLNK = 40960;  // Symbolic link
+
+    // Permission bits
+    const S_IRWXU = 0o700;   // Owner: read, write, execute
+    const S_IRWXG = 0o070;   // Group: read, write, execute
+    const S_IRWXO = 0o007;   // Others: read, write, execute
+
+    // Pipe
+    const PIPE_MAX_SZ = 65536;
 
     function getNewEcvPid() {
       return ecvPidCounter++;
@@ -195,6 +231,7 @@ var Module = (() => {
         parMonitor: parMonitor,
         execveBell: execveBell,
         PTY_AtomicBuffer: PTY_AtomicBuffer,
+        FIFO_AtomicBuf: FIFO_AtomicBuf,
       });
 
       let copySData;
@@ -633,16 +670,19 @@ var Module = (() => {
     const ECV_PROCESS_MRELEASE = 448;
     const ECV_FUTEX_WAITV = 449;
 
-    // Linux macro
-    const __FD_SETSIZE = 1024;
-    const __KERNEL_FD_SETMAXID = 16;
-
     // macro specified to the emscripten runtime
-    const ECV_LSTAT64 = 1000;
-    // const ECV_ENVIRON_GET = 1001;
-    // const ECV_ENVIRON_SIZES_GET = 1002;
-    const ECV_POLL_SCAN = 1003;
-    const ECV_PSELECT6_SCAN = 1004;
+    const ECV_LSTAT64 = 10000;
+    // const ECV_ENVIRON_GET = 10001;
+    // const ECV_ENVIRON_SIZES_GET = 10002;
+
+    // select/poll
+    const ECV_POLL_SCAN = 10003;
+    const ECV_PSELECT6_SCAN = 10004;
+
+    // pipe2
+    const ECV_GET_DEV_TYPE = 10005;
+    const ECV_FIFO_READ = 10006;
+    const ECV_FIFO_WRITE = 10007;
 
     SysFuncMap.set(ECV_CLONE, ___syscall_clone);
     SysFuncMap.set(ECV_WAIT4, ___syscall_wait4);
@@ -669,6 +709,7 @@ var Module = (() => {
     SysFuncMap.set(ECV_UNLINKAT, ___syscall_unlinkat);
     SysFuncMap.set(ECV_UTIMENSAT, ___syscall_utimensat);
     SysFuncMap.set(ECV_CLOSE, _fd_close);
+    SysFuncMap.set(ECV_PIPE2, ___syscall_pipe2);
     SysFuncMap.set(ECV_READ, _fd_read);
     SysFuncMap.set(ECV_LSEEK, _fd_seek);
     SysFuncMap.set(ECV_WRITE, _fd_write);
@@ -681,8 +722,16 @@ var Module = (() => {
     SysFuncMap.set(ECV_LSTAT64, ___syscall_lstat64);
     // SysFuncMap.set(ECV_ENVIRON_GET, 1001);
     // SysFuncMap.set(ECV_ENVIRON_SIZES_GET, 1002);
+
+    // select/poll
     SysFuncMap.set(ECV_POLL_SCAN, ___syscall_poll_scan);
     SysFuncMap.set(ECV_PSELECT6_SCAN, ___syscall_pselect6_scan);
+
+    // read/write for pipe2
+    SysFuncMap.set(ECV_GET_DEV_TYPE, ___ecv_get_dev_type);
+    SysFuncMap.set(ECV_FIFO_READ, _fd_fifo_read);
+    SysFuncMap.set(ECV_FIFO_WRITE, _fd_fifo_write);
+
 
     class ExitStatus {
       name = "ExitStatus";
@@ -1012,8 +1061,6 @@ var Module = (() => {
             throw new Error(`Unexpected buffer type: ${buffer.constructor.name}`)
           }
           let arr = Array.from(buffer.subarray(offset, offset + length));
-          // console.log(`arr[0]: ${arr[0]}, arr[1]: ${arr[1]}`);
-          // console.log(arr.slice(0, 10));
           PTY.write(arr);
           return length
         },
@@ -1124,6 +1171,16 @@ var Module = (() => {
               setattr: MEMFS.node_ops.setattr
             },
             stream: FS.chrdev_stream_ops
+          },
+          fifo: {
+            node: {
+              getattr: MEMFS.node_ops.getattr,
+              setattr: MEMFS.node_ops.setattr
+            },
+            stream: {
+              read: MEMFS.stream_ops.read,
+              write: MEMFS.stream_ops.write
+            }
           }
         };
         var node = FS.createNode(parent, name, mode, dev);
@@ -1142,6 +1199,9 @@ var Module = (() => {
         } else if (FS.isChrdev(node.mode)) {
           node.node_ops = MEMFS.ops_table.chrdev.node;
           node.stream_ops = MEMFS.ops_table.chrdev.stream
+        } else if (FS.isFIFO(node.mode)) {
+          node.node_ops = MEMFS.ops_table.fifo.node;
+          node.stream_ops = MEMFS.ops_table.fifo.stream;
         }
         node.atime = node.mtime = node.ctime = Date.now();
         if (parent) {
@@ -2265,7 +2325,7 @@ var Module = (() => {
           mtime
         })
       },
-      open(path, flags, mode = 438) {
+      open(path, flags, mode = 438) { // 438 = 0o0666
         if (path === "") {
           throw new FS.ErrnoError(44)
         }
@@ -2319,12 +2379,16 @@ var Module = (() => {
         if (flags & 512 && !created) {
           FS.truncate(node, 0)
         }
+        var seekable = false;
+        if (!FS.isFIFO(node.mode)) {
+          seekable = true;
+        }
         flags &= ~(128 | 512 | 131072);
         var stream = FS.createStream({
           node,
           path: FS.getPath(node),
           flags,
-          seekable: true,
+          seekable: seekable,
           position: 0,
           stream_ops: node.stream_ops,
           ungotten: [],
@@ -2538,7 +2602,8 @@ var Module = (() => {
         FS.createDevice("/dev", "random", randomByte);
         FS.createDevice("/dev", "urandom", randomByte);
         FS.mkdir("/dev/shm");
-        FS.mkdir("/dev/shm/tmp")
+        FS.mkdir("/dev/shm/tmp");
+        FS.mkdir("/dev/pipe2");
       },
       createSpecialDirectories() {
         FS.mkdir("/proc");
@@ -2995,6 +3060,12 @@ var Module = (() => {
       getStr(ptr) {
         var ret = UTF8ToString(ptr);
         return ret
+      },
+      // pipe2
+      KERNEL_FIFOS: new Map(),
+      pipe2Count: 0,
+      getPipe2NewPath() {
+        return "/dev/pipe2/node" + (++this.pipe2Count);
       }
     };
 
@@ -3071,6 +3142,15 @@ var Module = (() => {
           return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
         }
 
+        function basename(path) {
+          if (!path) return "";
+
+          path = path.replace(/\/+$/, "");
+
+          const idx = path.lastIndexOf("/");
+          return idx >= 0 ? path.slice(idx + 1) : path;
+        }
+
         function countStringBytes(u8View, ptr8) {
           let len = 0;
           while (u8View[ptr8++] !== 0) {
@@ -3082,8 +3162,9 @@ var Module = (() => {
         let fileName;
         let orgMemU8View = new Uint8Array(orgMemory.buffer);
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
+
         // fileName
-        fileName = readByteString(orgMemU8View, fileNameP);
+        fileName = basename(readByteString(orgMemU8View, fileNameP));
 
         let execveWasm = fileName + '.wasm';
         let execveJs = fileName + '.js';
@@ -3758,6 +3839,16 @@ var Module = (() => {
       })
     };
 
+    function ___ecv_get_dev_type(fd) {
+      try {
+        let stream = FS.getStream(fd);
+        return stream.node.mode & S_IFMT;
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno;
+      }
+    }
+
     function ___syscall_readlinkat(dirfd, path, buf, bufsize) {
       try {
         path = SYSCALLS.getStr(path);
@@ -3937,12 +4028,54 @@ var Module = (() => {
       return ret
     };
 
+    function ___syscall_pipe2(pipefd, flags) {
+      try {
+        let path = SYSCALLS.getPipe2NewPath();
+        let streamRead = FS.open(path, (flags & ~0b11) | O_RDONLY, S_IFIFO | 0o600);
+        let streamWrite = FS.open(path, (flags & ~0b11) | O_WRONLY, S_IFIFO | 0o600);
+        (growMemViews(gWasmMemory), HEAPU32)[pipefd >> 2] = streamRead.fd;
+        (growMemViews(gWasmMemory), HEAPU32)[pipefd + 4 >> 2] = streamWrite.fd;
+        SYSCALLS.KERNEL_FIFOS.set(streamRead.node.id, {
+          head: 0,
+          tail: 0,
+        });
+        return 0;
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno;
+      }
+    }
+
     function _fd_read(fd, iov, iovcnt, pnum) {
       try {
         var stream = SYSCALLS.getStreamFromFD(fd);
         var num = doReadv(stream, iov, iovcnt);
         (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
         return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return e.errno
+      }
+    }
+
+    function _fd_fifo_read(fd, bufP, len, pnum, bszP) {
+      try {
+        let stream = SYSCALLS.getStreamFromFD(fd);
+        let tFIFO = SYSCALLS.KERNEL_FIFOS.get(stream.node.id);
+        if (!tFIFO) {
+          throw FS.ErrnoError(106);
+        }
+        let num = FS.read(stream, (growMemViews(gWasmMemory), HEAP8), bufP, len, tFIFO.head);
+        // update ring buffer size.
+        if (tFIFO.head + num <= tFIFO.tail) {
+          tFIFO.head += num;
+        } else {
+          throw new Error(`tFIFO head succeeds the tail at calling _fd_fifo_read. node_name: ${stream.node.name}, head: ${tFIFO.head}, tail: ${tFIFO.tail}`)
+        }
+        // save bsz
+        (growMemViews(gWasmMemory), HEAP32)[bszP >> 2] = (tFIFO.tail - tFIFO.head);
+        (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
+        return 0;
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return e.errno
@@ -4001,6 +4134,30 @@ var Module = (() => {
         var num = doWritev(stream, iov, iovcnt);
         (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
         return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return e.errno
+      }
+    }
+
+    function _fd_fifo_write(fd, bufP, len, bszP, pnum) {
+      try {
+        let stream = SYSCALLS.getStreamFromFD(fd);
+        let tFIFO = KERNEL_FIFOS.get(stream.node.id);
+        if (!tFIFO) {
+          throw FS.ErrnoError(106);
+        }
+        let num = FS.write(stream, (growMemViews(gWasmMemory), HEAP8), bufP, len); // offset is skipeed same as to `_fd_write`.
+        // update ring buffer position.
+        if (tFIFO.tail + len <= PIPE_MAX_SZ) {
+          tFIFO.tail += len;
+        } else {
+          throw new Error(`tFIFO tail succeeds 'PIPE_MAX_SZ' at calling _fd_fifo_write. node_name: ${stream.node.name}, head: ${tFIFO.head}, tail: ${tFIFO.tail}`);
+        }
+        // save bsz
+        (growMemViews(gWasmMemory), HEAP32)[bszP >> 2] = (tFIFO.tail - tFIFO.head);
+        (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
+        return 0;
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return e.errno
