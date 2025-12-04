@@ -3071,6 +3071,15 @@ var Module = (() => {
           return new TextDecoder("utf-8").decode(new Uint8Array(bytes));
         }
 
+        function basename(path) {
+          if (!path) return "";
+
+          path = path.replace(/\/+$/, "");
+
+          const idx = path.lastIndexOf("/");
+          return idx >= 0 ? path.slice(idx + 1) : path;
+        }
+
         function countStringBytes(u8View, ptr8) {
           let len = 0;
           while (u8View[ptr8++] !== 0) {
@@ -3082,8 +3091,9 @@ var Module = (() => {
         let fileName;
         let orgMemU8View = new Uint8Array(orgMemory.buffer);
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
+
         // fileName
-        fileName = readByteString(orgMemU8View, fileNameP);
+        fileName = basename(readByteString(orgMemU8View, fileNameP));
 
         let execveWasm = fileName + '.wasm';
         let execveJs = fileName + '.js';

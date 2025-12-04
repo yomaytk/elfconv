@@ -95,10 +95,6 @@ class TraceManager {
   // at address `addr` is executable and readable, and updates the byte
   // pointed to by `byte` with the read value.
   virtual bool TryReadExecutableByte(uint64_t addr, uint8_t *byte) = 0;
-
-  /* judge whether the addr is end vma of function or not. */
-  virtual bool isWithinFunction(uint64_t trace_addr, uint64_t inst_addr) = 0;
-
   /* get vma end address of the target function */
   virtual uint64_t GetFuncVMA_E(uint64_t vma_s) = 0;
 
@@ -405,6 +401,8 @@ class TraceLifter::Impl {
   std::map<uint64_t, llvm::BasicBlock *> blocks;
   VirtualRegsOpt *virtual_regs_opt;
 
+  std::set<uint64_t, std::greater<uint64_t>> addrset_in_func;
+
   // process management
   std::set<llvm::BasicBlock *> lift_or_system_calling_bbs;
   std::map<llvm::BasicBlock *, uint64_t> inst_nums_in_bb;
@@ -436,6 +434,7 @@ class TraceLifter::Impl {
   std::string debug_insn_name;
   std::string debug_call_stack_push_name;
   std::string debug_call_stack_pop_name;
+
 
   const llvm::DataLayout data_layout;
 

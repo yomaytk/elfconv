@@ -119,19 +119,6 @@ class AArch64TestTraceManager : public remill::TraceManager {
         "[ERROR] GetUniqueLiftedFuncName is not implemented in AArch64TestTraceManager.");
   }
 
-  bool isWithinFunction(uint64_t trace_addr, uint64_t target_addr) override {
-    if (disasm_funcs.count(trace_addr) == 1) {
-      if (trace_addr <= target_addr &&
-          target_addr < trace_addr + disasm_funcs[trace_addr].func_size) {
-        return true;
-      } else {
-        return false;
-      }
-    } else {
-      abort();
-    }
-  }
-
   uint64_t GetFuncVMA_E(uint64_t vma_s) override {
     if (disasm_funcs.count(vma_s) == 1) {
       return vma_s + disasm_funcs[vma_s].func_size;
