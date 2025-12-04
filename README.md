@@ -1,12 +1,15 @@
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/7638341e-1871-4e15-b366-31c39ae01d81" width="300" alt="elfconv-logo2" />
 </p>
 
 
 # elfconv
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yomaytk/elfconv)
+
 This is an AOT binary translator that converts Linux apps to executable binaries for other environments (i.e., Linux/ELF → WebAssembly, ...).
 
-▶️ Demo Page: https://yomaytk.github.io/elfconv-demo/
+[[🌎**Try Demo**]](https://yomaytk.github.io/elfconv-demo/)
 
 ## Why this project?
 elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefits.
