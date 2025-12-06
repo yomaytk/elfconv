@@ -1366,13 +1366,15 @@ var Module = (() => {
     var handleDeviceWrite = (devType) => {
       switch (devType) {
         // File
+        // Character device (TTY)
         case S_IFREG:
+        case S_IFCHR:
           return FILE_Write;
         // FIFO
         case S_IFIFO:
           return FIFO_Write;
         default:
-          throw new Error(`Device Type (${devType}) must be 'S_IFREG' or 'S_IFIFO' at _fd_write now.`);
+          throw new Error(`Device Type (${devType}) must be 'S_IFREG' or 'S_IFCHR' or 'S_IFIFO' at _fd_write now.`);
       }
     };
 
