@@ -890,8 +890,6 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       for (int i = 0; envp_p[i * 2]; i++) {
         _execve_envp_p[i] = (char *) TranslateVMA(arena_ptr, (uint32_t) envp_p[i * 2]);
       }
-      printf("execve start! filename: %s, argv[0]: %s\n", (char *) TranslateVMA(arena_ptr, X0_Q),
-             _execve_argv_p[0]);
       X0_D = ___syscall_execve((uint32_t) TranslateVMA(arena_ptr, X0_Q), (uint32_t) _execve_argv_p,
                                (uint32_t) _execve_envp_p);
       free(_execve_argv_p);
