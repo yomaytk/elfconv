@@ -17,6 +17,7 @@ var Module = (() => {
     var _scriptName = import.meta.url;
     var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 16777216;
 
+    var tEcvPid = 42;  // used for multi processes FS.
     var ecvPidCounter = 42;
     var gWasmMemory;
     var SysFuncMap = new Map();
@@ -30,33 +31,42 @@ var Module = (() => {
     const __FD_SETSIZE = 1024;
     const __KERNEL_FD_SETMAXID = 16;
 
-    // Basic access modes
-    const O_RDONLY = 0;   // Open for read-only
-    const O_WRONLY = 1;   // Open for write-only
-    const O_RDWR = 2;   // Open for both reading and writing
+    // Basic access modes (from asm-generic/fcntl.h)
+    const O_RDONLY = 0x0;        // 0       : Open for read-only
+    const O_WRONLY = 0x1;        // 1       : Open for write-only
+    const O_RDWR = 0x2;        // 2       : Open for read/write
 
-    // Flags used in the emscripten FS open() implementation
-    const O_CREAT = 64;      // Create file if it does not exist
-    const O_EXCL = 128;     // Error if O_CREAT is used and the file already exists
-    const O_TRUNC = 512;     // Truncate file to zero length if it already exists
-    const O_APPEND = 1024;    // Append data to the end of the file (not used directly in open())
+    // Open flags (from asm-generic/fcntl.h)
+    const O_CREAT = 0o100;      // 64      : Create file if it does not exist
+    const O_EXCL = 0o200;      // 128     : Error if O_CREAT and file exists
+    const O_NOCTTY = 0o400;      // 256     : Do not assign controlling terminal
+    const O_TRUNC = 0o1000;     // 512     : Truncate file to zero length
+    const O_APPEND = 0o2000;     // 1024    : Append writes to end of file
+    const O_NONBLOCK = 0o4000;     // 2048    : Non-blocking I/O
+    const O_DSYNC = 0o10000;    // 4096    : Synchronized data-only writes
+    const O_SYNC = 0o4010000;  // 1052672 : POSIX O_SYNC (data+metadata sync)
 
-    const O_DIRECTORY = 65536;  // Fail if the path is not a directory
-    const O_NOFOLLOW = 131072; // Do not follow symbolic links
+    // close-on-exec
+    const O_CLOEXEC = 0o2000000;  // 524288  : Set FD_CLOEXEC on open
+    const FD_CLOEXEC = 1; // close-on-exec bit on fd_flags.
 
-    // File type bits (st_mode)
-    const S_IFMT = 61440;  // Bit mask for the file type field
-    const S_IFREG = 32768;  // Regular file
-    const S_IFDIR = 16384;  // Directory
-    const S_IFIFO = 4096;   // FIFO / pipe
-    const S_IFCHR = 8192;   // Character device
-    const S_IFBLK = 24576;  // Block device
-    const S_IFLNK = 40960;  // Symbolic link
+    // Additional Linux open flags
+    const O_DIRECTORY = 0o200000;   // 65536   : Fail if path is not a directory
+    const O_NOFOLLOW = 0o400000;   // 131072  : Do not follow symbolic links
+
+    // File type bits (st_mode) — from stat.h
+    const S_IFMT = 0o170000;      // 61440   : Bit mask for file type
+    const S_IFREG = 0o100000;      // 32768   : Regular file
+    const S_IFDIR = 0o040000;      // 16384   : Directory
+    const S_IFIFO = 0o010000;      // 4096    : FIFO / pipe
+    const S_IFCHR = 0o020000;      // 8192    : Character device
+    const S_IFBLK = 0o060000;      // 24576   : Block device
+    const S_IFLNK = 0o120000;      // 40960   : Symbolic link
 
     // Permission bits
-    const S_IRWXU = 0o700;   // Owner: read, write, execute
-    const S_IRWXG = 0o070;   // Group: read, write, execute
-    const S_IRWXO = 0o007;   // Others: read, write, execute
+    const S_IRWXU = 0o700;          // 448     : Owner  rwx
+    const S_IRWXG = 0o070;          // 56      : Group  rwx
+    const S_IRWXO = 0o007;          // 7       : Others rwx
 
     // Pipe
     const PIPE_MAX_SZ = 65536;
@@ -180,8 +190,13 @@ var Module = (() => {
       // assumes that session has been set, so init Wasm call `newSession` instead of `undefined`.
       let session = isForked ? processes.get(parEcvPid).session : newSession(ecvPid);
 
-      // register foreground process group for controlling terminal.
+      // init FD table.
+      FS.initFDTable(ecvPid, ecvParPid);
+
       if (!isForked) {
+        // init standard stream.
+        FS.initStandardStream();
+        // register foreground process group for controlling terminal.
         session.controllingTTY.fgPgid = ecvPgid;
       }
 
@@ -265,6 +280,8 @@ var Module = (() => {
       processWorker.onmessage = e => {
         let d = e["data"];
 
+        tEcvPid = d.ecvPid;
+
         // executes system call.
         if (d.cmd === "sysRun") {
           runSyscall(d);
@@ -314,7 +331,6 @@ var Module = (() => {
 
     function initRuntime() {
       TTY.init(); // actually, this do nothing.
-      if (!Module["noFSInit"] && !FS.initialized) FS.init();
       FS.ignorePermissions = false
     }
 
@@ -1493,7 +1509,7 @@ var Module = (() => {
       root: null,
       mounts: [],
       devices: {},
-      streams: [],
+      streamMap: new Map(),
       nextInode: 1,
       nameTable: null,
       currentPath: "/",
@@ -1810,7 +1826,7 @@ var Module = (() => {
       MAX_OPEN_FDS: 4096,
       nextfd() {
         for (var fd = 0; fd <= FS.MAX_OPEN_FDS; fd++) {
-          if (!FS.streams[fd]) {
+          if (!FS.streamMap.get(tEcvPid).get(fd)) {
             return fd
           }
         }
@@ -1823,21 +1839,22 @@ var Module = (() => {
         }
         return stream
       },
-      getStream: fd => FS.streams[fd],
+      getStream: fd => FS.streamMap.get(tEcvPid).get(fd),
       createStream(stream, fd = -1) {
         stream = Object.assign(new FS.FSStream, stream);
         if (fd == -1) {
           fd = FS.nextfd()
         }
         stream.fd = fd;
-        FS.streams[fd] = stream;
+        FS.streamMap.get(tEcvPid).set(fd, stream);
         return stream
       },
       closeStream(fd) {
-        FS.streams[fd] = null
+        FS.streamMap.get(tEcvPid).set(fd, null);
       },
       dupStream(origStream, fd = -1) {
         var stream = FS.createStream(origStream, fd);
+        stream.refcount = 1;
         stream.stream_ops?.dup?.(stream);
         return stream
       },
@@ -2362,6 +2379,7 @@ var Module = (() => {
           }
         }
         if (!node) {
+          console.log(`no node! path: ${path}`);
           throw new FS.ErrnoError(44)
         }
         if (FS.isChrdev(node.mode)) {
@@ -2383,11 +2401,13 @@ var Module = (() => {
         if (!FS.isFIFO(node.mode)) {
           seekable = true;
         }
+        let fd_flags = flags & O_CLOEXEC ? FD_CLOEXEC : 0;
         flags &= ~(128 | 512 | 131072);
         var stream = FS.createStream({
           node,
           path: FS.getPath(node),
           flags,
+          fd_flags,
           seekable: seekable,
           position: 0,
           stream_ops: node.stream_ops,
@@ -2425,6 +2445,24 @@ var Module = (() => {
       },
       isClosed(stream) {
         return stream.fd === null
+      },
+      initFDTable(ecvPid, parEcvPid) {
+        if (!FS.streamMap.has(ecvPid)) {
+          FS.streamMap.set(ecvPid, new Map());
+        }
+        if (parEcvPid == 0) {
+          return;
+        }
+        for (var [fd, stream] of FS.streamMap.get(parEcvPid)) {
+          FS.streamMap.get(ecvPid).set(fd, stream);
+        }
+      },
+      closeOnExecFD(ecvPid) {
+        for (var [_fd, stream] of FS.streamMap.get(ecvPid)) {
+          if (stream.fd_flags & FD_CLOEXEC) {
+            FS.close(stream);
+          }
+        }
       },
       llseek(stream, offset, whence) {
         if (FS.isClosed(stream)) {
@@ -2670,7 +2708,7 @@ var Module = (() => {
           MEMFS
         }
       },
-      init(input, output, error) {
+      initStandardStream(input, output, error) {
         FS.initialized = true;
         input ??= Module["stdin"];
         output ??= Module["stdout"];
@@ -2679,7 +2717,7 @@ var Module = (() => {
       },
       quit() {
         FS.initialized = false;
-        for (var stream of FS.streams) {
+        for (var [fd, stream] of FS.streamMap.get(tEcvPid)) {
           if (stream) {
             FS.close(stream)
           }
@@ -3192,6 +3230,9 @@ var Module = (() => {
 
         let execveCopyBuf = new SharedArrayBuffer(8);
 
+        // close the FD of close-on-exec.
+        FS.closeOnExecFD(ecvPid);
+
         // init State.
         execveWorker.postMessage({
           cmd: "initState",
@@ -3209,7 +3250,7 @@ var Module = (() => {
 
         execveWorker.onmessage = e => {
           let d = e["data"];
-
+          tEcvPid = d.ecvPid;
           // executes system call.
           if (d.cmd === "sysRun") {
             runSyscall(d);
@@ -3461,7 +3502,7 @@ var Module = (() => {
             if (arg < 0) {
               return -28
             }
-            while (FS.streams[arg]) {
+            while (FS.streamMap.get(tEcvPid).get(arg)) {
               arg++
             }
             var newStream;
@@ -4031,8 +4072,8 @@ var Module = (() => {
     function ___syscall_pipe2(pipefd, flags) {
       try {
         let path = SYSCALLS.getPipe2NewPath();
-        let streamRead = FS.open(path, (flags & ~0b11) | O_RDONLY, S_IFIFO | 0o600);
-        let streamWrite = FS.open(path, (flags & ~0b11) | O_WRONLY, S_IFIFO | 0o600);
+        let streamRead = FS.open(path, (flags & ~0b11) | O_CREAT | O_RDONLY, S_IFIFO | 0o600);
+        let streamWrite = FS.open(path, (flags & ~0b11) | O_CREAT | O_WRONLY, S_IFIFO | 0o600);
         (growMemViews(gWasmMemory), HEAPU32)[pipefd >> 2] = streamRead.fd;
         (growMemViews(gWasmMemory), HEAPU32)[pipefd + 4 >> 2] = streamWrite.fd;
         SYSCALLS.KERNEL_FIFOS.set(streamRead.node.id, {
