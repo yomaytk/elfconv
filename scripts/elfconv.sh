@@ -111,14 +111,13 @@ lifting() {
 
 prepare_js() {
 
-
   MAINGENJS="${CUR_DIR}/${ELFNAME}.generated.js"
   MAINGENWASM="${CUR_DIR}/${ELFNAME}.generated.wasm"
   OUTWASM="${CUR_DIR}/${ELFNAME}.wasm"
   OUTJS="${CUR_DIR}/${ELFNAME}.js"
+  OUTHTML="${CUR_DIR}/main.html"
 
-  # copy `js-kernel.js`, `process.js`
-  cp -p "${BROWSER_DIR}/js-kernel.js" "${CUR_DIR}"
+  # copy `process.js`
   cp -p "${BROWSER_DIR}/process.js" "${CUR_DIR}"
 
   # prepares js and Wasm
@@ -133,10 +132,18 @@ prepare_js() {
   
   # prepare html file and set entry Wasm program.
   if [[ -n "${INITWASM}" ]]; then
-    OUTHTML="${CUR_DIR}/main.html"
-    # copy `main.html`
+    # copy `js-kernel.js` and `main.html`
+    cp -p "${BROWSER_DIR}/js-kernel.js" "${CUR_DIR}"
     cp -p "${BROWSER_DIR}/main.html" "${OUTHTML}"
     sed -i "s/initProgram: '[^']*\.wasm'/initProgram: '${ELFNAME}.wasm'/" "${OUTHTML}"
+  fi
+  if [[ -f "${OUTHTML}" ]]; then
+    # add the target ELF name to the `/usr/bin/`
+    sed -i "s/var binList = \[\(.*[^ ]\)\]/var binList = [\1, \"${ELFNAME}\"]/;
+      s/var binList = \[\]/var binList = [\"${ELFNAME}\"]/" "${OUTHTML}"
+  else
+    echo "${OUTHTML} is not found. Please prepare init Wams program."
+    exit 1
   fi
   
   # --preload-file generates the mapped data file `exe.data`.

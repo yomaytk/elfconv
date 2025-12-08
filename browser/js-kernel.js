@@ -15,8 +15,10 @@ var Module = (() => {
       throw toThrow
     };
     var _scriptName = import.meta.url;
-    var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 16777216;
+    var INITIAL_MEMORY_SIZE = 16777216;
+    var userBinList = Module["executables"];
 
+    var tEcvPid = 42;  // used for multi processes FS.
     var ecvPidCounter = 42;
     var gWasmMemory;
     var SysFuncMap = new Map();
@@ -30,33 +32,56 @@ var Module = (() => {
     const __FD_SETSIZE = 1024;
     const __KERNEL_FD_SETMAXID = 16;
 
-    // Basic access modes
-    const O_RDONLY = 0;   // Open for read-only
-    const O_WRONLY = 1;   // Open for write-only
-    const O_RDWR = 2;   // Open for both reading and writing
+    // Basic access modes (from asm-generic/fcntl.h)
+    const O_RDONLY = 0x0;        // 0       : Open for read-only
+    const O_WRONLY = 0x1;        // 1       : Open for write-only
+    const O_RDWR = 0x2;        // 2       : Open for read/write
 
-    // Flags used in the emscripten FS open() implementation
-    const O_CREAT = 64;      // Create file if it does not exist
-    const O_EXCL = 128;     // Error if O_CREAT is used and the file already exists
-    const O_TRUNC = 512;     // Truncate file to zero length if it already exists
-    const O_APPEND = 1024;    // Append data to the end of the file (not used directly in open())
+    // Open flags (from asm-generic/fcntl.h)
+    const O_CREAT = 0o100;      // 64      : Create file if it does not exist
+    const O_EXCL = 0o200;      // 128     : Error if O_CREAT and file exists
+    const O_NOCTTY = 0o400;      // 256     : Do not assign controlling terminal
+    const O_TRUNC = 0o1000;     // 512     : Truncate file to zero length
+    const O_APPEND = 0o2000;     // 1024    : Append writes to end of file
+    const O_NONBLOCK = 0o4000;     // 2048    : Non-blocking I/O
+    const O_DSYNC = 0o10000;    // 4096    : Synchronized data-only writes
+    const O_SYNC = 0o4010000;  // 1052672 : POSIX O_SYNC (data+metadata sync)
 
-    const O_DIRECTORY = 65536;  // Fail if the path is not a directory
-    const O_NOFOLLOW = 131072; // Do not follow symbolic links
+    // close-on-exec
+    const O_CLOEXEC = 0o2000000;  // 524288  : Set FD_CLOEXEC on open
+    const FD_CLOEXEC = 1; // close-on-exec bit on fd_flags.
 
-    // File type bits (st_mode)
-    const S_IFMT = 61440;  // Bit mask for the file type field
-    const S_IFREG = 32768;  // Regular file
-    const S_IFDIR = 16384;  // Directory
-    const S_IFIFO = 4096;   // FIFO / pipe
-    const S_IFCHR = 8192;   // Character device
-    const S_IFBLK = 24576;  // Block device
-    const S_IFLNK = 40960;  // Symbolic link
+    // Additional Linux open flags
+    const O_DIRECTORY = 0o200000;   // 65536   : Fail if path is not a directory
+    const O_NOFOLLOW = 0o400000;   // 131072  : Do not follow symbolic links
 
-    // Permission bits
-    const S_IRWXU = 0o700;   // Owner: read, write, execute
-    const S_IRWXG = 0o070;   // Group: read, write, execute
-    const S_IRWXO = 0o007;   // Others: read, write, execute
+    // File type bits (st_mode) — from stat.h
+    const S_IFMT = 0o170000;      // 61440   : Bit mask for file type
+    const S_IFREG = 0o100000;      // 32768   : Regular file
+    const S_IFDIR = 0o040000;      // 16384   : Directory
+    const S_IFIFO = 0o010000;      // 4096    : FIFO / pipe
+    const S_IFCHR = 0o020000;      // 8192    : Character device
+    const S_IFBLK = 0o060000;      // 24576   : Block device
+    const S_IFLNK = 0o120000;      // 40960   : Symbolic link
+
+    // Permission bits (from <sys/stat.h>)
+    // User (owner) permissions
+    const S_IRWXU = 0o700;   // 448  : user  (owner) read, write, execute
+    const S_IRUSR = 0o400;   // 256  : user  read
+    const S_IWUSR = 0o200;   // 128  : user  write
+    const S_IXUSR = 0o100;   // 64   : user  execute
+
+    // Group permissions
+    const S_IRWXG = 0o070;   // 56   : group read, write, execute
+    const S_IRGRP = 0o040;   // 32   : group read
+    const S_IWGRP = 0o020;   // 16   : group write
+    const S_IXGRP = 0o010;   // 8    : group execute
+
+    // Others permissions
+    const S_IRWXO = 0o007;   // 7    : others read, write, execute
+    const S_IROTH = 0o004;   // 4    : others read
+    const S_IWOTH = 0o002;   // 2    : others write
+    const S_IXOTH = 0o001;   // 1    : others execute
 
     // Pipe
     const PIPE_MAX_SZ = 65536;
@@ -116,6 +141,82 @@ var Module = (() => {
     var EXITSTATUS;
     var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAP64, HEAPU64, HEAPF64;
 
+    var WORKER_MGR = {
+      prWorkerPool: [],
+      prWorkerPoolCapacity: 20,
+      S_STOP: 0,
+      S_RUNNING: 1,
+      newProcessMemory(memSize) { // Wasm initial memory size (INITIAL_MEMORY_SIZE): 16MB
+        return new WebAssembly.Memory({
+          initial: memSize / 65536,
+          maximum: 4096,
+          shared: true
+        });
+      },
+      simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const code = str.charCodeAt(i);
+          hash = ((hash << 5) - hash) + code;
+          hash |= 0;
+        }
+        return hash;
+      },
+      init(userBinSet) {
+        for (let userBinPath of userBinSet) {
+          // We create the 3 workers for the every executable binary.
+          // When we try 4 or more workers, it will take a bit time to start the target program.
+          for (let i = 0; i < 3; i++) {
+            let processJsPath = userBinPath + ".js";
+            let pathHash = this.simpleHash(processJsPath);
+            let id = this.prWorkerPool.length;
+            this.prWorkerPool.push({
+              id: id,
+              status: this.S_STOP,
+              pathHash: pathHash,
+              memory: this.newProcessMemory(INITIAL_MEMORY_SIZE),
+              worker: new Worker(new URL(processJsPath, import.meta.url), {
+                type: "module",
+                name: `${userBinPath}-worker`,
+              })
+            });
+          }
+        }
+      },
+      getAvailableWorkerInfo(jsPath) {
+        let workerInfo = null;
+        let pathHash = this.simpleHash(jsPath);
+        console.log(jsPath);
+        console.log(pathHash);
+        console.log(this.prWorkerPool);
+        // find the existing worker.
+        for (let prWorker of this.prWorkerPool) {
+          if (prWorker.pathHash === pathHash && prWorker.status === this.S_STOP) {
+            prWorker.status = this.S_RUNNING;
+            workerInfo = prWorker;
+            break;
+          }
+        }
+        // create the new worker.
+        if (!workerInfo) {
+          let worker = new Worker(new URL(jsPath, import.meta.url), {
+            type: "module",
+            name: `${jsPath}-worker`,
+          });
+          let id = this.prWorkerPool.length;
+          workerInfo = {
+            id: id,
+            status: this.S_RUNNING,
+            pathhash: pathHash,
+            memory: this.newProcessMemory(INITIAL_MEMORY_SIZE),
+            worker: worker,
+          };
+          this.prWorkerPool.push(workerInfo);
+        }
+        return workerInfo;
+      },
+    }
+
     function newSession(pid) {
       return {
         sessionId: pid,
@@ -125,7 +226,7 @@ var Module = (() => {
 
     // system call handling.
     function runSyscall(d) {
-      gWasmMemory = processes.get(d.ecvPid).wMemory;
+      gWasmMemory = processes.get(d.ecvPid).wasmMemory;
       updateMemoryViews(gWasmMemory);
 
       let m32View = new Int32Array(gWasmMemory.buffer);
@@ -161,17 +262,19 @@ var Module = (() => {
       Atomics.notify(m32View, waitPtr, 1);
     }
 
+    function exitHandling(workerId) {
+      console.log(workerId);
+      let tWorkerInfo = WORKER_MGR.prWorkerPool[workerId];
+      // zero clear wasmMemory (this will be used again).
+      new Uint8Array(tWorkerInfo.memory.buffer).fill(0);
+      // set the worker status `S_STOP`
+      tWorkerInfo.status = WORKER_MGR.S_STOP;
+    }
+
     // create new process
     // We assumes that init Wasm process (!isForked) already has `session` and `controlling terminal`
     // and the assumption is likely acceptable for many Linux processes.
-    function newProcess(path, isForked, parEcvPid, sDataSrcP, sDataLen, mBytesSrcP, mBytesLen) {
-
-      // init Wasm Memory.
-      let newWMemory = new WebAssembly.Memory({
-        initial: INITIAL_MEMORY / 65536,
-        maximum: 32768,
-        shared: true
-      });
+    function newProcess(jsPath, isForked, parEcvPid, sDataSrcP, sDataLen, mBytesSrcP, mBytesLen) {
 
       // various ids.
       let ecvPid = getNewEcvPid();
@@ -180,8 +283,13 @@ var Module = (() => {
       // assumes that session has been set, so init Wasm call `newSession` instead of `undefined`.
       let session = isForked ? processes.get(parEcvPid).session : newSession(ecvPid);
 
-      // register foreground process group for controlling terminal.
+      // init FD table.
+      FS.initFDTable(ecvPid, ecvParPid);
+
       if (!isForked) {
+        // init standard stream.
+        FS.initStandardStream();
+        // register foreground process group for controlling terminal.
         session.controllingTTY.fgPgid = ecvPgid;
       }
 
@@ -197,11 +305,10 @@ var Module = (() => {
 
       let wasmProgram = isForked ? processes.get(parEcvPid).wasmProgram : Module["initProgram"];
 
-      // init Worker
-      let processWorker = new Worker(new URL(path, import.meta.url), {
-        type: "module",
-        name: `${wasmProgram}-worker-${ecvPid}`
-      });
+      // get or init Worker
+      let workerInfo = WORKER_MGR.getAvailableWorkerInfo(jsPath);
+      let processWorker = workerInfo.worker;
+      let newWMemory = workerInfo.memory;
 
       processes.set(ecvPid, {
         ecvPid: ecvPid,
@@ -210,7 +317,7 @@ var Module = (() => {
         session: session,
         wasmProgram: wasmProgram,
         worker: processWorker,
-        wMemory: newWMemory,
+        wasmMemory: newWMemory,
         copyFinBell: copyFinBell,
         execveBell: execveBell,
         parent: isForked ? parEcvPid : undefined,
@@ -222,6 +329,7 @@ var Module = (() => {
       // pass initial state to the worker.
       processWorker.postMessage({
         cmd: "initState",
+        workerId: workerInfo.id,
         processType: isForked ? "forked" : "init",
         wasmProgram: wasmProgram,
         pWasmMemory: newWMemory,
@@ -241,7 +349,7 @@ var Module = (() => {
 
         copySData = e => {
           let d = e["data"];
-          let parWMemory = processes.get(parEcvPid).wMemory;
+          let parWMemory = processes.get(parEcvPid).wasmMemory;
           // copy `memory_arena_bytes`
           let parWMemory8_1 = new Uint8Array(parWMemory.buffer);
           (growMemViews(newWMemory), HEAPU8).set(parWMemory8_1.subarray(mBytesSrcP, mBytesSrcP + mBytesLen), d.mBytesDstP);
@@ -265,16 +373,11 @@ var Module = (() => {
       processWorker.onmessage = e => {
         let d = e["data"];
 
+        tEcvPid = d.ecvPid;
+
         // executes system call.
         if (d.cmd === "sysRun") {
           runSyscall(d);
-        }
-        // wasm initialization is finished.
-        else if (d.cmd === "wasmReady") {
-          // can entry main function of this worker.
-          processWorker.postMessage({
-            cmd: "startMain",
-          });
         }
         // handle the request of copying shared data for `forked` process.
         else if (d.cmd === "forkedMemCp") {
@@ -294,6 +397,10 @@ var Module = (() => {
         // check whether PTY is ready or not
         else if (d.cmd === "PTY_ReadableCheck") {
           PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
+        }
+        // exit handling
+        else if (d.cmd === "exitSuccess") {
+          exitHandling(d.workerId);
         } else {
           throw e;
         }
@@ -314,8 +421,8 @@ var Module = (() => {
 
     function initRuntime() {
       TTY.init(); // actually, this do nothing.
-      if (!Module["noFSInit"] && !FS.initialized) FS.init();
       FS.ignorePermissions = false
+      WORKER_MGR.init(userBinList);
     }
 
     function preMain() { }
@@ -1493,7 +1600,7 @@ var Module = (() => {
       root: null,
       mounts: [],
       devices: {},
-      streams: [],
+      streamMap: new Map(),
       nextInode: 1,
       nameTable: null,
       currentPath: "/",
@@ -1810,7 +1917,7 @@ var Module = (() => {
       MAX_OPEN_FDS: 4096,
       nextfd() {
         for (var fd = 0; fd <= FS.MAX_OPEN_FDS; fd++) {
-          if (!FS.streams[fd]) {
+          if (!FS.streamMap.get(tEcvPid).get(fd)) {
             return fd
           }
         }
@@ -1823,21 +1930,22 @@ var Module = (() => {
         }
         return stream
       },
-      getStream: fd => FS.streams[fd],
+      getStream: fd => FS.streamMap.get(tEcvPid).get(fd),
       createStream(stream, fd = -1) {
         stream = Object.assign(new FS.FSStream, stream);
         if (fd == -1) {
           fd = FS.nextfd()
         }
         stream.fd = fd;
-        FS.streams[fd] = stream;
+        FS.streamMap.get(tEcvPid).set(fd, stream);
         return stream
       },
       closeStream(fd) {
-        FS.streams[fd] = null
+        FS.streamMap.get(tEcvPid).set(fd, null);
       },
       dupStream(origStream, fd = -1) {
         var stream = FS.createStream(origStream, fd);
+        stream.refcount = 1;
         stream.stream_ops?.dup?.(stream);
         return stream
       },
@@ -2362,6 +2470,7 @@ var Module = (() => {
           }
         }
         if (!node) {
+          console.log(`no node! path: ${path}`);
           throw new FS.ErrnoError(44)
         }
         if (FS.isChrdev(node.mode)) {
@@ -2383,11 +2492,13 @@ var Module = (() => {
         if (!FS.isFIFO(node.mode)) {
           seekable = true;
         }
+        let fd_flags = flags & O_CLOEXEC ? FD_CLOEXEC : 0;
         flags &= ~(128 | 512 | 131072);
         var stream = FS.createStream({
           node,
           path: FS.getPath(node),
           flags,
+          fd_flags,
           seekable: seekable,
           position: 0,
           stream_ops: node.stream_ops,
@@ -2425,6 +2536,24 @@ var Module = (() => {
       },
       isClosed(stream) {
         return stream.fd === null
+      },
+      initFDTable(ecvPid, parEcvPid) {
+        if (!FS.streamMap.has(ecvPid)) {
+          FS.streamMap.set(ecvPid, new Map());
+        }
+        if (parEcvPid == 0) {
+          return;
+        }
+        for (var [fd, stream] of FS.streamMap.get(parEcvPid)) {
+          FS.streamMap.get(ecvPid).set(fd, stream);
+        }
+      },
+      closeOnExecFD(ecvPid) {
+        for (var [_fd, stream] of FS.streamMap.get(ecvPid)) {
+          if (stream.fd_flags & FD_CLOEXEC) {
+            FS.close(stream);
+          }
+        }
       },
       llseek(stream, offset, whence) {
         if (FS.isClosed(stream)) {
@@ -2576,7 +2705,9 @@ var Module = (() => {
       createDefaultDirectories() {
         FS.mkdir("/tmp");
         FS.mkdir("/home");
-        FS.mkdir("/home/web_user")
+        FS.mkdir("/home/web_user");
+        FS.mkdir("/usr");
+        FS.mkdir("/usr/bin");
       },
       createDefaultDevices() {
         FS.mkdir("/dev");
@@ -2660,6 +2791,12 @@ var Module = (() => {
         var stdout = FS.open("/dev/stdout", 1); // fd = 1
         var stderr = FS.open("/dev/stderr", 1); // fd = 2
       },
+      createUserExecutableFiles(userBinList) {
+        let userBinSet = [...new Set(userBinList)];
+        for (let bin of userBinSet) {
+          FS.open("/usr/bin/" + bin, O_CREAT, S_IWUSR);
+        }
+      },
       staticInit() {
         FS.nameTable = new Array(4096);
         FS.mount(MEMFS, {}, "/");
@@ -2670,16 +2807,18 @@ var Module = (() => {
           MEMFS
         }
       },
-      init(input, output, error) {
+      initStandardStream(input, output, error) {
         FS.initialized = true;
         input ??= Module["stdin"];
         output ??= Module["stdout"];
         error ??= Module["stderr"];
-        FS.createStandardStreams(input, output, error)
+        FS.createStandardStreams(input, output, error);
+        // locate the all user Wasm program on `/usr/bin`.
+        FS.createUserExecutableFiles(userBinList);
       },
       quit() {
         FS.initialized = false;
-        for (var stream of FS.streams) {
+        for (var [fd, stream] of FS.streamMap.get(tEcvPid)) {
           if (stream) {
             FS.close(stream)
           }
@@ -3126,13 +3265,7 @@ var Module = (() => {
       try {
 
         let thisPr = processes.get(ecvPid);
-        let orgMemory = thisPr.wMemory;
-
-        let newMemory = new WebAssembly.Memory({
-          initial: INITIAL_MEMORY / 65536,
-          maximum: 32768,
-          shared: true
-        });
+        let orgMemory = thisPr.wasmMemory;
 
         function readByteString(u8View, ptr8) {
           const bytes = [];
@@ -3159,23 +3292,20 @@ var Module = (() => {
           return len;
         }
 
-        let fileName;
         let orgMemU8View = new Uint8Array(orgMemory.buffer);
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
 
         // fileName
-        fileName = basename(readByteString(orgMemU8View, fileNameP));
-
+        let fileName = basename(readByteString(orgMemU8View, fileNameP));
         let execveWasm = fileName + '.wasm';
         let execveJs = fileName + '.js';
 
         console.log(`execveWasm: ${execveWasm}`);
 
-        // start the execve process.
-        let execveWorker = new Worker(new URL(execveJs, import.meta.url), {
-          type: "module",
-          name: `${execveWasm.slice(0, -5)}-worker-${thisPr.ecvPid}`,
-        });
+        // get or init worker.
+        let workerInfo = WORKER_MGR.getAvailableWorkerInfo(execveJs);
+        let execveWorker = workerInfo.worker;
+        let newMemory = workerInfo.memory;
 
         execveWorker.onerror = (err) => {
           console.error("Worker load failed:", err);
@@ -3186,18 +3316,23 @@ var Module = (() => {
         }
 
         // update initial state
-        thisPr.wMemory = newMemory;
+        thisPr.wasmMemory = newMemory;
         thisPr.copyFinBell = new SharedArrayBuffer(4);
         thisPr.wasmProgram = execveWasm;
+        thisPr.worker = execveWorker;
 
         let execveCopyBuf = new SharedArrayBuffer(8);
+
+        // close the FD of close-on-exec.
+        FS.closeOnExecFD(ecvPid);
 
         // init State.
         execveWorker.postMessage({
           cmd: "initState",
+          workerId: workerInfo.id,
           processType: "execved",
           wasmProgram: execveWasm,
-          pWasmMemory: thisPr.wMemory,
+          pWasmMemory: thisPr.wasmMemory,
           ecvPid: thisPr.ecvPid,
           copyFinBell: thisPr.copyFinBell,
           childMonitor: thisPr.childMonitor,
@@ -3209,24 +3344,18 @@ var Module = (() => {
 
         execveWorker.onmessage = e => {
           let d = e["data"];
-
+          tEcvPid = d.ecvPid;
           // executes system call.
           if (d.cmd === "sysRun") {
             runSyscall(d);
           }
-          // wasm initialization is finished.
-          else if (d.cmd === "wasmReady") {
-            // stop the original worker.
-            thisPr.worker.terminate();
-            thisPr.worker = execveWorker;
-            // start the worker
-            execveWorker.postMessage({
-              cmd: "startMain",
-            });
-          }
           // check whether PTY is ready or not
           else if (d.cmd === "PTY_ReadableCheck") {
             PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
+          }
+          // exit handling.
+          else if (d.cmd === "exitSuccess") {
+            exitHandling(d.workerId);
           }
           // handle the request of copying argv and envp.
           else if (d.cmd === "execveArgsCopy") {
@@ -3337,19 +3466,11 @@ var Module = (() => {
           Atomics.store(monitorView, 1, 0);
           Atomics.notify(monitorView, 1, 1);
 
-          // Free ringBufferLock.
-          // The monitor was locked by the process worker. However, js-kernel must free this instead of the worker 
-          // because we will not return to the process worker.
-          Atomics.store(monitorView, 0, 0);
-          Atomics.notify(monitorView, 0, 1);
-
-          // terminate the process.
+          // remove the process.
           processes.get(thisEcvPr.ecvParPid).childs.delete(ecvPid);
-          processes.get(ecvPid).worker.terminate();
+          freeProcessWorker(ecvPid);
         } else {
           // init process.
-          // terminate the process.
-          processes.get(ecvPid).worker.terminate();
           freeProcessWorker(ecvPid);
         }
 
@@ -3461,7 +3582,7 @@ var Module = (() => {
             if (arg < 0) {
               return -28
             }
-            while (FS.streams[arg]) {
+            while (FS.streamMap.get(tEcvPid).get(arg)) {
               arg++
             }
             var newStream;
@@ -4031,8 +4152,8 @@ var Module = (() => {
     function ___syscall_pipe2(pipefd, flags) {
       try {
         let path = SYSCALLS.getPipe2NewPath();
-        let streamRead = FS.open(path, (flags & ~0b11) | O_RDONLY, S_IFIFO | 0o600);
-        let streamWrite = FS.open(path, (flags & ~0b11) | O_WRONLY, S_IFIFO | 0o600);
+        let streamRead = FS.open(path, (flags & ~0b11) | O_CREAT | O_RDONLY, S_IFIFO | 0o600);
+        let streamWrite = FS.open(path, (flags & ~0b11) | O_CREAT | O_WRONLY, S_IFIFO | 0o600);
         (growMemViews(gWasmMemory), HEAPU32)[pipefd >> 2] = streamRead.fd;
         (growMemViews(gWasmMemory), HEAPU32)[pipefd + 4 >> 2] = streamWrite.fd;
         SYSCALLS.KERNEL_FIFOS.set(streamRead.node.id, {

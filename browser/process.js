@@ -18,6 +18,7 @@ var Module = (() => {
 
     var wasmBinary;
 
+    var workerId;
     var processType;
     var wasmMemory;
     var ecvPid;
@@ -83,6 +84,7 @@ var Module = (() => {
       let d = e["data"];
       if (d.cmd === "initState") {
 
+        workerId = d.workerId;
         processType = d.processType;
         thisProgram = d.wasmProgram;
         wasmMemory = d.pWasmMemory;
@@ -107,10 +109,8 @@ var Module = (() => {
           } else if (processType === "execved") {
             (growMemViews(wasmMemory), HEAP32)[meExecvedP >> 2] = 1;
           }
-          postMessage({ cmd: "wasmReady" });
+          run();
         });
-      } else if (d.cmd === "startMain") {
-        initPromise.then(() => run());
       } else {
         throw e;
       }
@@ -921,12 +921,17 @@ var Module = (() => {
         Atomics.store(parMonitorView, 0, 1);
 
         ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
+
+        Atomics.store(parMonitorView, 0, 0);
+        Atomics.notify(parMonitorView, 0, 1);
       } else {
         // init process.
         ecvProxySyscallJs(ECV_EXIT, ecvPid, code);
       }
 
-      throw new Error(`exit process (${ecvPid})`);
+      const err = new Error(`exit process (${ecvPid})`);
+      err._exit_success = true;
+      throw err;
     }
 
     function ___syscall_execve(fileNameP, argvP, envpP) {
@@ -1535,11 +1540,16 @@ var Module = (() => {
       });
       HEAPU32[argv_ptr >> 2] = 0;
       try {
-        var ret = entryFunction(argc, argv);
-        exitJS(ret, true);
-        return ret
+        entryFunction(argc, argv);
       } catch (e) {
-        return handleException(e)
+        if (e._exit_success) {
+          postMessage({
+            cmd: "exitSuccess",
+            workerId: workerId,
+          });
+        } else {
+          handleException(e);
+        }
       }
     }
 
@@ -1567,7 +1577,6 @@ var Module = (() => {
         Module["onRuntimeInitialized"]?.();
         var noInitialRun = Module["noInitialRun"] || false;
         if (!noInitialRun) callMain(args);
-        postRun()
       }
       if (Module["setStatus"]) {
         Module["setStatus"]("Running...");

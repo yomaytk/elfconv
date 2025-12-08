@@ -18,12 +18,15 @@
     // Create master/slave objects
     const { master, slave } = openpty();
 
+    var binList = [];
+
     // Connect the master object to xterm.js
     xterm.loadAddon(master);
 
     await initEmscripten({
       pty: slave,
-      initProgram: 'a.wasm'
+      initProgram: 'a.wasm',
+      executables: binList,
     });
   </script>
 </body>
