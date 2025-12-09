@@ -9,7 +9,6 @@ var Module = (() => {
     });
     var ENVIRONMENT_IS_WEB = typeof window == "object";
     var ENVIRONMENT_IS_WORKER = typeof WorkerGlobalScope != "undefined";
-    var arguments_ = [];
     var quit_ = (status, toThrow) => {
       throw toThrow
     };
@@ -21,6 +20,7 @@ var Module = (() => {
     var workerId;
     var processType;
     var wasmMemory;
+    var wasmModule;
     var ecvPid;
     var copyFinBell;
     var childMonitor;
@@ -28,8 +28,7 @@ var Module = (() => {
     var thisProgram;
     var initPromise;
 
-    var execveBell;
-    var execveCopyBuf;
+    var execveBuf;
 
     var PTY_AtomicBuffer;
     var FIFO_AtomicBuf;
@@ -73,43 +72,48 @@ var Module = (() => {
     // Pipe
     const PIPE_MAX_SZ = 65536;
 
-    function growMemViews(pWasmMemory) {
-      if (pWasmMemory.buffer != HEAP8.buffer) {
-        updateMemoryViews(pWasmMemory);
+    function growMemViews(wasmMemory_) {
+      if (wasmMemory_.buffer != HEAP8.buffer) {
+        updateMemoryViews(wasmMemory_);
       }
     }
 
     // register the process of postMessage from js-kernel.
     self.onmessage = e => {
       let d = e["data"];
-      if (d.cmd === "initState") {
-
+      // init Wasm module.
+      if (d.cmd === "initWasm") {
         workerId = d.workerId;
-        processType = d.processType;
         thisProgram = d.wasmProgram;
-        wasmMemory = d.pWasmMemory;
-
-        updateMemoryViews(wasmMemory);
-
+        wasmMemory = d.wasmMemory;
+        wasmModule = d.wasmModule;
+        assignWasmImports();
+        initPromise = initWasmInstance();
+        initPromise.then(() => {
+          postMessage({
+            cmd: "initWasmDone",
+            workerId: d.workerId,
+          });
+        });
+      }
+      // start this process.
+      else if (d.cmd === "startProcess") {
+        processType = d.processType;
         ecvPid = d.ecvPid;
         copyFinBell = d.copyFinBell;
         childMonitor = d.childMonitor;
         parMonitor = d.parMonitor;
-        execveBell = d.execveBell;
-        execveCopyBuf = d.execveCopyBuf;
+        execveBuf = d.execveBuf;
         PTY_AtomicBuffer = d.PTY_AtomicBuffer;
         FIFO_AtomicBuf = d.FIFO_AtomicBuf;
-
-        assignWasmImports();
-        initPromise = initWasmModule();
-
+        updateMemoryViews(wasmMemory);
         initPromise.then(() => {
           if (processType === "forked") {
             (growMemViews(wasmMemory), HEAP32)[meForkedP >> 2] = 1;
           } else if (processType === "execved") {
             (growMemViews(wasmMemory), HEAP32)[meExecvedP >> 2] = 1;
           }
-          run();
+          run([]);
         });
       } else {
         throw e;
@@ -120,7 +124,7 @@ var Module = (() => {
       let bellView = new Int32Array(copyFinBell);
       Atomics.store(bellView, 0, 0);
       postMessage({
-        cmd: "forkedMemCp",
+        cmd: "forkMemoryCopy",
         mBytesDstP: memory_arena_bytes,
         sDataDstP: shared_data,
       });
@@ -132,8 +136,8 @@ var Module = (() => {
     }
 
     function execve_memory_copy_req(argv_p, envp_p, argv_content_p, envp_content_p, ecv_pids_p) {
-      let copyBufView = new Int32Array(execveCopyBuf);
-      Atomics.store(copyBufView, 0, 0);
+      let view = new Int32Array(execveBuf);
+      view.fill(0);
       postMessage({
         cmd: "execveArgsCopy",
         argvP: argv_p,
@@ -142,13 +146,13 @@ var Module = (() => {
         envpContentP: envp_content_p,
         ecvPidsP: ecv_pids_p,
       });
-      Atomics.wait(copyBufView, 0, 0);
-      let resBell = Atomics.load(copyBufView, 0);
-      if (resBell != 1) {
+      Atomics.wait(view, 0, 0);
+      let resBell = Atomics.load(view, 0);
+      if (resBell != 3) {
         throw new Error(`mCopyBell(${resBell}) is strange.`)
       }
 
-      return Atomics.load(copyBufView, 1);
+      return Atomics.load(view, 1);
     }
 
     function locateFile(path) {
@@ -295,19 +299,21 @@ var Module = (() => {
       }
     }
     async function instantiateAsync(binary, binaryFile, imports) {
-      if (!binary && typeof WebAssembly.instantiateStreaming == "function") {
-        try {
-          var response = fetch(binaryFile, {
-            credentials: "same-origin"
+      try {
+        var myWasmBinFile = await fetch(binaryFile, {
+          credentials: "same-origin"
+        })
+          .then(r => r.arrayBuffer())
+          .then((bytes) => {
+            var myWasmModule = new WebAssembly.Module(bytes);
+            var wasmInstance = new WebAssembly.Instance(myWasmModule, imports);
+            return wasmInstance;
           });
-          var instantiationResult = await WebAssembly.instantiateStreaming(response, imports);
-          return instantiationResult
-        } catch (reason) {
-          err(`wasm streaming compile failed: ${reason}`);
-          err("falling back to ArrayBuffer instantiation")
-        }
+        return myWasmBinFile;
+      } catch (reason) {
+        err(`wasm streaming compile failed: ${reason}`);
+        err("falling back to ArrayBuffer instantiation")
       }
-      return instantiateArrayBuffer(binaryFile, imports)
     }
 
     function getWasmImports() {
@@ -316,37 +322,26 @@ var Module = (() => {
         a: wasmImports
       }
     }
-    async function createWasm() {
-      function receiveInstance(instance, module) {
+    async function instantiateWasm() {
+
+      function receiveInstance(instance) {
         wasmExports = instance.exports;
-        updateMemoryViews();
         wasmTable = wasmExports["uc"];
-        removeRunDependency("wasm-instantiate");
         return wasmExports
       }
-      addRunDependency("wasm-instantiate");
 
-      function receiveInstantiationResult(result) {
-        return receiveInstance(result["instance"])
-      }
       var info = getWasmImports();
-      if (Module["instantiateWasm"]) {
-        return new Promise((resolve, reject) => {
-          Module["instantiateWasm"](info, (mod, inst) => {
-            resolve(receiveInstance(mod, inst))
-          })
-        })
-      }
-      wasmBinaryFile ??= findWasmBinary();
+
       try {
-        var result = await instantiateAsync(wasmBinary, wasmBinaryFile, info);
-        var exports = receiveInstantiationResult(result);
+        let wasmInstance = new WebAssembly.Instance(wasmModule, info);
+        let exports = receiveInstance(wasmInstance);
         return exports
       } catch (e) {
         readyPromiseReject(e);
         return Promise.reject(e)
       }
     }
+
     class ExitStatus {
       name = "ExitStatus";
       constructor(status) {
@@ -936,24 +931,45 @@ var Module = (() => {
 
     function ___syscall_execve(fileNameP, argvP, envpP) {
 
-      let execveBellView = new Int32Array(execveBell);
-      Atomics.store(execveBellView, 0, 0);
+      let view = new Int32Array(execveBuf);
+
+      // intialize execveBuf because this buffer must be dirty if this process has been created by `execve`.
+      view.fill(0);
 
       ecvProxySyscallJs(ECV_EXECVE, ecvPid, fileNameP, argvP, envpP);
 
-      // waiting until this worker is noted whether or not `execve` succeeds.
-      Atomics.wait(execveBellView, 0, 0);
+      // 0: waiting, 1: success, 2: fail, 3: execve args copy success.
+      let initialzedSuccess = false;
+      let execveStatus;
 
-      if (Atomics.load(execveBellView, 0) == 1) {
-        // `execve` failed.
-        Atomics.store(execveBellView, 0, 0);
+      while (true) {
+        execveStatus = Atomics.load(view, 0);
+        // execve success.
+        if (execveStatus == 1) {
+          initialzedSuccess = true;
+        }
+        // execve fail.
+        else if (execveStatus == 2) {
+          return -1;
+        }
+        // execve memory copy success.
+        else if (execveStatus == 3) {
+          if (!initialzedSuccess) {
+            throw new Error(`execve_memory_copy was done before execve syscall succeed?`);
+          }
+          break;
+        }
+
+        Atomics.wait(view, 0, execveStatus);
+      }
+
+      if (execveStatus == 3) {
+        const err = new Error(`execve success (${ecvPid})`);
+        err._exit_success = true;
+        throw err;
       } else {
         throw new Error(`execveBell is strange at ___syscall_execve.`);
       }
-
-      // this worker being waked up shows that `execve` has failed.
-      // (FIXME) should set valid error code.
-      return -1;
     }
 
     var PTY_waitForReadableWithAtomic = callback => {
@@ -1358,7 +1374,7 @@ var Module = (() => {
       let bufP = HEAP32[iov >> 2];
       let len = HEAP32[iov + 4 >> 2];
       let sp = stackSave();
-      let bszP = newAllocSz(4);
+      let bszP = stackAlloc(4);
       let res = ecvProxySyscallJs(ECV_FIFO_WRITE, fd, bufP, len, bszP, pnum);
       console.log(`buffer size after fifo write: ${HEAP32[bszP >> 2]}`);
       Atomics.store(fifoView, fd, HEAP32[bszP >> 2]);
@@ -1409,15 +1425,6 @@ var Module = (() => {
       stringToUTF8(str, ret, size);
       return ret
     };
-    {
-      if (Module["noExitRuntime"]) noExitRuntime = Module["noExitRuntime"];
-      if (Module["preloadPlugins"]) preloadPlugins = Module["preloadPlugins"];
-      if (Module["print"]) out = Module["print"];
-      if (Module["printErr"]) err = Module["printErr"];
-      if (Module["wasmBinary"]) wasmBinary = Module["wasmBinary"];
-      if (Module["arguments"]) arguments_ = Module["arguments"];
-      if (Module["thisProgram"]) thisProgram = Module["thisProgram"]
-    }
 
     var wasmImports;
 
@@ -1515,9 +1522,9 @@ var Module = (() => {
 
     var wasmExports, _main, __emscripten_stack_restore, __emscripten_stack_alloc, _emscripten_stack_get_current;
 
-    async function initWasmModule() {
+    async function initWasmInstance() {
       // init Wasm module
-      wasmExports = await createWasm();
+      wasmExports = await instantiateWasm();
       _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["vc"])(a0, a1);
       __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Tc"])(a0);
       __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Uc"])(a0);
@@ -1540,6 +1547,7 @@ var Module = (() => {
       });
       HEAPU32[argv_ptr >> 2] = 0;
       try {
+        // call Wasm entry function.
         entryFunction(argc, argv);
       } catch (e) {
         if (e._exit_success) {
@@ -1553,16 +1561,7 @@ var Module = (() => {
       }
     }
 
-    function run(args = arguments_) {
-      if (runDependencies > 0) {
-        dependenciesFulfilled = run;
-        return
-      }
-      preRun();
-      if (runDependencies > 0) {
-        dependenciesFulfilled = run;
-        return
-      }
+    function run(args) {
 
       if (!wasmMemory) {
         throw "wasmMemory has not been intialized yet (at process worker)."
@@ -1570,14 +1569,10 @@ var Module = (() => {
 
       function doRun() {
         Module["calledRun"] = true;
-        if (ABORT) return;
-        initRuntime();
-        preMain();
         readyPromiseResolve(Module);
-        Module["onRuntimeInitialized"]?.();
-        var noInitialRun = Module["noInitialRun"] || false;
-        if (!noInitialRun) callMain(args);
+        callMain(args);
       }
+
       if (Module["setStatus"]) {
         Module["setStatus"]("Running...");
         setTimeout(() => {
@@ -1587,6 +1582,7 @@ var Module = (() => {
       } else {
         doRun()
       }
+
     }
 
     function preInit() {
