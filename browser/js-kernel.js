@@ -18,6 +18,8 @@ var Module = (() => {
     var INITIAL_MEMORY_SIZE = 16777216;
     var userBinList = Module["executables"];
 
+    var initProcessInitialized = false;
+    var initWasmDoneNum = 0;
     var tEcvPid = 42;  // used for multi processes FS.
     var ecvPidCounter = 42;
     var gWasmMemory;
@@ -90,14 +92,14 @@ var Module = (() => {
       return ecvPidCounter++;
     }
 
-    function growMemViews(pWasmMemory) {
-      if (pWasmMemory.buffer != HEAP8.buffer) {
-        updateMemoryViews(pWasmMemory);
+    function growMemViews(wasmMemory_) {
+      if (wasmMemory_.buffer != HEAP8.buffer) {
+        updateMemoryViews(wasmMemory_);
       }
     }
 
-    function updateMemoryViews(pWasmMemory) {
-      var b = pWasmMemory.buffer;
+    function updateMemoryViews(wasmMemory_) {
+      var b = wasmMemory_.buffer;
       HEAP8 = new Int8Array(b);
       HEAP16 = new Int16Array(b);
       HEAPU8 = new Uint8Array(b);
@@ -113,7 +115,7 @@ var Module = (() => {
     var readAsync, readBinary;
     if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
       try {
-        scriptDirectory = new URL(".", _scriptName).href
+        const _ = new URL(".", _scriptName).href
       } catch { } {
         if (ENVIRONMENT_IS_WORKER) {
           readBinary = url => {
@@ -142,8 +144,10 @@ var Module = (() => {
     var HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAP64, HEAPU64, HEAPF64;
 
     var WORKER_MGR = {
-      prWorkerPool: [],
+      wasmModules: new Map(),
+      workerInfoPool: [],
       prWorkerPoolCapacity: 20,
+      dupWorkerNum: 3,
       S_STOP: 0,
       S_RUNNING: 1,
       newProcessMemory(memSize) { // Wasm initial memory size (INITIAL_MEMORY_SIZE): 16MB
@@ -153,45 +157,47 @@ var Module = (() => {
           shared: true
         });
       },
-      simpleHash(str) {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-          const code = str.charCodeAt(i);
-          hash = ((hash << 5) - hash) + code;
-          hash |= 0;
-        }
-        return hash;
-      },
       init(userBinSet) {
         for (let userBinPath of userBinSet) {
           // We create the 3 workers for the every executable binary.
           // When we try 4 or more workers, it will take a bit time to start the target program.
-          for (let i = 0; i < 3; i++) {
-            let processJsPath = userBinPath + ".js";
-            let pathHash = this.simpleHash(processJsPath);
-            let id = this.prWorkerPool.length;
-            this.prWorkerPool.push({
+          for (let i = 0; i < this.dupWorkerNum; i++) {
+            let jsPath = userBinPath + ".js";
+            let wasmPath = userBinPath + ".wasm";
+            let id = this.workerInfoPool.length;
+            let memory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
+            let worker = new Worker(new URL(jsPath, import.meta.url), {
+              type: "module",
+              name: `${jsPath}-worker-${id}`,
+            });
+            let wasmModule = this.wasmModules.get(wasmPath);
+            if (!wasmModule) {
+              throw new Error(`wasm module '${wasmPath}' has not been initialzed yet (at WORKER_MGR.init).`);
+            }
+            this.setInitialMsgHandling(worker);
+            this.workerInfoPool.push({
               id: id,
               status: this.S_STOP,
-              pathHash: pathHash,
-              memory: this.newProcessMemory(INITIAL_MEMORY_SIZE),
-              worker: new Worker(new URL(processJsPath, import.meta.url), {
-                type: "module",
-                name: `${userBinPath}-worker`,
-              })
+              jsPath: jsPath,
+              memory: memory,
+              worker: worker,
+              module: wasmModule,
+            });
+            worker.postMessage({
+              cmd: "initWasm",
+              workerId: id,
+              wasmProgram: wasmPath,
+              wasmMemory: memory,
+              wasmModule: wasmModule,
             });
           }
         }
       },
       getAvailableWorkerInfo(jsPath) {
         let workerInfo = null;
-        let pathHash = this.simpleHash(jsPath);
-        console.log(jsPath);
-        console.log(pathHash);
-        console.log(this.prWorkerPool);
         // find the existing worker.
-        for (let prWorker of this.prWorkerPool) {
-          if (prWorker.pathHash === pathHash && prWorker.status === this.S_STOP) {
+        for (let prWorker of this.workerInfoPool) {
+          if (prWorker.jsPath === jsPath && prWorker.status === this.S_STOP) {
             prWorker.status = this.S_RUNNING;
             workerInfo = prWorker;
             break;
@@ -199,23 +205,119 @@ var Module = (() => {
         }
         // create the new worker.
         if (!workerInfo) {
+          let id = this.workerInfoPool.length;
+          let memory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
+          let wasmPath = jsPath.slice(0, -3) + ".wasm";
           let worker = new Worker(new URL(jsPath, import.meta.url), {
             type: "module",
-            name: `${jsPath}-worker`,
+            name: `${jsPath}-worker-${id}`,
           });
-          let id = this.prWorkerPool.length;
+          let wasmModule = this.wasmModules.get(wasmPath);
+          if (!wasmModule) {
+            throw new Error(`wasm module '${wasmPath}' has not been initialized yet (at getAvailableWorkerInfo).`);
+          }
+          this.setInitialMsgHandling(worker);
           workerInfo = {
             id: id,
             status: this.S_RUNNING,
-            pathhash: pathHash,
-            memory: this.newProcessMemory(INITIAL_MEMORY_SIZE),
+            jsPath: jsPath,
+            memory: memory,
             worker: worker,
+            module: wasmModule,
           };
-          this.prWorkerPool.push(workerInfo);
+          this.workerInfoPool.push(workerInfo);
+          worker.postMessage({
+            cmd: "initWasm",
+            workerId: id,
+            wasmProgram: wasmPath,
+            wasmMemory: memory,
+            wasmModule: wasmModule
+          });
         }
         return workerInfo;
       },
-    }
+      rebootWorker(workerId) {
+        let oldWorkerInfo = this.workerInfoPool[workerId];
+        let jsPath = oldWorkerInfo.jsPath;
+        let wasmPath = jsPath.slice(0, -3) + ".wasm";
+        let newMemory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
+        let newWorker = new Worker(new URL(jsPath, import.meta.url), {
+          type: "module",
+          name: `${jsPath}-worker-${workerId}`,
+        });
+        let wasmModule = oldWorkerInfo.module;
+        this.setInitialMsgHandling(newWorker);
+        this.workerInfoPool[workerId] = {
+          id: oldWorkerInfo.id,
+          status: this.S_STOP,
+          jsPath: jsPath,
+          memory: newMemory,
+          worker: newWorker,
+          module: wasmModule,
+        };
+        newWorker.postMessage({
+          cmd: "initWasm",
+          workerId: workerId,
+          wasmProgram: wasmPath,
+          wasmMemory: newMemory,
+          wasmModule: wasmModule,
+        })
+      },
+      setInitialMsgHandling(worker) {
+        worker.onmessage = e => {
+          let d = e["data"];
+
+          tEcvPid = d.ecvPid;
+
+          // run system call.
+          if (d.cmd === "sysRun") {
+            runSyscall(d);
+          }
+          // check whether PTY is ready or not
+          else if (d.cmd === "PTY_ReadableCheck") {
+            PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
+          }
+          // init Wasm Finish notify
+          else if (d.cmd === "initWasmDone") {
+            console.log(`workerId ${d.workerId} is ready.`);
+            if (!initProcessInitialized) {
+              initWasmDoneNum++;
+              if (initWasmDoneNum === userBinList.length * this.dupWorkerNum) {
+                // start init process after all initial workers created.
+                newProcess(initProcessJsPath, false);
+                initProcessInitialized = true;
+              }
+            }
+          }
+          // exit handling
+          else if (d.cmd === "exitSuccess") {
+            exitHandling(d.workerId);
+            this.rebootWorker(d.workerId);
+          }
+          // unknown cmd.
+          else {
+            throw e;
+          }
+        };
+      },
+      async createWasmModules(binList) {
+        for (let ELF_Bin of binList) {
+          try {
+            let wasmPath = ELF_Bin + ".wasm";
+            const url = new URL(wasmPath, import.meta.url).href;
+            const resp = await fetch(url, { credentials: "same-origin" });
+            const wasmBytes = await resp.arrayBuffer();
+            const wasmModule = await WebAssembly.compile(wasmBytes);
+
+            this.wasmModules.set(wasmPath, wasmModule);
+
+          } catch (reason) {
+            err(`wasm streaming compile failed: ${reason}`);
+            err("falling back to ArrayBuffer instantiation");
+          }
+        }
+      },
+    };
 
     function newSession(pid) {
       return {
@@ -263,10 +365,8 @@ var Module = (() => {
     }
 
     function exitHandling(workerId) {
-      console.log(workerId);
-      let tWorkerInfo = WORKER_MGR.prWorkerPool[workerId];
-      // zero clear wasmMemory (this will be used again).
-      new Uint8Array(tWorkerInfo.memory.buffer).fill(0);
+      let tWorkerInfo = WORKER_MGR.workerInfoPool[workerId];
+      tWorkerInfo.memory = WORKER_MGR.newProcessMemory(INITIAL_MEMORY_SIZE);
       // set the worker status `S_STOP`
       tWorkerInfo.status = WORKER_MGR.S_STOP;
     }
@@ -283,6 +383,8 @@ var Module = (() => {
       // assumes that session has been set, so init Wasm call `newSession` instead of `undefined`.
       let session = isForked ? processes.get(parEcvPid).session : newSession(ecvPid);
 
+      tEcvPid = ecvPid;
+
       // init FD table.
       FS.initFDTable(ecvPid, ecvParPid);
 
@@ -295,8 +397,9 @@ var Module = (() => {
 
       // shared array buffer for synchronous process between js-kernel and process-worker.
       let copyFinBell = new SharedArrayBuffer(4);
-      // 0: init, 1: execve failure
-      let execveBell = new SharedArrayBuffer(4);
+      // [0]. 0: initial, 1: execve success, 2: fail, 3: copy success 
+      // [1]: used for returning `argc` to the new execved process worker.
+      let execveBuf = new SharedArrayBuffer(8);
       // child monitoring ring buffer.
       // [RingBufferLock (4 byte); Empty (4 byte); head (4 byte); tail (4 byte); [ecvPid list] (4 * (childProcessMax + 1)) byte)]  // child processes is 20 at maximum
       // RingBufferLock. 0: Free, 1: Lock
@@ -305,10 +408,50 @@ var Module = (() => {
 
       let wasmProgram = isForked ? processes.get(parEcvPid).wasmProgram : Module["initProgram"];
 
-      // get or init Worker
+      // get or init Worker (Wasm module initialization should start at this point)
       let workerInfo = WORKER_MGR.getAvailableWorkerInfo(jsPath);
       let processWorker = workerInfo.worker;
       let newWMemory = workerInfo.memory;
+
+      // add fork state copy handling to the message handling.
+      if (isForked) {
+        let initialMsgHandling = processWorker.onmessage;
+        processWorker.onmessage = e => {
+          let d = e["data"];
+
+          tEcvPid = d.ecvPid;
+
+          if (d.cmd === "forkMemoryCopy") {
+            let parWMemory = processes.get(parEcvPid).wasmMemory;
+            // copy `memory_arena_bytes`
+            let parWMemory8_1 = new Uint8Array(parWMemory.buffer);
+            (growMemViews(newWMemory), HEAPU8).set(parWMemory8_1.subarray(mBytesSrcP, mBytesSrcP + mBytesLen), d.mBytesDstP);
+            // write `child_pid` and `parent_pid` to the shared data buffer before copy.
+            let parWMemory32 = new Uint32Array(parWMemory.buffer);
+            parWMemory32[sDataSrcP + (sDataLen - 12) >> 2] = ecvPid;
+            parWMemory32[sDataSrcP + (sDataLen - 8) >> 2] = parEcvPid;
+            parWMemory32[sDataSrcP + (sDataLen - 4) >> 2] = ecvPgid;
+            // copy `shared_data`
+            let parWMemory8_2 = new Uint8Array(parWMemory.buffer);
+            (growMemViews(newWMemory), HEAPU8).set(parWMemory8_2.subarray(sDataSrcP, sDataSrcP + sDataLen), d.sDataDstP);
+
+            // update processes relatioinship.
+            processes.get(parEcvPid).childs.add(tEcvPid);
+
+            // notify to parent process worker.
+            let parBellView = new Int32Array(processes.get(parEcvPid).copyFinBell);
+            Atomics.store(parBellView, 0, 1);
+            Atomics.notify(parBellView, 0, 1);
+
+            // notify to this process worker.
+            let chBellView = new Int32Array(copyFinBell);
+            Atomics.store(chBellView, 0, 1);
+            Atomics.notify(chBellView, 0, 1);
+          } else {
+            initialMsgHandling(e);
+          }
+        }
+      }
 
       processes.set(ecvPid, {
         ecvPid: ecvPid,
@@ -319,92 +462,26 @@ var Module = (() => {
         worker: processWorker,
         wasmMemory: newWMemory,
         copyFinBell: copyFinBell,
-        execveBell: execveBell,
+        execveBuf: execveBuf,
         parent: isForked ? parEcvPid : undefined,
         childs: new Set(),
         childMonitor: childMonitor,
         parMonitor: parMonitor,
       });
 
-      // pass initial state to the worker.
+      // start this process.
       processWorker.postMessage({
-        cmd: "initState",
-        workerId: workerInfo.id,
+        cmd: "startProcess",
         processType: isForked ? "forked" : "init",
-        wasmProgram: wasmProgram,
-        pWasmMemory: newWMemory,
         ecvPid: ecvPid,
+        wasmMemory: newWMemory,
         copyFinBell: copyFinBell,
         childMonitor: childMonitor,
         parMonitor: parMonitor,
-        execveBell: execveBell,
+        execveBuf: execveBuf,
         PTY_AtomicBuffer: PTY_AtomicBuffer,
         FIFO_AtomicBuf: FIFO_AtomicBuf,
       });
-
-      let copySData;
-
-      // This process is created by `fork` syscall.
-      if (isForked) {
-
-        copySData = e => {
-          let d = e["data"];
-          let parWMemory = processes.get(parEcvPid).wasmMemory;
-          // copy `memory_arena_bytes`
-          let parWMemory8_1 = new Uint8Array(parWMemory.buffer);
-          (growMemViews(newWMemory), HEAPU8).set(parWMemory8_1.subarray(mBytesSrcP, mBytesSrcP + mBytesLen), d.mBytesDstP);
-          // write `child_pid` and `parent_pid` to the shared data buffer before copy.
-          let parWMemory32 = new Uint32Array(parWMemory.buffer);
-          parWMemory32[sDataSrcP + (sDataLen - 12) >> 2] = ecvPid;
-          parWMemory32[sDataSrcP + (sDataLen - 8) >> 2] = parEcvPid;
-          parWMemory32[sDataSrcP + (sDataLen - 4) >> 2] = ecvPgid;
-          // copy `shared_data`
-          let parWMemory8_2 = new Uint8Array(parWMemory.buffer);
-          (growMemViews(newWMemory), HEAPU8).set(parWMemory8_2.subarray(sDataSrcP, sDataSrcP + sDataLen), d.sDataDstP);
-        }
-
-        // update processes relatioinship.
-        processes.get(parEcvPid).childs.add(ecvPid);
-
-      } else {
-        copySData = e => { throw e; };
-      }
-
-      processWorker.onmessage = e => {
-        let d = e["data"];
-
-        tEcvPid = d.ecvPid;
-
-        // executes system call.
-        if (d.cmd === "sysRun") {
-          runSyscall(d);
-        }
-        // handle the request of copying shared data for `forked` process.
-        else if (d.cmd === "forkedMemCp") {
-          // copy the parent process state to the new process state.
-          copySData(e);
-
-          // notify to parent process worker.
-          let parBellView = new Int32Array(processes.get(parEcvPid).copyFinBell);
-          Atomics.store(parBellView, 0, 1);
-          Atomics.notify(parBellView, 0, 1);
-
-          // notify to this process worker.
-          let chBellView = new Int32Array(copyFinBell);
-          Atomics.store(chBellView, 0, 1);
-          Atomics.notify(chBellView, 0, 1);
-        }
-        // check whether PTY is ready or not
-        else if (d.cmd === "PTY_ReadableCheck") {
-          PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
-        }
-        // exit handling
-        else if (d.cmd === "exitSuccess") {
-          exitHandling(d.workerId);
-        } else {
-          throw e;
-        }
-      }
 
       return ecvPid;
     }
@@ -419,9 +496,11 @@ var Module = (() => {
       callRuntimeCallbacks(onPreRuns)
     }
 
-    function initRuntime() {
+    async function initRuntime() {
       TTY.init(); // actually, this do nothing.
       FS.ignorePermissions = false
+      await WORKER_MGR.createWasmModules(userBinList);
+      console.log(WORKER_MGR.wasmModules);
       WORKER_MGR.init(userBinList);
     }
 
@@ -1945,7 +2024,6 @@ var Module = (() => {
       },
       dupStream(origStream, fd = -1) {
         var stream = FS.createStream(origStream, fd);
-        stream.refcount = 1;
         stream.stream_ops?.dup?.(stream);
         return stream
       },
@@ -2470,7 +2548,6 @@ var Module = (() => {
           }
         }
         if (!node) {
-          console.log(`no node! path: ${path}`);
           throw new FS.ErrnoError(44)
         }
         if (FS.isChrdev(node.mode)) {
@@ -3209,8 +3286,10 @@ var Module = (() => {
     };
 
     function freeProcessWorker(ecvPid) {
+      let thisPr = processes.get(ecvPid);
+      processes.get(thisPr.ecvParPid).childs.delete(ecvPid);
       processes.delete(ecvPid);
-      console.log(`deleted process ${ecvPid}. rest processes: [${[...processes.keys()]}]`);
+      console.log(`Delete process ${ecvPid}. current processes: [${[...processes.keys()]}]`);
     }
 
     function ___syscall_clone(parEcvPid, sDataP, sDataPLen, mBytes, mBytesLen) {
@@ -3284,14 +3363,6 @@ var Module = (() => {
           return idx >= 0 ? path.slice(idx + 1) : path;
         }
 
-        function countStringBytes(u8View, ptr8) {
-          let len = 0;
-          while (u8View[ptr8++] !== 0) {
-            len++;
-          }
-          return len;
-        }
-
         let orgMemU8View = new Uint8Array(orgMemory.buffer);
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
 
@@ -3307,60 +3378,33 @@ var Module = (() => {
         let execveWorker = workerInfo.worker;
         let newMemory = workerInfo.memory;
 
-        execveWorker.onerror = (err) => {
-          console.error("Worker load failed:", err);
-          // notify failure to the original worker.
-          let execveBellView = new Int32Array(thisPr.execveBell);
-          Atomics.store(execveBellView, 0, 1);
-          Atomics.notify(execveBellView, 0, 1);
-        }
-
         // update initial state
         thisPr.wasmMemory = newMemory;
         thisPr.copyFinBell = new SharedArrayBuffer(4);
         thisPr.wasmProgram = execveWasm;
         thisPr.worker = execveWorker;
 
-        let execveCopyBuf = new SharedArrayBuffer(8);
-
         // close the FD of close-on-exec.
         FS.closeOnExecFD(ecvPid);
 
-        // init State.
-        execveWorker.postMessage({
-          cmd: "initState",
-          workerId: workerInfo.id,
-          processType: "execved",
-          wasmProgram: execveWasm,
-          pWasmMemory: thisPr.wasmMemory,
-          ecvPid: thisPr.ecvPid,
-          copyFinBell: thisPr.copyFinBell,
-          childMonitor: thisPr.childMonitor,
-          parMonitor: thisPr.parMonitor,
-          execveBell: thisPr.execveBell, // should allocate new buffer for clarity?
-          execveCopyBuf: execveCopyBuf,
-          PTY_AtomicBuffer: PTY_AtomicBuffer,
-        });
-
+        // add execve args copy handling to the message handling.
+        let initialMsgHandling = execveWorker.onmessage;
         execveWorker.onmessage = e => {
           let d = e["data"];
-          tEcvPid = d.ecvPid;
-          // executes system call.
-          if (d.cmd === "sysRun") {
-            runSyscall(d);
-          }
-          // check whether PTY is ready or not
-          else if (d.cmd === "PTY_ReadableCheck") {
-            PTY_ReadableAtomicCheck(PTY_AtomicBuffer);
-          }
-          // exit handling.
-          else if (d.cmd === "exitSuccess") {
-            exitHandling(d.workerId);
-          }
-          // handle the request of copying argv and envp.
-          else if (d.cmd === "execveArgsCopy") {
 
-            let execveCopyBufview = new Int32Array(execveCopyBuf);
+          tEcvPid = thisPr.ecvPid;
+
+          if (d.cmd === "execveArgsCopy") {
+
+            function countStringBytes(u8View, ptr8) {
+              let len = 0;
+              while (u8View[ptr8++] !== 0) {
+                len++;
+              }
+              return len;
+            }
+
+            let execveBufview = new Int32Array(thisPr.execveBuf);
 
             // view
             let dst8View = new Int8Array(newMemory.buffer);
@@ -3388,7 +3432,7 @@ var Module = (() => {
             }
 
             // `argc`
-            Atomics.store(execveCopyBufview, 1, argId);
+            Atomics.store(execveBufview, 1, argId);
 
             // `envp`
             let envsTotal, envId = 0;
@@ -3411,20 +3455,45 @@ var Module = (() => {
               throw new Error(`envsTotal is too large at ___syscall_execve. execveWasm: ${execveWasm}, bytes len: ${envId}.`);
             }
 
-            // console.log(`argvTotal: ${argsTotal}, argc: ${argId}, envsTotal: ${envsTotal}`);
-
             // `ecvPid` (this and parent)
             dst32View[(d.ecvPidsP >> 2)] = thisPr.ecvPid;
             dst32View[(d.ecvPidsP >> 2) + 1] = thisPr.ecvParPid;
             dst32View[(d.ecvPidsP >> 2) + 2] = thisPr.ecvPgid;
 
-            // notify
-            Atomics.store(execveCopyBufview, 0, 1);
-            Atomics.notify(execveCopyBufview, 0, 1);
+            // notify copy success to the new execved worker.
+            Atomics.store(execveBufview, 0, 3);
+            // notify `two` workers (original worker and new worker).
+            Atomics.notify(execveBufview, 0, 2);
           } else {
-            throw e;
+            initialMsgHandling(e);
           }
+        };
+
+        let execveBufView = new Int32Array(thisPr.execveBuf);
+
+        // may be unnecessary.
+        execveWorker.onerror = (err) => {
+          console.error("Worker load failed:", err);
+          // notify failure to the original worker.
+          Atomics.store(execveBufView, 0, 2);
+          Atomics.notify(execveBufView, 0, 1);
         }
+
+        // init State.
+        execveWorker.postMessage({
+          cmd: "startProcess",
+          processType: "execved",
+          ecvPid: thisPr.ecvPid,
+          copyFinBell: thisPr.copyFinBell,
+          childMonitor: thisPr.childMonitor,
+          parMonitor: thisPr.parMonitor,
+          execveBuf: thisPr.execveBuf,
+          PTY_AtomicBuffer: PTY_AtomicBuffer,
+        });
+
+        // notify success the original process worker.
+        Atomics.store(execveBufView, 0, 1);
+        Atomics.notify(execveBufView, 0, 1);
 
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -3466,9 +3535,6 @@ var Module = (() => {
           Atomics.store(monitorView, 1, 0);
           Atomics.notify(monitorView, 1, 1);
 
-          // remove the process.
-          processes.get(thisEcvPr.ecvParPid).childs.delete(ecvPid);
-          freeProcessWorker(ecvPid);
         } else {
           // init process.
           freeProcessWorker(ecvPid);
@@ -4264,7 +4330,7 @@ var Module = (() => {
     function _fd_fifo_write(fd, bufP, len, bszP, pnum) {
       try {
         let stream = SYSCALLS.getStreamFromFD(fd);
-        let tFIFO = KERNEL_FIFOS.get(stream.node.id);
+        let tFIFO = SYSCALLS.KERNEL_FIFOS.get(stream.node.id);
         if (!tFIFO) {
           throw FS.ErrnoError(106);
         }
@@ -4319,14 +4385,9 @@ var Module = (() => {
       }
 
       function doRun() {
-        Module["calledRun"] = true;
-        if (ABORT) return;
         initRuntime();
         preMain();
         readyPromiseResolve(Module);
-        Module["onRuntimeInitialized"]?.(); // set up by wasmExports["Q"](); ??
-        var noInitialRun = Module["noInitialRun"] || false;
-        // if (!noInitialRun) callMain(args);
         postRun()
       }
       if (Module["setStatus"]) {
@@ -4349,12 +4410,8 @@ var Module = (() => {
       }
     }
 
-    // initwasmMemory();
     preInit();
     run();
-
-    // execute process worker
-    newProcess(initProcessJsPath, false);
 
     moduleRtn = readyPromise;
     return moduleRtn;
