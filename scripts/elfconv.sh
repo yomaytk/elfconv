@@ -117,8 +117,9 @@ prepare_js() {
   OUTJS="${CUR_DIR}/${ELFNAME}.js"
   OUTHTML="${CUR_DIR}/main.html"
 
-  # copy `process.js`
+  # copy `process.js` and `coi-serviceworker.js`
   cp -p "${BROWSER_DIR}/process.js" "${CUR_DIR}"
+  cp -p "${BROWSER_DIR}/coi-serviceworker.js" "${CUR_DIR}"
 
   # prepares js and Wasm
   cp ${MAINGENWASM} ${OUTWASM}
