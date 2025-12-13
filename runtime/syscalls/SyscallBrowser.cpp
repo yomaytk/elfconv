@@ -88,7 +88,7 @@ struct _elfarm64_winsize {
 };
 
 /* for stat */
-struct _elfarm64df_timespec {
+struct _elfarm64_timespec {
   int64_t tv_sec;
   uint32_t tv_nsec;  // ??? #define __SLONGWORD_TYPE	long int
 };
@@ -106,9 +106,9 @@ struct _elfarm64df_stat {
   int st_blksize;  // ??? #define __SLONGWORD_TYPE	long int
   int __pad2;
   uint64_t st_blocks;
-  struct _elfarm64df_timespec st_atim;
-  struct _elfarm64df_timespec st_mtim;
-  struct _elfarm64df_timespec st_ctim;
+  struct _elfarm64_timespec st_atim;
+  struct _elfarm64_timespec st_mtim;
+  struct _elfarm64_timespec st_ctim;
 // #ifdef __USE_XOPEN2K8
 /* __USE_XOPEN2K8 is defined. */
 #define st_atime st_atim.tv_sec
@@ -373,11 +373,11 @@ EM_JS(int, ___syscall_getpgid, (uint32_t tEcvPid),
 EM_JS(int, ___ecv_syscall_ioctl, (uint32_t fd, uint32_t cmd, uint32_t arg),
       { return ecvProxySyscallJs(ECV_IOCTL, fd, cmd, arg); });
 
-EM_JS(int, ___syscall_poll, (uint32_t fd, uint32_t nfds, uint32_t timeout),
-      { return ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, timeout); });  // dummy body
+EM_JS(int, ___syscall_poll, (uint32_t fd, uint32_t nfds, int tmSec, uint32_t tmNsec),
+      { return ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, tmSec, tmNsec); });  // dummy body
 
 EM_JS(int, ___syscall_pselect6,
-      (uint32_t nfds, uint32_t readfdsP, uint32_t writefdsP, uint32_t exceptfdsP, uint32_t timeout,
+      (uint32_t nfds, uint32_t readfdsP, uint32_t writefdsP, uint32_t exceptfdsP, int tmSec, uint32_t tmNsec,
        uint32_t sigmaskP),
       {
         return ecvProxySyscallJs(ECV_PSELECT6_SCAN, nfds, readfdsP, writefdsP, exceptfdsP, timeout,
@@ -404,8 +404,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
   printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-  // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
-  //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
+      // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
+      //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
@@ -476,11 +476,16 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         case _LINUX_TIOCGPGRP: {
           auto arg_p = TranslateVMA(arena_ptr, arg);
           int res = ___ecv_syscall_ioctl(X0_D, _EMCC_TIOCGPGRP, (uint32_t) &arg_p);
-          X0_Q = res == -1 ? -_LINUX_ENOTTY : res;
+          X0_Q = res == 0 ? res : -1;
           break;
         }
-        case _LINUX_TIOCGWINSZ: X0_Q = -_LINUX_ENOTTY; break;
-        default: X0_Q = -_LINUX_ENOTTY; break;
+        case _LINUX_TIOCGWINSZ: {
+          auto arg_p = TranslateVMA(arena_ptr, arg);
+          int res = ___ecv_syscall_ioctl(X0_D, _EMCC_TIOCGWINSZ, (uint32_t) &arg_p);
+          X0_Q = res == 0 ? res : -1;
+          break;
+        }
+        default: X0_Q = -1; break;
       }
     } break;
     case ECV_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
@@ -579,7 +584,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       break;
     case ECV_PSELECT6: /* pselect6 (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t* sigmask) */
     {
-      int res = ___syscall_pselect6(X0_D, X1_Q, X2_Q, X3_Q, X4_Q, X5_Q);
+      int res;
+      if (X4_Q == NULL) {
+        res = ___syscall_pselect6(X0_D, X1_Q, X2_Q, X3_Q, -1, 0, X5_Q);
+      } else {
+        auto tm = (_elfarm64_timespec *)TranslateVMA(arena_ptr, X4_Q);
+        res = ___syscall_pselect6(X0_D, X1_Q, X2_Q, X3_Q, (int) tm->tv_sec, tm->tv_nsec, X5_Q);
+      }
       if (res < 0) {
         X0_Q = -1;
         errno = -wasi2linux_errno[-res];
@@ -589,8 +600,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     } break;
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
     {
-      int timeout = X2_Q ? ((_elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q))->tv_sec : -1;
-      int res = ___syscall_poll(X0_D, X1_D, timeout);
+      int res;
+      if (X2_Q == NULL) {
+        res = ___syscall_poll((uint32_t)TranslateVMA(arena_ptr, X0_Q), X1_D, -1, 0);
+      } else {
+        auto tm = (_elfarm64_timespec *)TranslateVMA(arena_ptr, X2_Q);
+        res = ___syscall_poll((uint32_t)TranslateVMA(arena_ptr, X0_Q), X1_D, (int) tm->tv_sec, tm->tv_nsec);
+      }
       if (res < 0) {
         X0_Q = -1;
         errno = -wasi2linux_errno[-res];
@@ -641,7 +657,7 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       struct timespec emu_tp[2];
 
       if (X2_Q != 0) {
-        auto x2_time = (const struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q);
+        auto x2_time = (const struct _elfarm64_timespec *) TranslateVMA(arena_ptr, X2_Q);
         for (int i = 0; i < 2; i++) {
           emu_tp[i].tv_sec = (time_t) x2_time[i].tv_sec;
           emu_tp[i].tv_nsec = (long) x2_time[i].tv_nsec;
@@ -698,15 +714,15 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     case ECV_CLOCK_NANOSLEEP: /* clock_nanosleep (clockid_t which_clock, int flags, const struct __kernel_timespec *rqtp, struct __kernel_timespce *rmtp) */
     {
       struct timespec _wasm_rqtp, _wasm_rmtp;
-      struct _elfarm64df_timespec _elf_rmtp;
+      struct _elfarm64_timespec _elf_rmtp;
 
-      auto _elf_rqtp = (const struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X2_Q);
+      auto _elf_rqtp = (const struct _elfarm64_timespec *) TranslateVMA(arena_ptr, X2_Q);
       _wasm_rqtp.tv_nsec = _elf_rqtp->tv_nsec;
       _wasm_rqtp.tv_sec = _elf_rqtp->tv_sec;
       int res = clock_nanosleep(CLOCK_REALTIME, X1_D, &_wasm_rqtp, &_wasm_rmtp);
       _elf_rmtp.tv_nsec = _wasm_rmtp.tv_nsec;
       _elf_rmtp.tv_sec = _wasm_rmtp.tv_sec;
-      memcpy((struct _elfarm64df_timespec *) TranslateVMA(arena_ptr, X3_Q), &_elf_rmtp,
+      memcpy((struct _elfarm64_timespec *) TranslateVMA(arena_ptr, X3_Q), &_elf_rmtp,
              sizeof(_elf_rmtp));
 
       X0_Q = -res;
