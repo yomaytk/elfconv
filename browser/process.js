@@ -972,7 +972,7 @@ var Module = (() => {
       }
     }
 
-    var PTY_waitForReadableWithAtomic = callback => {
+    var PTY_waitingWithAtomic = callback => {
       let PTY_AtomicView = new Int32Array(PTY_AtomicBuffer);
       Atomics.store(PTY_AtomicView, 0, -1);
       postMessage({
@@ -983,18 +983,18 @@ var Module = (() => {
       // `type` is saved on PTY_AtomicBuffer[0]
       callback(Atomics.load(PTY_AtomicView, 0));
     };
-    var PTY_waitForReadable = PTY_waitForReadableWithAtomic;
+    var PTY_waiting = PTY_waitingWithAtomic;
     var PTY_saveResultAtomic = startAsync => {
       let result;
       startAsync(r => result = r);
       return result
     };
     var PTY_saveResult = PTY_saveResultAtomic;
-    var PTY_handleSleepImpl = impl => {
+    var PTY_handleSleepSyncIO = impl => {
       return PTY_saveResult(wakeup => {
         let res = impl();
         if (res == -1006) {
-          PTY_waitForReadable(type => {
+          PTY_waiting(type => {
             switch (type) {
               case 0:
                 wakeup(impl());
@@ -1005,20 +1005,22 @@ var Module = (() => {
               case 2:
                 wakeup(0) // timeouted
                 break;
+              default:
+                throw new Error(`unknown type (at PTY_waiting): ${type}`);
             }
-          })
+          });
         } else {
           wakeup(res);
         }
       });
     }
 
-    function ___syscall_poll(fd, nfds, timeout) {
-      return PTY_handleSleepImpl(() => ecvProxySyscallJs(ECV_POLL_SCAN, fd, nfds, timeout));
+    function ___syscall_poll(fds, nfds, tmSec, tmNsec) {
+      return PTY_handleSleepSyncIO(() => ecvProxySyscallJs(ECV_POLL_SCAN, fds, nfds, tmSec, tmNsec));
     }
 
-    function ___syscall_pselect6(nfds, readfdsP, writefdsP, exceptfdsP, timeoutP, sigmaskP) {
-      return PTY_handleSleepImpl(() => ecvProxySyscallJs(ECV_PSELECT6_SCAN, nfds, readfdsP, writefdsP, exceptfdsP, timeoutP, sigmaskP));
+    function ___syscall_pselect6(nfds, readfdsP, writefdsP, exceptfdsP, tmSec, tmNsec, sigmaskP) {
+      return PTY_handleSleepSyncIO(() => ecvProxySyscallJs(ECV_PSELECT6_SCAN, nfds, readfdsP, writefdsP, exceptfdsP, tmSec, tmNsec, sigmaskP));
     }
 
     function ___ecv_syscall_ioctl(fd, cmd, arg) {
@@ -1063,7 +1065,13 @@ var Module = (() => {
     var bigintToI53Checked = num => num < INT53_MIN || num > INT53_MAX ? NaN : Number(num);
 
     function ___syscall_ftruncate64(fd, length) {
-      return ecvProxySyscallJs(ECV_FTRUNCATE, fd, length);
+      function bigintToUint32Checked(x) {
+        if (x < 0n || x > 0xFFFF_FFFFn) {
+          throw new RangeError("out of uint32 range");
+        }
+        return Number(x);
+      }
+      return ecvProxySyscallJs(ECV_FTRUNCATE, fd, bigintToUint32Checked(length));
     }
     var stringToUTF8 = (str, outPtr, maxBytesToWrite) => stringToUTF8Array(str, HEAPU8, outPtr, maxBytesToWrite);
 
@@ -1265,11 +1273,11 @@ var Module = (() => {
     var FILE_Read = (fd, iov, iovcnt, pnum) => {
       return ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
     };
-    var PTY_Read = (fd, iov, iovcnt, pnum) => {
+    var PTY_handleSleepRead = (fd, iov, iovcnt, pnum) => {
       return PTY_saveResult(wakeup => {
         let res = ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum);
         if (res == 1006) {
-          PTY_waitForReadable(type => {
+          PTY_waiting(type => {
             switch (type) {
               case 0:
                 wakeup(ecvProxySyscallJs(ECV_READ, fd, iov, iovcnt, pnum));
@@ -1331,7 +1339,7 @@ var Module = (() => {
           return FIFO_Read;
         // Character device (TTY)
         case S_IFCHR:
-          return PTY_Read;
+          return PTY_handleSleepRead;
         default:
           throw new Error(`Device Type (${devType}) must be 'S_IFREG' or 'S_IFIFO' or 'S_IFCHR' at _fd_read now.`);
       }
@@ -1457,18 +1465,18 @@ var Module = (() => {
     /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        E: ___ecv_syscall_ioctl,
+        j: ___ecv_syscall_ioctl,
         ca: ___syscall_clone,
         ba: ___syscall_execve,
-        k: ___syscall_exit,
+        n: ___syscall_exit,
         da: ___syscall_getpgid,
-        w: ___syscall_pipe2,
-        l: ___syscall_poll,
-        m: ___syscall_pselect6,
-        j: ___syscall_setpgid,
+        x: ___syscall_pipe2,
+        f: ___syscall_poll,
+        g: ___syscall_pselect6,
+        m: ___syscall_setpgid,
         aa: ___syscall_wait4,
-        z: ___call_sighandler,
-        i: ___cxa_throw,
+        A: ___call_sighandler,
+        l: ___cxa_throw,
         _: ___syscall_chdir,
         Y: ___syscall_dup,
         X: ___syscall_dup3,
@@ -1478,44 +1486,44 @@ var Module = (() => {
         N: ___syscall_ftruncate64,
         M: ___syscall_getcwd,
         L: ___syscall_getdents64,
-        f: ___syscall_ioctl,
+        h: ___syscall_ioctl,
         P: ___syscall_lstat64,
         G: ___syscall_mkdirat,
         Q: ___syscall_newfstatat,
         F: ___syscall_openat,
-        y: ___syscall_readlinkat,
+        z: ___syscall_readlinkat,
         R: ___syscall_stat64,
-        x: ___syscall_statfs64,
-        u: ___syscall_truncate64,
-        t: ___syscall_unlinkat,
-        s: ___syscall_utimensat,
+        y: ___syscall_statfs64,
+        v: ___syscall_truncate64,
+        u: ___syscall_unlinkat,
+        t: ___syscall_utimensat,
         $: __abort_js,
         J: __emscripten_init_main_thread_js,
-        v: __emscripten_notify_mailbox_postmessage,
-        D: __emscripten_receive_on_main_thread_js,
-        B: __emscripten_runtime_keepalive_clear,
-        n: __emscripten_thread_cleanup,
+        w: __emscripten_notify_mailbox_postmessage,
+        E: __emscripten_receive_on_main_thread_js,
+        C: __emscripten_runtime_keepalive_clear,
+        o: __emscripten_thread_cleanup,
         I: __emscripten_thread_mailbox_await,
         U: __emscripten_thread_set_strongref,
-        o: __tzset_js,
+        p: __tzset_js,
         Z: _clock_time_get,
         ea: ecv_proxy_process_memory_copy_req,
-        C: _emscripten_check_blocking_allowed,
+        D: _emscripten_check_blocking_allowed,
         W: _emscripten_date_now,
         T: _emscripten_exit_with_live_runtime,
         b: _emscripten_get_now,
-        r: _emscripten_resize_heap,
-        p: _environ_get,
-        q: _environ_sizes_get,
+        s: _emscripten_resize_heap,
+        q: _environ_get,
+        r: _environ_sizes_get,
         fa: execve_memory_copy_req,
-        h: _exit,
+        k: _exit,
         e: _fd_close,
-        g: _fd_read,
+        i: _fd_read,
         H: _fd_seek,
         O: _fd_sync,
         d: _fd_write,
         a: wasmMemory,
-        A: _proc_exit,
+        B: _proc_exit,
         K: _random_get
       }
     }

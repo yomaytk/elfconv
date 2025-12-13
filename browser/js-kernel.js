@@ -85,6 +85,13 @@ var Module = (() => {
     const S_IWOTH = 0o002;   // 2    : others write
     const S_IXOTH = 0o001;   // 1    : others execute
 
+    // poll
+    const POLLIN = 0x1;   // Data available to read
+    const POLLOUT = 0x2;   // Writing will not block
+    const POLLPRI = 0x4;   // Urgent data / high-priority data available
+    const POLLERR = 0x8;   // Error condition on FD (always reported)
+    const POLLHUP = 0x10;  // Hang up (peer closed / no writers)
+
     // Pipe
     const PIPE_MAX_SZ = 65536;
 
@@ -1250,11 +1257,12 @@ var Module = (() => {
           PTY.write(arr);
           return length
         },
-        poll: (stream, timeout) => {
-          if (!PTY.readable && timeout) {
-            PTY_askToWaitAgain(timeout)
+        poll: (stream, events, timeout) => {
+          let readyEvents = () => ((events & POLLIN) && PTY.readable) || ((events & POLLOUT) && PTY.writable);
+          if (!readyEvents() && timeout) {
+            PTY_askToWaitAgain(timeout);
           }
-          return (PTY.readable ? 1 : 0) | (PTY.writable ? 4 : 0)
+          return (((events & POLLIN) && PTY.readable) ? POLLIN : 0) | (((events & POLLOUT) && PTY.writable) ? POLLOUT : 0);
         }
       },
       default_tty_ops: {
@@ -3204,7 +3212,7 @@ var Module = (() => {
     };
     var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString((growMemViews(gWasmMemory), HEAPU8), ptr, maxBytesToRead) : "";
     var SYSCALLS = {
-      DEFAULT_POLLMASK: 5,
+      DEFAULT_POLLMASK: POLLIN | POLLOUT | POLLOUT,
       calculateAt(dirfd, path, allowEmpty) {
         if (PATH.isAbs(path)) {
           return path
@@ -3780,7 +3788,7 @@ var Module = (() => {
             if (!stream.tty) return -59;
             return 0
           }
-          case 21505: {
+          case 21505: { // TCGETS
             if (!stream.tty) return -59;
             if (stream.tty.ops.ioctl_tcgets) {
               var termios = stream.tty.ops.ioctl_tcgets(stream);
@@ -3802,7 +3810,7 @@ var Module = (() => {
             if (!stream.tty) return -59;
             return 0
           }
-          case 21506:
+          case 21506: // TCSETS
           case 21507:
           case 21508: {
             if (!stream.tty) return -59;
@@ -3822,7 +3830,7 @@ var Module = (() => {
                 c_cflag,
                 c_lflag,
                 c_cc
-              })
+              });
             }
             return 0
           }
@@ -3835,21 +3843,21 @@ var Module = (() => {
             (growMemViews(gWasmMemory), HEAP32)[argp >> 2] = stream.tty.fgPgid;
             return 0
           }
-          case 21520: {
+          case 21520: { // TIOCSPGRP
             if (!stream.tty) return -59;
             return -28
           }
           case 21531: {
             var argp = syscallGetVarargP();
-            return FS.ioctl(stream, op, argp)
+            return FS.ioctl(stream, op, argp);
           }
-          case 21523: {
+          case 21523: { // TIOCGWINSZ
             if (!stream.tty) return -59;
             if (stream.tty.ops.ioctl_tiocgwinsz) {
               var winsize = stream.tty.ops.ioctl_tiocgwinsz(stream.tty);
               var argp = syscallGetVarargP();
               (growMemViews(gWasmMemory), HEAP16)[argp >> 1] = winsize[0];
-              (growMemViews(gWasmMemory), HEAP16)[argp + 2 >> 1] = winsize[1]
+              (growMemViews(gWasmMemory), HEAP16)[argp + 2 >> 1] = winsize[1];
             }
             return 0
           }
@@ -3920,36 +3928,53 @@ var Module = (() => {
       }
     }
 
-    function ___syscall_poll_scan(fds, nfds, timeout) {
+    function ___syscall_poll_scan(fds, nfds, tmSec, tmNsec) {
       try {
-        var nonzero = 0;
+
+        growMemViews(gWasmMemory);
+
+        let timeout = 0;
+        if (tmSec == -1) {
+          timeout = -1;
+        } else {
+          timeout = tmSec + tmNsec * 1e-9;
+        }
+
+        let nonzero = 0;
         for (var i = 0; i < nfds; i++) {
           var pollfd = fds + 8 * i;
-          var fd = (growMemViews(gWasmMemory), HEAP32)[pollfd >> 2];
-          var events = (growMemViews(gWasmMemory), HEAP16)[pollfd + 4 >> 1];
+          var fd = HEAP32[pollfd >> 2];
+          var events = HEAP16[pollfd + 4 >> 1];
           var mask = 32;
           var stream = FS.getStream(fd);
           if (stream) {
-            mask = SYSCALLS.DEFAULT_POLLMASK;
             if (stream.stream_ops.poll) {
-              mask = stream.stream_ops.poll(stream, -1)
+              mask = stream.stream_ops.poll(stream, events, timeout)
             }
           }
-          mask &= events | 8 | 16;
+          mask &= events | POLLERR | POLLHUP;
           if (mask) nonzero++;
-          (growMemViews(gWasmMemory), HEAP16)[pollfd + 6 >> 1] = mask
+          HEAP16[pollfd + 6 >> 1] = mask
         }
         return nonzero
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        console.log(`errno: ${e.errno}`);
         return -e.errno
       }
     }
 
-    function ___syscall_pselect6_scan(nfds, readfdsP, writefdsP, exceptfdsP, timeoutP, sigmaskP) {
+    function ___syscall_pselect6_scan(nfds, readfdsP, writefdsP, exceptfdsP, tmSec, tmNsec, sigmaskP) {
       try {
 
         growMemViews(gWasmMemory);
+
+        let timeout;
+        if (tmSec == -1) {
+          timeout = -1;
+        } else {
+          timeout = tmSec + tmNsec * 1e-9;
+        }
 
         function checkFDs(fdsP, events) {
 
@@ -3958,18 +3983,19 @@ var Module = (() => {
           for (let i = 0; i < __KERNEL_FD_SETMAXID * 2; i++) { // scan 32 bits at a time.
             for (let j = 0; j < 32; j++) {
               if ((HEAP32[(fdsP >> 2) + i] & (1 << j)) !== 0) {
-                let stream = FS.getStream(fd);
+                let stream = FS.getStream(tFD);
+                let mask;
                 if (stream) {
                   if (stream.stream_ops.poll) {
-                    mask = stream.stream_ops.poll(stream, -1);
+                    mask = stream.stream_ops.poll(stream, events, timeout);
                   }
                 } else {
-                  throw "FS not having stream is valid?";
+                  throw "FS not having stream may be invaild?";
                 }
+                let fdSetId = tFD / 32;
+                let bitId = tFD % 32;
                 if (mask & events) {
                   // the bit is set
-                  let fdSetId = fd / 32;
-                  let bitId = fd % 32;
                   HEAP32[(fdsP >> 2) + fdSetId] |= (1 << bitId);
                   nonzero++;
                 } else {
@@ -3979,7 +4005,6 @@ var Module = (() => {
               }
               tFD++;
               if (tFD == nfds) {
-                // console.log(`pselect6 log. nonzero: ${nonzero}`);
                 return nonzero;
               }
             }
@@ -3989,8 +4014,8 @@ var Module = (() => {
         }
 
         let nonzero = 0;
-        nonzero += checkFDs(readfdsP, 1); // use POLLIN
-        nonzero += checkFDs(writefdsP, 4); // use POLLOUT
+        nonzero += checkFDs(readfdsP, POLLIN);
+        nonzero += checkFDs(writefdsP, POLLOUT);
         // nonzero += checkFDs(exceptfdsP, null); // rarely not used
 
         return nonzero;
