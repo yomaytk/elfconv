@@ -390,7 +390,7 @@ var Module = (() => {
       return Math.floor(Math.random() * 0x100000000);
     }
 
-    function createTaskStruct(pid, comm, state, ppid, pgrp, session, starttime) {
+    function createTaskStruct(pid, comm, state, ppid, pgrp, session, starttime, pwd) {
       return {
           /* pid */ pid: pid,
           /* comm */ comm: comm,
@@ -461,6 +461,10 @@ var Module = (() => {
         env_end: 0,
 
         exit_code: 0,
+        fs_struct: {
+          root: `/`,
+          pwd: pwd,
+        },
       };
     }
 
@@ -482,7 +486,8 @@ var Module = (() => {
       FS.initFDTable(ecvPid, ecvParPid);
       // create taskStruct.
       let cmdline = isForked ? processes.get(ecvParPid).task.comm : Module["initProgram"].slice(0, -5);
-      let taskStruct = createTaskStruct(ecvPid, cmdline, 'R', ecvParPid, ecvPgid, session.pid, Math.floor((Date.now() - jsKernelBootMs) * CLK_TCK / 1000));
+      let pwd = isForked ? processes.get(ecvParPid).task.fs_struct.pwd : `/`;
+      let taskStruct = createTaskStruct(ecvPid, cmdline, 'R', ecvParPid, ecvPgid, session.pid, Math.floor((Date.now() - jsKernelBootMs) * CLK_TCK / 1000), pwd);
 
       // procfs settings
       if (isForked) {
@@ -1791,7 +1796,6 @@ var Module = (() => {
       streamMap: new Map(),
       nextInode: 1,
       nameTable: null,
-      currentPath: "/",
       initialized: false,
       ignorePermissions: true,
       filesystems: null,
@@ -2871,7 +2875,7 @@ var Module = (() => {
         }
         FS.close(stream)
       },
-      cwd: () => FS.currentPath,
+      cwd: () => processes.get(tEcvPid).task.fs_struct.pwd,
       chdir(path) {
         var lookup = FS.lookupPath(path, {
           follow: true
@@ -2886,7 +2890,7 @@ var Module = (() => {
         if (errCode) {
           throw new FS.ErrnoError(errCode)
         }
-        FS.currentPath = lookup.path
+        processes.get(tEcvPid).task.fs_struct.pwd = lookup.path
       },
       createDefaultDirectories() {
         FS.mkdir("/tmp");
