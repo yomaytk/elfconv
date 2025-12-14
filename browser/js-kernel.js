@@ -17,10 +17,12 @@ var Module = (() => {
     var _scriptName = import.meta.url;
     var INITIAL_MEMORY_SIZE = 16777216;
     var userBinList = Module["executables"];
+    var jsKernelBootMs = 0;
+    var CLK_TCK = 100;
 
     var initProcessInitialized = false;
     var initWasmDoneNum = 0;
-    var tEcvPid = 42;  // used for multi processes FS.
+    var tEcvPid = -1;  // used for multi processes FS.
     var ecvPidCounter = 42;
     var gWasmMemory;
     var SysFuncMap = new Map();
@@ -305,6 +307,8 @@ var Module = (() => {
           else {
             throw e;
           }
+
+          tEcvPid = -1;
         };
       },
       async createWasmModules(binList) {
@@ -378,6 +382,88 @@ var Module = (() => {
       tWorkerInfo.status = WORKER_MGR.S_STOP;
     }
 
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function randU32() {
+      return Math.floor(Math.random() * 0x100000000);
+    }
+
+    function createTaskStruct(pid, comm, state, ppid, pgrp, session, starttime) {
+      return {
+          /* pid */ pid: pid,
+          /* comm */ comm: comm,
+          /* state */ state: state,
+          /* ppid */ ppid: ppid,
+          /* pgrp */ pgrp: pgrp,
+          /* session */ session: session,
+
+        tty_nr: 0,
+        tpgid: -1,
+        flags: randU32(),
+
+        minflt: randInt(0, 200000),
+        cminflt: 0,
+        majflt: randInt(0, 5000),
+        cmajflt: 0,
+
+        utime: randInt(0, 1000),
+        stime: randInt(0, 1000),
+        cutime: 0,
+        cstime: 0,
+
+        priority: randInt(-20, 19),
+        nice: randInt(-20, 19),
+
+        num_threads: randInt(1, 64),
+        itrealvalue: 0,
+
+          /* starttime */ starttime: starttime,
+
+        vsize: randInt(1 << 20, 4 << 30),
+        rss: randInt(0, 200000),
+        rsslim: "18446744073709551615",
+
+        startcode: 0,
+        endcode: 0,
+        startstack: 0,
+
+        kstkesp: 0,
+        kstkeip: 0,
+
+        signal: 0,
+        blocked: 0,
+        sigignore: 0,
+        sigcatch: 0,
+
+        wchan: 0,
+        nswap: 0,
+        cnswap: 0,
+
+        exit_signal: 17,
+        processor: randInt(0, 7),
+
+        rt_priority: 0,
+        policy: 0,
+
+        delayacct_blkio_ticks: 0,
+        guest_time: 0,
+        cguest_time: 0,
+
+        start_data: 0,
+        end_data: 0,
+        start_brk: 0,
+
+        arg_start: 0,
+        arg_end: 0,
+        env_start: 0,
+        env_end: 0,
+
+        exit_code: 0,
+      };
+    }
+
     // create new process
     // We assumes that init Wasm process (!isForked) already has `session` and `controlling terminal`
     // and the assumption is likely acceptable for many Linux processes.
@@ -394,6 +480,16 @@ var Module = (() => {
 
       // init FD table.
       FS.initFDTable(ecvPid, ecvParPid);
+      // create taskStruct.
+      let cmdline = isForked ? processes.get(ecvParPid).task.comm : Module["initProgram"].slice(0, -5);
+      let taskStruct = createTaskStruct(ecvPid, cmdline, 'R', ecvParPid, ecvPgid, session.pid, Math.floor((Date.now() - jsKernelBootMs) * CLK_TCK / 1000));
+
+      // procfs settings
+      if (isForked) {
+        PROCFS.createMyProc(ecvPid);
+      } else {
+        PROCFS.init(ecvPid);
+      }
 
       if (!isForked) {
         // init standard stream.
@@ -457,6 +553,8 @@ var Module = (() => {
           } else {
             initialMsgHandling(e);
           }
+
+          tEcvPid = -1;
         }
       }
 
@@ -465,6 +563,7 @@ var Module = (() => {
         ecvParPid: ecvParPid,
         ecvPgid: ecvPgid,
         session: session,
+        task: taskStruct,
         wasmProgram: wasmProgram,
         worker: processWorker,
         wasmMemory: newWMemory,
@@ -509,6 +608,7 @@ var Module = (() => {
       await WORKER_MGR.createWasmModules(userBinList);
       console.log(WORKER_MGR.wasmModules);
       WORKER_MGR.init(userBinList);
+      jsKernelBootMs = Date.now();
     }
 
     function preMain() { }
@@ -2822,41 +2922,6 @@ var Module = (() => {
         FS.mkdir("/dev/shm/tmp");
         FS.mkdir("/dev/pipe2");
       },
-      createSpecialDirectories() {
-        FS.mkdir("/proc");
-        var proc_self = FS.mkdir("/proc/self");
-        FS.mkdir("/proc/self/fd");
-        FS.mount({
-          mount() {
-            var node = FS.createNode(proc_self, "fd", 16895, 73);
-            node.stream_ops = {
-              llseek: MEMFS.stream_ops.llseek
-            };
-            node.node_ops = {
-              lookup(parent, name) {
-                var fd = +name;
-                var stream = FS.getStreamChecked(fd);
-                var ret = {
-                  parent: null,
-                  mount: {
-                    mountpoint: "fake"
-                  },
-                  node_ops: {
-                    readlink: () => stream.path
-                  },
-                  id: fd + 1
-                };
-                ret.parent = ret;
-                return ret
-              },
-              readdir() {
-                return Array.from(FS.streams.entries()).filter(([k, v]) => v).map(([k, v]) => k.toString())
-              }
-            };
-            return node
-          }
-        }, {}, "/proc/self/fd")
-      },
       createStandardStreams(input, output, error) {
         if (input) {
           FS.createDevice("/dev", "stdin", input)
@@ -2888,7 +2953,6 @@ var Module = (() => {
         FS.mount(MEMFS, {}, "/");
         FS.createDefaultDirectories();
         FS.createDefaultDevices();
-        FS.createSpecialDirectories();
         FS.filesystems = {
           MEMFS
         }
@@ -3211,6 +3275,272 @@ var Module = (() => {
         return node
       }
     };
+    var PROCFS = {
+      ops_table: null,
+      init(initPid) {
+        PROCFS.mount();
+        let myProcNd = FS.mkdir(`/proc/${initPid}`);
+        this.initMyProc(myProcNd);
+        // /proc/self
+        let selfNode = FS.symlink(`/proc/${initPid}`, `/proc/self`);
+        FS.mkdir(`/proc/self/fd`);
+        FS.mount({
+          mount() {
+            var node = FS.createNode(selfNode, "fd", S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO, 73);
+            node.stream_ops = {
+              llseek: MEMFS.stream_ops.llseek
+            };
+            node.node_ops = {
+              lookup(parent, name) {
+                var fd = +name;
+                var stream = FS.getStreamChecked(fd);
+                var ret = {
+                  parent: null,
+                  mount: {
+                    mountpoint: "fake"
+                  },
+                  node_ops: {
+                    readlink: () => stream.path
+                  },
+                  id: fd + 1
+                };
+                ret.parent = ret;
+                return ret
+              },
+              readdir() {
+                return Array.from(FS.streamMap.get(tEcvPid).entries()).filter(([k, v]) => v).map(([k, v]) => k.toString())
+              }
+            };
+            return node
+          }
+        }, {}, "/proc/self/fd");
+      },
+      createMyProc(pid) {
+        let myProcNd = FS.mkdir(`/proc/${pid}`);
+        this.initMyProc(myProcNd);
+      },
+      initMyProc(myProcNd) {
+        // /proc/<pid>/stat
+        PROCFS.createNode(myProcNd, `stat`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 731);
+        // /proc/<pid>/cmdline
+        PROCFS.createNode(myProcNd, `cmdline`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 732);
+      },
+      mount(mount) {
+        return PROCFS.createNode(FS.root, `proc`, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO, 730);
+      },
+      createNode(parent, name, mode, dev) {
+        if (FS.isBlkdev(mode) || FS.isFIFO(mode)) {
+          throw new FS.ErrnoError(63)
+        }
+        PROCFS.ops_table ||= {
+          dir: {
+            node: {
+              getattr: MEMFS.node_ops.getattr,
+              setattr: MEMFS.node_ops.setattr,
+              lookup: PROCFS.node_ops.lookup,
+              mknod: PROCFS.node_ops.mknod,
+              rename: PROCFS.node_ops.rename,
+              unlink: PROCFS.node_ops.unlink,
+              rmdir: PROCFS.node_ops.rmdir,
+              readdir: PROCFS.node_ops.readdir,
+              symlink: PROCFS.node_ops.symlink,
+            },
+            stream: {
+              llseek: MEMFS.stream_ops.llseek,
+            }
+          },
+          file: {
+            node: {
+              getattr: MEMFS.node_ops.getattr,
+              setattr: MEMFS.node_ops.setattr,
+            },
+            stream: {
+              llseek: MEMFS.stream_ops.llseek,
+              read: PROCFS.stream_ops.read,
+              write: PROCFS.stream_ops.write,
+            }
+          },
+          link: {
+            node: {
+              getattr: MEMFS.node_ops.getattr,
+              setattr: MEMFS.node_ops.setattr,
+              readlink: MEMFS.node_ops.readlink,
+            },
+            stream: {},
+          }
+        };
+        let node = FS.createNode(parent, name, mode, dev);
+        if (FS.isDir(node.mode)) {
+          node.node_ops = PROCFS.ops_table.dir.node;
+          node.stream_ops = PROCFS.ops_table.dir.stream;
+          node.contents = {};
+        } else if (FS.isFile(node.mode)) {
+          node.node_ops = PROCFS.ops_table.file.node;
+          node.stream_ops = PROCFS.ops_table.file.stream;
+          node.contents = null;
+        } else if (FS.isLink(node.mode)) {
+          node.node_ops = PROCFS.ops_table.link.node;
+          node.stream_ops = PROCFS.ops_table.link.stream;
+        }
+        node.atime = node.mtime = node.ctime = Date.now();
+        if (parent) {
+          parent.contents[name] = node;
+          parent.atime = parent.mtime = parent.ctime = node.atime
+        }
+        return node;
+      },
+      readProcStat(task) {
+        const statLine = [
+          task.pid,
+          `(${task.comm})`,
+          task.state,
+          task.ppid,
+          task.pgrp,
+          task.session,
+
+          task.tty_nr,
+          task.tpgid,
+          task.flags,
+
+          task.minflt,
+          task.cminflt,
+          task.majflt,
+          task.cmajflt,
+
+          task.utime,
+          task.stime,
+          task.cutime,
+          task.cstime,
+
+          task.priority,
+          task.nice,
+
+          task.num_threads,
+          task.itrealvalue,
+
+          task.starttime,
+
+          task.vsize,
+          task.rss,
+          task.rsslim,
+
+          task.startcode,
+          task.endcode,
+          task.startstack,
+
+          task.kstkesp,
+          task.kstkeip,
+
+          task.signal,
+          task.blocked,
+          task.sigignore,
+          task.sigcatch,
+
+          task.wchan,
+          task.nswap,
+          task.cnswap,
+
+          task.exit_signal,
+          task.processor,
+
+          task.rt_priority,
+          task.policy,
+
+          task.delayacct_blkio_ticks,
+          task.guest_time,
+          task.cguest_time,
+
+          task.start_data,
+          task.end_data,
+          task.start_brk,
+
+          task.arg_start,
+          task.arg_end,
+          task.env_start,
+          task.env_end,
+
+          task.exit_code,
+        ].join(" ") + "\n";
+
+        return new TextEncoder().encode(statLine).buffer;
+      },
+      readProcCmdline(task) {
+        return new TextEncoder().encode(task.comm).buffer;
+      },
+      node_ops: {
+        setattr() {
+          throw new FS.ErrnoError(30);
+        },
+        mknod(parent, name, mode, dev) {
+          return PROCFS.createNode(parent, name, mode, dev);
+        },
+        mknodUser() {
+          throw new FS.ErrnoError(30);
+        },
+        lookup(parent, name) {
+          throw new FS.ErrnoError(44);
+        },
+        readdir(node) {
+          return [".", "..", ...Object.keys(node.contents)]
+        },
+        rmdir(parent, name) {
+          var node = FS.lookupNode(parent, name);
+          for (var childName in node.contents) {
+            this.rmdir(node, childName);
+          }
+          delete parent.contents[name];
+          parent.ctime = parent.mtime = Date.now()
+        },
+        rename() {
+          throw new FS.ErrnoError(30);
+        },
+        unlink() {
+          throw new FS.ErrnoError(30);
+        },
+        symlink(parent, newname, oldpath) {
+          var node = PROCFS.createNode(parent, newname, S_IFLNK | S_IRWXU | S_IRWXG | S_IRWXO, 730);
+          node.link = oldpath;
+          return node;
+        },
+        symlinkUser() {
+          throw new FS.ErrnoError(30);
+        },
+      },
+      stream_ops: {
+        read(stream, buffer, offset, length, position) {
+          let parent = FS.lookupPath(stream.path, {
+            parent: true
+          }).node;
+          // get the target content.
+          let task = processes.get(+(parent.name)).task;
+          let content;
+          if (stream.node.name === `stat`) {
+            content = PROCFS.readProcStat(task);
+          } else if (stream.node.name === `cmdline`) {
+            content = PROCFS.readProcCmdline(task);
+          } else {
+            throw new FS.ErrnoError(2);
+          }
+          // copy the buffer
+          if (position >= content.byteLength) {
+            return 0;
+          }
+          let size = Math.min(content.byteLength - position, length);
+          let contentView = new Uint8Array(content);
+          if (size > 8) { // for performance improvement.
+            buffer.set(contentView, offset);
+          } else {
+            for (let i = 0; i < size; i++) {
+              buffer[offset + i] = contentView[position + i];
+            }
+          }
+          return size;
+        },
+        write() {
+          throw new Error(`write of procfs is not implemented.`);
+        },
+      }
+    };
     var UTF8ToString = (ptr, maxBytesToRead) => ptr ? UTF8ArrayToString((growMemViews(gWasmMemory), HEAPU8), ptr, maxBytesToRead) : "";
     var SYSCALLS = {
       DEFAULT_POLLMASK: POLLIN | POLLOUT | POLLOUT,
@@ -3298,6 +3628,8 @@ var Module = (() => {
       let thisPr = processes.get(ecvPid);
       processes.get(thisPr.ecvParPid).childs.delete(ecvPid);
       processes.delete(ecvPid);
+      FS.streamMap.delete(ecvPid);
+      FS.rmdir(`/proc/${ecvPid}`);
       console.log(`Delete process ${ecvPid}. current processes: [${[...processes.keys()]}]`);
     }
 
@@ -3376,9 +3708,9 @@ var Module = (() => {
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
 
         // fileName
-        let fileName = basename(readByteString(orgMemU8View, fileNameP));
-        let execveWasm = fileName + '.wasm';
-        let execveJs = fileName + '.js';
+        let exeName = basename(readByteString(orgMemU8View, fileNameP));
+        let execveWasm = exeName + '.wasm';
+        let execveJs = exeName + '.js';
 
         console.log(`execveWasm: ${execveWasm}`);
 
@@ -3424,8 +3756,10 @@ var Module = (() => {
             let srcArgvP32 = argvP >> 2;
             let srcArgvP8 = orgMemU32View[srcArgvP32];
             let dstArgvContentSid = d.argvContentP;
+            let cmdline = [];
             while (srcArgvP8) {
               let argSpace = countStringBytes(orgMemU8View, srcArgvP8) + 1; // argSpace includes '\0'
+              cmdline.push(readByteString(orgMemU8View, srcArgvP8));
               dst8View.set(orgMemU8View.subarray(srcArgvP8, srcArgvP8 + argSpace), dstArgvContentSid);
               dst32View[(d.argvP >> 2) + argId] = dstArgvContentSid;
               // increment
@@ -3439,6 +3773,8 @@ var Module = (() => {
             if (argsTotal >= 1000) {
               throw new Error(`argsTotal is too large at ___syscall_execve. execveWasm: ${execveWasm}, bytes len: ${argId}.`);
             }
+            // update task.comm
+            thisPr.task.comm = cmdline.join(" ");
 
             // `argc`
             Atomics.store(execveBufview, 1, argId);
@@ -3476,6 +3812,8 @@ var Module = (() => {
           } else {
             initialMsgHandling(e);
           }
+
+          tEcvPid = -1;
         };
 
         let execveBufView = new Int32Array(thisPr.execveBuf);

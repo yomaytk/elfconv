@@ -584,12 +584,13 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       free(cache_vec);
     } break;
     case ECV_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
+    {
       if (X2_Q == NULL) {
         X0_Q = ___syscall_sendfile(X0_D, X1_D, NULL, X3_Q);
       } else {
         X0_Q = ___syscall_sendfile(X0_D, X1_D, (uint32_t)TranslateVMA(arena_ptr, X2_Q), X3_Q);
       }
-      break;
+    } break;
     case ECV_PSELECT6: /* pselect6 (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t* sigmask) */
     {
       int res;

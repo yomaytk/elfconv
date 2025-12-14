@@ -1567,6 +1567,7 @@ var Module = (() => {
           postMessage({
             cmd: "exitSuccess",
             workerId: workerId,
+            ecvPid: ecvPid,
           });
         } else {
           handleException(e);
