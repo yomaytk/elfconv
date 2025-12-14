@@ -893,6 +893,7 @@ var Module = (() => {
     SysFuncMap.set(ECV_MKDIRAT, ___syscall_mkdirat);
     SysFuncMap.set(ECV_NEWFSTATAT, ___syscall_newfstatat);
     SysFuncMap.set(ECV_OPENAT, ___syscall_openat);
+    SysFuncMap.set(ECV_SENDFILE, ___syscall_sendfile);
     // unused.
     // SysFuncMap.set(ECV_PPOLL, ___syscall_poll);
     SysFuncMap.set(ECV_READLINKAT, ___syscall_readlinkat);
@@ -4255,6 +4256,28 @@ var Module = (() => {
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
         return -e.errno;
+      }
+    }
+
+    function ___syscall_sendfile(out_fd, in_fd, offsetP, count) {
+      try {
+        let outStream = SYSCALLS.getStreamFromFD(out_fd);
+        let inStream = SYSCALLS.getStreamFromFD(in_fd);
+        let tmpBuf = new Uint8Array(count);
+        // use `read` and `write` instead of directly transportation.
+        let readLen;
+        if (offsetP) {
+          let position = (growMemViews(gWasmMemory), HEAPU32)[offsetP >> 2];
+          readLen = FS.read(inStream, tmpBuf, 0, count, position);
+          (growMemViews(gWasmMemory), HEAPU32)[offsetP >> 2] = position + readLen;
+        } else {
+          readLen = FS.read(inStream, tmpBuf, 0, count);
+          (growMemViews(gWasmMemory), HEAPU32)[offsetP >> 2] = inStream.position;
+        }
+        return FS.write(outStream, tmpBuf, 0, readLen, undefined, true);
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
       }
     }
 
