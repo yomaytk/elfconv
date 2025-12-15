@@ -2731,7 +2731,7 @@ var Module = (() => {
         }
       },
       isClosed(fd) {
-        return FS.streamMap.get(tEcvPid).has(fd);
+        return !FS.streamMap.get(tEcvPid).has(fd);
       },
       initFDTable(ecvPid, parEcvPid) {
         if (!FS.streamMap.has(ecvPid)) {
@@ -2752,7 +2752,7 @@ var Module = (() => {
         }
       },
       llseek(stream, offset, whence) {
-        if (FS.isClosed(stream)) {
+        if (FS.isClosed(stream.fd)) {
           throw new FS.ErrnoError(8)
         }
         if (!stream.seekable || !stream.stream_ops.llseek) {
@@ -2769,7 +2769,7 @@ var Module = (() => {
         if (length < 0 || position < 0) {
           throw new FS.ErrnoError(28)
         }
-        if (FS.isClosed(stream)) {
+        if (FS.isClosed(stream.fd)) {
           throw new FS.ErrnoError(8)
         }
         if ((stream.flags & 2097155) === 1) {
@@ -2795,7 +2795,7 @@ var Module = (() => {
         if (length < 0 || position < 0) {
           throw new FS.ErrnoError(28)
         }
-        if (FS.isClosed(stream)) {
+        if (FS.isClosed(stream.fd)) {
           throw new FS.ErrnoError(8)
         }
         if ((stream.flags & 2097155) === 0) {
@@ -4591,6 +4591,7 @@ var Module = (() => {
         return 0
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        console.log(e.errno);
         return e.errno
       }
     }
