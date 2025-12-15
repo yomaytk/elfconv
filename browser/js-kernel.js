@@ -3315,8 +3315,7 @@ var Module = (() => {
       ops_table: null,
       init(initPid) {
         PROCFS.mount();
-        let myProcNd = FS.mkdir(`/proc/${initPid}`);
-        this.initMyProc(myProcNd);
+        this.createMyProc(initPid);
         // /proc/self
         let selfNode = FS.symlink(`/proc/${initPid}`, `/proc/self`);
         FS.mkdir(`/proc/self/fd`);
@@ -3352,14 +3351,11 @@ var Module = (() => {
         }, {}, "/proc/self/fd");
       },
       createMyProc(pid) {
-        let myProcNd = FS.mkdir(`/proc/${pid}`);
-        this.initMyProc(myProcNd);
-      },
-      initMyProc(myProcNd) {
+        FS.mkdir(`/proc/${pid}`);
         // /proc/<pid>/stat
-        PROCFS.createNode(myProcNd, `stat`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 731);
+        FS.mknod(`/proc/${pid}/stat`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 731);
         // /proc/<pid>/cmdline
-        PROCFS.createNode(myProcNd, `cmdline`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 732);
+        FS.mknod(`/proc/${pid}/cmdline`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 732);
       },
       mount(mount) {
         return PROCFS.createNode(FS.root, `proc`, S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO, 730);
@@ -3413,6 +3409,7 @@ var Module = (() => {
         } else if (FS.isFile(node.mode)) {
           node.node_ops = PROCFS.ops_table.file.node;
           node.stream_ops = PROCFS.ops_table.file.stream;
+          node.usedBytes = 0;
           node.contents = null;
         } else if (FS.isLink(node.mode)) {
           node.node_ops = PROCFS.ops_table.link.node;
@@ -3561,6 +3558,7 @@ var Module = (() => {
           if (position >= content.byteLength) {
             return 0;
           }
+          stream.node.usedBytes = content.byteLength; // (FIXME)
           let size = Math.min(content.byteLength - position, length);
           let contentView = new Uint8Array(content);
           if (size > 8) { // for performance improvement.
