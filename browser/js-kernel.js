@@ -2376,6 +2376,13 @@ var Module = (() => {
         }
         return parent.node_ops.symlink(parent, newname, oldpath)
       },
+      pursueSymlink(path) {
+        let lookup = FS.lookupPath(path);
+        while (lookup.node.link) {
+          lookup = FS.lookupPath(lookup.node.link);
+        }
+        return lookup.path;
+      },
       rename(old_path, new_path) {
         var old_dirname = PATH.dirname(old_path);
         var new_dirname = PATH.dirname(new_path);
@@ -2945,10 +2952,36 @@ var Module = (() => {
         var stdout = FS.open("/dev/stdout", 1); // fd = 1
         var stderr = FS.open("/dev/stderr", 1); // fd = 2
       },
+      createUserSymlinks(cmdMap) {
+        for (var [link, bin] of cmdMap) {
+          console.log(`/usr/bin/${link}`);
+          FS.symlink(`/usr/bin/${bin}`, `/usr/bin/${link}`);
+        }
+      },
       createUserExecutableFiles(userBinList) {
         let userBinSet = [...new Set(userBinList)];
         for (let bin of userBinSet) {
           FS.open("/usr/bin/" + bin, O_CREAT, S_IWUSR);
+          if (bin === "busybox") {
+            this.createUserSymlinks(new Map([
+              ["arch", "busybox"],
+              ["ascii", "busybox"],
+              ["basename", "busybox"],
+              ["clear", "busybox"],
+              ["date", "busybox"],
+              ["hostname", "busybox"],
+              ["ls", "busybox"],
+              ["mkdir", "busybox"],
+              ["rm", "busybox"],
+              ["rmdir", "busybox"],
+              ["tree", "busybox"],
+              ["uname", "busybox"],
+              ["vi", "busybox"],
+              ["cat", "busybox"],
+              ["touch", "busybox"],
+              ["ps", "busybox"]
+            ]));
+          }
         }
       },
       staticInit() {
@@ -3684,7 +3717,7 @@ var Module = (() => {
       }
     }
 
-    function ___syscall_execve(ecvPid, fileNameP, argvP, envpP) {
+    function ___syscall_execve(ecvPid, cmdlineP, argvP, envpP) {
       try {
 
         let thisPr = processes.get(ecvPid);
@@ -3710,8 +3743,8 @@ var Module = (() => {
         let orgMemU8View = new Uint8Array(orgMemory.buffer);
         let orgMemU32View = new Uint32Array(orgMemory.buffer);
 
-        // fileName
-        let exeName = basename(readByteString(orgMemU8View, fileNameP));
+        let tExecPath = FS.pursueSymlink(readByteString(orgMemU8View, cmdlineP));
+        let exeName = basename(tExecPath);
         let execveWasm = exeName + '.wasm';
         let execveJs = exeName + '.js';
 
