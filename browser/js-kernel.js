@@ -611,7 +611,6 @@ var Module = (() => {
       TTY.init(); // actually, this do nothing.
       FS.ignorePermissions = false
       await WORKER_MGR.createWasmModules(userBinList);
-      console.log(WORKER_MGR.wasmModules);
       WORKER_MGR.init(userBinList);
       jsKernelBootMs = Date.now();
     }
@@ -2133,7 +2132,7 @@ var Module = (() => {
         return stream
       },
       closeStream(fd) {
-        FS.streamMap.get(tEcvPid).set(fd, null);
+        FS.streamMap.get(tEcvPid).delete(fd);
       },
       dupStream(origStream, fd = -1) {
         var stream = FS.createStream(origStream, fd);
@@ -2708,10 +2707,11 @@ var Module = (() => {
         }
         return stream
       },
-      close(stream) {
-        if (FS.isClosed(stream)) {
+      close(fd) {
+        if (FS.isClosed(fd)) {
           throw new FS.ErrnoError(8)
         }
+        let stream = SYSCALLS.getStreamFromFD(fd);
         if (stream.getdents) stream.getdents = null;
         try {
           if (stream.stream_ops.close) {
@@ -2720,12 +2720,11 @@ var Module = (() => {
         } catch (e) {
           throw e
         } finally {
-          FS.closeStream(stream.fd)
+          FS.closeStream(fd)
         }
-        stream.fd = null
       },
-      isClosed(stream) {
-        return stream.fd === null
+      isClosed(fd) {
+        return FS.streamMap.get(tEcvPid).has(fd);
       },
       initFDTable(ecvPid, parEcvPid) {
         if (!FS.streamMap.has(ecvPid)) {
@@ -2739,9 +2738,9 @@ var Module = (() => {
         }
       },
       closeOnExecFD(ecvPid) {
-        for (var [_fd, stream] of FS.streamMap.get(ecvPid)) {
+        for (var [fd, stream] of FS.streamMap.get(ecvPid)) {
           if (stream.fd_flags & FD_CLOEXEC) {
-            FS.close(stream);
+            FS.close(fd);
           }
         }
       },
@@ -2858,7 +2857,7 @@ var Module = (() => {
         } else if (opts.encoding === "binary") {
           ret = buf
         }
-        FS.close(stream);
+        FS.close(stream.fd);
         return ret
       },
       writeFile(path, data, opts = {}) {
@@ -2873,7 +2872,7 @@ var Module = (() => {
         } else {
           throw new Error("Unsupported data type")
         }
-        FS.close(stream)
+        FS.close(stream.fd)
       },
       cwd: () => processes.get(tEcvPid).task.fs_struct.pwd,
       chdir(path) {
@@ -2974,7 +2973,7 @@ var Module = (() => {
         FS.initialized = false;
         for (var [fd, stream] of FS.streamMap.get(tEcvPid)) {
           if (stream) {
-            FS.close(stream)
+            FS.close(stream.fd)
           }
         }
       },
@@ -3062,7 +3061,7 @@ var Module = (() => {
           FS.chmod(node, mode | 146);
           var stream = FS.open(node, 577);
           FS.write(stream, data, 0, data.length, 0, canOwn);
-          FS.close(stream);
+          FS.close(stream.fd);
           FS.chmod(node, mode)
         }
       },
@@ -3946,8 +3945,8 @@ var Module = (() => {
         var old = SYSCALLS.getStreamFromFD(fd);
         if (old.fd === newfd) return -28;
         if (newfd < 0 || newfd >= FS.MAX_OPEN_FDS) return -8;
-        var existing = FS.getStream(newfd);
-        if (existing) FS.close(existing);
+        var existingStream = FS.getStream(newfd);
+        if (existingStream) FS.close(existingStream.fd);
         return FS.dupStream(old, newfd).fd
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
@@ -4302,7 +4301,6 @@ var Module = (() => {
         return nonzero
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
-        console.log(`errno: ${e.errno}`);
         return -e.errno
       }
     }
@@ -4558,8 +4556,7 @@ var Module = (() => {
 
     function _fd_close(fd) {
       try {
-        var stream = SYSCALLS.getStreamFromFD(fd);
-        FS.close(stream);
+        FS.close(fd);
         return 0
       } catch (e) {
         if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
