@@ -326,7 +326,7 @@ var Module = (() => {
 
       function receiveInstance(instance) {
         wasmExports = instance.exports;
-        wasmTable = wasmExports["uc"];
+        wasmTable = wasmExports["vc"];
         return wasmExports
       }
 
@@ -1103,6 +1103,10 @@ var Module = (() => {
       return ecvProxySyscallJs(ECV_OPENAT, dirfd, path, flags, varargs);
     }
 
+    function ___syscall_sendfile(out_fd, in_fd, offsetP, count) {
+      return ecvProxySyscallJs(ECV_SENDFILE, out_fd, in_fd, offsetP, count);
+    }
+
     function ___syscall_readlinkat(dirfd, path, buf, bufsize) {
       return ecvProxySyscallJs(ECV_READLINKAT, dirfd, path, buf, bufsize);
     }
@@ -1465,7 +1469,7 @@ var Module = (() => {
     /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        j: ___ecv_syscall_ioctl,
+        k: ___ecv_syscall_ioctl,
         ca: ___syscall_clone,
         ba: ___syscall_execve,
         n: ___syscall_exit,
@@ -1473,10 +1477,11 @@ var Module = (() => {
         x: ___syscall_pipe2,
         f: ___syscall_poll,
         g: ___syscall_pselect6,
-        m: ___syscall_setpgid,
+        h: ___syscall_sendfile,
+        ea: ___syscall_setpgid,
         aa: ___syscall_wait4,
         A: ___call_sighandler,
-        l: ___cxa_throw,
+        m: ___cxa_throw,
         _: ___syscall_chdir,
         Y: ___syscall_dup,
         X: ___syscall_dup3,
@@ -1486,7 +1491,7 @@ var Module = (() => {
         N: ___syscall_ftruncate64,
         M: ___syscall_getcwd,
         L: ___syscall_getdents64,
-        h: ___syscall_ioctl,
+        i: ___syscall_ioctl,
         P: ___syscall_lstat64,
         G: ___syscall_mkdirat,
         Q: ___syscall_newfstatat,
@@ -1507,7 +1512,7 @@ var Module = (() => {
         U: __emscripten_thread_set_strongref,
         p: __tzset_js,
         Z: _clock_time_get,
-        ea: ecv_proxy_process_memory_copy_req,
+        fa: ecv_proxy_process_memory_copy_req,
         D: _emscripten_check_blocking_allowed,
         W: _emscripten_date_now,
         T: _emscripten_exit_with_live_runtime,
@@ -1515,10 +1520,10 @@ var Module = (() => {
         s: _emscripten_resize_heap,
         q: _environ_get,
         r: _environ_sizes_get,
-        fa: execve_memory_copy_req,
-        k: _exit,
+        ga: execve_memory_copy_req,
+        l: _exit,
         e: _fd_close,
-        i: _fd_read,
+        j: _fd_read,
         H: _fd_seek,
         O: _fd_sync,
         d: _fd_write,
@@ -1533,10 +1538,10 @@ var Module = (() => {
     async function initWasmInstance() {
       // init Wasm module
       wasmExports = await instantiateWasm();
-      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["vc"])(a0, a1);
-      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Tc"])(a0);
-      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Uc"])(a0);
-      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Vc"])();
+      _main = Module["_main"] = (a0, a1) => (_main = Module["_main"] = wasmExports["wc"])(a0, a1);
+      __emscripten_stack_restore = a0 => (__emscripten_stack_restore = wasmExports["Uc"])(a0);
+      __emscripten_stack_alloc = a0 => (__emscripten_stack_alloc = wasmExports["Vc"])(a0);
+      _emscripten_stack_get_current = () => (_emscripten_stack_get_current = wasmExports["Wc"])();
 
       preInit();
       moduleRtn = readyPromise;
@@ -1562,6 +1567,7 @@ var Module = (() => {
           postMessage({
             cmd: "exitSuccess",
             workerId: workerId,
+            ecvPid: ecvPid,
           });
         } else {
           handleException(e);
