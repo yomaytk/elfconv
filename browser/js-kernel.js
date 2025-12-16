@@ -2954,14 +2954,13 @@ var Module = (() => {
       },
       createUserSymlinks(cmdMap) {
         for (var [link, bin] of cmdMap) {
-          console.log(`/usr/bin/${link}`);
           FS.symlink(`/usr/bin/${bin}`, `/usr/bin/${link}`);
         }
       },
       createUserExecutableFiles(userBinList) {
         let userBinSet = [...new Set(userBinList)];
         for (let bin of userBinSet) {
-          FS.open("/usr/bin/" + bin, O_CREAT, S_IWUSR);
+          FS.open("/usr/bin/" + bin, O_CREAT, S_IRWXU | S_IRGRP | S_IWGRP | S_IROTH);
           if (bin === "busybox") {
             this.createUserSymlinks(new Map([
               ["arch", "busybox"],
