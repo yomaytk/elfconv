@@ -1,5 +1,4 @@
 #include "SysTable.h"
-#include "emscripten_wasi_errno.h"
 
 #if defined(ELF_IS_AARCH64)
 #  include "remill/Arch/Runtime/Types.h"
@@ -19,13 +18,11 @@
 #include <emscripten.h>
 #include <emscripten/threading.h>
 #include <fcntl.h>
-#include <iostream>
 #include <poll.h>
 #include <pthread.h>
 #include <remill/BC/HelperMacro.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <string>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -193,6 +190,7 @@ struct _linux_rusage {
 
 #define W2L(wasi, linuxv) [wasi] = (int16_t) (linuxv)
 
+// WASI errno to Linux errno conversion table
 static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /*  0 __WASI_ERRNO_SUCCESS      */ 0,
     /*  1 __WASI_ERRNO_2BIG         */ _LINUX_E2BIG,
@@ -272,6 +270,160 @@ static const int16_t wasi2linux_errno[WASI_ERRNO_MAX_VALUE + 1] = {
     /* 75 __WASI_ERRNO_XDEV         */ _LINUX_EXDEV,
     /* 76 __WASI_ERRNO_NOTCAPABLE   */ _LINUX_EPERM,
 };
+
+template<typename T>
+inline typename std::enable_if<std::is_integral<T>::value, uint64_t>::type
+SetSyscallRes(T result, int error_value = -1) {
+  if (result == error_value) {
+    return static_cast<uint64_t>(-wasi2linux_errno[errno]);
+  }
+  return static_cast<uint64_t>(result);
+}
+
+template<typename T>
+inline uint64_t SetSyscallRes(T* result) {
+  if (result == nullptr) {
+    return static_cast<uint64_t>(-wasi2linux_errno[errno]);
+  }
+  return reinterpret_cast<uint64_t>(result);
+}
+
+template<typename T>
+inline uint64_t SetSyscallResAndErrno(T res) {
+  if (res < 0) {
+    errno = wasi2linux_errno[-res];
+    return -(errno);
+  } else {
+    return res;
+  }
+}
+
+/*
+  List of unimplemented syscalls for efficient lookup
+*/
+constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
+  // I/O operations
+  ECV_IO_SETUP, ECV_IO_DESTROY, ECV_IO_SUBMIT, ECV_IO_CANCEL, ECV_IO_GETEVENTS,
+  ECV_IO_PGETEVENTS, ECV_IO_URING_SETUP, ECV_IO_URING_ENTER, ECV_IO_URING_REGISTER,
+
+  // Extended attributes
+  ECV_SETXATTR, ECV_LSETXATTR, ECV_FSETXATTR,
+  ECV_GETXATTR, ECV_LGETXATTR, ECV_FGETXATTR,
+  ECV_LISTXATTR, ECV_LLISTXATTR, ECV_FLISTXATTR,
+  ECV_REMOVEXATTR, ECV_LREMOVEXATTR, ECV_FREMOVEXATTR,
+
+  // File operations
+  ECV_LOOKUP_DCOOKIE, ECV_FLOCK, ECV_MKNODAT, ECV_SYMLINKAT, ECV_LINKAT,
+  ECV_RENAMEAT, ECV_RENAMEAT2, ECV_UMOUNT2, ECV_MOUNT, ECV_PIVOT_ROOT,
+  ECV_NFSSERVCTL, ECV_FSTATFS, ECV_FALLOCATE, ECV_FCHDIR, ECV_CHROOT,
+  ECV_FCHMOD, ECV_FCHMODAT, ECV_FCHOWNAT, ECV_FCHOWN, ECV_VHANGUP,
+  ECV_QUOTACTL, ECV_QUOTACTL_FD, ECV_NEWFSTAT, ECV_FDATASYNC, ECV_SYNC,
+  ECV_SYNC_FILE_RANGE, ECV_SYNCFS, ECV_ACCT,
+  ECV_READV, ECV_PREAD, ECV_PWRITE, ECV_PREADV, ECV_PWRITEV,
+  ECV_PREADV2, ECV_PWRITEV2, ECV_COPY_FILE_RANGE, ECV_READAHEAD,
+  ECV_FADVISE64, ECV_SPLICE, ECV_VMSPLICE, ECV_TEE,
+
+  // Epoll/event operations
+  ECV_EVENTFD2, ECV_EPOLL_CREATE1, ECV_EPOLL_CTL, ECV_EPOLL_PWAIT,
+  ECV_EPOLL_PWAIT2, ECV_SIGNALFD4,
+
+  // Inotify operations
+  ECV_INOTIFY_INIT1, ECV_INOTIFY_ADD_WATCH, ECV_INOTIFY_RM_WATCH,
+
+  // I/O priority operations
+  ECV_IOPRIO_SET, ECV_IOPRIO_GET,
+
+  // Timer operations
+  ECV_TIMERFD_CREATE, ECV_TIMERFD_SETTIME, ECV_TIMERFD_GETTIME,
+  ECV_TIMER_CREATE, ECV_TIMER_GETTIME, ECV_TIMER_GETOVERRUN,
+  ECV_TIMER_SETTIME, ECV_TIMER_DELETE, ECV_CLOCK_SETTIME,
+  ECV_CLOCK_GETRES, ECV_CLOCK_ADJTIME,
+  ECV_NANOSLEEP, ECV_GETITIMER, ECV_SETITIMER,
+
+  // Process/thread operations
+  ECV_CAPGET, ECV_CAPSET, ECV_PERSONALITY, ECV_WAITID, ECV_UNSHARE,
+  ECV_SET_ROBUST_LIST, ECV_GET_ROBUST_LIST, ECV_KEXEC_LOAD, ECV_KEXEC_FILE_LOAD,
+  ECV_INIT_MODULE, ECV_DELETE_MODULE, ECV_PRLIMIT64, ECV_FINIT_MODULE,
+
+  // System logging
+  ECV_SYSLOG, ECV_PTRACE,
+
+  // Scheduling
+  ECV_SCHED_SETPARAM, ECV_SCHED_SETSCHEDULER, ECV_SCHED_GETSCHEDULER,
+  ECV_SCHED_GETPARAM, ECV_SCHED_SETAFFINITY, ECV_SCHED_GETAFFINITY,
+  ECV_SCHED_YIELD, ECV_SCHED_GET_PRIORITY_MAX, ECV_SCHED_GET_PRIORITY_MIN,
+  ECV_SCHED_RR_GET_INTERVAL, ECV_SCHED_SETATTR, ECV_SCHED_GETATTR,
+
+  // Signals
+  ECV_RESTART_SYSCALL, ECV_KILL, ECV_TKILL, ECV_SIGALTSTACK,
+  ECV_RT_SIGSUSPEND, ECV_RT_SIGPROCMASK, ECV_RT_SIGPENDING,
+  ECV_RT_SIGTIMEDWAIT, ECV_RT_SIGQUEUEINFO, ECV_RT_SIGRETURN,
+  ECV_RT_TGSIGQUEUEINFO,
+
+  // Priority
+  ECV_SETPRIORITY, ECV_GETPRIORITY,
+
+  // System operations
+  ECV_REBOOT, ECV_SETHOSTNAME, ECV_SETDOMAINNAME,
+  ECV_GETRLIMIT, ECV_SETRLIMIT, ECV_UMASK, ECV_GETCPU,
+  ECV_SETTIMEOFDAY, ECV_ADJTIMEX, ECV_SYSINFO,
+
+  // User/group ID operations
+  ECV_SETREGID, ECV_SETGID, ECV_SETREUID, ECV_SETUID,
+  ECV_SETRESUID, ECV_GETRESUID, ECV_SETRESGID, ECV_GETRESGID,
+  ECV_SETFSUID, ECV_SETFSGID, ECV_TIMES, ECV_GETSID, ECV_SETSID,
+  ECV_GETGROUPS, ECV_SETGROUPS,
+
+  // IPC operations
+  ECV_MQ_OPEN, ECV_MQ_UNLINK, ECV_MQ_TIMEDSEND, ECV_MQ_TIMEDRECEIVE,
+  ECV_MQ_NOTIFY, ECV_MQ_GETSETATTR,
+  ECV_MSGGET, ECV_MSGCTL, ECV_MSGRCV, ECV_MSGSND,
+  ECV_SEMGET, ECV_SEMCTL, ECV_SEMTIMEDOP, ECV_SEMOP,
+  ECV_SHMGET, ECV_SHMCTL, ECV_SHMAT, ECV_SHMDT,
+
+  // Socket operations
+  ECV_SOCKET, ECV_SOCKETPAIR, ECV_BIND, ECV_LISTEN, ECV_ACCEPT, ECV_ACCEPT4,
+  ECV_CONNECT, ECV_GETSOCKNAME, ECV_GETPEERNAME, ECV_SENDTO, ECV_RECVFROM,
+  ECV_SETSOCKOPT, ECV_GETSOCKOPT, ECV_SHUTDOWN, ECV_SENDMSG, ECV_RECVMSG,
+  ECV_SENDMMSG, ECV_RECVMMSG,
+
+  // Memory operations
+  ECV_MUNMAP, ECV_MREMAP, ECV_MSYNC, ECV_MLOCK, ECV_MUNLOCK,
+  ECV_MLOCKALL, ECV_MUNLOCKALL, ECV_MINCORE, ECV_MADVISE,
+  ECV_REMAP_FILE_PAGES, ECV_MBIND, ECV_GET_MEMPOLICY, ECV_SET_MEMPOLICY,
+  ECV_MIGRATE_PAGES, ECV_MOVE_PAGES, ECV_MLOCK2,
+  ECV_PKEY_MPROTECT, ECV_PKEY_ALLOC, ECV_PKEY_FREE,
+  ECV_SWAPON, ECV_SWAPOFF, ECV_MEMFD_CREATE, ECV_MEMFD_SECRET,
+  ECV_PROCESS_MADVISE, ECV_PROCESS_MRELEASE,
+
+  // Key operations
+  ECV_ADD_KEY, ECV_REQUEST_KEY, ECV_KEYCTL,
+
+  // Futex operations
+  ECV_FUTEX_WAITV,
+
+  // Performance monitoring
+  ECV_PERF_EVENT_OPEN,
+
+  // Filesystem operations
+  ECV_FANOTIFY_INIT, ECV_FANOTIFY_MARK,
+  ECV_NAME_TO_HANDLE_AT, ECV_OPEN_BY_HANDLE_AT,
+  ECV_SETNS, ECV_PROCESS_VM_READV, ECV_PROCESS_VM_WRITEV,
+  ECV_KCMP, ECV_SECCOMP, ECV_BPF, ECV_EXECVEAT, ECV_USERFAULTFD,
+  ECV_MEMBARRIER, ECV_RSEQ,
+  ECV_PIDFD_SEND_SIGNAL, ECV_PIDFD_OPEN, ECV_PIDFD_GETFD,
+  ECV_OPEN_TREE, ECV_MOVE_MOUNT, ECV_FSOPEN, ECV_FSCONFIG,
+  ECV_FSMOUNT, ECV_FSPICK, ECV_MOUNT_SETATTR,
+  ECV_CLONE3, ECV_CLOSE_RANGE, ECV_OPENAT2, ECV_FACCESSAT2,
+  ECV_LANDLOCK_CREATE_RULESET, ECV_LANDLOCK_ADD_RULE, ECV_LANDLOCK_RESTRICT_SELF,
+};
+
+constexpr bool IsSyscallUnimplemented(uint32_t syscall_num) {
+  for (size_t i = 0; i < std::size(UNIMPLEMENTED_SYSCALLS); ++i) {
+    if (UNIMPLEMENTED_SYSCALLS[i] == syscall_num) return true;
+  }
+  return false;
+}
 
 EM_JS(uint32_t, ___syscall_clone,
       (uint32_t ecvPid, uint32_t sData, uint32_t sDataLen, uint32_t mBytes, uint32_t mBytesLen), {
@@ -393,48 +545,64 @@ EM_JS(uint32_t, ___syscall_sendfile, (uint32_t out_fd, uint32_t in_fd, uint32_t 
 });
 
 /*
-  syscall emulate function
-  
-  Calling Conventions
-  arch: arm64, syscall NR: x8, return: x0, arg0: x0, arg1: x1, arg2: x2, arg3: x3, arg4: x4, arg5: x5
-  ref: https://blog.xhyeax.com/2022/04/28/arm64-syscall-table/
+  Syscall emulation function for Browser/Emscripten environment
 
-  arch: x86-64, sycall NR: rax, return: rax, arg0: rdi, arg1: rsi, arg2: rdx, arg3: r10, arg4: r8, arg5: r9
-  ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
+  This function handles Linux system calls in a WebAssembly environment using Emscripten.
+  It provides Linux syscall emulation with errno conversion from WASI to Linux format.
+
+  Calling Conventions:
+  - ARM64: syscall NR: x8, return: x0, args: x0-x5
+    ref: https://blog.xhyeax.com/2022/04/28/arm64-syscall-table/
+
+  - x86-64: syscall NR: rax, return: rax, args: rdi, rsi, rdx, r10, r8, r9
+    ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 */
 void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
-
   errno = 0;
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
-  printf("[INFO] __svc_call started. syscall number: %u, PC: 0x%016llx\n", SYSNUMREG, PCREG);
+  printf("[INFO] SVCBrowserCall: syscall=%u, PC=0x%016llx\n", SYSNUMREG, PCREG);
 #endif
-      // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
-      //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
+    // printf("[pid %u] syscall number: %llu, X0_Q: 0x%llx, X1_Q: 0x%llx, X2_Q: 0x%llx\n",
+    //        main_ecv_pr->ecv_pid, SYSNUMREG, X0_Q, X1_Q, X2_Q);
   switch (SYSNUMREG) {
     case ECV_GETCWD: /* getcwd (char *buf, unsigned long size) */
     {
       char *res = getcwd((char *) TranslateVMA(arena_ptr, X0_Q), X1_Q);
-      X0_Q = res == NULL ? X0_Q : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_DUP: /* dup (unsigned int fildes) */
     {
       int res = dup(X0_D);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
-    case ECV_DUP3: /*  int dup3(int oldfd, int newfd, int flags) */
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_DUP3: /* int dup3(int oldfd, int newfd, int flags) */
     {
       int res = dup3(X0_D, X1_D, X2_D);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_FCNTL: /* int fcntl(int fd, int cmd, ... arg ); */
+    {
+      int res;
+      // Commands that take an argument
       if (X1_D == ECV_F_DUPFD || X1_D == ECV_F_SETFD || X1_D == ECV_F_SETFL) {
-        X0_D = fcntl(X0_D, X1_D, X2_D);
-      } else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
-        X0_D = fcntl(X0_D, X1_D);
-      } else {
-        X0_Q = -_LINUX_EINVAL;
+        res = fcntl(X0_D, X1_D, X2_D);
+        X0_Q = SetSyscallRes(res);
+      }
+      // Commands that don't take an argument
+      else if (X1_D == ECV_F_GETFD || X1_D == ECV_F_GETFL) {
+        res = fcntl(X0_D, X1_D);
+        X0_Q = SetSyscallRes(res);
+      }
+      // Unsupported command
+      else {
+        errno = _LINUX_EINVAL;
+        X0_Q = -errno;
       }
       break;
+    }
     case ECV_IOCTL: /* ioctl (unsigned int fd, unsigned int cmd, unsigned long arg) */
     {
       unsigned int fd = X0_D;
@@ -480,64 +648,75 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         case _LINUX_TIOCGPGRP: {
           auto arg_p = TranslateVMA(arena_ptr, arg);
           int res = ___ecv_syscall_ioctl(X0_D, _EMCC_TIOCGPGRP, (uint32_t) &arg_p);
-          X0_Q = res == 0 ? res : -1;
+          X0_Q = SetSyscallResAndErrno(res);
           break;
         }
         case _LINUX_TIOCGWINSZ: {
           auto arg_p = TranslateVMA(arena_ptr, arg);
           int res = ___ecv_syscall_ioctl(X0_D, _EMCC_TIOCGWINSZ, (uint32_t) &arg_p);
-          X0_Q = res == 0 ? res : -1;
+          X0_Q = SetSyscallResAndErrno(res);
           break;
         }
-        default: X0_Q = -1; break;
+        default: 
+          errno = _LINUX_EINVAL; X0_Q = -errno; break;
       }
-    } break;
+      break;
+    }
     case ECV_MKDIRAT: /* int mkdirat (int dfd, const char *pathname, umode_t mode) */
     {
       int res = mkdirat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_UNLINKAT: /* int unlinkat (int dfd, const char *pathname, int flag) */
     {
       int res = unlinkat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_STATFS: /* int statfs(const char *path, struct statfs *buf) */
     {
       int res = statfs((char *) TranslateVMA(arena_ptr, X0_Q),
                        (struct statfs *) TranslateVMA(arena_ptr, X1_Q));
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_TRUNCATE: /* int truncate(const char *path, off_t length) */
     {
       int res = truncate((char *) TranslateVMA(arena_ptr, X0_Q), (_ecv_long) X1_Q);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
     {
       int res = ftruncate(X0_Q, (_ecv_long) X1_Q);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_FACCESSAT: /* faccessat (int dfd, const char *filename, int mode) */
     {
       int res = faccessat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_CHDIR: /* int chdir (const char * path) */
     {
       int res = chdir((const char *) TranslateVMA(arena_ptr, X0_Q));
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
     {
-      int res_fd = openat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
-      X0_Q = res_fd != -1 ? res_fd : -wasi2linux_errno[errno];
-    } break;
+      int res = openat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_CLOSE: /* int close (unsigned int fd) */
     {
       int res = close(X0_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_PIPE2: /* int pipe2(int pipefd[2], int flags) */
     {
       int pipefd[2];
@@ -545,52 +724,60 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       int *_res_pipefd = (int *)TranslateVMA(arena_ptr, X0_Q);
       _res_pipefd[0] = pipefd[0];
       _res_pipefd[1] = pipefd[1];
-      X0_D = res == 0 ? 0 : -1;
-    } break;
+      X0_Q = SetSyscallResAndErrno(X0_D);
+      break;
+    }
     case ECV_GETDENTS: /* long getdents64 (int fd, void *dirp, size_t count) */
     {
       long res = getdents(X0_D, (struct dirent *) TranslateVMA(arena_ptr, X1_Q), X2_Q);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
     {
-      uint64_t res_off = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
-      X0_Q = res_off != (uint64_t) -1 ? res_off : -wasi2linux_errno[errno];
-    } break;
+      off_t res = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_READ: /* read (unsigned int fd, char *buf, size_t count) */
     {
-      uint64_t res = read(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
-      X0_Q = res != (uint64_t) -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      ssize_t res = read(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
     {
-      int res = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
-    case ECV_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
+      ssize_t res = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_WRITEV: /* writev (unsigned long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
       auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(arena_ptr, X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
-      // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
         cache_vec[i].iov_base =
             TranslateVMA(arena_ptr, reinterpret_cast<addr_t>(tr_vec[i].iov_base));
         cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
       uint64_t res = writev(fd, cache_vec, vlen);
-      X0_Q = res != (uint64_t) -1 ? res : -wasi2linux_errno[errno];
+      X0_Q = SetSyscallRes(res);
       free(cache_vec);
-    } break;
+      break;
+    }
     case ECV_SENDFILE: /* sendfile (int out_fd, int in_fd, off_t *offset, size_t count) */
     {
+      int res;
       if (X2_Q == NULL) {
-        X0_Q = ___syscall_sendfile(X0_D, X1_D, NULL, X3_Q);
+        res = ___syscall_sendfile(X0_D, X1_D, NULL, X3_Q);
       } else {
-        X0_Q = ___syscall_sendfile(X0_D, X1_D, (uint32_t)TranslateVMA(arena_ptr, X2_Q), X3_Q);
+        res = ___syscall_sendfile(X0_D, X1_D, (uint32_t)TranslateVMA(arena_ptr, X2_Q), X3_Q);
       }
-    } break;
+      X0_Q = SetSyscallResAndErrno(res);
+      break;
+    }
     case ECV_PSELECT6: /* pselect6 (int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, const struct timespec *timeout, const sigset_t* sigmask) */
     {
       int res;
@@ -600,13 +787,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         auto tm = (_elfarm64_timespec *)TranslateVMA(arena_ptr, X4_Q);
         res = ___syscall_pselect6(X0_D, X1_Q, X2_Q, X3_Q, (int) tm->tv_sec, tm->tv_nsec, X5_Q);
       }
-      if (res < 0) {
-        X0_Q = -1;
-        errno = -wasi2linux_errno[-res];
-      } else {
-        X0_Q = res;
-      }
-    } break;
+      X0_Q = SetSyscallResAndErrno(res);
+      break;
+    }
     case ECV_PPOLL: /* ppoll (struct pollfd*, unsigned int, const struct timespec *, const unsigned long int) */
     {
       int res;
@@ -616,19 +799,16 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         auto tm = (_elfarm64_timespec *)TranslateVMA(arena_ptr, X2_Q);
         res = ___syscall_poll((uint32_t)TranslateVMA(arena_ptr, X0_Q), X1_D, (int) tm->tv_sec, tm->tv_nsec);
       }
-      if (res < 0) {
-        X0_Q = -1;
-        errno = -wasi2linux_errno[-res];
-      } else {
-        X0_Q = res;
-      }
-    } break;
+      X0_Q = SetSyscallResAndErrno(res);
+      break;
+    }
     case ECV_READLINKAT: /* readlinkat (int dfd, const char *path, char *buf, int bufsiz) */
     {
-      int res = readlinkat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q),
-                           (char *) TranslateVMA(arena_ptr, X2_Q), X3_D);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      ssize_t res = readlinkat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q),
+                                (char *) TranslateVMA(arena_ptr, X2_Q), X3_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_NEWFSTATAT: /* newfstatat (int dfd, const char *filename, struct stat *statbuf, int flag) */
     {
       struct stat _tmp_wasm_stat;
@@ -655,14 +835,17 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       } else {
         X0_Q = -wasi2linux_errno[errno];
       }
-    } break;
-    case ECV_FSYNC: /* fsync (unsigned int fd) */ {
+      break;
+    }
+    case ECV_FSYNC: /* fsync (unsigned int fd) */
+    {
       int res = fsync(X0_D);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_UTIMENSAT: /* int utimensat(int dirfd, const char *pathname, const struct timespec times[2], int flags) */
     {
-      const struct timespec *times_ptr;
+      const struct timespec *times_ptr = nullptr;
       struct timespec emu_tp[2];
 
       if (X2_Q != 0) {
@@ -672,41 +855,43 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
           emu_tp[i].tv_nsec = (long) x2_time[i].tv_nsec;
         }
         times_ptr = &emu_tp[0];
-      } else {
-        times_ptr = NULL;
       }
 
-      int res = utimensat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q),
-                          (const struct timespec *) times_ptr, X3_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      int res = utimensat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), times_ptr, X3_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_EXIT: /* exit (int error_code) */
     case ECV_EXIT_GROUP: /* exit_group (int error_code) */
     {
       ___syscall_exit(main_ecv_pr->ecv_pid, X0_D);
-    } break;
+      break;
+    }
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = gettid();
       *reinterpret_cast<int *>(TranslateVMA(arena_ptr, X0_Q)) = tid;
       X0_Q = tid;
-    } break;
+      break;
+    }
     case ECV_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
-      /* TODO */
+    /* (FIXME) */
+    {
       if ((X1_D & 0x7F) == 0) {
         /* FUTEX_WAIT */
         X0_Q = 0;
       } else {
-        elfconv_runtime_error("Unknown futex op 0x%08u\n", X1_D);
+        errno = _LINUX_ENOSYS;
+        X0_Q = -errno;
       }
-      NOP_SYSCALL(ECV_FUTEX);
       break;
+    }
     case ECV_CLOCK_GETTIME: /* clock_gettime (clockid_t which_clock, struct __kernel_timespace *tp) */
     {
       struct timespec emu_tp;
-      int clock_time = clock_gettime(CLOCK_REALTIME, &emu_tp);
-      if (clock_time != -1) {
-        // int clock_time = clock_gettime(X0_D, &emu_tp); throw error.
+      int res = clock_gettime(CLOCK_REALTIME, &emu_tp);
+      if (res != -1) {
+        // int res = clock_gettime(X0_D, &emu_tp); throw error.
         struct {
           uint64_t tv_sec; /* time_t */
           uint64_t tv_nsec; /* long (assume that the from target architecture is 64bit) */
@@ -715,11 +900,12 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
             .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
         };
         memcpy(TranslateVMA(arena_ptr, X1_Q), &tp, sizeof(tp));
-        X0_Q = (_ecv_reg64_t) clock_time;
+        X0_Q = (_ecv_reg64_t) res;
       } else {
         X0_Q = -wasi2linux_errno[errno];
       }
-    } break;
+      break;
+    }
     case ECV_CLOCK_NANOSLEEP: /* clock_nanosleep (clockid_t which_clock, int flags, const struct __kernel_timespec *rqtp, struct __kernel_timespce *rmtp) */
     {
       struct timespec _wasm_rqtp, _wasm_rmtp;
@@ -733,28 +919,32 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       _elf_rmtp.tv_sec = _wasm_rmtp.tv_sec;
       memcpy((struct _elfarm64_timespec *) TranslateVMA(arena_ptr, X3_Q), &_elf_rmtp,
              sizeof(_elf_rmtp));
-
       X0_Q = -res;
-    } break;
+      break;
+    }
     case ECV_TGKILL: /* tgkill (pid_t tgid, pid_t pid, int sig) */
     {
       int res = kill(X0_D, X1_D);
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_RT_SIGACTION: /* rt_sigaction (int signum, const struct sigaction *act, struct sigaction *oldact) */
     {
       int res = sigaction(X0_D, (const struct sigaction *) TranslateVMA(arena_ptr, X1_Q),
                           (struct sigaction *) TranslateVMA(arena_ptr, X2_Q));
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_SETPGID: /* int setpgid(pid_t pid, pid_t pgid) */
     {
       X0_Q = ___syscall_setpgid(X0_D, X1_D);
-    } break;
+      break;
+    }
     case ECV_GETPGID: /* void getpgid(pid_t pid) */
     {
       X0_Q = ___syscall_getpgid(X0_D);
-    } break;
+      break;
+    }
     case ECV_UNAME: /* uname (struct old_utsname* buf) */
     {
       struct __elfarm64_utsname {
@@ -768,17 +958,17 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
                        "#4 SMP PREEMPT Tue May 15 12:34:56 UTC 2025", "wasm32"};
       memcpy(TranslateVMA(arena_ptr, X0_Q), &new_utsname, sizeof(new_utsname));
       X0_D = 0;
-    } break;
+      break;
+    }
     case ECV_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
     {
       int res = gettimeofday((struct timeval *) TranslateVMA(arena_ptr, X0_Q),
-                             (struct timezone *) 0); /* FIXME (second argument) */
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+                             nullptr); /* Second argument (timezone) is deprecated and unused */
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
     {
-      printf(
-          "[WARN] `getrusage` is called but this is only implemented as a stub in emscripten.\n");
       struct rusage tmp_rusage;
       int res = getrusage(X0_D, &tmp_rusage);
       _linux_rusage _ecv_usage;
@@ -787,8 +977,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       _ecv_usage.ru_stime.tv_sec = tmp_rusage.ru_stime.tv_sec;
       _ecv_usage.ru_stime.tv_usec = tmp_rusage.ru_stime.tv_usec;
       memcpy(TranslateVMA(arena_ptr, X1_Q), &_ecv_usage, sizeof(_linux_rusage));
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       uint32_t option = X0_D;
@@ -796,11 +987,15 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         case ECV_PR_GET_NAME:
           memcpy(TranslateVMA(arena_ptr, X1_Q), TranslateVMA(arena_ptr, TASK_STRUCT_VMA),
                  /* TASK_COMM_LEN */ 16);
-          X0_D = 0;
+          X0_Q = 0;
           break;
-        default: X0_D = -_LINUX_EINVAL; break;
+        default: 
+          errno = _LINUX_EINVAL;
+          X0_Q = -errno; 
+          break;
       }
-    } break;
+      break;
+    }
     case ECV_GETPID: /* getpid () */ X0_D = main_ecv_pr->ecv_pid; break;
     case ECV_GETPPID: /* getppid () */ X0_D = main_ecv_pr->par_ecv_pid; break;
     case ECV_GETUID: /* getuid () */ X0_D = main_ecv_pr->ecv_uid; break;
@@ -819,9 +1014,11 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         /* change program break */
         memory_arena->heap_cur = X0_Q;
       } else {
-        elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
+        errno = _LINUX_ENOMEM;
+        X0_Q = -errno;
       }
-    } break;
+      break;
+    }
     case ECV_CLONE: /* clone (unsigned long, unsigned long, int *, int *, unsigned long) */
     {
       State *cur_state, *new_state;
@@ -894,8 +1091,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
 
       uint32_t *child_pid_p = history_p + 1 + history_size * 2;
       *child_pid_p = child_pid;
-      cur_state->gpr.x0.qword = child_pid;
-    } break;
+      X0_Q = child_pid;
+      break;
+    }
     case ECV_EXECVE: /* int execve(const char * filename , char *const argv [], char *const envp []) */
     {
 #if defined(__wasm64__)
@@ -913,54 +1111,65 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       for (int i = 0; envp_p[i * 2]; i++) {
         _execve_envp_p[i] = (char *) TranslateVMA(arena_ptr, (uint32_t) envp_p[i * 2]);
       }
-      X0_D = ___syscall_execve((uint32_t) TranslateVMA(arena_ptr, X0_Q), (uint32_t) _execve_argv_p,
+      int res = ___syscall_execve((uint32_t) TranslateVMA(arena_ptr, X0_Q), (uint32_t) _execve_argv_p,
                                (uint32_t) _execve_envp_p);
+      if (res < 0) {
+        errno = _LINUX_ENOEXEC;
+        X0_Q = -errno;
+      } else {
+        elfconv_runtime_error("[ERROR] execve syscall emulation is invalid.\n");
+      }
       free(_execve_argv_p);
       free(_execve_envp_p);
-    } break;
+      break;
+    }
     case ECV_MMAP: /* mmap (void *start, size_t lengt, int prot, int flags, int fd, off_t offset) */
-      /* FIXME */
-      {
-        MemoryArena *memory_arena;
-        memory_arena = main_ecv_pr->memory_arena;
-        if (X4_D != (uint32_t) -1)
-          elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
-        if (X5_D != 0)
-          elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
-        if (X0_Q == 0) {
-          X0_Q = memory_arena->heap_cur;
-          memory_arena->heap_cur += X1_Q;
-        } else {
-          elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
-        }
+    /* (FIXME) */
+    {
+      MemoryArena *memory_arena;
+      memory_arena = main_ecv_pr->memory_arena;
+      if (X4_D != (uint32_t) -1) {
+        elfconv_runtime_error("Unsupported mmap (X4=0x%08x)\n", X4_D);
+      }
+      if (X5_D != 0) {
+        elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
+      }
+      if (X0_Q == 0) {
+        X0_Q = memory_arena->heap_cur;
+        memory_arena->heap_cur += X1_Q;
+      } else {
+        elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
       }
       break;
+    }
     case ECV_WAIT4: /* pid_t wait4 (pid_t pid, int *stat_addr, int options, struct rusage *ru) */
     {
       int res = ___syscall_wait4(main_ecv_pr->ecv_pid);
-      X0_Q = res != -1 ? res : -wasi2linux_errno[errno];
-    } break;
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
     case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      auto res = getentropy(TranslateVMA(arena_ptr, X0_Q), static_cast<size_t>(X1_Q));
-      X0_Q = res != -1 ? 0 : -wasi2linux_errno[errno];
-    } break;
+      uint32_t len = (uint32_t)X1_Q;
+      auto res = getentropy(TranslateVMA(arena_ptr, X0_Q), len);
+      X0_Q = SetSyscallRes(len);
+      break;
+    }
     case ECV_MPROTECT: /* mprotect (unsigned long start, size_t len, unsigned long prot) */
       // mprotect implementaion of wasi-libc doesn't change the memory access and only check arguments, and Wasm page size (64KiB) is different from Linux Page size (4KiB).
       // Therefore elfconv doesn't use it. ref: https://github.com/WebAssembly/wasi-libc/blob/45252554b765e3db11d0ef5b41d6dd290ed33382/libc-bottom-half/mman/mman.c#L127-L157
+    {
       X0_D = 0;
       break;
+    }
     case ECV_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
       int dfd = X0_D;
       _ecv_reg_t flags = X2_D;
-      if ((flags & _LINUX_AT_EMPTY_PATH) == 0) {
-        elfconv_runtime_error("[ERROR] Unsupported statx(flags=0x%08u)\n", flags);
-      }
       struct stat _stat;
       // execute fstat
-      errno = fstat(dfd, &_stat);
-      if (errno == 0) {
+      int res = fstat(dfd, &_stat);
+      if (res == 0) {
         struct _linux_statx _statx;
         memset(&_statx, 0, sizeof(_statx));
         _statx.stx_mask = _statx.stx_mask = _LINUX_STATX_BASIC_STATS;
@@ -978,318 +1187,22 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       } else {
         X0_Q = -wasi2linux_errno[errno];
       }
-    } break;
-    default: UnImplementedBrowserSyscall(); break;
+      break;
+    }
+    default: {
+      UnImplementedBrowserSyscall(); 
+      errno = _LINUX_ENOSYS; 
+      X0_Q = -errno; 
+      break;
+    }
   }
 }
 
 void RuntimeManager::UnImplementedBrowserSyscall() {
-  switch (SYSNUMREG) {
-    case ECV_IO_SETUP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_DESTROY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_SUBMIT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_CANCEL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_GETEVENTS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LSETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LGETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FGETXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LISTXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LLISTXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FLISTXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_REMOVEXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LREMOVEXATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FREMOVEXATTR: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETCWD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LOOKUP_DCOOKIE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EVENTFD2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EPOLL_CREATE1: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EPOLL_CTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EPOLL_PWAIT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_DUP: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_DUP3: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_FCNTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_INOTIFY_INIT1: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_INOTIFY_ADD_WATCH: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_INOTIFY_RM_WATCH: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_IOCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IOPRIO_SET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IOPRIO_GET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FLOCK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MKNODAT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_MKDIRAT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_UNLINKAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYMLINKAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LINKAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RENAMEAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_UMOUNT2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MOUNT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PIVOT_ROOT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_NFSSERVCTL: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_STATFS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSTATFS: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_TRUNCATE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_FTRUNCATE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FALLOCATE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_FACCESSAT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_CHDIR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FCHDIR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CHROOT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FCHMOD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FCHMODAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FCHOWNAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FCHOWN: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_OPENAT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_CLOSE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_VHANGUP: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_PIPE2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_QUOTACTL: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETDENTS: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_LSEEK: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_READ: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_WRITE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_READV: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_WRITEV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PREAD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PWRITE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PREADV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PWRITEV: UNIMPLEMENTED_SYSCALL; break;
-    /* UNDECLARED! */  // case ECV_SENDFILE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_PSELECT6: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_PPOLL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SIGNALFD4: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_VMSPLICE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SPLICE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TEE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_READLINKAT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_NEWFSTATAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_NEWFSTAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYNC: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_FSYNC: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FDATASYNC: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYNC_FILE_RANGE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMERFD_CREATE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMERFD_SETTIME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMERFD_GETTIME: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_UTIMENSAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_ACCT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CAPGET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CAPSET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PERSONALITY: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_EXIT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_EXIT_GROUP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_WAITID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_SET_TID_ADDRESS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_UNSHARE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_FUTEX: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SET_ROBUST_LIST: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GET_ROBUST_LIST: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETITIMER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETITIMER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_KEXEC_LOAD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_INIT_MODULE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_DELETE_MODULE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMER_CREATE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMER_GETTIME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMER_GETOVERRUN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMER_SETTIME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMER_DELETE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOCK_SETTIME: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_CLOCK_GETTIME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOCK_GETRES: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_CLOCK_NANOSLEEP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYSLOG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PTRACE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_SETPARAM: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_SETSCHEDULER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GETSCHEDULER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GETPARAM: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_SETAFFINITY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GETAFFINITY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_YIELD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GET_PRIORITY_MAX: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GET_PRIORITY_MIN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_RR_GET_INTERVAL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RESTART_SYSCALL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_KILL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TKILL: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_TGKILL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SIGALTSTACK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGSUSPEND: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_RT_SIGACTION: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGPROCMASK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGPENDING: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGTIMEDWAIT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGQUEUEINFO: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_SIGRETURN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETPRIORITY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETPRIORITY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_REBOOT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETREGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETREUID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETUID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETRESUID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETRESUID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETRESGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETRESGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETFSUID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETFSGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_TIMES: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_SETPGID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETPGID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETSID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETSID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETGROUPS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETGROUPS: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_UNAME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETHOSTNAME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETDOMAINNAME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETRLIMIT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETRLIMIT: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETRUSAGE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_UMASK: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_PRCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETCPU: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETTIMEOFDAY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETTIMEOFDAY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_ADJTIMEX: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETPID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETPPID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETUID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETEUID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETGID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETEGID: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETTID: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYSINFO: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_OPEN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_UNLINK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_TIMEDSEND: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_TIMEDRECEIVE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_NOTIFY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MQ_GETSETATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MSGGET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MSGCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MSGRCV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MSGSND: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SEMGET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SEMCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SEMTIMEDOP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SEMOP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SHMGET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SHMCTL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SHMAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SHMDT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SOCKET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SOCKETPAIR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_BIND: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LISTEN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_ACCEPT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CONNECT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETSOCKNAME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETPEERNAME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SENDTO: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RECVFROM: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETSOCKOPT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GETSOCKOPT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SHUTDOWN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SENDMSG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RECVMSG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_READAHEAD: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_BRK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MUNMAP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MREMAP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_ADD_KEY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_REQUEST_KEY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_KEYCTL: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_CLONE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EXECVE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_MMAP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FADVISE64: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SWAPON: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SWAPOFF: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_MPROTECT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MSYNC: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MLOCK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MUNLOCK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MLOCKALL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MUNLOCKALL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MINCORE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MADVISE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_REMAP_FILE_PAGES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MBIND: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_GET_MEMPOLICY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SET_MEMPOLICY: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MIGRATE_PAGES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MOVE_PAGES: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RT_TGSIGQUEUEINFO: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PERF_EVENT_OPEN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_ACCEPT4: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RECVMMSG: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_WAIT4: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_PRLIMIT64: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FANOTIFY_INIT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FANOTIFY_MARK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_NAME_TO_HANDLE_AT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_OPEN_BY_HANDLE_AT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOCK_ADJTIME: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SYNCFS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SETNS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SENDMMSG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PROCESS_VM_READV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PROCESS_VM_WRITEV: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_KCMP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FINIT_MODULE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_SETATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SCHED_GETATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RENAMEAT2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_SECCOMP: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_GETRANDOM: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MEMFD_CREATE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_BPF: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EXECVEAT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_USERFAULTFD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MEMBARRIER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MLOCK2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_COPY_FILE_RANGE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PREADV2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PWRITEV2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PKEY_MPROTECT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PKEY_ALLOC: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PKEY_FREE: UNIMPLEMENTED_SYSCALL; break;
-    // case ECV_STATX: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_PGETEVENTS: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_RSEQ: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_KEXEC_FILE_LOAD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PIDFD_SEND_SIGNAL: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_URING_SETUP: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_URING_ENTER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_IO_URING_REGISTER: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_OPEN_TREE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MOVE_MOUNT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSOPEN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSCONFIG: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSMOUNT: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FSPICK: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PIDFD_OPEN: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLONE3: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_CLOSE_RANGE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_OPENAT2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PIDFD_GETFD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FACCESSAT2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PROCESS_MADVISE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_EPOLL_PWAIT2: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MOUNT_SETATTR: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_QUOTACTL_FD: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LANDLOCK_CREATE_RULESET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LANDLOCK_ADD_RULE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_LANDLOCK_RESTRICT_SELF: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_MEMFD_SECRET: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_PROCESS_MRELEASE: UNIMPLEMENTED_SYSCALL; break;
-    case ECV_FUTEX_WAITV: UNIMPLEMENTED_SYSCALL; break;
-    default: UNIMPLEMENTED_SYSCALL; break;
+  // Check if syscall is in the unimplemented list
+  if (IsSyscallUnimplemented(SYSNUMREG)) {
+    return;
   }
+
+  elfconv_runtime_error("unknown syscall number: %ld\n", SYSNUMREG);
 }
