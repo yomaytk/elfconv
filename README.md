@@ -7,34 +7,72 @@
 # elfconv
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yomaytk/elfconv)
 
-This is an AOT binary translator that converts Linux apps to executable binaries for other environments (i.e., Linux/ELF → WebAssembly, ...).
+An AOT (ahead-of-time) binary translator that converts Linux applications to executable binaries for other environments, primarily targeting WebAssembly (Wasm) for both browser and WASI runtimes.
 
 [[🌎**Try Demo**]](https://yomaytk.github.io/elfconv-demo/)
 
-## Why this project?
-elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefits.
+## Why elfconv?
+elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefits over traditional approaches.
+
 ### 1. Easy Porting to Wasm
-- **Without source codes**
-  - Because you can port already-built applications directly, **elfconv can generate Wasm even when the source code isn’t available**. Furthermore, there’s no need to modify the source or rebuild the entire build environment to target Wasm.
-- **System-call compatibility layer**
-  - Existing Wasm system APIs (WASI, Emscripten, etc.) aren’t compatible with Linux syscalls and cover only a small subset (**e.g., about *45* in [WASI preview 1](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md) versus roughly *300* in current Linux**). elfconv emulates Linux syscalls in the Wasm environment, allowing unmodified Linux applications to run.
-- **No dependence on language-community support**
-  - Until now, generating Wasm required each language’s compiler to fully support Wasm output—demanding ongoing contributions from every language community. elfconv removes that requirement, so **no per-language community support is needed**.
+- **No source code needed** — Port pre-built binaries directly to Wasm, even when source code is unavailable
+- **Full syscall compatibility** — Emulates ~300 Linux syscalls vs. ~45 in [WASI preview 1](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md), allowing unmodified Linux apps to run
+- **Language-agnostic** — No per-language compiler support needed; works with any language that compiles to Linux/ELF
 
-In the past, there have been many Wasm porting projects (e.g., [PostgreSQL on Wasm](https://pglite.dev/), [LibreOffice on Wasm](https://github.com/LibreOffice/core/blob/master/static/README.wasm.md)), but they were all large-scale undertakings.
+**Use cases:**
+- Legacy applications where source code is unavailable or difficult to rebuild
+- Porting Linux libraries to Wasm for use in web applications
+- Quick prototyping without modifying build systems
+- Educational demos of operating systems and compilers in browsers
 
-### 2. Low Performance Overhead
+### 2. Advanced Process Management (Experimental)
+- **clone/execve support in Browser Wasm**
+  - elfconv experimentally supports `clone()` and `execve()` system calls in browser-based WebAssembly environments. This is not possible with Emscripten, which lacks proper support for these fundamental process management primitives. This capability enables running more complex Linux applications that rely on multi-process architectures, such as shells, build systems, and server applications that spawn child processes (e.g., [**GNU Bash in your browser**](https://yomaytk.github.io/elfconv-demo/) on the demo page).
+
+### 3. Low Performance Overhead
 - **AOT Compilation**
-  - There are existing projects that port Linux applications to Wasm by using CPU emulators such as [v86](https://github.com/copy/v86) and [container2wasm](https://github.com/container2wasm/container2wasm). However, these suffer from very poor performance—often slowing execution by tens of times or more. In contrast, elfconv uses ahead-of-time compilation, so its performance degradation is much smaller (please see the Benchmark below for details).
-## Status
+  - There are existing projects that port Linux applications to Wasm by using CPU emulators such as [v86](https://github.com/copy/v86) and [container2wasm](https://github.com/container2wasm/container2wasm). However, these suffer from very poor performance—often slowing execution by 10x or more. In contrast, elfconv uses ahead-of-time (AOT) compilation to translate machine code directly to LLVM IR, resulting in much smaller performance degradation (see [Benchmark](#benchmark) section for details).
+## Current Status & Limitations
 > [!WARNING]
-> "**elfconv is WORK IN PROGRESS**" and the test is insufficient, so you may fail to compile your ELF binary or execute the generated Wasm binary. Current limitations are as follows. However, we will resolve these issues in the future.
-- Supports converting only AArch64 ELF binaries (The support for x86-64 is in progress)
-- No support for shared objects
-- Only a part of the Linux system calls are implemented (ref: [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls))
+> **elfconv is WORK IN PROGRESS**. Testing is insufficient, so you may encounter failures when compiling ELF binaries or executing generated Wasm binaries.
+
+### Current Limitations
+- **Architecture Support**: Only AArch64 ELF binaries are currently supported
+  - x86-64 support is under development
+- **Linking**: No support for shared objects (`.so` files)
+  - Only statically-linked binaries are supported
+- **System Calls**: Partial Linux syscall implementation
+  - See [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/blob/main/runtime/syscalls) for currently supported syscalls
+  - More syscalls are being added continuously
+
+We are actively working to resolve these limitations.
+
+## Contributing
+
+**We welcome contributions!** elfconv is an open-source project and we'd love your help making it better.
+
+### Ways to Contribute
+
+- 🔧 **Instruction Support** — Implement missing AArch64 instructions in [`backend/remill/lib/Arch/AArch64/`](https://github.com/yomaytk/elfconv/tree/main/backend/remill/lib/Arch/AArch64)
+- 🏗️ **x86-64 Architecture** — Help develop x86-64 support (currently under development)
+- ⚙️ **System Call Implementation** — Add Linux syscall support in [`runtime/syscalls/`](https://github.com/yomaytk/elfconv/tree/main/runtime/syscalls)
+- 🧪 **Testing** — Test with various Linux applications and report issues
+- 📚 **Documentation** — Improve documentation, add examples, or write tutorials
+
+### Getting Started
+
+1. Check the [issues page](https://github.com/yomaytk/elfconv/issues) for tasks labeled `good first issue` or `help wanted`
+2. Fork the repository and create a feature branch
+3. Make your changes and ensure tests pass
+4. Submit a pull request with a clear description
+
+For questions or discussions, feel free to [open an issue](https://github.com/yomaytk/elfconv/issues/new) or start a discussion.
 
 ## Benchmark
-For several test programs, we measured the performance of the WebAssembly (both for browser and WASI runtimes) generated by elfconv. The comparison target was the Wasm program compiled directly by Emscripten or WASI-SDK from the source code. elfconv converts the ELF/aarch64 produced by an existing compiler (gcc or clang) from the same source code into a Wasm program. In this performance test, we compared the performance of both Wasm programs.
+We measured the performance of WebAssembly generated by elfconv (both browser and WASI runtimes) against Wasm compiled directly from source using Emscripten or WASI-SDK. The workflow is:
+1. Compile source code → AArch64 ELF binary (using gcc/clang)
+2. Convert ELF binary → Wasm using elfconv
+3. Compare with: Source code → Wasm directly (using Emscripten/WASI-SDK)
 
 **Blog**: [elfconv: Linux Apps to High-Performance Wasm Binary Translator](https://medium.com/nttlabs/some-performance-improvements-in-the-binary-translator-that-converts-linux-applications-c6b26945cf39)
 ### To Wasm (Emscripten)
@@ -51,46 +89,68 @@ For several test programs, we measured the performance of the WebAssembly (both 
 | [`LINPACK benchmark`](https://www.netlib.org/linpack/) (↑ better) | 4821 (MFLOPS) (100%) | 2720 (MFLOPS) (**56%**) |
 | [`mnist-neural-network-plain-c (during 30 steps)`](https://github.com/AndrewCarterUK/mnist-neural-network-plain-c) (↑ better) | 2.271 (s) (100%) | 2.302 (s) (**96%**) |
 
-As this table shows, Wasm on both Browser and WASI runtimes can be executed with less performance degradation than when Wasm is generated from the source code.
+**Key Takeaway**: elfconv achieves **56-96%** of native source-to-Wasm performance, significantly better than CPU emulation approaches which typically have 10x or more slowdown.
 
 ## Quick Start
-You can try elfconv using the Docker container (x86-64 and ARM64) by executing the commands as follows, and you can execute the Wasm application in both browser and host environment (WASI runtimes).
+The easiest way to try elfconv is using our pre-built Docker container, which supports both x86-64 and ARM64 hosts. No local dependencies needed!
 
-### Browser
+Choose your execution environment:
+- **Option 1 - Browser**: Run Wasm in a web browser with terminal emulation
+- **Option 2 - WASI Runtime**: Run Wasm on the host using WasmEdge or other WASI-compatible runtimes
+
+### Option 1: Browser Execution
 ```bash
-### build container
+# 1. Build container
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
-elfconv/$ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
-elfconv/$ docker run -it --rm -p 8080:8080 --name <container-name> <image-name>
+$ docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
+# Note: ECV_AARCH64=1 for AArch64 ELF, ECV_X86=1 for x86-64 ELF
 
-### try coversion
+# 2. Run container with port forwarding
+$ docker run -it --rm -p 8080:8080 --name elfconv-container elfconv-image
+
+# 3. Convert ELF to Wasm
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=aarch64-wasm INITWASM=1 ./exe.sh /path/to/ELF # e.g., ../examples/hello/c/a.aarch64
+~/elfconv/bin# TARGET=aarch64-wasm INITWASM=1 ./exe.sh /path/to/ELF
+# Example: TARGET=aarch64-wasm INITWASM=1 ./exe.sh ../examples/hello/c/a.aarch64
+
+# 4. Start web server
 ~/elfconv/bin# emrun --no_browser --port 8080 <ELFNAME>.html
-Web server root directory: /root/elfconv/bin
-Now listening at http://0.0.0.0:8080/
 ```
-Now, the Wasm application server has started, so that you can access it (e.g., http://localhost:8080/<ELFNAME>.html) from outside the container.
-### Host (WASI runtimes)
+
+Access the Wasm application from your browser at `http://localhost:8080/<ELFNAME>.html`
+
+### Option 2: WASI Runtime Execution
 ```bash
-### build container
+# 1. Build and run container
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
-$ docker build . --build-arg ECV_AARCH64=1 -t <image-name> # ECV_* shows the target ELF CPU arch. ELF/AArch64: ECV_AARCH64=1, ELF/x86-64: ECV_X86=1.
-$ docker run -it --name <container-name> <image-name>
+$ docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
+$ docker run -it --name elfconv-container elfconv-image
 
-### try conversion
+# 2. Convert ELF to Wasm
 ~/elfconv# cd bin
-~/elfconv/bin# TARGET=aarch64-wasi32 ./exe.sh /path/to/ELF # e.g. ../examples/hello/c/a.aarch64
-~/elfconv/bin# wasmedge <ELFNAME>.wasm # wasmedge is preinstalled
+~/elfconv/bin# TARGET=aarch64-wasi32 ./exe.sh /path/to/ELF
+# Example: TARGET=aarch64-wasi32 ./exe.sh ../examples/hello/c/a.aarch64
+
+# 3. Execute with WasmEdge (preinstalled)
+~/elfconv/bin# wasmedge <ELFNAME>.wasm
 ```
-## Source code build
-### 1. Dev Container
-elfconv provides the Dev Container environment using the root [`Dockerfile`](https://github.com/yomaytk/elfconv/blob/main/Dockerfile) and [`.devcontainer.json`](https://github.com/yomaytk/elfconv/blob/main/.devcontainer.json), so you can develop without making the build environment if you can use Dev Container on your vscode (Please refer to the official website of vscode for basically using Dev Container).
-### 2. Local Environment
-#### Dependencies
-The libraries required for the build are almost the same as those for Remill, and the main libraries are as follows. The other required libraries are automatically installed using [cxx-common](https://github.com/lifting-bits/cxx-common).
+## Building from Source
+
+### Option 1: Dev Container (Recommended)
+The easiest way to get started with development is using VS Code's Dev Container feature:
+
+1. Install [VS Code](https://code.visualstudio.com/) and [Docker](https://www.docker.com/)
+2. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+3. Clone the repository and open in VS Code
+4. Click "Reopen in Container" when prompted
+
+The dev container includes all necessary dependencies and tools pre-configured.
+
+### Option 2: Local Environment
+#### Prerequisites
+elfconv requires the following dependencies. Most are similar to [Remill](https://github.com/lifting-bits/remill) requirements. Additional dependencies are automatically installed via [cxx-common](https://github.com/lifting-bits/cxx-common).
 
 | Name | Version |
 | ---- | ------- |
@@ -107,32 +167,57 @@ The libraries required for the build are almost the same as those for Remill, an
 | [libbfd](https://packages.debian.org/en/sid/hppa/binutils-dev) | Latest |
 | [libdwarf](https://packages.debian.org/en/sid/libdwarf-dev) | Latest |
 
-#### Build
-If you prepare these libraries, you can easily build elfconv by executing [`scripts/build.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/build.sh) as follows.
+#### Build Steps
+Once dependencies are installed, build elfconv using the provided build script:
+
 ```bash
+# Clone repository (--recursive is important for submodules)
 $ git clone --recursive https://github.com/yomaytk/elfconv
 $ cd elfconv
-/elfconv$ ./scripts/build.sh
-```
-> [!NOTE]
-> If you fail to build elfconv, please feel free to submit an issue!
-### Develop
-After finishing the build, you can find the directory `elfconv/build/`, and you can build the *'lifter'* (*'lifter'* is the module that converts the ELF binary to LLVM bitcode and those source codes are mainly located in the [`backend/remill/`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and [`lifter/`](https://github.com/yomaytk/elfconv/tree/main/lifter)) by *ninja* after modifying the *'lifter'* codes.
 
-You can compile the ELF binary to the Wasm binary using [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) as follows. `dev.sh` execute the translation (ELF -> LLVM bitcode by *'lifter'*) and compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) (statically linked with generated LLVM bitcode) and generate the Wasm binary. When you execute the script, you should explicitly specify the path of the elfconv directory (`/root/elfconv` on the container) with `NEW_ROOT` or rewrite the `ROOT_DIR` in `dev.sh`. 
+# Run build script
+$ ./scripts/build.sh
+```
+
+> [!NOTE]
+> If you encounter build issues, please [submit an issue](https://github.com/yomaytk/elfconv/issues) with details about your environment and error messages.
+## Development Workflow
+
+### Building the Lifter
+After building elfconv, you'll find the `elfconv/build/` directory. The **lifter** is the core module that converts ELF binaries to LLVM bitcode (source code in [`backend/remill/`](https://github.com/yomaytk/elfconv/tree/main/backend/remill) and [`lifter/`](https://github.com/yomaytk/elfconv/tree/main/lifter)).
+
+To rebuild after modifying lifter code:
 ```bash
-### Native
+~/elfconv/build# ninja
+```
+
+### Converting Binaries with dev.sh
+Use [`scripts/dev.sh`](https://github.com/yomaytk/elfconv/blob/main/scripts/dev.sh) for development workflow. This script:
+1. Translates ELF → LLVM bitcode (using lifter)
+2. Compiles the [`runtime/`](https://github.com/yomaytk/elfconv/tree/main/runtime) statically linked with generated bitcode
+3. Generates the final binary/Wasm
+
+**Note**: Set `NEW_ROOT` environment variable or edit `ROOT_DIR` in `dev.sh` to point to your elfconv directory (e.g., `/root/elfconv` in container).
+
+#### Target Native (for testing)
+```bash
 ~/elfconv/build# TARGET=aarch64-native ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# ./<ELFNAME>.${HOST_CPU}
-------------------------
-### Browser
+```
+
+#### Target Browser (Emscripten)
+```bash
 ~/elfconv/build# TARGET=aarch64-wasm INITWASM=1 ../scripts/dev.sh path/to/ELF
 ~/elfconv/build# emrun --no_browser --port 8080 <ELFNAME>.html
-------------------------
-### Host (WASI Runtimes)
-~/elfconv/build# TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
-~/elfconv/build# wasmedge <ELFNAME>.wasm # or wasmedge <ELFNAME>_o3.wasm
 ```
+
+#### Target WASI Runtime
+```bash
+~/elfconv/build# TARGET=aarch64-wasi32 ../scripts/dev.sh path/to/ELF
+~/elfconv/build# wasmedge <ELFNAME>.wasm
+# Or optimized version: wasmedge <ELFNAME>_o3.wasm
+```
+
 ## Acknowledgement
 elfconv uses or references some projects as follows. Great thanks to all its developers!
 - Remill ([Apache Lisence 2.0](https://github.com/lifting-bits/remill/blob/master/LICENSE))
