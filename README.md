@@ -59,13 +59,6 @@ We are actively working to resolve these limitations.
 - 🧪 **Testing** — Test with various Linux applications and report issues
 - 📚 **Documentation** — Improve documentation, add examples, or write tutorials
 
-### Getting Started
-
-1. Check the [issues page](https://github.com/yomaytk/elfconv/issues) for tasks labeled `good first issue` or `help wanted`
-2. Fork the repository and create a feature branch
-3. Make your changes and ensure tests pass
-4. Submit a pull request with a clear description
-
 For questions or discussions, feel free to [open an issue](https://github.com/yomaytk/elfconv/issues/new) or start a discussion.
 
 ## Benchmark
