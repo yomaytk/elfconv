@@ -16,12 +16,12 @@ elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefi
 
 ### 1. Easy Porting to Wasm
 - **No source code needed** — Port pre-built binaries directly to Wasm, even when source code is unavailable
-- **Full syscall compatibility** — Emulates ~300 Linux syscalls vs. ~45 in [WASI preview 1](https://github.com/WebAssembly/WASI/blob/main/legacy/preview1/docs.md), allowing unmodified Linux apps to run
+- **Linux syscall emulation** — Emulates Linux syscalls missing in Wasm environments (e.g., `clone/execve`), enabling unmodified Linux apps to run
 - **Language-agnostic** — No per-language compiler support needed; works with any language that compiles to Linux/ELF
 
 **Use cases:**
 - Legacy applications where source code is unavailable or difficult to rebuild
-- Porting Linux libraries to Wasm for use in web applications
+- Porting Linux libraries to Wasm for use in developing web applications
 - Quick prototyping without modifying build systems
 - Educational demos of operating systems and compilers in browsers
 
