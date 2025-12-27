@@ -16,7 +16,7 @@ elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefi
 
 ### 1. Easy Porting to Wasm
 - **No source code needed** — Port pre-built binaries directly to Wasm, even when source code is unavailable
-- **Linux syscall emulation** — Emulates Linux syscalls missing in Wasm environments (e.g., `clone/execve`), enabling unmodified Linux apps to run
+- **Linux syscall emulation** — Emulates Linux syscalls missing in Wasm environments (e.g., `fork/execve`), enabling unmodified Linux apps to run
 - **Language-agnostic** — No per-language compiler support needed; works with any language that compiles to Linux/ELF
 
 **Use cases:**
@@ -26,8 +26,8 @@ elfconv focuses primarily on WebAssembly (Wasm) conversion, offering many benefi
 - Educational demos of operating systems and compilers in browsers
 
 ### 2. Advanced Process Management (Experimental)
-- **clone/execve support in Browser Wasm**
-  - elfconv experimentally supports `clone()` and `execve()` system calls in browser-based WebAssembly environments. This is not possible with Emscripten, which lacks proper support for these fundamental process management primitives. This capability enables running more complex Linux applications that rely on multi-process architectures, such as shells, build systems, and server applications that spawn child processes (e.g., [**GNU Bash in your browser**](https://yomaytk.github.io/elfconv-demo/) on the demo page).
+- **fork/execve support in Browser Wasm**
+  - elfconv experimentally supports `fork()` and `execve()` system calls in browser-based WebAssembly environments. This is not possible with Emscripten, which lacks proper support for these fundamental process management primitives. This capability enables running more complex Linux applications that rely on multi-process architectures, such as shells, build systems, and server applications that spawn child processes (e.g., [**GNU Bash in your browser**](https://yomaytk.github.io/elfconv-demo/) on the demo page).
 
 ### 3. Low Performance Overhead
 - **AOT Compilation**
