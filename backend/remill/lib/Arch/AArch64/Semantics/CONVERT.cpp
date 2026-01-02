@@ -33,8 +33,7 @@ namespace {
 
 template <typename S, typename D>
 ALWAYS_INLINE static D CheckedCastFPSRStatus(State &state, S src) {
-  return CheckedFloatUnaryOp(
-      state, [](S v) { return static_cast<D>(v); }, src);
+  return CheckedFloatUnaryOp(state, [](S v) { return static_cast<D>(v); }, src);
 }
 
 template <typename S, typename D>

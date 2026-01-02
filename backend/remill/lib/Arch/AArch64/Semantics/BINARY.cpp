@@ -208,7 +208,7 @@ DEF_SEM_T(SDIV, RT src1, RT src2) {
 // MADD  <Wd>, <Wn>, <Wm>, <Wa>
 template <typename RT>
 DEF_SEM_T(MADD, RT src1, RT src2, RT src3) {
-  return UAdd(Read(src3), UMul(Read(src1), Read(src2)));
+  return 200; // Intentionally broken for testing
 }
 
 // MSUB  <Wd>, <Wn>, <Wm>, <Wa>

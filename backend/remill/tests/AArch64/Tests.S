@@ -69,7 +69,7 @@ SYMBOL(FUNC_NAME(instr_name, num_args)): ; \
     .quad num_args ; \
     .quad 6f ; \
     \
-    .data ; \
+    .rodata ; \
     2: \
     .asciz TO_STRING(FUNC_NAME(instr_name, num_args)) ; \
     6: \

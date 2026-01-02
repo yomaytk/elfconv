@@ -5027,6 +5027,20 @@ bool TryDecodeSUB_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   return TryDecodeADD_ASIMDSAME_ONLY(data, inst);
 }
 
+// SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeSSHL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t total_size, elem_size;
+  if (0x3 == data.size && !data.Q) {
+    return false;  // `if size:Q == '110' then ReservedValue();`.
+  }
+  total_size = data.Q ? 128 : 64;
+  elem_size = 8UL << data.size;
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  auto rclass = ArrangementRegClass(total_size, elem_size);
+  return TryDecodeRdW_Rn_Rm(data, inst, rclass);
+}
+
 static bool TryDecodeLDnSTnOpcode(uint8_t opcode, uint64_t *rpt, uint64_t *selem) {
   switch (opcode) {
     case 0:  // `0000`, LD/ST4 (4 registers).
@@ -5639,6 +5653,47 @@ bool TryDecodeUMOV_ASIMDINS_X_X(const InstData &data, Instruction &inst) {
   return TryDecodeUMOV_ASIMDINS_W_W(data, inst);
 }
 
+// MOV  <V><d>, <Vn>.<T>[<index>]
+bool TryDecodeMOV_DUP_ASISDONE_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t size = 0;
+  if (!LeastSignificantSetBit(data.imm5.uimm, &size) || size > 3) {
+    return false;  // `if size > 3 then UnallocatedEncoding();`
+  }
+  RegClass rclass;
+  std::stringstream ss;
+  ss << inst.function;
+  switch (size) {
+    case 0:
+      ss << "_B";
+      rclass = kReg16B;
+      break;
+    case 1:
+      ss << "_H";
+      rclass = kReg8H;
+      break;
+    case 2:
+      ss << "_S";
+      rclass = kReg4S;
+      break;
+    case 3:
+      ss << "_D";
+      rclass = kReg2D;
+      break;
+    default: return false;
+  }
+  inst.function = ss.str();
+  AddRegOperand(inst, kActionWrite, size == 3 ? kRegX : kRegW, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
+  AddImmOperand(inst, data.imm5.uimm >> (size + 1));
+  return true;
+}
+
+// DUP  <V><d>, <Vn>.<T>[<index>]
+bool TryDecodeDUP_ASISDONE_ONLY(const InstData &data, Instruction &inst) {
+  return TryDecodeMOV_DUP_ASISDONE_ONLY(data, inst);
+}
+
 // SMOV  <Wd>, <Vn>.<Ts>[<index>]
 bool TryDecodeSMOV_ASIMDINS_W_W(const InstData &data, Instruction &inst) {
   uint64_t size = 0;
@@ -6147,6 +6202,22 @@ bool TryDecodeLDXR_LR64_LDSTEXCL(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// LDXRB  <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeLDXRB_LR32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  inst.is_atomic_read_modify_write = true;
+  AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 8, data.Rn, 0);
+  AddMonitorOperand(inst, kActionWrite);
+  return true;
+}
+
+// LDAXRB  <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeLDAXRB_LR32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  return TryDecodeLDXRB_LR32_LDSTEXCL(data, inst);
+}
+
 // STLXR  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 bool TryDecodeSTLXR_SR32_LDSTEXCL(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Runtime;
@@ -6165,6 +6236,28 @@ bool TryDecodeSTLXR_SR64_LDSTEXCL(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rs);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, 64, data.Rn, 0);
+  AddMonitorOperand(inst, kActionReadWrite);
+  return true;
+}
+
+// STXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeSTXRB_SR32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  inst.is_atomic_read_modify_write = true;
+  AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 8, data.Rn, 0);
+  AddMonitorOperand(inst, kActionReadWrite);
+  return true;
+}
+
+// STLXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeSTLXRB_SR32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  inst.is_atomic_read_modify_write = true;
+  AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 8, data.Rn, 0);
   AddMonitorOperand(inst, kActionReadWrite);
   return true;
 }
@@ -6418,6 +6511,62 @@ bool TryDecodeUSHLL_ASIMDSHF_L(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// SSHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+bool TryDecodeSSHLL_ASIMDSHF_L(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t d_total_size, s_total_size, d_elem_size, s_elem_size, shift_val;
+  d_total_size = 128;
+  s_total_size = data.Q ? 128 : 64;
+  if (data.immh.uimm & 0b0001) {
+    s_elem_size = 8;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 8;
+  } else if (data.immh.uimm & 0b0010) {
+    s_elem_size = 16;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 16;
+  } else if (data.immh.uimm & 0b0100) {
+    s_elem_size = 32;
+    shift_val = (data.immh.uimm << 3 | data.immb.uimm) - 32;
+  } else {
+    LOG(FATAL) << "data.immh is invalid at SSHLL instruction at 0x" << std::hex << inst.pc;
+  }
+  d_elem_size = s_elem_size << 1;
+  AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
+  auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
+  auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
+  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift_val);
+  return true;
+}
+
+// SHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+bool TryDecodeSHLL_ASIMDMISC_S(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t d_total_size, s_total_size, d_elem_size, s_elem_size, shift_val;
+  d_total_size = 128;
+  s_total_size = data.Q ? 128 : 64;
+  if (data.size == 0b00) {
+    s_elem_size = 8;
+    shift_val = 8;
+  } else if (data.size == 0b01) {
+    s_elem_size = 16;
+    shift_val = 16;
+  } else if (data.size == 0b10) {
+    s_elem_size = 32;
+    shift_val = 32;
+  } else {
+    LOG(FATAL) << "data.size is invalid at SHLL instruction at 0x" << std::hex << inst.pc;
+  }
+  d_elem_size = s_elem_size << 1;
+  AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
+  auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
+  auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
+  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift_val);
+  return true;
+}
+
 // XTN{2}  <Vd>.<Tb>, <Vn>.<Ta>
 bool TryDecodeXTN_ASIMDMISC_N(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
@@ -6462,6 +6611,26 @@ bool TryDecodeUADDW_ASIMDDIFF_W(const InstData &data, Instruction &inst) {
   tb_tsize = data.Q ? 128 : 64;
   ta_esize = 16 << data.size;
   tb_esize = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, ta_tsize, ta_esize, tb_tsize, tb_esize);
+  auto ta_rclass = ArrangementRegClass(ta_tsize, ta_esize);
+  auto tb_rclass = ArrangementRegClass(tb_tsize, tb_esize);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, tb_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
+bool TryDecodeSADDW_ASIMDDIFF_W(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t ta_tsize, ta_esize, tb_tsize, tb_esize;
+  ta_tsize = 128;
+  tb_tsize = data.Q ? 128 : 64;
+  ta_esize = 16 << data.size;
+  tb_esize = 8 << data.size;
+  if (data.size == 0b11) {
+    LOG(FATAL) << "data.size is invalid at SADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>";
+  }
   AddArrangementSpecifierUSHLL(inst, ta_tsize, ta_esize, tb_tsize, tb_esize);
   auto ta_rclass = ArrangementRegClass(ta_tsize, ta_esize);
   auto tb_rclass = ArrangementRegClass(tb_tsize, tb_esize);

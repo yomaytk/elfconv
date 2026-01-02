@@ -229,6 +229,32 @@ MAKE_BROADCAST(SMAX, S, Max, 8)
 MAKE_BROADCAST(SMAX, S, Max, 16)
 MAKE_BROADCAST(SMAX, S, Max, 32)
 
+// SSHL shifts by signed values in the second operand
+#define MAKE_SSHL(size) \
+  template <typename V> \
+  DEF_SEM_T(SSHL_##size, V src1, V src2) { \
+    auto vec1 = SReadVI##size(src1); \
+    auto vec2 = SReadVI##size(src2); \
+    V res = {}; \
+    _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(res); i < max_i; ++i) { \
+      auto shift = SExtractVI##size(vec2, i); \
+      auto val = SExtractVI##size(vec1, i); \
+      if (shift >= 0) { \
+        res[i] = val << shift; \
+      } else { \
+        res[i] = val >> (-shift); \
+      } \
+    } \
+    return res; \
+  }
+
+MAKE_SSHL(8)
+MAKE_SSHL(16)
+MAKE_SSHL(32)
+MAKE_SSHL(64)
+
+#undef MAKE_SSHL
+
 #undef MAKE_BROADCAST
 
 }  // namespace
@@ -248,6 +274,14 @@ DEF_ISEL(SUB_ASIMDSAME_ONLY_8H) = SUB_16<VIu16v8>;  // SUB  <Vd>.<T>, <Vn>.<T>, 
 DEF_ISEL(SUB_ASIMDSAME_ONLY_2S) = SUB_32<VIu32v2>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(SUB_ASIMDSAME_ONLY_4S) = SUB_32<VIu32v4>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(SUB_ASIMDSAME_ONLY_2D) = SUB_64<VIu64v2>;  // SUB  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_8B) = SSHL_8<VIi8v8>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_16B) = SSHL_8<VIi8v16>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_4H) = SSHL_16<VIi16v4>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_8H) = SSHL_16<VIi16v8>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_2S) = SSHL_32<VIi32v2>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_4S) = SSHL_32<VIi32v4>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(SSHL_ASIMDSAME_ONLY_2D) = SSHL_64<VIi64v2>;  // SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 DEF_ISEL(UMIN_ASIMDSAME_ONLY_8B) = UMIN_8<VIu8v8>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(UMIN_ASIMDSAME_ONLY_16B) = UMIN_8<VIu8v16>;  // UMIN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
@@ -1219,6 +1253,8 @@ DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S) =
     FMULID_V32<VIf32v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S) =
     FMULID_V32<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_1D) =
+    FMULID_V64<VIf64v1>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D) =
     FMULID_V64<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 // FPSR
@@ -1226,6 +1262,8 @@ DEF_ISEL(FMUL_ASIMDELEM_R_SD_2S_FPSRSTATUS) =
     FMULID_V32_FPSRStatus<VIf32v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_4S_FPSRSTATUS) =
     FMULID_V32_FPSRStatus<VIf32v4>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
+DEF_ISEL(FMUL_ASIMDELEM_R_SD_1D_FPSRSTATUS) =
+    FMULID_V64_FPSRStatus<VIf64v1>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 DEF_ISEL(FMUL_ASIMDELEM_R_SD_2D_FPSRSTATUS) =
     FMULID_V64_FPSRStatus<VIf64v2>;  // FMUL  <Vd>.<T>, <Vn>.<T>, <Vm>.<Ts>[<index>]
 
@@ -1308,6 +1346,86 @@ DEF_ISEL(USHLL_ASIMDSHF_L_2D2S) = USHLL_32<VIu64v2, VIu32v2>;
 DEF_ISEL(USHLL_ASIMDSHF_L_8H16B) = USHLL2_8<VIu16v8, VIu8v16>;
 DEF_ISEL(USHLL_ASIMDSHF_L_4S8H) = USHLL2_16<VIu32v4, VIu16v8>;
 DEF_ISEL(USHLL_ASIMDSHF_L_2D4S) = USHLL2_32<VIu64v2, VIu32v4>;
+
+// SSHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+namespace {
+#define MAKE_SSHLL(s_elem_size, d_elem_type) \
+  template <typename D, typename S> \
+  DEF_SEM_T(SSHLL_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = SReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
+      res[i] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  } \
+\
+  template <typename D, typename S> \
+  DEF_SEM_T(SSHLL2_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = SReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = GetVectorElemsNum(srcv) / 2; i < GetVectorElemsNum(srcv); \
+                           i++) { \
+      res[i - GetVectorElemsNum(srcv) / 2] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  }
+
+MAKE_SSHLL(8, int16_t);
+MAKE_SSHLL(16, int32_t);
+MAKE_SSHLL(32, int64_t);
+
+#undef MAKE_SSHLL
+
+}  // namespace
+
+DEF_ISEL(SSHLL_ASIMDSHF_L_8H8B) = SSHLL_8<VIi16v8, VIi8v8>;
+DEF_ISEL(SSHLL_ASIMDSHF_L_4S4H) = SSHLL_16<VIi32v4, VIi16v4>;
+DEF_ISEL(SSHLL_ASIMDSHF_L_2D2S) = SSHLL_32<VIi64v2, VIi32v2>;
+
+DEF_ISEL(SSHLL_ASIMDSHF_L_8H16B) = SSHLL2_8<VIi16v8, VIi8v16>;
+DEF_ISEL(SSHLL_ASIMDSHF_L_4S8H) = SSHLL2_16<VIi32v4, VIi16v8>;
+DEF_ISEL(SSHLL_ASIMDSHF_L_2D4S) = SSHLL2_32<VIi64v2, VIi32v4>;
+
+// SHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
+namespace {
+#define MAKE_SHLL(s_elem_size, d_elem_type) \
+  template <typename D, typename S> \
+  DEF_SEM_T(SHLL_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = UReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) { \
+      res[i] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  } \
+\
+  template <typename D, typename S> \
+  DEF_SEM_T(SHLL2_##s_elem_size, S src, I64 shift_imm) { \
+    auto srcv = UReadVI##s_elem_size(src); \
+    D res{}; \
+    _Pragma("unroll") for (size_t i = GetVectorElemsNum(srcv) / 2; i < GetVectorElemsNum(srcv); \
+                           i++) { \
+      res[i - GetVectorElemsNum(srcv) / 2] = (d_elem_type(srcv[i])) << Read(shift_imm); \
+    } \
+    return res; \
+  }
+
+MAKE_SHLL(8, uint16_t);
+MAKE_SHLL(16, uint32_t);
+MAKE_SHLL(32, uint64_t);
+
+#undef MAKE_SHLL
+
+}  // namespace
+
+DEF_ISEL(SHLL_ASIMDMISC_S_8H8B) = SHLL_8<VIu16v8, VIu8v8>;
+DEF_ISEL(SHLL_ASIMDMISC_S_4S4H) = SHLL_16<VIu32v4, VIu16v4>;
+DEF_ISEL(SHLL_ASIMDMISC_S_2D2S) = SHLL_32<VIu64v2, VIu32v2>;
+
+DEF_ISEL(SHLL_ASIMDMISC_S_8H16B) = SHLL2_8<VIu16v8, VIu8v16>;
+DEF_ISEL(SHLL_ASIMDMISC_S_4S8H) = SHLL2_16<VIu32v4, VIu16v8>;
+DEF_ISEL(SHLL_ASIMDMISC_S_2D4S) = SHLL2_32<VIu64v2, VIu32v4>;
 
 // XTN{2}  <Vd>.<Tb>, <Vn>.<Ta>
 namespace {
@@ -1429,6 +1547,47 @@ DEF_ISEL(UADDW_ASIMDDIFF_W_2D2S) = UADDW_64_32<VIu64v2, VIu32v2>;
 DEF_ISEL(UADDW_ASIMDDIFF_W_8H16B) = UADDW_16_8<VIu16v8, VIu8v16>;
 DEF_ISEL(UADDW_ASIMDDIFF_W_4S8H) = UADDW_32_16<VIu32v4, VIu16v8>;
 DEF_ISEL(UADDW_ASIMDDIFF_W_2D4S) = UADDW_64_32<VIu64v2, VIu32v4>;
+
+// SADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
+namespace {
+#define MAKE_SADDW(ta_esize, tb_esize) \
+  template <typename TA, typename TB> \
+  DEF_SEM_T(SADDW_##ta_esize##_##tb_esize, TA srcn, TB srcm) { \
+    auto srcn_v = SReadVI##ta_esize(srcn); \
+    auto srcm_v = SReadVI##tb_esize(srcm); \
+    TA res{}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcm_v); i++) { \
+      res[i] = srcn_v[i] + int##tb_esize##_t(srcm_v[i]); \
+    } \
+    return res; \
+  } \
+  template <typename TA, typename TB> \
+  DEF_SEM_T(SADDW2_##ta_esize##_##tb_esize, TA srcn, TB srcm) { \
+    auto srcn_v = SReadVI##ta_esize(srcn); \
+    auto srcm_v = SReadVI##tb_esize(srcm); \
+    TA res{}; \
+    size_t tb_v_len = GetVectorElemsNum(srcm_v); \
+    _Pragma("unroll") for (size_t i = tb_v_len / 2; i < tb_v_len; i++) { \
+      res[i - tb_v_len / 2] = srcn_v[i] + int##tb_esize##_t(srcm_v[i + tb_v_len / 2]); \
+    } \
+    return res; \
+  }
+
+MAKE_SADDW(16, 8);
+MAKE_SADDW(32, 16);
+MAKE_SADDW(64, 32);
+
+#undef MAKE_SADDW
+
+}  // namespace
+
+DEF_ISEL(SADDW_ASIMDDIFF_W_8H8B) = SADDW_16_8<VIi16v8, VIi8v8>;
+DEF_ISEL(SADDW_ASIMDDIFF_W_4S4H) = SADDW_32_16<VIi32v4, VIi16v4>;
+DEF_ISEL(SADDW_ASIMDDIFF_W_2D2S) = SADDW_64_32<VIi64v2, VIi32v2>;
+
+DEF_ISEL(SADDW_ASIMDDIFF_W_8H16B) = SADDW2_16_8<VIi16v8, VIi8v16>;
+DEF_ISEL(SADDW_ASIMDDIFF_W_4S8H) = SADDW2_32_16<VIi32v4, VIi16v8>;
+DEF_ISEL(SADDW_ASIMDDIFF_W_2D4S) = SADDW2_64_32<VIi64v2, VIi32v4>;
 
 // SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
 namespace {

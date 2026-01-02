@@ -4978,43 +4978,6 @@ bool TryDecodeFSUB_ASIMDSAMEFP16_ONLY(const InstData &, Instruction &) {
   return false;
 }
 
-// SHLL SHLL_asimdmisc_S:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 1
-//  12 1 opcode   0
-//  13 1 opcode   1
-//  14 0 opcode   2
-//  15 0 opcode   3
-//  16 1 opcode   4
-//  17 0
-//  18 0
-//  19 0
-//  20 0
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 1 U        0
-//  30 x Q        0
-//  31 0
-// SHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
-bool TryDecodeSHLL_ASIMDMISC_S(const InstData &, Instruction &) {
-  return false;
-}
 
 // SQADD SQADD_asisdsame_only:
 //   0 x Rd       0
@@ -7023,12 +6986,6 @@ bool TryDecodeLDLAR_LR64_LDSTEXCL(const InstData &, Instruction &) {
 //  27 1
 //  28 0
 //  29 0 U        0
-//  30 x Q        0
-//  31 0
-// SSHLL{2}  <Vd>.<Ta>, <Vn>.<Tb>, #<shift>
-bool TryDecodeSSHLL_ASIMDSHF_L(const InstData &, Instruction &) {
-  return false;
-}
 
 // STCLRB STCLRB_32S_memop:
 //   0 1 Rt       0
@@ -12312,43 +12269,6 @@ bool TryDecodeLDUMINL_64_MEMOP(const InstData &, Instruction &) {
   return false;
 }
 
-// STXRB STXRB_SR32_ldstexcl:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1 Rt2      0
-//  11 1 Rt2      1
-//  12 1 Rt2      2
-//  13 1 Rt2      3
-//  14 1 Rt2      4
-//  15 0 o0       0
-//  16 x Rs       0
-//  17 x Rs       1
-//  18 x Rs       2
-//  19 x Rs       3
-//  20 x Rs       4
-//  21 0 o1       0
-//  22 0 L        0
-//  23 0 o2       0
-//  24 0
-//  25 0
-//  26 0
-//  27 1
-//  28 0
-//  29 0
-//  30 0 size     0
-//  31 0 size     1
-// STXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeSTXRB_SR32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
 
 // STLXRH STLXRH_SR32_ldstexcl:
 //   0 x Rt       0
@@ -14782,43 +14702,6 @@ bool TryDecodeREV64_REV_64_DP_1SRC(const InstData &, Instruction &) {
   return false;
 }
 
-// STLXRB STLXRB_SR32_ldstexcl:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1 Rt2      0
-//  11 1 Rt2      1
-//  12 1 Rt2      2
-//  13 1 Rt2      3
-//  14 1 Rt2      4
-//  15 1 o0       0
-//  16 x Rs       0
-//  17 x Rs       1
-//  18 x Rs       2
-//  19 x Rs       3
-//  20 x Rs       4
-//  21 0 o1       0
-//  22 0 L        0
-//  23 0 o2       0
-//  24 0
-//  25 0
-//  26 0
-//  27 1
-//  28 0
-//  29 0
-//  30 0 size     0
-//  31 0 size     1
-// STLXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeSTLXRB_SR32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
 
 // STTRH STTRH_32_ldst_unpriv:
 //   0 x Rt       0
@@ -15542,43 +15425,6 @@ bool TryDecodeSMNEGL_SMSUBL_64WA_DP_3SRC(const InstData &, Instruction &) {
   return false;
 }
 
-// DUP MOV_DUP_asisdone_only:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0 imm4     0
-//  12 0 imm4     1
-//  13 0 imm4     2
-//  14 0 imm4     3
-//  15 0
-//  16 x imm5     0
-//  17 x imm5     1
-//  18 x imm5     2
-//  19 x imm5     3
-//  20 x imm5     4
-//  21 0
-//  22 0
-//  23 0
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 op       0
-//  30 1
-//  31 0
-// MOV  <V><d>, <Vn>.<T>[<index>]
-bool TryDecodeMOV_DUP_ASISDONE_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // SMADDL SMULL_SMADDL_64WA_dp_3src:
 //   0 x Rd       0
@@ -15656,43 +15502,6 @@ bool TryDecodeZIP2_ASIMDPERM_ONLY(const InstData &, Instruction &) {
   return false;
 }
 
-// LDAXRB LDAXRB_LR32_ldstexcl:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1 Rt2      0
-//  11 1 Rt2      1
-//  12 1 Rt2      2
-//  13 1 Rt2      3
-//  14 1 Rt2      4
-//  15 1 o0       0
-//  16 1 Rs       0
-//  17 1 Rs       1
-//  18 1 Rs       2
-//  19 1 Rs       3
-//  20 1 Rs       4
-//  21 0 o1       0
-//  22 1 L        0
-//  23 0 o2       0
-//  24 0
-//  25 0
-//  26 0
-//  27 1
-//  28 0
-//  29 0
-//  30 0 size     0
-//  31 0 size     1
-// LDAXRB  <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeLDAXRB_LR32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
 
 // MSUB MNEG_MSUB_32A_dp_3src:
 //   0 x Rd       0
@@ -18579,44 +18388,6 @@ bool TryDecodeSWPH_32_MEMOP(const InstData &, Instruction &) {
 //  31 0 size     1
 // SWPLH  <Ws>, <Wt>, [<Xn|SP>]
 bool TryDecodeSWPLH_32_MEMOP(const InstData &, Instruction &) {
-  return false;
-}
-
-// DUP DUP_asisdone_only:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1
-//  11 0 imm4     0
-//  12 0 imm4     1
-//  13 0 imm4     2
-//  14 0 imm4     3
-//  15 0
-//  16 x imm5     0
-//  17 x imm5     1
-//  18 x imm5     2
-//  19 x imm5     3
-//  20 x imm5     4
-//  21 0
-//  22 0
-//  23 0
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 1
-//  29 0 op       0
-//  30 1
-//  31 0
-// DUP  <V><d>, <Vn>.<T>[<index>]
-bool TryDecodeDUP_ASISDONE_ONLY(const InstData &, Instruction &) {
   return false;
 }
 
@@ -23256,44 +23027,6 @@ bool TryDecodeCMHS_ASISDSAME_ONLY(const InstData &, Instruction &) {
   return false;
 }
 
-// SADDW SADDW_asimddiff_W:
-//   0 x Rd       0
-//   1 x Rd       1
-//   2 x Rd       2
-//   3 x Rd       3
-//   4 x Rd       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 0
-//  11 0
-//  12 1
-//  13 0 o1       0
-//  14 0
-//  15 0
-//  16 x Rm       0
-//  17 x Rm       1
-//  18 x Rm       2
-//  19 x Rm       3
-//  20 x Rm       4
-//  21 1
-//  22 x size     0
-//  23 x size     1
-//  24 0
-//  25 1
-//  26 1
-//  27 1
-//  28 0
-//  29 0 U        0
-//  30 x Q        0
-//  31 0
-// SADDW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
-bool TryDecodeSADDW_ASIMDDIFF_W(const InstData &, Instruction &) {
-  return false;
-}
-
 // SADDLP SADDLP_asimdmisc_P:
 //   0 x Rd       0
 //   1 x Rd       1
@@ -24466,12 +24199,6 @@ bool TryDecodeSSHL_ASISDSAME_ONLY(const InstData &, Instruction &) {
 //  27 1
 //  28 0
 //  29 0 U        0
-//  30 x Q        0
-//  31 0
-// SSHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeSSHL_ASIMDSAME_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // UBFM UXTB_UBFM_32M_bitfield:
 //   0 x Rd       0
@@ -29946,43 +29673,6 @@ bool TryDecodeFRINTI_ASIMDMISC_R(const InstData &, Instruction &) {
   return false;
 }
 
-// LDXRB LDXRB_LR32_ldstexcl:
-//   0 x Rt       0
-//   1 x Rt       1
-//   2 x Rt       2
-//   3 x Rt       3
-//   4 x Rt       4
-//   5 x Rn       0
-//   6 x Rn       1
-//   7 x Rn       2
-//   8 x Rn       3
-//   9 x Rn       4
-//  10 1 Rt2      0
-//  11 1 Rt2      1
-//  12 1 Rt2      2
-//  13 1 Rt2      3
-//  14 1 Rt2      4
-//  15 0 o0       0
-//  16 1 Rs       0
-//  17 1 Rs       1
-//  18 1 Rs       2
-//  19 1 Rs       3
-//  20 1 Rs       4
-//  21 0 o1       0
-//  22 1 L        0
-//  23 0 o2       0
-//  24 0
-//  25 0
-//  26 0
-//  27 1
-//  28 0
-//  29 0
-//  30 0 size     0
-//  31 0 size     1
-// LDXRB  <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeLDXRB_LR32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDSMINAB LDSMINAB_32_memop:
 //   0 x Rt       0

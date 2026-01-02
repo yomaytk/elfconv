@@ -476,12 +476,16 @@ DEF_ISEL(LDXR_LR32_LDSTEXCL) =
     LDXR_32<M32>;  // LDAXR  <Wt>, [<Xn|SP>{,#0}] // LDXR  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDXR_LR64_LDSTEXCL) =
     LDXR_64<M64>;  // LDAXR  <Xt>, [<Xn|SP>{,#0}]  // LDXR  <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(LDXRB_LR32_LDSTEXCL) = LDXR_32<M32>;  // LDXRB  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDAXR_LR32_LDSTEXCL) = LDAXR_32<M32>;  // LDAXR  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDAXR_LR64_LDSTEXCL) = LDAXR_64<M64>;  // LDAXR  <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(LDAXRB_LR32_LDSTEXCL) = LDAXR_32<M32>;  // LDAXRB  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STLXR_SR32_LDSTEXCL) = STLXR<R32, M32W>;  // STLXR  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STLXR_SR64_LDSTEXCL) = STLXR<R64, M64W>;  // STLXR  <Ws>, <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(STLXRB_SR32_LDSTEXCL) = STLXR<R32, M32W>;  // STLXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STXR_SR32_LDSTEXCL) = STXR<R32, M32W>;  // STXR  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STXR_SR64_LDSTEXCL) = STXR<R64, M64W>;  // STXR  <Ws>, <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(STXRB_SR32_LDSTEXCL) = STXR<R32, M32W>;  // STXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 
 namespace {
 
@@ -1702,6 +1706,16 @@ DEF_ISEL(UMOV_ASIMDINS_W_W_B) = UMovFromVec8<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts
 DEF_ISEL(UMOV_ASIMDINS_W_W_H) = UMovFromVec16<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(UMOV_ASIMDINS_W_W_S) = UMovFromVec32<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(UMOV_ASIMDINS_X_X_D) = UMovFromVec64<uint64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_B) = UMovFromVec8<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_H) = UMovFromVec16<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_S) = UMovFromVec32<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_D) = UMovFromVec64<uint64_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+
+DEF_ISEL(DUP_ASISDONE_ONLY_B) = UMovFromVec8<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_H) = UMovFromVec16<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_S) = UMovFromVec32<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_D) = UMovFromVec64<uint64_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
 
 DEF_ISEL(SMOV_ASIMDINS_W_W_B) = SMovFromVec8<int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(SMOV_ASIMDINS_W_W_H) = SMovFromVec16<int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
