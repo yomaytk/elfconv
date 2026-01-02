@@ -478,6 +478,9 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   /* void debug_llvmir_u64value(uint64_t val) */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty}, false), extern_link,
                          debug_llvmir_u64value_name, *module);
+  /* void print_addr(uint64_t addr) */
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty}, false), extern_link,
+                         "print_addr", *module);
   /* void debug_llvmir_f64vaule(double val) */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {f64_ty}, false), extern_link,
                          debug_llvmir_f64value_name, *module);
@@ -493,9 +496,6 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   // void debug_memory_value()
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty}, false), extern_link,
                          debug_memory_value_name, *module);
-  // temporary patch fun
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, rt_m_ty, u64_ty}, false),
-                         extern_link, "temp_patch_f_flags", *module);
   /* void debug_insn() */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {}, false), extern_link, debug_insn_name,
                          *module);

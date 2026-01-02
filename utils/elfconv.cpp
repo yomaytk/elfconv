@@ -1,9 +1,7 @@
 #include "elfconv.h"
 
-#include <iomanip>
-#include <iostream>
 #include <remill/BC/HelperMacro.h>
-#include <vector>
+#include <stdio.h>
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
@@ -13,8 +11,9 @@
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #endif
 
-#define PRINT_GPR(index) \
-  std::cout << std::hex << "X" << #index << ": 0x" << CPUState->gpr.x##index.qword << " ";
+typedef unsigned long long ull;
+
+#define PRINT_GPR(index) printf("X" #index ": 0x%llx ", (ull) CPUState->gpr.x##index.qword)
 
 extern State *CPUState;
 
@@ -30,7 +29,7 @@ extern "C" uint32_t me_forked;
 /* debug func */
 extern "C" void debug_state_machine() {
 #if !defined(ELF_IS_AMD64)
-  std::cout << "PC: 0x" << std::hex << CPUState->gpr.pc.qword << " ";
+  printf("PC: 0x%llx ", (ull) CPUState->gpr.pc.qword);
   PRINT_GPR(0);
   PRINT_GPR(1);
   PRINT_GPR(2);
@@ -62,24 +61,22 @@ extern "C" void debug_state_machine() {
   PRINT_GPR(28);
   PRINT_GPR(29);
   PRINT_GPR(30);
-  std::cout << std::hex << "SP: 0x" << CPUState->gpr.sp.qword << ". PC: 0x"
-            << CPUState->gpr.pc.qword << std::endl;
+  printf("SP: 0x%llx PC: 0x%llx\n", (ull) CPUState->gpr.sp.qword, (ull) CPUState->gpr.pc.qword);
   auto sr = CPUState->sr;
   auto ecv_nzcv = CPUState->ecv_nzcv;
-  std::cout << "State.SR" << std::dec << std::endl;
-  std::cout << std::hex << "tpidr_el0: 0x" << sr.tpidr_el0.qword << ", tpidrro_el0: 0x"
-            << sr.tpidrro_el0.qword << ", ctr_el0: 0x" << sr.ctr_el0.qword << ", dczid_el0: 0x"
-            << sr.dczid_el0.qword << ", midr_el1: 0x" << sr.midr_el1.qword << std::dec
-            << ", n: " << (uint64_t) SR_ECV_NZCV__N << ", z: " << (uint64_t) SR_ECV_NZCV__Z
-            << ", c: " << (uint64_t) SR_ECV_NZCV__C << ", v: " << (uint64_t) SR_ECV_NZCV__V
-            << ", ixc: " << (uint64_t) sr.ixc << ", ofc: " << (uint64_t) sr.ofc
-            << ", ufc: " << (uint64_t) sr.ufc << ", idc: " << (uint64_t) sr.idc
-            << ", ioc: " << (uint64_t) sr.ioc << std::endl;
+  printf("State.SR\n");
+  printf(
+      "tpidr_el0: 0x%llx, tpidrro_el0: 0x%llx, ctr_el0: 0x%llx, dczid_el0: 0x%llx, midr_el1: 0x%llx, "
+      "n: %llu, z: %llu, c: %llu, v: %llu, ixc: %llu, ofc: %llu, ufc: %llu, idc: %llu, ioc: %llu\n",
+      (ull) sr.tpidr_el0.qword, (ull) sr.tpidrro_el0.qword, (ull) sr.ctr_el0.qword,
+      (ull) sr.dczid_el0.qword, (ull) sr.midr_el1.qword, (ull) SR_ECV_NZCV__N, (ull) SR_ECV_NZCV__Z,
+      (ull) SR_ECV_NZCV__C, (ull) SR_ECV_NZCV__V, (ull) sr.ixc, (ull) sr.ofc, (ull) sr.ufc,
+      (ull) sr.idc, (ull) sr.ioc);
 #endif
 }
 
 extern "C" void debug_gprs_nzcv(uint64_t pc) {
-  std::cout << "PC: 0x" << std::hex << pc << " ";
+  printf("PC: 0x%llx ", (ull) pc);
   PRINT_GPR(0);
   PRINT_GPR(1);
   PRINT_GPR(2);
@@ -111,41 +108,44 @@ extern "C" void debug_gprs_nzcv(uint64_t pc) {
   PRINT_GPR(28);
   PRINT_GPR(29);
   PRINT_GPR(30);
-  std::cout << std::hex << "SP: 0x" << CPUState->gpr.sp.qword << " PC: 0x" << pc << " ";
-  std::cout << "ECV_NZCV: 0x" << CPUState->ecv_nzcv << std::endl;
+  printf("SP: 0x%llx PC: 0x%llx ECV_NZCV: 0x%llx\n", (ull) CPUState->gpr.sp.qword, (ull) pc,
+         (ull) CPUState->ecv_nzcv);
 }
 
 extern "C" void debug_state_machine_vectors() {
 #if !defined(ELF_IS_AMD64)
-  std::cout << "[Debug] State Machine Vector Registers. Program Counter: 0x" << std::hex
-            << std::setw(16) << std::setfill('0') << CPUState->gpr.pc.qword << std::endl;
-  std::cout << "State.SIMD:" << std::endl;
-  std::cout << std::hex;
-  for (int i = 0; i < kNumVecRegisters /* = 32 */; i++) {
-    std::cout << "v." << std::to_string(i) << " = { [64:127]: 0x"
-              << (_ecv_u64v2_t(CPUState->simd.v[i]))[1] << ", [0:63]: 0x"
-              << (_ecv_u64v2_t(CPUState->simd.v[i]))[0] << " }" << std::endl;
+  printf("[Debug] State Machine Vector Registers. Program Counter: 0x%016llx\n",
+         (ull) CPUState->gpr.pc.qword);
+  printf("State.SIMD:\n");
+  for (size_t i = 0; i < kNumVecRegisters /* = 32 */; i++) {
+    printf("v.%zu = { [64:127]: 0x%llx, [0:63]: 0x%llx }\n", i,
+           (ull) (_ecv_u64v2_t(CPUState->simd.v[i]))[1],
+           (ull) (_ecv_u64v2_t(CPUState->simd.v[i]))[0]);
   }
 #endif
 }
 
 extern "C" void debug_llvmir_u64value(uint64_t val) {
-  std::cout << std::hex << "LLVM IR value: 0x" << val << std::endl;
+  printf("LLVM IR value: 0x%llx\n", (ull) val);
 }
 
 extern "C" void debug_llvmir_f64value(double val) {
-  std::cout << "LLVM IR value: " << val << std::endl;
+  printf("LLVM IR value: %f\n", val);
+}
+
+extern "C" void print_addr(uint64_t addr) {
+  printf("addr: 0x%llx\n", (ull) addr);
 }
 
 extern "C" void debug_insn() {
 #if !defined(ELF_IS_AMD64)
   auto gpr = CPUState->gpr;
-  std::cout << "[DEBUG INSN]" << std::endl;
-  std::cout << std::hex << "PC: 0x" << gpr.pc.qword << " x0: 0x" << gpr.x0.qword << " x1: 0x"
-            << gpr.x1.qword << " x2: 0x" << gpr.x2.qword << " x3: 0x" << gpr.x3.qword << std::endl;
+  printf("[DEBUG INSN]\n");
+  printf("PC: 0x%llx x0: 0x%llx x1: 0x%llx x2: 0x%llx x3: 0x%llx\n", (ull) gpr.pc.qword,
+         (ull) gpr.x0.qword, (ull) gpr.x1.qword, (ull) gpr.x2.qword, (ull) gpr.x3.qword);
 #endif
 }
 
 extern "C" void debug_reach() {
-  std::cout << "Reach!" << std::endl;
+  printf("Reach!\n");
 }

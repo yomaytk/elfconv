@@ -98,6 +98,7 @@ int wasm_sys() {
 #endif
 
 #if defined(__EMSCRIPTEN__)
+#  include <sched.h>
 #  include <sys/poll.h>
 // check with emscripten
 int emcc_sys() {
@@ -119,6 +120,9 @@ int emcc_sys() {
 
   /* clock_nanosleep .. success */
   clock_nanosleep(0, 0, NULL, NULL);
+
+  /* sched_getaffinity .. no defined */
+  sched_getaffinity(0, 0, NULL);
 
   return 0;
 }
