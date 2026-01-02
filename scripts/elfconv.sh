@@ -39,7 +39,7 @@ setting() {
   CXX=clang++-16
   CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # emscripten
-  EMCC=emcc
+  EMCC=em++
   EMCC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=0 -pthread -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD"
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # wasi
@@ -84,11 +84,16 @@ lifting() {
   # copy `elflift` into current directory.
   cp -p ${ROOT_DIR}/build/lifter/elflift ${CUR_DIR}
   
+  dbg_fun_vma=0
+  if [[ -n "${DEBUG_FUNC_ADDR}" ]]; then
+    dbg_fun_vma=${DEBUG_FUNC_ADDR}
+  fi
+
   ${CUR_DIR}/elflift \
   --arch "$2" \
   --bc_out "${CUR_DIR}/${ELFNAME}.bc" \
   --target_elf "${ELFPATH}" \
-  --dbg_fun_cfg "$3" \
+  --dbg_fun_vma "${dbg_fun_vma}" \
   --bitcode_path "$4" \
   --target_arch "${TARGET_ARCH}" \
   --float_exception "${FLOAT_STATUS_FLAG}" \
@@ -102,8 +107,10 @@ lifting() {
   # TEXTIR creates the .ll file
   if [[ -n "${TEXTIR}" ]]; then
     MAINIR="${CUR_DIR}/${ELFNAME}.ll"
-    llvm-dis-${LLVM_VERSION} "${CUR_DIR}/${ELFNAME}.bc" -o "${ELFNAME}.ll"
-    rm "${CUR_DIR}/${ELFNAME}.bc"
+    if [[ -f "${CUR_DIR}/${ELFNAME}.bc" ]]; then
+      llvm-dis-${LLVM_VERSION} "${CUR_DIR}/${ELFNAME}.bc" -o "${ELFNAME}.ll"
+      rm "${CUR_DIR}/${ELFNAME}.bc"
+    fi
     echo -e "[${GREEN}INFO${NC}] built ${ELFNAME}.ll "
   fi
 
@@ -239,7 +246,7 @@ main() {
         echo -e "[${GREEN}INFO${NC}] NO_COPMILED is ON."
       fi
 
-      # compiles wasm
+      # creates wasm
       ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] built ${ELFNAME}.wasm and ${ELFNAME}.js and ${ELFNAME}.html."
       

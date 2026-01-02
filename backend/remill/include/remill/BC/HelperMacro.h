@@ -5,6 +5,7 @@
 // #define ELFCONV_SYSCALL_DEBUG 1
 
 // #define CALLED_FUNC_NAME 1
+// #define PRINT_FUNC_ADDR 1
 // #define WARNING_OUTPUT 1
 // #define OPT_ALGO_DEBUG 1
 // #define OPT_GEN_IR_DEBUG 1

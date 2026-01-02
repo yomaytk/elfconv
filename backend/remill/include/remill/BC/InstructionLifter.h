@@ -66,6 +66,7 @@ class LiftConfig {
   bool norm_mode;
   ArchName target_elf_arch;
   bool fork_emulation;
+  uint64_t dbg_fun_vma;
 
   LiftConfig() = delete;
 

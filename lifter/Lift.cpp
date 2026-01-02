@@ -46,7 +46,7 @@ DEFINE_string(arch, REMILL_ARCH,
               "Valid architectures: x86, amd64 (with or without "
               "`_avx` or `_avx512` appended), aarch64, aarch32");
 DEFINE_string(target_elf, "DUMMY_ELF", "Name of the target ELF binary");
-DEFINE_string(dbg_fun_cfg, "", "Function Name of the debug target");
+DEFINE_uint64(dbg_fun_vma, 0, "Function Address of the debug target");
 DEFINE_string(bitcode_path, "", "Function Name of the debug target");
 DEFINE_string(target_arch, "", "Target Architecture for conversion");
 DEFINE_string(float_exception, "0", "Whether the floating-point exception status is set or not");
@@ -110,6 +110,11 @@ int main(int argc, char *argv[]) {
   auto lift_config = LiftConfig(FLAGS_float_exception == "1",
                                 FLAGS_norm_mode == "1" || FLAGS_fork_emulation == "1", arch_name,
                                 FLAGS_fork_emulation == "1");
+#if defined(PRINT_FUNC_ADDR)
+  if (FLAGS_dbg_fun_vma > 0) {
+    lift_config.dbg_fun_vma = FLAGS_dbg_fun_vma;
+  }
+#endif
 
   remill::EcvReg::target_elf_arch = arch_name;
   remill::IntrinsicTable intrinsics(module.get());
