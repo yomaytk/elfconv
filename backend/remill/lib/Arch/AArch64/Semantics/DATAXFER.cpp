@@ -31,42 +31,42 @@ namespace {
 
 DEF_SEM_VOID_RUN(StorePairUpdateIndex32, R32 src1, R32 src2, MVI64 dst_mem) {
   _ecv_u32v2_t vec = {Read(src1), Read(src2)};
-  UWriteMVI32(arena_ptr, dst_mem, vec);
+  UWriteMVI32(rt_m, arena_ptr, dst_mem, vec);
 }
 
 DEF_SEM_VOID_RUN(StorePairUpdateIndex64, R64 src1, R64 src2, MVI128 dst_mem) {
   _ecv_u64v2_t vec = {Read(src1), Read(src2)};
-  UWriteMVI64(arena_ptr, dst_mem, vec);
+  UWriteMVI64(rt_m, arena_ptr, dst_mem, vec);
 }
 
 DEF_SEM_VOID_RUN(StorePairUpdateIndexS, RF32 src1, RF32 src2, MVI64 dst_mem) {
   _ecv_f32v2_t vec = {Read(src1), Read(src2)};
-  FWriteMVI32(arena_ptr, dst_mem, vec);
+  FWriteMVI32(rt_m, arena_ptr, dst_mem, vec);
 }
 
 DEF_SEM_VOID_RUN(StorePairUpdateIndexD, RF64 src1, RF64 src2, MVI128 dst_mem) {
   _ecv_f64v2_t vec = {Read(src1), Read(src2)};
-  FWriteMVI64(arena_ptr, dst_mem, vec);
+  FWriteMVI64(rt_m, arena_ptr, dst_mem, vec);
 }
 
 DEF_SEM_VOID_RUN(StorePair32, R32 src1, R32 src2, MVI64 dst) {
   _ecv_u32v2_t vec = {Read(src1), Read(src2)};
-  UWriteMVI32(arena_ptr, dst, vec);
+  UWriteMVI32(rt_m, arena_ptr, dst, vec);
 }
 
 DEF_SEM_VOID_RUN(StorePair64, R64 src1, R64 src2, MVI128 dst) {
   _ecv_u64v2_t vec = {Read(src1), Read(src2)};
-  UWriteMVI64(arena_ptr, dst, vec);
+  UWriteMVI64(rt_m, arena_ptr, dst, vec);
 }
 
 DEF_SEM_VOID_RUN(STP_S, RF32 src1, RF32 src2, MVI64 dst) {
   _ecv_f32v2_t vec = {Read(src1), Read(src2)};
-  FWriteMVI32(arena_ptr, dst, vec);
+  FWriteMVI32(rt_m, arena_ptr, dst, vec);
 }
 
 DEF_SEM_VOID_RUN(STP_D, RF64 src1, RF64 src2, MVI128 dst) {
   _ecv_f64v2_t vec = {Read(src1), Read(src2)};
-  FWriteMVI64(arena_ptr, dst, vec);
+  FWriteMVI64(rt_m, arena_ptr, dst, vec);
 }
 
 #if defined(__x86_64__)
@@ -86,12 +86,12 @@ DEF_SEM_VOID_RUN(STP_Q_UPDATE_ADDR, VIu64v2 src1, VIu64v2 src2, MVI256 dst) {
 #else
 DEF_SEM_VOID_RUN(STP_Q, R128 src1, R128 src2, MVI256 dst) {
   _ecv_u128v2_t vec = {src1, src2};
-  UWriteMVI128(arena_ptr, dst, vec);
+  UWriteMVI128(rt_m, arena_ptr, dst, vec);
 }
 
 DEF_SEM_VOID_RUN(STP_Q_UPDATE_ADDR, R128 src1, R128 src2, MVI256 dst) {
   _ecv_u128v2_t vec = {src1, src2};
-  UWriteMVI128(arena_ptr, dst, vec);
+  UWriteMVI128(rt_m, arena_ptr, dst, vec);
 }
 #endif
 
@@ -124,78 +124,78 @@ namespace {
 
 template <typename S, typename D>
 DEF_SEM_VOID_RUN(StoreUpdateIndex, S src, D dst_mem) {
-  MWriteTrunc(arena_ptr, dst_mem, Read(src));
+  MWriteTrunc(rt_m, arena_ptr, dst_mem, Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreUpdateIndex_S8, R8 src, MVI8 dst_mem) {
-  UWriteMVI8(arena_ptr, dst_mem, Read(src));
+  UWriteMVI8(rt_m, arena_ptr, dst_mem, Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreUpdateIndex_S16, R16 src, MVI16 dst_mem) {
-  UWriteMVI16(arena_ptr, dst_mem, Read(src));
+  UWriteMVI16(rt_m, arena_ptr, dst_mem, Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreUpdateIndex_F32, RF32 src, MVI32 dst_mem) {
-  FWriteMVI32(arena_ptr, dst_mem, Read(src));
+  FWriteMVI32(rt_m, arena_ptr, dst_mem, Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreUpdateIndex_F64, RF64 src, MVI64 dst_mem) {
-  FWriteMVI64(arena_ptr, dst_mem, Read(src));
+  FWriteMVI64(rt_m, arena_ptr, dst_mem, Read(src));
 }
 
 template <typename S, typename D>
 DEF_SEM_VOID_RUN(Store, S src, D dst) {
-  MWriteTrunc(arena_ptr, dst, Read(src));
+  MWriteTrunc(rt_m, arena_ptr, dst, Read(src));
 }
 
 template <typename S, typename D>
 DEF_SEM_VOID_RUN(StoreToOffset, S src, D base, ADDR offset) {
-  MWriteTrunc(arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
+  MWriteTrunc(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreWordToOffset, RF32 src, MVI32 base, ADDR offset) {
-  FWriteMVI32(arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
+  FWriteMVI32(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
 }
 
 DEF_SEM_VOID_RUN(StoreDoubleToOffset, RF64 src, MVI64 base, ADDR offset) {
-  FWriteMVI64(arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
+  FWriteMVI64(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)), Read(src));
 }
 
 template <typename S, typename D>  // StoreRelease<R32, M32W>
 DEF_SEM_VOID_RUN(StoreRelease, S src, D dst) {
-  MWriteTrunc(arena_ptr, dst, Read(src));
-  __remill_barrier_store_store(runtime_manager);
+  MWriteTrunc(rt_m, arena_ptr, dst, Read(src));
+  __remill_barrier_store_store(rt_m);
 }
 
 #if defined(__x86_64)
 DEF_SEM_VOID_RUN(STR_Q_UPDATE_ADDR, VIu64v2 src, MVI128 dst) {
   auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
-  UWriteMVI128(dst, src_v[0]);
+  UWriteMVI128(rt_m, arena_ptr, dst, src_v[0]);
 }
 #else
 DEF_SEM_VOID_RUN(STR_Q_UPDATE_ADDR, R128 src, MVI128 dst) {
-  UWriteMVI128(arena_ptr, dst, Read(src));
+  UWriteMVI128(rt_m, arena_ptr, dst, Read(src));
 }
 #endif
 
 template <typename S, typename D>  // e.g. SWP_MEMOP<R32, M32W>
 DEF_SEM_T_RUN(SWP_MEMOP, S src1, D dst_src_mem) {
-  auto mem_val = ReadMem(arena_ptr, dst_src_mem);
-  MWriteTrunc(arena_ptr, dst_src_mem, Read(src1));
+  auto mem_val = ReadMem(rt_m, arena_ptr, dst_src_mem);
+  MWriteTrunc(rt_m, arena_ptr, dst_src_mem, Read(src1));
   return mem_val;
 }
 
 template <typename S, typename D>  // e.g. LDADD_MEMOP<R32, M32>
 DEF_SEM_T_RUN(LDADD_MEMOP, S src, D dst_src_mem) {
-  auto mem_val = ReadMem(arena_ptr, dst_src_mem);
-  MWriteTrunc(arena_ptr, dst_src_mem, UAdd(mem_val, Read(src)));
+  auto mem_val = ReadMem(rt_m, arena_ptr, dst_src_mem);
+  MWriteTrunc(rt_m, arena_ptr, dst_src_mem, UAdd(mem_val, Read(src)));
   return mem_val;
 }
 
 template <typename S, typename D>  // e.g. LDSET_MEMOP<R32, M32W>
 DEF_SEM_T_RUN(LDSET_MEMOP, S src, D dst_src_mem) {
-  auto mem_val = ReadMem(arena_ptr, dst_src_mem);
-  MWriteTrunc(arena_ptr, dst_src_mem, UOr(mem_val, Read(src)));
+  auto mem_val = ReadMem(rt_m, arena_ptr, dst_src_mem);
+  MWriteTrunc(rt_m, arena_ptr, dst_src_mem, UOr(mem_val, Read(src)));
   return mem_val;
 }
 
@@ -284,12 +284,12 @@ DEF_ISEL(LDSETAL_64_MEMOP) = LDSET_MEMOP<R64, M64W>;  // LDSETAL  <Xs>, <Xt>, [<
 namespace {
 
 DEF_SEM_U64U64_RUN(LoadPairUpdateIndex32, MVI64 src_mem) {
-  _ecv_u32v2_t vec = UReadMVI32(arena_ptr, src_mem);
+  _ecv_u32v2_t vec = UReadMVI32(rt_m, arena_ptr, src_mem);
   return {vec[0], vec[1]};
 }
 
 DEF_SEM_U64U64_RUN(LoadPairUpdateIndex64, MVI128 src_mem) {
-  _ecv_u64v2_t vec = UReadMVI64(arena_ptr, src_mem);
+  _ecv_u64v2_t vec = UReadMVI64(rt_m, arena_ptr, src_mem);
   return {vec[0], vec[1]};
 }
 
@@ -304,12 +304,12 @@ DEF_ISEL(LDP_64_LDSTPAIR_POST) = LoadPairUpdateIndex64;  // LDP  <Xt1>, <Xt2>, [
 namespace {
 
 DEF_SEM_U64U64_RUN(LoadPair32, MVI64 src_mem) {
-  _ecv_u32v2_t vec = UReadMVI32(arena_ptr, src_mem);
+  _ecv_u32v2_t vec = UReadMVI32(rt_m, arena_ptr, src_mem);
   return {vec[0], vec[1]};
 }
 
 DEF_SEM_U64U64_RUN(LoadPair64, MVI128 src_mem) {
-  _ecv_u64v2_t vec = UReadMVI64(arena_ptr, src_mem);
+  _ecv_u64v2_t vec = UReadMVI64(rt_m, arena_ptr, src_mem);
   return {vec[0], vec[1]};
 }
 
@@ -321,12 +321,12 @@ DEF_ISEL(LDP_64_LDSTPAIR_OFF) = LoadPair64;  // LDP  <Xt1>, <Xt2>, [<Xn|SP>{, #<
 namespace {
 
 DEF_SEM_U64U64_RUN(LoadSignedPair64, MVI64 src_mem) {
-  _ecv_i32v2_t vec = SReadMVI32(arena_ptr, src_mem);
+  _ecv_i32v2_t vec = SReadMVI32(rt_m, arena_ptr, src_mem);
   return {ZExtTo<uint64_t>(SExtTo<int64_t>(vec[0])), ZExtTo<uint64_t>(SExtTo<int64_t>(vec[1]))};
 }
 
 DEF_SEM_U64U64_RUN(LoadSignedPairUpdateIndex64, MVI64 src_mem) {
-  _ecv_i32v2_t vec = SReadMVI32(arena_ptr, src_mem);
+  _ecv_i32v2_t vec = SReadMVI32(rt_m, arena_ptr, src_mem);
   return {ZExtTo<uint64_t>(SExtTo<int64_t>(vec[0])), ZExtTo<uint64_t>(SExtTo<int64_t>(vec[1]))};
 }
 
@@ -347,32 +347,32 @@ DEF_SEM_T(Load, S src) {
 
 template <typename S>  // e.g. Load<M8>
 DEF_SEM_U32_RUN(LoadMem_32, S src_mem) {
-  return ReadMem(arena_ptr, src_mem);
+  return ReadMem(rt_m, arena_ptr, src_mem);
 }
 
 template <typename S>  // e.g. Load<M8>
 DEF_SEM_U64_RUN(LoadMem_64, S src_mem) {
-  return ReadMem(arena_ptr, src_mem);
+  return ReadMem(rt_m, arena_ptr, src_mem);
 }
 
 template <typename S>  // e.g. LoadUpdateIndex<M8>
 DEF_SEM_U32_RUN(LoadMemUpdateIndex_32, S src_mem) {
-  return ReadMem(arena_ptr, src_mem);
+  return ReadMem(rt_m, arena_ptr, src_mem);
 }
 
 template <typename S>  // e.g. LoadUpdateIndex<M64>
 DEF_SEM_U64_RUN(LoadMemUpdateIndex_64, S src_mem) {
-  return ReadMem(arena_ptr, src_mem);
+  return ReadMem(rt_m, arena_ptr, src_mem);
 }
 
 template <typename M>  // e.g. LoadMemFromOffset<M8>
 DEF_SEM_U32_RUN(LoadMemFromOffset_32, M base, ADDR offset) {
-  return ReadMem(arena_ptr, DisplaceAddress(base, Read(offset)));
+  return ReadMem(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)));
 }
 
 template <typename M>  // e.g. LoadMemFromOffset<M8>
 DEF_SEM_U64_RUN(LoadMemFromOffset_64, M base, ADDR offset) {
-  return ReadMem(arena_ptr, DisplaceAddress(base, Read(offset)));
+  return ReadMem(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)));
 }
 }  // namespace
 
@@ -422,24 +422,24 @@ namespace {
 
 template <typename S>  // e.g. LDXR<R32, M32>
 DEF_SEM_U32U64_RUN(LDXR_32, S src_mem) {
-  return {ReadMem(arena_ptr, src_mem), AddressOf(src_mem)};
+  return {ReadMem(rt_m, arena_ptr, src_mem), AddressOf(src_mem)};
 }
 
 template <typename S>  // e.g. LDXR<R32, M32>
 DEF_SEM_U64U64_RUN(LDXR_64, S src_mem) {
-  return {ReadMem(arena_ptr, src_mem), AddressOf(src_mem)};
+  return {ReadMem(rt_m, arena_ptr, src_mem), AddressOf(src_mem)};
 }
 
 template <typename S>  // e.g. LDAXR<R32, M32>
 DEF_SEM_U32U64_RUN(LDAXR_32, S src_mem) {
-  __remill_barrier_load_store(runtime_manager);
-  return {ReadMem(arena_ptr, src_mem), AddressOf(src_mem)};
+  __remill_barrier_load_store(rt_m);
+  return {ReadMem(rt_m, arena_ptr, src_mem), AddressOf(src_mem)};
 }
 
 template <typename S>  // e.g. LDAXR<R32, M32>
 DEF_SEM_U64U64_RUN(LDAXR_64, S src_mem) {
-  __remill_barrier_load_store(runtime_manager);
-  return {ReadMem(arena_ptr, src_mem), AddressOf(src_mem)};
+  __remill_barrier_load_store(rt_m);
+  return {ReadMem(rt_m, arena_ptr, src_mem), AddressOf(src_mem)};
 }
 
 template <typename S, typename D>  // e.g. STLXR<R32, M32W>
@@ -447,12 +447,12 @@ DEF_SEM_U32U64_RUN(STLXR, S src1, D dst, R64 monitor) {
   auto old_addr = Read(monitor);
   uint32_t check;
   if (old_addr == AddressOf(dst)) {
-    MWriteZExt(arena_ptr, dst, Read(src1));
+    MWriteZExt(rt_m, arena_ptr, dst, Read(src1));
     check = 0;  // Store succeeded.
   } else {
     check = 1;  // Store failed.
   }
-  __remill_barrier_store_store(runtime_manager);
+  __remill_barrier_store_store(rt_m);
   return {check, 0_u64};
 }
 
@@ -461,12 +461,12 @@ DEF_SEM_U32U64_RUN(STXR, S src1, D dst, R64 monitor) {
   auto old_addr = Read(monitor);
   uint32_t check;
   if (old_addr == AddressOf(dst)) {
-    MWriteZExt(arena_ptr, dst, Read(src1));
+    MWriteZExt(rt_m, arena_ptr, dst, Read(src1));
     check = 0;  // Store succeeded.
   } else {
     check = 1;  // Store failed.
   }
-  __remill_barrier_store_store(runtime_manager);
+  __remill_barrier_store_store(rt_m);
   return {check, 0_u64};
 }
 
@@ -476,45 +476,49 @@ DEF_ISEL(LDXR_LR32_LDSTEXCL) =
     LDXR_32<M32>;  // LDAXR  <Wt>, [<Xn|SP>{,#0}] // LDXR  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDXR_LR64_LDSTEXCL) =
     LDXR_64<M64>;  // LDAXR  <Xt>, [<Xn|SP>{,#0}]  // LDXR  <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(LDXRB_LR32_LDSTEXCL) = LDXR_32<M8>;  // LDXRB  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDAXR_LR32_LDSTEXCL) = LDAXR_32<M32>;  // LDAXR  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(LDAXR_LR64_LDSTEXCL) = LDAXR_64<M64>;  // LDAXR  <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(LDAXRB_LR32_LDSTEXCL) = LDAXR_32<M8>;  // LDAXRB  <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STLXR_SR32_LDSTEXCL) = STLXR<R32, M32W>;  // STLXR  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STLXR_SR64_LDSTEXCL) = STLXR<R64, M64W>;  // STLXR  <Ws>, <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(STLXRB_SR32_LDSTEXCL) = STLXR<R8, M8W>;  // STLXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STXR_SR32_LDSTEXCL) = STXR<R32, M32W>;  // STXR  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(STXR_SR64_LDSTEXCL) = STXR<R64, M64W>;  // STXR  <Ws>, <Xt>, [<Xn|SP>{,#0}]
+DEF_ISEL(STXRB_SR32_LDSTEXCL) = STXR<R8, M8W>;  // STXRB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 
 namespace {
 
 template <typename S, typename InterType>  // e.g. LoadSExt32<M8, int32_t>
 DEF_SEM_U32_RUN(LoadSExt32, S src_mem) {
-  return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(arena_ptr, src_mem)));
+  return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(rt_m, arena_ptr, src_mem)));
 }
 
 template <typename S, typename InterType>  // e.g. LoadSExt64<M8, int32_t>
 DEF_SEM_U64_RUN(LoadSExt64, S src_mem) {
-  return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(arena_ptr, src_mem)));
+  return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(rt_m, arena_ptr, src_mem)));
 }
 
 template <typename S, typename InterType>  // e.g. LoadSExtUpdateIndex<M8, int32_t>
 DEF_SEM_U32_RUN(LoadSExtUpdateIndex32, S src_mem) {
-  return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(arena_ptr, src_mem)));
+  return static_cast<uint32_t>(SExtTo<InterType>(ReadMem(rt_m, arena_ptr, src_mem)));
 }
 
 template <typename S, typename InterType>  // e.g. LoadSExtUpdateIndex<M8, int32_t>
 DEF_SEM_U64_RUN(LoadSExtUpdateIndex64, S src_mem) {
-  return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(arena_ptr, src_mem)));
+  return static_cast<uint64_t>(SExtTo<InterType>(ReadMem(rt_m, arena_ptr, src_mem)));
 }
 
 template <typename M, typename InterType>  // e.g. LoadSExtFromOffset<M8, int32_t>
 DEF_SEM_U32_RUN(LoadSExtFromOffset32, M base, ADDR offset) {
   return static_cast<uint32_t>(
-      SExtTo<InterType>(ReadMem(arena_ptr, DisplaceAddress(base, Read(offset)))));
+      SExtTo<InterType>(ReadMem(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)))));
 }
 
 template <typename M, typename InterType>  // e.g. LoadSExtFromOffset<M8, int32_t>
 DEF_SEM_U64_RUN(LoadSExtFromOffset64, M base, ADDR offset) {
   return static_cast<uint64_t>(
-      SExtTo<InterType>(ReadMem(arena_ptr, DisplaceAddress(base, Read(offset)))));
+      SExtTo<InterType>(ReadMem(rt_m, arena_ptr, DisplaceAddress(base, Read(offset)))));
 }
 
 }  // namespace
@@ -660,63 +664,63 @@ DEF_ISEL(ADR_ONLY_PCRELADDR) = Load<I64>;  // ADR  <Xd>, <label>
 namespace {
 
 DEF_SEM_U8_RUN(LDR_B, MVI8 src) {
-  return UReadMVI8(arena_ptr, src)[0];
+  return UReadMVI8(rt_m, arena_ptr, src)[0];
 }
 
 DEF_SEM_U16_RUN(LDR_H, MVI16 src) {
-  return UReadMVI16(arena_ptr, src)[0];
+  return UReadMVI16(rt_m, arena_ptr, src)[0];
 }
 
 DEF_SEM_F32_RUN(LDR_S, MVI32 src_mem) {
-  return FReadMVI32(arena_ptr, src_mem)[0];
+  return FReadMVI32(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_F64_RUN(LDR_D, MVI64 src_mem) {
-  return FReadMVI64(arena_ptr, src_mem)[0];
+  return FReadMVI64(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_U128V1_RUN(LDR_Q, MVI128 src_mem) {
-  return UReadMVI128(arena_ptr, src_mem);
+  return UReadMVI128(rt_m, arena_ptr, src_mem);
 }
 
 DEF_SEM_U8_RUN(LDR_B_UpdateIndex, MVI8 src_mem) {
-  return UReadMVI8(arena_ptr, src_mem)[0];
+  return UReadMVI8(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_U16_RUN(LDR_H_UpdateIndex, MVI16 src_mem) {
-  return UReadMVI16(arena_ptr, src_mem)[0];
+  return UReadMVI16(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_F32_RUN(LDR_S_UpdateIndex, MVI32 src_mem) {
-  return FReadMVI32(arena_ptr, src_mem)[0];
+  return FReadMVI32(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_F64_RUN(LDR_D_UpdateIndex, MVI64 src_mem) {
-  return FReadMVI64(arena_ptr, src_mem)[0];
+  return FReadMVI64(rt_m, arena_ptr, src_mem)[0];
 }
 
 DEF_SEM_U128V1_RUN(LDR_Q_UpdateIndex, MVI128 src_mem) {
-  return UReadMVI128(arena_ptr, src_mem);
+  return UReadMVI128(rt_m, arena_ptr, src_mem);
 }
 
 DEF_SEM_U8_RUN(LDR_B_FromOffset, MVI8 src, ADDR offset) {
-  return UReadMVI8(arena_ptr, DisplaceAddress(src, Read(offset)))[0];
+  return UReadMVI8(rt_m, arena_ptr, DisplaceAddress(src, Read(offset)))[0];
 }
 
 DEF_SEM_U16_RUN(LDR_H_FromOffset, MVI16 src_mem, ADDR offset) {
-  return UReadMVI16(arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
+  return UReadMVI16(rt_m, arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
 }
 
 DEF_SEM_F32_RUN(LDR_S_FromOffset, MVI32 src_mem, ADDR offset) {
-  return FReadMVI32(arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
+  return FReadMVI32(rt_m, arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
 }
 
 DEF_SEM_F64_RUN(LDR_D_FromOffset, MVI64 src_mem, ADDR offset) {
-  return FReadMVI64(arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
+  return FReadMVI64(rt_m, arena_ptr, DisplaceAddress(src_mem, Read(offset)))[0];
 }
 
 DEF_SEM_U128V1_RUN(LDR_Q_FromOffset, MVI128 src, ADDR offset) {
-  return UReadMVI128(arena_ptr, DisplaceAddress(src, Read(offset)));
+  return UReadMVI128(rt_m, arena_ptr, DisplaceAddress(src, Read(offset)));
 }
 
 }  // namespace
@@ -765,45 +769,45 @@ DEF_ISEL(LDR_Q_LDST_REGOFF) =
 namespace {
 
 DEF_SEM_F32F32_RUN(LDP_S, MVI64 src) {
-  _ecv_f32v2_t src_vec = FReadMVI32(arena_ptr, src);
+  _ecv_f32v2_t src_vec = FReadMVI32(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 
 DEF_SEM_F64F64_RUN(LDP_D, MVI128 src) {
-  _ecv_f64v2_t src_vec = FReadMVI64(arena_ptr, src);
+  _ecv_f64v2_t src_vec = FReadMVI64(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 
 #if defined(__x86_64__)
 DEF_SEM_U128V2_RUN(LDP_Q, MVI256 src) {
-  _ecv_u128v2_t src_vec = UReadMVI128(src);
+  _ecv_u128v2_t src_vec = UReadMVI128(rt_m, arena_ptr, src);
   return src_vec;
 }
 #else
 DEF_SEM_U128V2_RUN(LDP_Q, MVI256 src) {
-  _ecv_u128v2_t src_vec = UReadMVI128(arena_ptr, src);
+  _ecv_u128v2_t src_vec = UReadMVI128(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 #endif
 
 DEF_SEM_F32F32_RUN(LDP_S_UpdateIndex, MVI64 src) {
-  _ecv_f32v2_t src_vec = FReadMVI32(arena_ptr, src);
+  _ecv_f32v2_t src_vec = FReadMVI32(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 
 DEF_SEM_F64F64_RUN(LDP_D_UpdateIndex, MVI128 src) {
-  _ecv_f64v2_t src_vec = FReadMVI64(arena_ptr, src);
+  _ecv_f64v2_t src_vec = FReadMVI64(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 
 #if defined(__x86_64__)
 DEF_SEM_U128V2_RUN(LDP_Q_UpdateIndex, MVI256 src) {
-  _ecv_u128v2_t src_vec = UReadMVI128(src);
+  _ecv_u128v2_t src_vec = UReadMVI128(rt_m, arena_ptr, src);
   return src_vec;
 }
 #else
 DEF_SEM_U128V2_RUN(LDP_Q_UpdateIndex, MVI256 src) {
-  _ecv_u128v2_t src_vec = UReadMVI128(arena_ptr, src);
+  _ecv_u128v2_t src_vec = UReadMVI128(rt_m, arena_ptr, src);
   return {src_vec[0], src_vec[1]};
 }
 #endif
@@ -825,47 +829,47 @@ DEF_ISEL(LDP_Q_LDSTPAIR_PRE) = LDP_Q_UpdateIndex;  // LDP  <Qt1>, <Qt2>, [<Xn|SP
 namespace {
 
 DEF_SEM_VOID_RUN(STR_B, R8 src, MVI8 dst) {
-  UWriteMVI8(arena_ptr, dst, Read(src));
+  UWriteMVI8(rt_m, arena_ptr, dst, Read(src));
 }
 
 DEF_SEM_VOID_RUN(STR_H, R16 src, MVI16 dst) {
-  UWriteMVI16(arena_ptr, dst, Read(src));
+  UWriteMVI16(rt_m, arena_ptr, dst, Read(src));
 }
 
 DEF_SEM_VOID_RUN(STR_S, RF32 src, MVI32 dst) {
-  FWriteMVI32(arena_ptr, dst, src);
+  FWriteMVI32(rt_m, arena_ptr, dst, src);
 }
 
 DEF_SEM_VOID_RUN(STR_D, RF64 src, MVI64 dst) {
-  FWriteMVI64(arena_ptr, dst, src);
+  FWriteMVI64(rt_m, arena_ptr, dst, src);
 }
 
 #if defined(__x86_64__)
 DEF_SEM_VOID_RUN(STR_Q, VIu64v2 src, MVI128 dst) {
   auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
-  UWriteMVI128(dst, src_v[0]);
+  UWriteMVI128(rt_m, arena_ptr, dst, src_v[0]);
 }
 
 DEF_SEM_VOID_RUN(STR_Q_UpdateIndex, VIu64v2 src, MVI128 dst) {
   auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
-  UWriteMVI128(dst, src_v[0]);
+  UWriteMVI128(rt_m, arena_ptr, dst, src_v[0]);
 }
 
 DEF_SEM_VOID_RUN(STR_Q_FromOffset, VIu64v2 src, MVI128 dst, ADDR offset) {
   auto src_v = *reinterpret_cast<VIu128v1 *>(&src);
-  UWriteMVI128(DisplaceAddress(dst, Read(offset)), src_v[0]);
+  UWriteMVI128(rt_m, arena_ptr, DisplaceAddress(dst, Read(offset)), src_v[0]);
 }
 #else
 DEF_SEM_VOID_RUN(STR_Q, R128 src, MVI128 dst) {
-  UWriteMVI128(arena_ptr, dst, Read(src));
+  UWriteMVI128(rt_m, arena_ptr, dst, Read(src));
 }
 
 DEF_SEM_VOID_RUN(STR_Q_UpdateIndex, R128 src, MVI128 dst) {
-  UWriteMVI128(arena_ptr, dst, Read(src));
+  UWriteMVI128(rt_m, arena_ptr, dst, Read(src));
 }
 
 DEF_SEM_VOID_RUN(STR_Q_FromOffset, R128 src, MVI128 dst, ADDR offset) {
-  UWriteMVI128(arena_ptr, DisplaceAddress(dst, Read(offset)), Read(src));
+  UWriteMVI128(rt_m, arena_ptr, DisplaceAddress(dst, Read(offset)), Read(src));
 }
 #endif
 
@@ -893,8 +897,8 @@ namespace {
 
 template <typename S>
 DEF_SEM_T_RUN(LoadAcquire, S src) {
-  __remill_barrier_load_store(runtime_manager);
-  return ReadMem(arena_ptr, src);
+  __remill_barrier_load_store(rt_m);
+  return ReadMem(rt_m, arena_ptr, src);
 }
 
 }  // namespace
@@ -909,7 +913,7 @@ namespace {
 #define MAKE_ST1(elem_size) \
   template <typename D> \
   DEF_SEM_VOID_RUN(ST1_SINGLE_##elem_size, VIu##elem_size##v1 src1, D dst) { \
-    UWriteMVI##elem_size(arena_ptr, dst, UReadVI##elem_size(src1)); \
+    UWriteMVI##elem_size(rt_m, arena_ptr, dst, UReadVI##elem_size(src1)); \
   }
 
 MAKE_ST1(64)
@@ -936,7 +940,7 @@ namespace {
 #define MAKE_LD1(elem_size) \
   template <typename S> \
   DEF_SEM_T_RUN(LD1_SINGLE_##elem_size, S src) { \
-    return UReadMVI##elem_size(arena_ptr, src); \
+    return UReadMVI##elem_size(rt_m, arena_ptr, src); \
   }
 
 MAKE_LD1(8)
@@ -960,14 +964,64 @@ DEF_ISEL(LD1_ASISDLSE_R1_1V_4S) = LD1_SINGLE_32<MVI128>;  // LD1  { <Vt>.<T> }, 
 DEF_ISEL(LD1_ASISDLSE_R1_1V_1D) = LD1_SINGLE_64<MVI64>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 DEF_ISEL(LD1_ASISDLSE_R1_1V_2D) = LD1_SINGLE_64<MVI128>;  // LD1  { <Vt>.<T> }, [<Xn|SP>]
 
+// LD1 single lane (ASISDLSOP)
+namespace {
+
+#define MAKE_LD1_LANE(elem_size) \
+  template <typename V, typename M> \
+  DEF_SEM_T_RUN(LD1_LANE_##elem_size, V dst_vec, M src_mem, I32 index_imm) { \
+    auto index = Read(index_imm); \
+    auto elem = TruncTo<uint##elem_size##_t>(ReadMem(rt_m, arena_ptr, src_mem)); \
+    V vec = UReadVI##elem_size(dst_vec); \
+    vec[index] = elem; \
+    return vec; \
+  }
+
+MAKE_LD1_LANE(8)
+MAKE_LD1_LANE(16)
+MAKE_LD1_LANE(32)
+MAKE_LD1_LANE(64)
+
+#undef MAKE_LD1_LANE
+
+}  // namespace
+
+// LD1 { <Vt>.B }[<index>], [<Xn|SP>], #1
+DEF_ISEL(LD1_ASISDLSOP_B1_I1B) = LD1_LANE_8<VIu8v16, M8>;
+// LD1 { <Vt>.H }[<index>], [<Xn|SP>], #2
+DEF_ISEL(LD1_ASISDLSOP_H1_I1H) = LD1_LANE_16<VIu16v8, M16>;
+// LD1 { <Vt>.S }[<index>], [<Xn|SP>], #4
+DEF_ISEL(LD1_ASISDLSOP_S1_I1S) = LD1_LANE_32<VIu32v4, M32>;
+// LD1 { <Vt>.D }[<index>], [<Xn|SP>], #8
+DEF_ISEL(LD1_ASISDLSOP_D1_I1D) = LD1_LANE_64<VIu64v2, M64>;
+
+// LD1 { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
+DEF_ISEL(LD1_ASISDLSOP_BX1_R1B) = LD1_LANE_8<VIu8v16, M8>;
+// LD1 { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
+DEF_ISEL(LD1_ASISDLSOP_HX1_R1H) = LD1_LANE_16<VIu16v8, M16>;
+// LD1 { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
+DEF_ISEL(LD1_ASISDLSOP_SX1_R1S) = LD1_LANE_32<VIu32v4, M32>;
+// LD1 { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
+DEF_ISEL(LD1_ASISDLSOP_DX1_R1D) = LD1_LANE_64<VIu64v2, M64>;
+
+// ASISDLSO variants (no post-index)
+// LD1 { <Vt>.B }[<index>], [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSO_B1_1B) = LD1_LANE_8<VIu8v16, M8>;
+// LD1 { <Vt>.H }[<index>], [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSO_H1_1H) = LD1_LANE_16<VIu16v8, M16>;
+// LD1 { <Vt>.S }[<index>], [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSO_S1_1S) = LD1_LANE_32<VIu32v4, M32>;
+// LD1 { <Vt>.D }[<index>], [<Xn|SP>]
+DEF_ISEL(LD1_ASISDLSO_D1_1D) = LD1_LANE_64<VIu64v2, M64>;
+
 #if defined(__x86_64__)
 namespace {
 
 #  define MAKE_LD1(elem_size, whole_size) \
     template <typename S> \
     DEF_SEM_T_RUN(LD1_PAIR_##elem_size##_##whole_size, S src) { \
-      auto elems1 = UReadMVI##elem_size(src); \
-      auto elems2 = UReadMVI##elem_size(GetElementPtr(src, 1U)); \
+      auto elems1 = UReadMVI##elem_size(rt_m, arena_ptr, src); \
+      auto elems2 = UReadMVI##elem_size(rt_m, arena_ptr, GetElementPtr(src, 1U)); \
       auto cast_elems1 = *reinterpret_cast<_ecv_u##whole_size##v1_t *>(&elems1); \
       auto cast_elems2 = *reinterpret_cast<_ecv_u##whole_size##v1_t *>(&elems2); \
       return _ecv_u##whole_size##v2_t{cast_elems1[0], cast_elems2[0]}; \
@@ -1009,8 +1063,8 @@ namespace {
 #  define MAKE_LD1(elem_size) \
     template <typename S> \
     DEF_SEM_T_RUN(LD1_PAIR_##elem_size, S src) { \
-      auto elems1 = UReadMVI##elem_size(arena_ptr, src); \
-      auto elems2 = UReadMVI##elem_size(arena_ptr, GetElementPtr(src, 1U)); \
+      auto elems1 = UReadMVI##elem_size(rt_m, arena_ptr, src); \
+      auto elems2 = UReadMVI##elem_size(rt_m, arena_ptr, GetElementPtr(src, 1U)); \
       return TPair<decltype(elems1)>{elems1, elems2}; \
     }
 
@@ -1043,8 +1097,8 @@ namespace {
   template <typename D> \
   DEF_SEM_VOID_RUN(ST1_PAIR_##elem_size, VIu##elem_size##v1 src1, VIu##elem_size##v1 src2, \
                    D dst) { \
-    UWriteMVI##elem_size(arena_ptr, dst, UReadVI##elem_size(src1)); \
-    UWriteMVI##elem_size(arena_ptr, GetElementPtr(dst, 1U), UReadVI##elem_size(src2)); \
+    UWriteMVI##elem_size(rt_m, arena_ptr, dst, UReadVI##elem_size(src1)); \
+    UWriteMVI##elem_size(rt_m, arena_ptr, GetElementPtr(dst, 1U), UReadVI##elem_size(src2)); \
   }
 
 MAKE_ST1(64)
@@ -1072,7 +1126,7 @@ namespace {
   template <typename D> \
   DEF_SEM_VOID_RUN(ST1_PAIR_POSTINDEX_##elem_size, VIu##elem_size##v1 src1, \
                    VIu##elem_size##v1 src2, D dst) { \
-    ST1_PAIR_##elem_size(arena_ptr, runtime_manager, src1, src2, dst); \
+    ST1_PAIR_##elem_size(arena_ptr, rt_m, src1, src2, dst); \
   }
 
 MAKE_ST1_POSTINDEX(64)
@@ -1109,7 +1163,7 @@ namespace {
                    M##elem_size##W dst_mem) { \
     auto srcv = UReadVI##elem_size(src); \
     uint##elem_size##_t elem = srcv[Read(index)]; \
-    MWriteTrunc(arena_ptr, dst_mem, elem); \
+    MWriteTrunc(rt_m, arena_ptr, dst_mem, elem); \
 \
   }  // namespace
 
@@ -1137,7 +1191,7 @@ namespace {
   DEF_SEM_VOID_RUN(ST1_UNIT_POSTINDEX_VI##elem_size, VIu##elem_size##v##elem_num src, I32 index, \
                    M##elem_size##W dst_mem) { \
     uint##elem_size##_t elem = UExtractVI##elem_size(UReadVI##elem_size(src), Read(index)); \
-    MWriteTrunc(arena_ptr, dst_mem, elem); \
+    MWriteTrunc(rt_m, arena_ptr, dst_mem, elem); \
   }  // namespace
 
 MAKE_ST1_UNIT_POSTINDEX(8, 16)
@@ -1264,7 +1318,7 @@ namespace {
 #define MAKE_LD1_POSTINDEX(elem_size) \
   template <typename S> \
   DEF_SEM_T_RUN(LD1_SINGLE_POSTINDEX_##elem_size, S src) { \
-    return LD1_SINGLE_##elem_size(arena_ptr, runtime_manager, src); \
+    return LD1_SINGLE_##elem_size(arena_ptr, rt_m, src); \
   }
 
 MAKE_LD1_POSTINDEX(8)
@@ -1302,7 +1356,7 @@ namespace {
 //   template <typename S> \
 //   DEF_SEM(LD1_PAIR_POSTINDEX_##elem_size, VI128 dst1, VI128 dst2, S src, R64 addr_reg, \
 //           ADDR next_addr) { \
-//     LD1_PAIR_##elem_size(runtime_manager, state, dst1, dst2, src); \
+//     LD1_PAIR_##elem_size(rt_m, state, dst1, dst2, src); \
 //     Write(addr_reg, Read(next_addr)); \
 //   }
 
@@ -1341,7 +1395,7 @@ namespace {
 //   template <typename S> \
 //   DEF_SEM(LD1_TRIPLE_POSTINDEX_##elem_size, VI128 dst1, VI128 dst2, VI128 dst3, S src, \
 //           R64 addr_reg, ADDR next_addr) { \
-//     LD1_TRIPLE_##elem_size(runtime_manager, state, dst1, dst2, dst3, src); \
+//     LD1_TRIPLE_##elem_size(rt_m, state, dst1, dst2, dst3, src); \
 //     Write(addr_reg, Read(next_addr)); \
 //   }
 
@@ -1380,7 +1434,7 @@ namespace {
 //   template <typename S> \
 //   DEF_SEM(LD1_QUAD_POSTINDEX_##elem_size, VI128 dst1, VI128 dst2, VI128 dst3, VI128 dst4, S src, \
 //           R64 addr_reg, ADDR next_addr) { \
-//     LD1_QUAD_##elem_size(runtime_manager, state, dst1, dst2, dst3, dst4, src); \
+//     LD1_QUAD_##elem_size(rt_m, state, dst1, dst2, dst3, dst4, src); \
 //     Write(addr_reg, Read(next_addr)); \
 //   }
 
@@ -1440,7 +1494,7 @@ namespace {
 //   template <typename S> \
 //   DEF_SEM(LD2_##size##_POSTINDEX, VI128 dst1, VI128 dst2, S src, R64 addr_reg, \
 //           ADDR next_addr) { \
-//     LD2_##size(runtime_manager, state, dst1, dst2, src); \
+//     LD2_##size(rt_m, state, dst1, dst2, src); \
 //     Write(addr_reg, Read(next_addr)); \
 //   }
 
@@ -1623,7 +1677,7 @@ namespace {
 #define MAKE_LD1R(elem_size) \
   template <typename V, typename MT> \
   DEF_SEM_T_RUN(LD1R_##elem_size, MT mem) { \
-    auto mem_val = ReadMem(arena_ptr, mem); \
+    auto mem_val = ReadMem(rt_m, arena_ptr, mem); \
     V res = {}; \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(res); i++) { \
       res[i] = mem_val; \
@@ -1702,6 +1756,16 @@ DEF_ISEL(UMOV_ASIMDINS_W_W_B) = UMovFromVec8<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts
 DEF_ISEL(UMOV_ASIMDINS_W_W_H) = UMovFromVec16<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(UMOV_ASIMDINS_W_W_S) = UMovFromVec32<uint32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(UMOV_ASIMDINS_X_X_D) = UMovFromVec64<uint64_t>;  // UMOV  <Xd>, <Vn>.<Ts>[<index>]
+
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_B) = UMovFromVec8<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_H) = UMovFromVec16<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_S) = UMovFromVec32<uint32_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(MOV_DUP_ASISDONE_ONLY_D) = UMovFromVec64<uint64_t>;  // MOV  <V><d>, <Vn>.<T>[<index>]
+
+DEF_ISEL(DUP_ASISDONE_ONLY_B) = UMovFromVec8<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_H) = UMovFromVec16<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_S) = UMovFromVec32<uint32_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
+DEF_ISEL(DUP_ASISDONE_ONLY_D) = UMovFromVec64<uint64_t>;  // DUP  <V><d>, <Vn>.<T>[<index>]
 
 DEF_ISEL(SMOV_ASIMDINS_W_W_B) = SMovFromVec8<int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
 DEF_ISEL(SMOV_ASIMDINS_W_W_H) = SMovFromVec16<int32_t>;  // UMOV  <Wd>, <Vn>.<Ts>[<index>]
@@ -1803,11 +1867,11 @@ namespace {
 
 template <typename T, typename D>
 DEF_SEM_T_RUN(CAS, T dst_src1, T src2, D dst_mem) {
-  T org_val = ReadMem(arena_ptr, dst_mem);
+  T org_val = ReadMem(rt_m, arena_ptr, dst_mem);
   T cmp_val = Read(dst_src1);
   auto cond_eq = UCmpEq(org_val, cmp_val);
   auto new_val = Select<T>(cond_eq, Read(src2), org_val);
-  MWriteTrunc(arena_ptr, dst_mem, new_val);
+  MWriteTrunc(rt_m, arena_ptr, dst_mem, new_val);
   return org_val;
 }
 }  // namespace
@@ -1824,13 +1888,27 @@ DEF_ISEL(CASAL_C64_LDSTEXCL) = CAS<R64, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0
 DEF_ISEL(CASL_C32_LDSTEXCL) = CAS<R32, M32W>;  // CAS  <Ws>, <Wt>, [<Xn|SP>{,#0}]
 DEF_ISEL(CASL_C64_LDSTEXCL) = CAS<R64, M64W>;  // CAS  <Xs>, <Xt>, [<Xn|SP>{,#0}]
 
+// Byte versions
+DEF_ISEL(CASB_C32_LDSTEXCL) = CAS<R32, M8W>;  // CASB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASAB_C32_LDSTEXCL) = CAS<R32, M8W>;  // CASAB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASLB_C32_LDSTEXCL) = CAS<R32, M8W>;  // CASLB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASALB_C32_LDSTEXCL) = CAS<R32, M8W>;  // CASALB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+
+// Halfword versions
+DEF_ISEL(CASH_C32_LDSTEXCL) = CAS<R32, M16W>;  // CASH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASAH_C32_LDSTEXCL) = CAS<R32, M16W>;  // CASAH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASLH_C32_LDSTEXCL) = CAS<R32, M16W>;  // CASLH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+DEF_ISEL(CASALH_C32_LDSTEXCL) = CAS<R32, M16W>;  // CASALH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+
 namespace {
 
 template <typename D>
 DEF_SEM_VOID_STATE_RUN(DC_ZVA, D dst_mem) {
   auto bs = state.sr.dczid_el0.qword & 0b1111; /* get BS field */
-  for (size_t i = 0; i < static_cast<size_t>(pow(2.0, static_cast<double>(bs))); i++) {
-    Write_Dc_Zva(arena_ptr, dst_mem, sizeof(uint32_t) * i, 0);
+  auto zva_bytes = static_cast<size_t>(4u << bs);
+  // assert((dst_mem % zva_bytes) == 0);
+  for (size_t offset = 0; offset < zva_bytes; offset += 4) {
+    Write_Dc_Zva(rt_m, arena_ptr, dst_mem, offset, 0);
   }
 }
 

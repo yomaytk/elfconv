@@ -9,14 +9,15 @@
 #else
 #  include "remill/Arch/Runtime/RemillTypes.h"
 #endif
-#include "runtime/syscalls/SysTable.h"
 
 #include <cassert>
-#include <mutex>
-#include <queue>
+#include <map>
 #include <unordered_map>
+#include <vector>
 
 extern State *CPUState;
+// for debug
+extern bool INVALID_ADDR_ACCESS;
 
 #if defined(ELF_IS_AMD64)
 extern "C" uint8_t *MemoryArenaPtr;
@@ -44,10 +45,11 @@ class RuntimeManager {
   MemoryArena *main_memory_arena;
 
   std::vector<std::pair<addr_t, LiftedFunc>> addr_funptr_srt_list;
-  std::unordered_map<addr_t, const char *> addr_fun_symbol_map;
   std::map<addr_t, std::map<uint64_t, uint64_t *>> fun_bb_addr_map;
   std::vector<addr_t> call_stacks;
 
-  int cnt = 0;
-  std::unordered_map<std::string, uint64_t> sec_map;
+  // debug
+  std::unordered_map<addr_t, const char *> addr_fun_symbol_map;
+  std::unordered_map<uint64_t, int> func_cnt_map;
+  uint64_t func_calling_cnt = 0;
 };

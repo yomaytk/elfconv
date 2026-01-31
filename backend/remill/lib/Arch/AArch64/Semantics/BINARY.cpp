@@ -241,7 +241,7 @@ DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;  // MSUB  <Xd>, <Xn>, <Xm>, <Xa>
 
 namespace {
 
-#define READ_ECV_C (Read(ecv_nzcv) & 0x2000'0000) >> 29
+#define READ_ECV_C ((Read(ecv_nzcv) & 0x2000'0000) >> 29)
 
 // SBC  <Wd>, <Wn>, <Wm>
 template <typename S>

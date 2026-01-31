@@ -16,15 +16,15 @@
 
 namespace {
 
-extern "C" void emulate_system_call(uint8_t *arena_ptr, State &state,
-                                    RuntimeManager *runtime_manager, I32 imm) {
+extern "C" void emulate_system_call(uint8_t *arena_ptr, State &state, RuntimeManager *rt_m,
+                                    I32 imm) {
   // Linux always get 0 for the argument of `svc` exception (I32 imm).
-  __remill_syscall_tranpoline_call(arena_ptr, state, runtime_manager);
+  __remill_syscall_tranpoline_call(arena_ptr, state, rt_m);
 }
 
 DEF_SEM_VOID_STATE_RUN(BREAKPOINT, I32 imm) {
   HYPER_CALL_VECTOR = Read(imm);
-  __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64Breakpoint);
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kAArch64Breakpoint);
 }
 
 DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_FPSR) {
@@ -101,7 +101,7 @@ DEF_SEM_VOID_RUN(DataMemoryBarrier) {
 
   // TODO(pag): Full-system data memory barrier probably requires a synchronous
   //            hypercall if it behaves kind of like Linux's `sys_membarrier`.
-  __remill_barrier_store_store(runtime_manager);
+  __remill_barrier_store_store(rt_m);
 }
 
 }  // namespace

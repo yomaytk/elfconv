@@ -66,15 +66,18 @@ class LiftConfig {
   bool norm_mode;
   ArchName target_elf_arch;
   bool fork_emulation;
+  uint64_t dbg_fun_vma;
+  bool has_symtab;  // Whether the binary has symbol table
 
   LiftConfig() = delete;
 
   LiftConfig(bool __float_exception_enabled, bool __norm_mode, ArchName __target_elf_arch,
-             bool __fork_emulation)
+             bool __fork_emulation, bool __has_symtab = false)
       : float_exception_enabled(__float_exception_enabled),
         norm_mode(__norm_mode),
         target_elf_arch(__target_elf_arch),
-        fork_emulation(__fork_emulation) {}
+        fork_emulation(__fork_emulation),
+        has_symtab(__has_symtab) {}
 };
 
 // Instruction independent lifting

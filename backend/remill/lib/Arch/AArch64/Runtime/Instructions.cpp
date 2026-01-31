@@ -114,7 +114,7 @@ namespace {
 
 // Takes the place of an unsupported instruction.
 DEF_SEM_VOID_STATE_RUN(HandleUnsupported) {
-  __remill_sync_hyper_call(state, runtime_manager, SyncHyperCall::kAArch64EmulateInstruction);
+  __remill_sync_hyper_call(state, rt_m, SyncHyperCall::kAArch64EmulateInstruction);
 }
 
 // Takes the place of an invalid instruction.

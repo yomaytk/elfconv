@@ -1,3 +1,4 @@
+#include "Memory.h"
 #include "SysTable.h"
 #include "runtime/Runtime.h"
 
@@ -26,7 +27,7 @@
 #include <utils/elfconv.h>
 
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)
-#  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #  sysnum "\" is empty now.\n");
+#  define EMPTY_SYSCALL(sysnum) printf("[WARNING] syscall \"" #sysnum "\" is empty now.\n");
 #  define NOP_SYSCALL(sysnum) \
     printf("[INFO] syscall \"" #sysnum "\" is nop (but maybe allowd) now.\n");
 #else
@@ -41,8 +42,6 @@ typedef uint64_t _ecv_long;
 #else
 typedef uint32_t _ecv_long;
 #endif
-
-extern _ecv_reg64_t TASK_STRUCT_VMA;
 
 /*
   for ioctl syscall
@@ -100,7 +99,8 @@ struct _ecv_statx {
 
 #define ERROR_CODE -1
 
-extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+extern const char *ORG_ELF_NAME;
+extern void *TranslateVMA(RuntimeManager *rt_m, uint8_t *arena_ptr, addr_t vma_addr);
 
 /*
   syscall emulate function
@@ -128,7 +128,7 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       switch (cmd) {
         case _LINUX_TCGETS:
         case _LINUX_TCSETS: {
-          X0_D = ioctl(fd, cmd, TranslateVMA(arena_ptr, arg));
+          X0_D = ioctl(fd, cmd, TranslateVMA(this, arena_ptr, arg));
         } break;
         default: X0_Q = -_LINUX_ENOTTY; break;
       }
@@ -137,16 +137,16 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
-      X0_D = mkdirat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
+      X0_D = mkdirat(X0_D, (char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D);
       break;
     case ECV_UNLINKAT: /* unlinkat (int dfd, const char *pathname, int flag) */
       if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
-      X0_D = unlinkat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D);
+      X0_D = unlinkat(X0_D, (char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D);
       break;
     case ECV_TRUNCATE: /* int truncate(const char *path, off_t length) */
-      X0_D = truncate((char *) TranslateVMA(arena_ptr, X0_Q), (_ecv_long) X1_Q);
+      X0_D = truncate((char *) TranslateVMA(this, arena_ptr, X0_Q), (_ecv_long) X1_Q);
       break;
     case ECV_FTRUNCATE: /* int ftruncate(int fd, off_t length) */
       X0_D = ftruncate(X0_Q, (_ecv_long) X1_Q);
@@ -158,10 +158,10 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
         flags &= ~_LINUX_AT_SYMLINK_NOFOLLOW;
         flags |= 1;
       }
-      X0_D = faccessat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, flags);
+      X0_D = faccessat(X0_D, (char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, flags);
     } break;
     case ECV_CHDIR: /* int chdir (const char * path) */
-      X0_D = chdir((const char *) TranslateVMA(arena_ptr, X0_Q));
+      X0_D = chdir((const char *) TranslateVMA(this, arena_ptr, X0_Q));
       break;
     case ECV_OPENAT: /* openat (int dfd, const char* filename, int flags, umode_t mode) */
       if (LINUX_AD_FDCWD == (int) X0_D) {
@@ -183,28 +183,28 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
         X2_D &= ~LINUX_O_CREAT;
         X2_D |= O_CREAT;
       }
-      X0_D = openat(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), X2_D, X3_D);
+      X0_D = openat(X0_D, (char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, X3_D);
       break;
     case ECV_CLOSE: /* int close (unsigned int fd) */ X0_D = close(X0_D); break;
     case ECV_LSEEK: /* int lseek(unsigned int fd, off_t offset, unsigned int whence) */
       X0_D = lseek(X0_D, (_ecv_long) X1_Q, X2_D);
       break;
     case ECV_READ: /* read (unsigned int fd, char *buf, size_t count) */
-      X0_Q = read(X0_D, (char *) TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = read(X0_D, (char *) TranslateVMA(this, arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       break;
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
-      X0_Q = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
+      X0_Q = write(X0_D, TranslateVMA(this, arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       break;
     case ECV_WRITEV: /* writev (unsgined long fd, const struct iovec *vec, unsigned long vlen) */
     {
       unsigned long fd = X0_Q;
       unsigned long vlen = X2_Q;
-      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(arena_ptr, X1_Q));
+      auto tr_vec = reinterpret_cast<iovec *>(TranslateVMA(this, arena_ptr, X1_Q));
       auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
       // translate every iov_base
       for (unsigned long i = 0; i < vlen; i++) {
         cache_vec[i].iov_base =
-            TranslateVMA(arena_ptr, reinterpret_cast<addr_t>(tr_vec[i].iov_base));
+            TranslateVMA(this, arena_ptr, reinterpret_cast<addr_t>(tr_vec[i].iov_base));
         cache_vec[i].iov_len = tr_vec[i].iov_len;
       }
       X0_Q = writev(fd, cache_vec, vlen);
@@ -214,8 +214,8 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       if (LINUX_AD_FDCWD == (int) X0_D) {
         X0_Q = AT_FDCWD;
       }
-      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(arena_ptr, X1_Q),
-                        (char *) TranslateVMA(arena_ptr, X2_Q), X3_D);
+      X0_Q = readlinkat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q),
+                        (char *) TranslateVMA(this, arena_ptr, X2_Q), X3_D);
       break;
     case ECV_FSYNC: /* fsync (unsigned int fd) */ X0_D = fsync(X0_D); break;
     case ECV_EXIT: /* exit (int error_code) */ exit(X0_D); break;
@@ -225,11 +225,11 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
     case ECV_SET_TID_ADDRESS: /* set_tid_address(int *tidptr) */
     {
       pid_t tid = 42;
-      *reinterpret_cast<int *>(TranslateVMA(arena_ptr, X0_Q)) = tid;
+      *reinterpret_cast<int *>(TranslateVMA(this, arena_ptr, X0_Q)) = tid;
       X0_Q = tid;
     } break;
-    /* UNDECLARED! */ case ECV_FUTEX
-        : /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
+    /* UNDECLARED! */
+    case ECV_FUTEX: /* futex (u32 *uaddr, int op, u32 val, const struct __kernel_timespec *utime, u32 *uaddr2, u23 val3) */
       /* TODO */
       if ((X1_D & 0x7F) == 0) {
         /* FUTEX_WAIT */
@@ -253,7 +253,7 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
           .tv_sec = (uint64_t) emu_tp.tv_sec,
           .tv_nsec = (uint64_t) (_ecv_long) emu_tp.tv_nsec,
       };
-      memcpy(TranslateVMA(arena_ptr, X1_Q), &tp, sizeof(tp));
+      memcpy(TranslateVMA(this, arena_ptr, X1_Q), &tp, sizeof(tp));
       X0_Q = (_ecv_reg64_t) clock_time;
     } break;
     case ECV_UNAME: /* uname (struct old_utsname* buf) */
@@ -267,23 +267,22 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       } new_utsname = {"Linux", "xxxxxxx-QEMU-Virtual-Machine",
                        "6.0.0-00-generic", /* cause error if the kernel version is too old. */
                        "#0~elfconv", "aarch64"};
-      memcpy(TranslateVMA(arena_ptr, X0_Q), &new_utsname, sizeof(new_utsname));
+      memcpy(TranslateVMA(this, arena_ptr, X0_Q), &new_utsname, sizeof(new_utsname));
       X0_D = 0;
     } break;
     case ECV_GETTIMEOFDAY: /* gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz) */
-      X0_D = gettimeofday((struct timeval *) TranslateVMA(arena_ptr, X0_Q),
+      X0_D = gettimeofday((struct timeval *) TranslateVMA(this, arena_ptr, X0_Q),
                           (struct timezone *) 0); /* FIXME (second argument) */
       break;
     case ECV_GETRUSAGE: /* getrusage (int who, struct rusage *ru) */
-      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(arena_ptr, X1_Q));
+      X0_D = getrusage(X0_D, (struct rusage *) TranslateVMA(this, arena_ptr, X1_Q));
       break;
-    /* UNDECLARED! */ case ECV_PRCTL
-        : /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
+    /* UNDECLARED! */
+    case ECV_PRCTL: /* prctl (int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5) */
     {
       uint32_t option = X0_D;
       if (ECV_PR_GET_NAME == option) {
-        memcpy(TranslateVMA(arena_ptr, X1_Q), TranslateVMA(arena_ptr, TASK_STRUCT_VMA),
-               /* TASK_COMM_LEN */ 16);
+        memcpy(TranslateVMA(this, arena_ptr, X1_Q), ORG_ELF_NAME, strlen(ORG_ELF_NAME));
       } else {
         elfconv_runtime_error("prctl unimplemented option!: %d\n", option);
       }
@@ -297,20 +296,20 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
     case ECV_GETTID: /* getttid () */
       X0_D = 42;
       break;
-    /* UNDECLARED! */ case ECV_BRK : /* brk (unsigned long brk) */
+    /* UNDECLARED! */ case ECV_BRK: /* brk (unsigned long brk) */
     {
       if (X0_Q == 0) {
         /* init program break (FIXME) */
-        X0_Q = main_memory_arena->heap_cur;
-      } else if (HEAPS_START_VMA <= X0_Q && X0_Q < HEAPS_START_VMA + HEAP_UNIT_SIZE) {
+        X0_Q = main_memory_arena->brk_cur;
+      } else if (BRK_START_VMA <= X0_Q && X0_Q < BRK_END_VMA) {
         /* change program break */
-        main_memory_arena->heap_cur = X0_Q;
+        main_memory_arena->brk_cur = X0_Q;
       } else {
         elfconv_runtime_error("Unsupported brk(0x%016llx).\n", X0_Q);
       }
     } break;
-    /* CANNOT USE! */ case ECV_MMAP
-        : /* mmap (void *start, size_t length, int prot, int flags, int fd, off_t offset) */
+    /* CANNOT USE! */
+    case ECV_MMAP: /* mmap (void *start, size_t length, int prot, int flags, int fd, off_t offset) */
       /* FIXME */
       {
         if ((int) X4_D != -1)
@@ -318,8 +317,8 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
         if (X5_D != 0)
           elfconv_runtime_error("Unsupported mmap (X5=0x%016llx)\n", X5_Q);
         if (X0_Q == 0) {
-          X0_Q = main_memory_arena->heap_cur;
-          main_memory_arena->heap_cur += X1_Q;
+          X0_Q = main_memory_arena->mmap_cur;
+          main_memory_arena->mmap_cur += X1_Q;
         } else {
           elfconv_runtime_error("Unsupported mmap (X0=0x%016llx)\n", X0_Q);
         }
@@ -331,14 +330,14 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       // Therefore elfconv doesn't use it. ref: https://github.com/WebAssembly/wasi-libc/blob/45252554b765e3db11d0ef5b41d6dd290ed33382/libc-bottom-half/mman/mman.c#L127-L157
       X0_D = 0;
       break;
-    /* UNDECLARED! */ case ECV_GETRANDOM
-        : /* getrandom (char *buf, size_t count, unsigned int flags) */
+    /* UNDECLARED! */
+    case ECV_GETRANDOM: /* getrandom (char *buf, size_t count, unsigned int flags) */
     {
-      memset(TranslateVMA(arena_ptr, X0_Q), 1, static_cast<size_t>(X1_Q));
+      memset(TranslateVMA(this, arena_ptr, X0_Q), 1, static_cast<size_t>(X1_Q));
       X0_Q = X1_Q;
     } break;
-    /* UNDECLARED! */ case ECV_STATX
-        : /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
+    /* UNDECLARED! */
+    case ECV_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
       _ecv_reg_t flags = X2_D;
       if ((flags & _LINUX_AT_EMPTY_PATH) == 0) {
@@ -359,7 +358,7 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
         _statx.stx_ino = _stat.st_ino;
         _statx.stx_size = _stat.st_size;
         _statx.stx_blocks = _stat.st_blocks;
-        memcpy(TranslateVMA(arena_ptr, X4_Q), &_statx, sizeof(_statx));
+        memcpy(TranslateVMA(this, arena_ptr, X4_Q), &_statx, sizeof(_statx));
         X0_Q = 0;
       } else {
         X0_Q = -1;

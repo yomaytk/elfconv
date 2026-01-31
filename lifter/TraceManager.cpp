@@ -123,37 +123,40 @@ void AArch64TraceManager::SetELFData() {
         entry_func_lifted_name = lifted_func_name;
       }
 
-      if (lifted_func_name.starts_with("_IO_file_xsputn")) {
-        _io_file_xsputn_vma = func_symbols[i].addr;
+      uint64_t func_size = 0;
+      // Prefer symbol table size if available
+      if (func_symbols[i].size > 0) {
+        func_size = func_symbols[i].size;
+      } else if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
+        func_size = func_symbols[i + 1].addr - func_symbols[i].addr;
+      } else {
+        func_size = (bfd_section_vma(func_symbols[i].in_section) +
+                     bfd_section_size(func_symbols[i].in_section)) -
+                    func_symbols[i].addr;
       }
 
-      if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
-        disasm_funcs.emplace(func_symbols[i].addr,
-                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
-                                        func_symbols[i + 1].addr - func_symbols[i].addr));
-      } else {
-        disasm_funcs.emplace(func_symbols[i].addr,
-                             DisasmFunc(lifted_func_name, func_symbols[i].addr,
-                                        (bfd_section_vma(func_symbols[i].in_section) +
-                                         bfd_section_size(func_symbols[i].in_section)) -
-                                            func_symbols[i].addr));
-      }
+      disasm_funcs.emplace(func_symbols[i].addr,
+                           DisasmFunc(lifted_func_name, func_symbols[i].addr, func_size));
     }
 
     // Last function.
     auto last_func_symbol = func_symbols.back();
     auto lifted_func_name =
         GetUniqueLiftedFuncName(last_func_symbol.sym_name, last_func_symbol.addr);
+    uint64_t func_size = 0;
+    // Prefer symbol table size if available
+    if (last_func_symbol.size > 0) {
+      func_size = last_func_symbol.size;
+    } else {
+      func_size = (bfd_section_vma(last_func_symbol.in_section) +
+                   bfd_section_size(last_func_symbol.in_section)) -
+                  last_func_symbol.addr;
+    }
     disasm_funcs.emplace(last_func_symbol.addr,
-                         DisasmFunc(lifted_func_name, last_func_symbol.addr,
-                                    (bfd_section_vma(last_func_symbol.in_section) +
-                                     bfd_section_size(last_func_symbol.in_section)) -
-                                        last_func_symbol.addr));
+                         DisasmFunc(lifted_func_name, last_func_symbol.addr, func_size));
 
   } else {
-
     elfconv_runtime_error("Now not supported for ELF with no eh_frame section.\n");
-    // This code block is removed at the next commit of `7363fcd`.
   }
 
   if (entry_func_lifted_name.empty()) {
@@ -195,22 +198,32 @@ void AArch64TraceManager::SetELFData() {
     `nop`
   */
   if (disasm_funcs.count(entry_point) == 1) {
-    auto _start_disasm_fn = disasm_funcs[entry_point];
-    auto __wrap_main_size = AARCH64_OP_SIZE * 3;
+    std::vector<uint64_t> s_t_addrs = {entry_point, 0x40fe74};
+    uint64_t __wrap_main_size = AARCH64_OP_SIZE * 3;
     auto &text_section = elf_obj.code_sections[".text"];
-    auto _s_fn_bytes = &text_section.bytes[_start_disasm_fn.vma - text_section.vma];
-    uint64_t __wrap_main_diff = UINT64_MAX;
-    for (uint64_t i = 0; i + __wrap_main_size <= _start_disasm_fn.func_size; i += 4) {
-      if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
-          _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
-          /* b main */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
-          /* nop */ _s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 &&
-          _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5) {
-        __wrap_main_diff = _start_disasm_fn.vma + i;
-        disasm_funcs.emplace(__wrap_main_diff,
-                             DisasmFunc("__wrap_main", __wrap_main_diff, __wrap_main_size));
-        break;
+    bool __wrap_main_found = false;
+    for (size_t j = 0; j < s_t_addrs.size(); j++) {
+      auto func_size = disasm_funcs.contains(s_t_addrs[j]) ? disasm_funcs[s_t_addrs[j]].func_size
+                                                           : __wrap_main_size;
+      auto _s_fn_bytes = &text_section.bytes[s_t_addrs[j] - text_section.vma];
+      for (uint64_t i = 0; i + __wrap_main_size <= func_size; i += 4) {
+        if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
+            _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
+            /* b <label> */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
+            /* nop */ _s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 &&
+            _s_fn_bytes[i + 10] == 0x03 && _s_fn_bytes[i + 11] == 0xd5) {
+          uint64_t __wrap_main_vma = s_t_addrs[j] + i;
+          disasm_funcs.emplace(__wrap_main_vma,
+                               DisasmFunc("__wrap_main", __wrap_main_vma, __wrap_main_size));
+          __wrap_main_found = true;
+          goto found_entry;
+        }
       }
+    }
+  found_entry:
+    if (!__wrap_main_found) {
+      elfconv_runtime_error("[ERROR] Entry function is not found. entry_point: 0x%llx\n",
+                            entry_point);
     }
   } else {
     elfconv_runtime_error("[ERROR] Entry function is not defined.\n");

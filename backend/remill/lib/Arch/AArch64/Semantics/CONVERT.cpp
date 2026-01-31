@@ -33,8 +33,7 @@ namespace {
 
 template <typename S, typename D>
 ALWAYS_INLINE static D CheckedCastFPSRStatus(State &state, S src) {
-  return CheckedFloatUnaryOp(
-      state, [](S v) { return static_cast<D>(v); }, src);
+  return CheckedFloatUnaryOp(state, [](S v) { return static_cast<D>(v); }, src);
 }
 
 template <typename S, typename D>
@@ -128,6 +127,31 @@ DEF_SEM_T_STATE(FCVTZU_FloatToUInt_FPSRStatus, S src) {
   return CheckedCastFPSRStatus<SB, DB>(state, Read(src));
 }
 
+// FCVTZU  <V><d>, <V><n> (scalar, converts FP to integer in vector register)
+DEF_SEM_T_STATE(FCVTZU_Float32ToUInt32_FROMV, VIf32v4 src) {
+  _ecv_u32v4_t res = {};
+  // Only convert the first element (scalar operation)
+  res[0] = CheckedCast<float32_t, uint32_t>(state, FExtractVI32(FReadVI32(src), 0));
+  return res;
+}
+DEF_SEM_T_STATE(FCVTZU_Float64ToUInt64_FROMV, VIf64v2 src) {
+  _ecv_u64v2_t res = {};
+  // Only convert the first element (scalar operation)
+  res[0] = CheckedCast<float64_t, uint64_t>(state, FExtractVI64(FReadVI64(src), 0));
+  return res;
+}
+// FPSR
+DEF_SEM_T_STATE(FCVTZU_Float32ToUInt32_FROMV_FPSRStatus, VIf32v4 src) {
+  _ecv_u32v4_t res = {};
+  res[0] = CheckedCastFPSRStatus<float32_t, uint32_t>(state, FExtractVI32(FReadVI32(src), 0));
+  return res;
+}
+DEF_SEM_T_STATE(FCVTZU_Float64ToUInt64_FROMV_FPSRStatus, VIf64v2 src) {
+  _ecv_u64v2_t res = {};
+  res[0] = CheckedCastFPSRStatus<float64_t, uint64_t>(state, FExtractVI64(FReadVI64(src), 0));
+  return res;
+}
+
 // FCVTZS  <Wd>, <Sn>
 DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt32, RF32 src) {
   return CheckedCast<float32_t, int32_t>(state, Read(src));
@@ -138,12 +162,12 @@ DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt32_FPSRStatus, RF32 src) {
 }
 
 // FCVTZS  <Xd>, <Sn>
-DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt64, RF32 src) {
-  return CheckedCast<float64_t, int32_t>(state, Read(src));
+DEF_SEM_U64_STATE(FCVTZS_Float32ToSInt64, RF32 src) {
+  return CheckedCast<float32_t, int64_t>(state, Read(src));
 }
 // FPSR
-DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt64_FPSRStatus, RF32 src) {
-  return CheckedCastFPSRStatus<float64_t, int32_t>(state, Read(src));
+DEF_SEM_U64_STATE(FCVTZS_Float32ToSInt64_FPSRStatus, RF32 src) {
+  return CheckedCastFPSRStatus<float32_t, int64_t>(state, Read(src));
 }
 
 // FCVTZS  <Wd>, <Dn>
@@ -260,6 +284,13 @@ DEF_ISEL(FCVTZU_32D_FLOAT2INT_FPSRSTATUS) =
 DEF_ISEL(FCVTZU_64D_FLOAT2INT_FPSRSTATUS) =
     FCVTZU_FloatToUInt_FPSRStatus<RF64, float64_t, uint64_t>;  // FCVTZU  <Xd>, <Dn>
 
+// FCVTZU (scalar, FP to integer in vector register) - ASISDMISC
+DEF_ISEL(FCVTZU_ASISDMISC_R_32) = FCVTZU_Float32ToUInt32_FROMV;  // FCVTZU  <V><d>, <V><n>
+DEF_ISEL(FCVTZU_ASISDMISC_R_64) = FCVTZU_Float64ToUInt64_FROMV;  // FCVTZU  <V><d>, <V><n>
+// FPSR
+DEF_ISEL(FCVTZU_ASISDMISC_R_32_FPSRSTATUS) = FCVTZU_Float32ToUInt32_FROMV_FPSRStatus;  // FCVTZU  <V><d>, <V><n>
+DEF_ISEL(FCVTZU_ASISDMISC_R_64_FPSRSTATUS) = FCVTZU_Float64ToUInt64_FROMV_FPSRStatus;  // FCVTZU  <V><d>, <V><n>
+
 DEF_ISEL(FCVTZS_32S_FLOAT2INT) = FCVTZS_Float32ToSInt32;  // FCVTZS  <Wd>, <Sn>
 DEF_ISEL(FCVTZS_64S_FLOAT2INT) = FCVTZS_Float32ToSInt64;  // FCVTZS  <Wd>, <Sn>
 DEF_ISEL(FCVTZS_32D_FLOAT2INT) = FCVTZS_Float64ToSInt32;  // FCVTZS  <Wd>, <Dn>
@@ -288,6 +319,57 @@ DEF_ISEL(FCVT_SD_FLOATDP1_FPSRSTATUS) = FCVT_Float64ToFloat32_FPSRStatus;  // FC
 DEF_ISEL(FRINTA_D_FLOATDP1) = FRINTA_Float64ToSInt64;  // FRINTA  <Dd>, <Dn>
 // FPSR
 DEF_ISEL(FRINTA_D_FLOATDP1_FPSRSTATUS) = FRINTA_Float64ToSInt64_FPSRStatus;  // FRINTA  <Dd>, <Dn>
+
+// FRINTM  <Sd>, <Sn>
+namespace {
+DEF_SEM_F32_STATE(FRINTM_S, RF32 src) {
+  return std::floor(Read(src));
+}
+}  // namespace
+
+DEF_ISEL(FRINTM_S_FLOATDP1) = FRINTM_S;
+DEF_ISEL(FRINTM_S_FLOATDP1_FPSRSTATUS) = FRINTM_S;
+
+// FRINTM  <Dd>, <Dn>
+namespace {
+DEF_SEM_F64_STATE(FRINTM_D, RF64 src) {
+  return std::floor(Read(src));
+}
+}  // namespace
+
+DEF_ISEL(FRINTM_D_FLOATDP1) = FRINTM_D;
+DEF_ISEL(FRINTM_D_FLOATDP1_FPSRSTATUS) = FRINTM_D;
+
+// FRINTM  <Vd>.<T>, <Vn>.<T>
+namespace {
+template <typename S>
+DEF_SEM_T_STATE(FRINTM_Vector32, S src) {
+  auto src_v = FReadVI32(src);
+  S res = {};
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src_v); i++) {
+    res[i] = std::floor(src_v[i]);
+  }
+  return res;
+}
+
+template <typename S>
+DEF_SEM_T_STATE(FRINTM_Vector64, S src) {
+  auto src_v = FReadVI64(src);
+  S res = {};
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src_v); i++) {
+    res[i] = std::floor(src_v[i]);
+  }
+  return res;
+}
+}  // namespace
+
+DEF_ISEL(FRINTM_ASIMDMISC_R_2S) = FRINTM_Vector32<VIf32v2>;
+DEF_ISEL(FRINTM_ASIMDMISC_R_4S) = FRINTM_Vector32<VIf32v4>;
+DEF_ISEL(FRINTM_ASIMDMISC_R_2D) = FRINTM_Vector64<VIf64v2>;
+
+DEF_ISEL(FRINTM_ASIMDMISC_R_2S_FPSRSTATUS) = FRINTM_Vector32<VIf32v2>;
+DEF_ISEL(FRINTM_ASIMDMISC_R_4S_FPSRSTATUS) = FRINTM_Vector32<VIf32v4>;
+DEF_ISEL(FRINTM_ASIMDMISC_R_2D_FPSRSTATUS) = FRINTM_Vector64<VIf64v2>;
 
 namespace {
 

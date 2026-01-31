@@ -1358,7 +1358,12 @@ var Module = (() => {
     }
 
     function _fd_seek(fd, offset, whence, newOffset) {
-      return ecvProxySyscallJs(ECV_LSEEK, fd, offset, whence, newOffset);
+      let offseti53 = bigintToI53Checked(offset);
+      if (offseti53 == NaN) {
+        console.log(`offset (${offset}) cannot be converted to BigInt at _fd_seek.`);
+        abort();
+      }
+      return ecvProxySyscallJs(ECV_LSEEK, fd, offseti53, whence, newOffset);
     }
 
     function _fd_sync(fd) {
@@ -1469,19 +1474,19 @@ var Module = (() => {
     /// These data are interfaces between process-worker.js and Wasm module.
     function assignWasmImports() {
       wasmImports = {
-        k: ___ecv_syscall_ioctl,
+        e: ___ecv_syscall_ioctl,
         ca: ___syscall_clone,
         ba: ___syscall_execve,
-        n: ___syscall_exit,
+        m: ___syscall_exit,
         da: ___syscall_getpgid,
         x: ___syscall_pipe2,
-        f: ___syscall_poll,
-        g: ___syscall_pselect6,
-        h: ___syscall_sendfile,
+        g: ___syscall_poll,
+        h: ___syscall_pselect6,
+        n: ___syscall_sendfile,
         ea: ___syscall_setpgid,
         aa: ___syscall_wait4,
         A: ___call_sighandler,
-        m: ___cxa_throw,
+        l: ___cxa_throw,
         _: ___syscall_chdir,
         Y: ___syscall_dup,
         X: ___syscall_dup3,
@@ -1521,8 +1526,8 @@ var Module = (() => {
         q: _environ_get,
         r: _environ_sizes_get,
         ga: execve_memory_copy_req,
-        l: _exit,
-        e: _fd_close,
+        k: _exit,
+        f: _fd_close,
         j: _fd_read,
         H: _fd_seek,
         O: _fd_sync,

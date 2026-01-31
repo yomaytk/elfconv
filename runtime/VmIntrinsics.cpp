@@ -1,5 +1,8 @@
 #include "Memory.h"
 #include "Runtime.h"
+#include "remill/Arch/Runtime/Math.h"
+
+#include <cstring>
 #if defined(ELF_IS_AARCH64)
 #  include "remill/Arch/Runtime/Types.h"
 #else
@@ -32,7 +35,10 @@
 #  define PCREG CPUState.gpr.pc.qword
 #endif
 
-extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+typedef unsigned long long ull;
+
+extern void *TranslateVMA(RuntimeManager *rt_m, uint8_t *arena_ptr, addr_t vma_addr);
+extern void *TranslateVMACheck(RuntimeManager *rt_m, uint8_t *arena_ptr, addr_t vma_addr);
 
 #define UNDEFINED_INTRINSICS(intrinsics) \
   printf("[ERROR] undefined intrinsics: %s\n", intrinsics); \
@@ -42,59 +48,122 @@ extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
 
 // __remill_(read | write)_memory_* functions are not used for the optimization.
 uint8_t __remill_read_memory_8(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(uint8_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_8 function must not be called!");
+#endif
 }
 
 uint16_t __remill_read_memory_16(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(uint16_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_16 function must not be called!");
+#endif
 }
 
 uint32_t __remill_read_memory_32(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(uint32_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_32 function must not be called!");
+#endif
 }
 
 uint64_t __remill_read_memory_64(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(uint64_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_64 function must not be called!");
+#endif
 }
 
 uint128_t __remill_read_memory_128(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(uint128_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_128 function must not be called!");
+#endif
 }
 
 float32_t __remill_read_memory_f32(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(float32_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_f32 function must not be called!");
+#endif
 }
 
 float64_t __remill_read_memory_f64(RuntimeManager *rt_m, addr_t addr) {
+#if defined(MEMORY_INSTRUMENT)
+  return *(float64_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+#else
   elfconv_runtime_error("__remill_read_memory_f64 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_8(RuntimeManager *rt_m, addr_t addr, uint8_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (uint8_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_8 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_16(RuntimeManager *rt_m, addr_t addr, uint16_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (uint16_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_16 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_32(RuntimeManager *rt_m, addr_t addr, uint32_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (uint32_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_32 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_64(RuntimeManager *rt_m, addr_t addr, uint64_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (uint64_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_64 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_128(RuntimeManager *rt_m, addr_t addr, uint128_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (uint128_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_128 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_f32(RuntimeManager *rt_m, addr_t addr, float32_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (float32_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_f32 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_f64(RuntimeManager *rt_m, addr_t addr, float64_t src) {
+#if defined(MEMORY_INSTRUMENT)
+  auto dst = (float64_t *) TranslateVMA(rt_m, rt_m->main_memory_arena->bytes, addr);
+  *dst = src;
+#else
   elfconv_runtime_error("__remill_write_memory_f64 function must not be called!");
+#endif
 }
 
 void __remill_write_memory_f128(RuntimeManager *, addr_t, float128_t) {}
@@ -137,7 +206,7 @@ void __remill_error(uint8_t *, State &, addr_t addr, RuntimeManager *) {
 }
 
 void __ecv_warning(uint8_t *, State &, addr_t addr, RuntimeManager *) {
-  printf("[WARN] No lifted instruction at (0x%llx) was executed.", addr);
+  elfconv_runtime_error("[WARN] No lifted instruction at (0x%llx) was executed.\n", addr);
 }
 
 /*
@@ -315,7 +384,7 @@ extern "C" void debug_memory_value_change(uint8_t *arena_ptr, RuntimeManager *rt
     return;
   static uint64_t old_value = 0;
   // step 2. get the current value on the address (uint64_t -> __remill_read_memory_64)
-  auto cur_value = *(uint64_t *) TranslateVMA(arena_ptr, target_vma);
+  auto cur_value = *(uint64_t *) TranslateVMA(rt_m, arena_ptr, target_vma);
   if (old_value != cur_value) {
     std::cout << std::hex << "target_vma: 0x" << target_vma << "\told value: 0x" << old_value
               << "\tcurrent value: 0x" << cur_value << " (at 0x" << pc << ")" << std::endl;
@@ -330,15 +399,29 @@ extern "C" void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m) {
   // step 2. set the data type of target values
   std::cout << "[Memory Debug]" << std::endl;
   for (auto &target_vma : target_vmas) {
-    auto target_pma = (double *) TranslateVMA(arena_ptr, target_vma);
+    auto target_pma = (double *) TranslateVMA(rt_m, arena_ptr, target_vma);
     std::cout << "*target_pma: " << *target_pma << std::endl;
   }
 }
 
-extern "C" void debug_string(const char *str) {
-  std::cout << str << std::endl;
+extern "C" void debug_string(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t fun_addr) {
+  rt_m->func_calling_cnt++;
+  const char *fun_str = rt_m->addr_fun_symbol_map[fun_addr];
+  rt_m->func_cnt_map[fun_addr] = rt_m->func_cnt_map[fun_addr] + 1;
+  printf("[%llu] %s (%d)\n", rt_m->func_calling_cnt, fun_str, rt_m->func_cnt_map[fun_addr]);
 }
 
+uint64_t INST_ADDR;
+extern "C" void print_addr(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t inst_addr,
+                           uint64_t func_addr) {
+  INST_ADDR = inst_addr;
+  // debug for invalid address access (TranslateVMA may set this flag).
+  if (INVALID_ADDR_ACCESS) {
+    INVALID_ADDR_ACCESS = false;
+    printf("inst_addr: 0x%llx, func_addr: 0x%llx\n", inst_addr, func_addr);
+  }
+  printf("inst_addr: 0x%llx, func_addr: 0x%llx\n", inst_addr, func_addr);
+}
 
 extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
 
@@ -460,13 +543,6 @@ extern "C" void debug_vma_and_registers(uint64_t pc, uint64_t args_num, ...) {
   std::cout << general_regs_str << " " << vector_regs_str.str() << std::endl;
 
   va_end(args);
-}
-
-// temp patch for correct stdout behavior
-extern "C" void temp_patch_f_flags(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t f_flags_vma) {
-  uint64_t *pma = (uint64_t *) TranslateVMA(arena_ptr, f_flags_vma);
-  *pma = 0xfbad2a84;
-  return;
 }
 
 inline bool __remill_flag_computation_sign(bool result, ...) {

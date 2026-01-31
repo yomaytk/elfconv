@@ -3,12 +3,14 @@
 #include "lifter/TraceManager.h"
 #include "remill/BC/TraceLifter.h"
 
+#include <cstddef>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <remill/Arch/Arch.h>
 #include <remill/BC/ABI.h>
+#include <remill/BC/HelperMacro.h>
 #include <unordered_map>
 #include <utils/Util.h>
 
@@ -121,11 +123,7 @@ void MainLifter::SetCommonMetaData(LiftConfig lift_config) {
     SetPlatform("x86_64");
   }
 
-// Debug.
-#if defined(LIFT_CALLSTACK_DEBUG)
-  //  Debug call stack
-  main_lifter.SetFuncSymbolNameTable(addr_fn_name_map);
-#endif
+  // Debug.
   DeclareDebugFunction();
   SetRegisterDebugNames();
 }
@@ -163,6 +161,10 @@ void MainLifter::SubseqForNoOptLifting(
   SetBlockAddressData(
       target_manager->g_block_address_ptrs_array, target_manager->g_block_address_vmas_array,
       target_manager->g_block_address_size_array, target_manager->g_block_address_fn_vma_array);
+
+#if defined(LIFT_CALLSTACK_DEBUG) || defined(LIFT_FUNC_SYMBOLS) || defined(CALLED_FUNC_NAME)
+  SetFuncSymbolNameTable(addr_noopt_fun_name_map);
+#endif
 }
 
 /* Set entry function pointer */
@@ -466,7 +468,6 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   auto u64_ty = llvm::Type::getInt64Ty(context);
   auto ptr_ty = llvm::Type::getInt64PtrTy(context);
   auto f64_ty = llvm::Type::getDoubleTy(context);
-  auto u8p_ty = llvm::Type::getInt8PtrTy(context);
   auto extern_link = llvm::Function::ExternalLinkage;
 
   /* void debug_state_machine() */
@@ -478,6 +479,9 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   /* void debug_llvmir_u64value(uint64_t val) */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty}, false), extern_link,
                          debug_llvmir_u64value_name, *module);
+  /* void print_addr(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t inst_addr, uint64_t func_addr) */
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, ptr_ty, u64_ty, u64_ty}, false),
+                         extern_link, "print_addr", *module);
   /* void debug_llvmir_f64vaule(double val) */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {f64_ty}, false), extern_link,
                          debug_llvmir_f64value_name, *module);
@@ -487,15 +491,12 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   /* void debug_call_stack_pop() */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, false), extern_link,
                          debug_call_stack_pop_name, *module);
-  // void debug_memory_value_change()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty, u64_ty}, false), extern_link,
-                         debug_memory_value_change_name, *module);
-  // void debug_memory_value()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {rt_m_ty}, false), extern_link,
-                         debug_memory_value_name, *module);
-  // temporary patch fun
+  // void debug_memory_value_change(uint8_t *arena_ptr, RuntimeManager *rt_m, uint64_t pc)
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, rt_m_ty, u64_ty}, false),
-                         extern_link, "temp_patch_f_flags", *module);
+                         extern_link, debug_memory_value_change_name, *module);
+  // void debug_memory_value(uint8_t *arena_ptr, RuntimeManager *rt_m)
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, rt_m_ty}, false), extern_link,
+                         debug_memory_value_name, *module);
   /* void debug_insn() */
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {}, false), extern_link, debug_insn_name,
                          *module);
@@ -503,8 +504,8 @@ llvm::Function *MainLifter::WrapImpl::DeclareDebugFunction() {
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {}, false), extern_link, debug_reach_name,
                          *module);
   // void debug_string()
-  llvm::Function::Create(llvm::FunctionType::get(void_ty, {u8p_ty}, false), extern_link,
-                         debug_string_name, *module);
+  llvm::Function::Create(llvm::FunctionType::get(void_ty, {ptr_ty, ptr_ty, u64_ty}, false),
+                         extern_link, debug_string_name, *module);
   // void debug_vma_and_registers()
   llvm::Function::Create(llvm::FunctionType::get(void_ty, {u64_ty, u64_ty}, true), extern_link,
                          debug_vma_and_registers_name, *module);
@@ -565,6 +566,12 @@ llvm::GlobalVariable *MainLifter::WrapImpl::SetFuncSymbolNameTable(
     fn_vma_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), fn_addr));
   }
 
-  SetGblArrayIr(llvm::Type::getInt8PtrTy(context), func_symbol_ptr_list, ecv_fun_symbol_table_name);
-  return SetGblArrayIr(llvm::Type::getInt64Ty(context), fn_vma_list, ecv_addr_list_second_name);
+  // Add guard
+  func_symbol_ptr_list.emplace_back(func_symbol_ptr_list[0]);
+  fn_vma_list.push_back(llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0xFFFFFFFF));
+
+  SetGblArrayIr(llvm::Type::getInt8PtrTy(context), func_symbol_ptr_list,
+                /* "_ecv_fn_symbol_table" */ ecv_fun_symbol_table_name);
+  return SetGblArrayIr(llvm::Type::getInt64Ty(context), fn_vma_list,
+                       /* "_ecv_fn_debug_vmas" */ ecv_fn_debug_vmas_name);
 }

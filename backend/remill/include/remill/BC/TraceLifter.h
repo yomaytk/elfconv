@@ -106,7 +106,6 @@ class TraceManager {
   std::vector<llvm::Constant *> g_block_address_size_array;
   std::vector<llvm::Constant *> g_block_address_fn_vma_array;
 
-  uint64_t _io_file_xsputn_vma = 0;
   uint64_t noopt_lift_fin_cnt = 0;
 };
 

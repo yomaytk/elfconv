@@ -18,12 +18,15 @@
 #include "remill/BC/ABI.h"
 #include "remill/BC/InstructionLifter.h"
 
+#include <charconv>
+#include <fstream>
 #include <glog/logging.h>
 #include <iostream>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/GlobalVariable.h>
+#include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instruction.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Type.h>
@@ -356,6 +359,28 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     } while (false);
 #endif
 
+#if defined(PRINT_FUNC_ADDR)
+    std::ofstream dbg_ofs;
+    std::map<uint64_t, std::string> dbg_instout_map;
+    if (lift_config.dbg_fun_vma == trace_addr) {
+      std::ostringstream fstr;
+      fstr << std::hex << trace_addr << "-lifted-inst.txt";
+      dbg_ofs.open(fstr.str(), std::ios::app);
+      if (!dbg_ofs) {
+        LOG(FATAL) << "[ERR] dbg_ofs cannot be initialized.";
+      }
+    }
+#endif
+
+#if defined(CALLED_FUNC_NAME)
+    auto entry_bb = &(func->front());
+    auto &entry_bb_inst = *entry_bb->begin();
+    auto debug_string_fun = module->getFunction("debug_string");
+    llvm::CallInst::Create(debug_string_fun,
+                           {arena_ptr, runtime_ptr,
+                            llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)},
+                           "", &entry_bb_inst);
+#endif
 
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
@@ -430,16 +455,6 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       // Lift instruction
       inst.GetLifter()->LiftIntoBlock(inst, block, state_ptr, bb_reg_info_node);
 
-      if (!tmp_patch_fn_check && manager._io_file_xsputn_vma == trace_addr) {
-        llvm::IRBuilder<> ir(block);
-        auto [x0_ptr, _] = inst.GetLifter()->LoadRegAddress(block, state_ptr, "X0");
-        std::vector<llvm::Value *> args = {arena_ptr, runtime_ptr,
-                                           ir.CreateLoad(llvm::Type::getInt64Ty(context), x0_ptr)};
-        auto tmp_patch_fn = module->getFunction("temp_patch_f_flags");
-        ir.CreateCall(tmp_patch_fn, args);
-        tmp_patch_fn_check = true;
-      }
-
       // Handle lifting a delayed instruction.
       auto try_delay = arch->MayHaveDelaySlot(inst);
       if (try_delay) {
@@ -471,6 +486,20 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
         //   AddTerminatingTailCall(block, intrinsics->error, *intrinsics, trace_addr, llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr));
         // }
       };
+
+#if defined(PRINT_FUNC_ADDR)
+      if (lift_config.dbg_fun_vma == trace_addr) {
+        // Add `print_addr`
+        llvm::IRBuilder<> dbg_ir(block);
+        auto print_addr_fun = module->getFunction("print_addr");
+        dbg_ir.CreateCall(print_addr_fun,
+                          {arena_ptr, runtime_ptr,
+                           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)});
+        // Append the lifted inst.
+        dbg_instout_map.insert_or_assign(inst_addr, inst.function);
+      }
+#endif
 
       // Connect together the basic blocks.
       switch (inst.category) {
@@ -835,10 +864,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
+    auto end_addr =
+        lift_config.has_symtab ? manager.GetFuncVMA_E(trace_addr) : *addrset_in_func.begin();
+    // auto end_addr = (uint64_t) std::min(manager.GetFuncVMA_E(trace_addr), *addrset_in_func.begin());
+
     // if the func includes intraprocedural indirect jump instruction, it is necessary to lift all instructions of the func.
     if (br_bb && !lift_all_insn /* always be vrp_opt_mode || !vrp_opt_mode*/) {
-      auto end_addr =
-          (uint64_t) std::min(manager.GetFuncVMA_E(trace_addr), *addrset_in_func.begin());
       for (uint64_t insn_vma = trace_addr; insn_vma < end_addr; insn_vma += 4) {
         if (lifted_block_map.count(insn_vma) == 0) {
           inst_work_list.insert(insn_vma);
@@ -868,10 +899,21 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
+#if defined(PRINT_FUNC_ADDR)
+    if (dbg_ofs) {
+      for (uint64_t adr = trace_addr; adr <= end_addr; adr += 4) {
+        dbg_ofs << "0x" << std::hex << adr;
+        if (dbg_instout_map.contains(adr)) {
+          dbg_ofs << " " << dbg_instout_map.at(adr);
+        }
+        dbg_ofs << '\n';
+      }
+    }
+#endif
+
     callback(trace_addr, func);
     manager.SetLiftedTraceDefinition(trace_addr, func);
     virtual_regs_opt->block_num = lifted_block_map.size();
-
   }
 
   return true;
