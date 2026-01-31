@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "remill/BC/ABI.h"
 #include "remill/BC/TraceLifter.h"
 #include "remill/BC/Util.h"
 
@@ -109,7 +110,7 @@ int main(int argc, char *argv[]) {
   // Set various lifting config.
   auto lift_config = LiftConfig(FLAGS_float_exception == "1",
                                 FLAGS_norm_mode == "1" || FLAGS_fork_emulation == "1", arch_name,
-                                FLAGS_fork_emulation == "1");
+                                FLAGS_fork_emulation == "1", !manager.elf_obj.is_stripped);
 #if defined(PRINT_FUNC_ADDR)
   if (FLAGS_dbg_fun_vma > 0) {
     lift_config.dbg_fun_vma = FLAGS_dbg_fun_vma;
@@ -165,20 +166,6 @@ int main(int argc, char *argv[]) {
       auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
       auto debug_state_machine_fun = module->getFunction("debug_state_machine");
       llvm::CallInst::Create(debug_state_machine_fun, {}, "", &entry_bb_start_inst);
-    }
-#endif
-// Insert `debug_string (func_name)` for the every function start.
-#if defined(CALLED_FUNC_NAME)
-    for (auto lifted_func : main_lifter.impl->lifted_funcs) {
-      auto &entry_bb_start_inst = *lifted_func->getEntryBlock().begin();
-      auto debug_string_fn = module->getFunction("debug_string");
-      // define func name byte arrays global variable.
-      auto fun_name_val =
-          llvm::ConstantDataArray::getString(context, lifted_func->getName().str(), true);
-      auto fun_name_gvar = new llvm::GlobalVariable(
-          *module, fun_name_val->getType(), true, llvm::GlobalVariable::ExternalLinkage,
-          fun_name_val, lifted_func->getName().str() + "debug_name");
-      llvm::CallInst::Create(debug_string_fn, {fun_name_gvar}, "", &entry_bb_start_inst);
     }
 #endif
   }

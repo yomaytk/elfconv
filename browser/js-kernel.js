@@ -15,7 +15,7 @@ var Module = (() => {
       throw toThrow
     };
     var _scriptName = import.meta.url;
-    var INITIAL_MEMORY_SIZE = 16777216;
+    var INITIAL_MEMORY_SIZE = 9192; // 128 MiB (1page: 64KiB => 2048 page: 128 MiB)
     var userBinList = Module["executables"];
     var jsKernelBootMs = 0;
     var CLK_TCK = 100;
@@ -159,10 +159,10 @@ var Module = (() => {
       dupWorkerNum: 3,
       S_STOP: 0,
       S_RUNNING: 1,
-      newProcessMemory(memSize) { // Wasm initial memory size (INITIAL_MEMORY_SIZE): 16MB
+      newProcessMemory(memSizeMiB) { // Wasm initial memory size (INITIAL_MEMORY_SIZE): 128 MiB
         return new WebAssembly.Memory({
-          initial: memSize / 65536,
-          maximum: 4096,
+          initial: memSizeMiB,
+          maximum: 18384,
           shared: true
         });
       },
@@ -3317,6 +3317,10 @@ var Module = (() => {
         this.createMyProc(initPid);
         // /proc/self
         let selfNode = FS.symlink(`/proc/${initPid}`, `/proc/self`);
+        // /proc/self/exe for python (FIXME)
+        FS.symlink(`/usr/bin/python`, `/proc/self/exe`);
+        // /proc/self/maps for python (FIXME)
+        FS.mknod(`/proc/self/maps`, S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 733);
         FS.mkdir(`/proc/self/fd`);
         FS.mount({
           mount() {
@@ -3499,6 +3503,54 @@ var Module = (() => {
       readProcCmdline(task) {
         return new TextEncoder().encode(task.comm).buffer;
       },
+      readProcMaps() {
+        // Minimal /proc/self/maps template for your 256MiB arena.
+        //
+        // Format:
+        //   start-end perms offset dev:inode pathname
+        //
+        // Notes:
+        // - addresses are 8-hex digits here (32-bit style) because your arena is 0x00000000..0x10000000
+        // - "dev" and "inode" are dummy but plausible.
+        // - path is only provided for the main executable mapping.
+        //
+        // Region plan:
+        //  0x00000000..0x00010000  NULL guard (unmapped -> omitted)
+        //  0x00010000..0x04000000  Low region (rw-p)
+        //  0x04000000..0x0A000000  brk heap (rw-p)
+        //  0x0A000000..0x0F000000  mmap region (rw-p)
+        //  0x0F000000..0x0F001000  stack guard (---p)
+        //  0x0F001000..0x10000000  stack (rw-p)
+
+        const lines = [];
+
+        // Main executable: /usr/bin/python (FIXME)
+        // Typical Linux shows multiple segments (r-xp / r--p / rw-p). Keep minimal but plausible.
+        // Put it in low region.
+        lines.push("00010000-00090000 r-xp 00000000 00:00 0 /usr/bin/python");
+        lines.push("00090000-000A0000 r--p 00080000 00:00 0 /usr/bin/python");
+        lines.push("000A0000-000B0000 rw-p 00090000 00:00 0 /usr/bin/python");
+
+        // Low region remainder (loader/TLS/static/etc.)
+        // We just describe it as anonymous private RW.
+        lines.push("000B0000-04000000 rw-p 00000000 00:00 0 [anon:low]");
+
+        // brk heap region (traditional heap)
+        lines.push("04000000-0A000000 rw-p 00000000 00:00 0 [heap]");
+
+        // mmap region (anonymous)
+        lines.push("0A000000-0F000000 rw-p 00000000 00:00 0 [anon:mmap]");
+
+        // stack guard (no access)
+        lines.push("0F000000-0F001000 ---p 00000000 00:00 0 [stack-guard]");
+
+        // stack
+        lines.push("0F001000-10000000 rw-p 00000000 00:00 0 [stack]");
+
+        const mapsText = lines.join("\n") + "\n";
+        console.log(mapsText);
+        return new TextEncoder().encode(mapsText).buffer;
+      },
       node_ops: {
         setattr() {
           throw new FS.ErrnoError(30);
@@ -3550,6 +3602,8 @@ var Module = (() => {
             content = PROCFS.readProcStat(task);
           } else if (stream.node.name === `cmdline`) {
             content = PROCFS.readProcCmdline(task);
+          } else if (stream.node.name == `maps`) {
+            content = PROCFS.readProcMaps();
           } else {
             throw new FS.ErrnoError(2);
           }
@@ -4036,7 +4090,14 @@ var Module = (() => {
             return newStream.fd
           }
           case 1:
+            return stream.fd_flags & FD_CLOEXEC;
           case 2:
+            var arg = syscallGetVarargI();
+            if (arg != FD_CLOEXEC) {
+              console.log(`arg (${arg}) is not FD_CLOEXEC at F_SETFD of fcntl.`);
+              abort();
+            }
+            stream.fd_flags = FD_CLOEXEC;
             return 0;
           case 3:
             return stream.flags;
@@ -4053,6 +4114,8 @@ var Module = (() => {
           }
           case 13:
           case 14:
+            console.log(`fcntl cmd "${cmd}" is not implemented.`);
+            abort();
             return 0
         }
         return -28
@@ -4240,6 +4303,14 @@ var Module = (() => {
           case 21515: {
             if (!stream.tty) return -59;
             return 0
+          }
+          case 21584: { // FIONCLEX
+            stream.fd_flags &= ~FD_CLOEXEC;
+            return 0;
+          }
+          case 21585: { // FIOCLEX
+            stream.fd_flags |= FD_CLOEXEC;
+            return 0;
           }
           default:
             return -28

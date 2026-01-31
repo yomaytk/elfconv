@@ -3417,6 +3417,43 @@ bool TryDecodeFRINTA_D_FLOATDP1(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// FRINTM  <Sd>, <Sn>
+bool TryDecodeFRINTM_S_FLOATDP1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  if (inst.lift_config.float_exception_enabled) {
+    AddArrangementSpecifierFPSRStatus(inst);
+  }
+  return true;
+}
+
+// FRINTM  <Dd>, <Dn>
+bool TryDecodeFRINTM_D_FLOATDP1(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  if (inst.lift_config.float_exception_enabled) {
+    AddArrangementSpecifierFPSRStatus(inst);
+  }
+  return true;
+}
+
+// FRINTM  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeFRINTM_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  uint64_t esize = 32 << data.sz;
+  const uint64_t datasize = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, datasize, esize);
+  auto r_class = ArrangementRegClass(datasize, esize);
+  AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
+  if (inst.lift_config.float_exception_enabled) {
+    AddArrangementSpecifierFPSRStatus(inst);
+  }
+  return true;
+}
+
 // TBL  <Vd>.<Ta>, { <Vn>.16B }, <Vm>.<Ta>
 bool TryDecodeTBL_ASIMDTBL_L1_1(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
@@ -5362,8 +5399,8 @@ bool TryDecodeCMGE_ASISDMISC_Z(const InstData &data, Instruction &inst) {
   if (data.size != 0b11) {
     return false;  // size must be 0b11
   }
-  AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
   return true;
 }
 
@@ -5819,6 +5856,27 @@ bool TryDecodeSCVTF_ASISDMISC_R(const InstData &data, Instruction &inst) {
     AddArrangementSpecifierFPSRStatus(inst);
   }
   return TryDecodeSCVTF_Sn_FLOAT2INT(data, inst, rclass, rclass);
+}
+
+// FCVTZU  <V><d>, <V><n> (scalar, converts FP to unsigned integer)
+bool TryDecodeFCVTZU_ASISDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  RegClass dst_class, src_class;
+  if (1 == data.sz) {
+    inst.function += "_64";
+    dst_class = kReg2D;   // Output: integer register
+    src_class = kReg2DF;  // Input: floating-point register
+  } else {
+    inst.function += "_32";
+    dst_class = kReg4S;   // Output: integer register
+    src_class = kReg4SF;  // Input: floating-point register
+  }
+  if (inst.lift_config.float_exception_enabled) {
+    AddArrangementSpecifierFPSRStatus(inst);
+  }
+  AddRegOperand(inst, kActionWrite, dst_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, src_class, kUseAsValue, data.Rn);
+  return true;
 }
 
 // SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
@@ -6420,7 +6478,6 @@ bool TryDecodeUSHR_ASISDSHF_R(const InstData &data, Instruction &inst) {
 // USHR  <Vd>.<T>, <Vn>.<T>, #<shift>
 bool TryDecodeUSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
-  return false;  // TODO remove this after adding semantics for vector version
   if (((data.immh.uimm & 8) != 0) && !data.Q) {
     return false;  // `if immh<3>:Q == '10' then ReservedValue();`
   }
@@ -6431,11 +6488,44 @@ bool TryDecodeUSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
   const uint64_t datasize = data.Q ? 128 : 64;
   AddArrangementSpecifier(inst, datasize, esize);
 
-  // AddArrangementSpecifier(inst, 128, 8UL << data.size);
-
+  auto r_class = ArrangementRegClass(datasize, esize);
   uint64_t shift = (esize * 2) - ((data.immh.uimm << 3) + data.immb.uimm);
+  AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift);
+  return true;
+}
+
+// SSHR  <V><d>, <V><n>, #<shift>
+bool TryDecodeSSHR_ASISDSHF_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if ((data.immh.uimm & 8) == 0) {
+    return false;  // if immh<3> != '1' then ReservedValue();
+  }
+  uint64_t shift = 128 - ((data.immh.uimm << 3) + data.immb.uimm);
   AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift);
+  return true;
+}
+
+// SSHR  <Vd>.<T>, <Vn>.<T>, #<shift>
+bool TryDecodeSSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (((data.immh.uimm & 8) != 0) && !data.Q) {
+    return false;  // `if immh<3>:Q == '10' then ReservedValue();`
+  }
+  uint64_t esize = 0;
+  MostSignificantSetBit(data.immh.uimm, &esize);
+  esize = 8 << esize;
+
+  const uint64_t datasize = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, datasize, esize);
+
+  auto r_class = ArrangementRegClass(datasize, esize);
+  uint64_t shift = (esize * 2) - ((data.immh.uimm << 3) + data.immb.uimm);
+  AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
   AddImmOperand(inst, shift);
   return true;
 }
@@ -6480,6 +6570,29 @@ bool TryDecodeSHL_ASIMDSHF_R(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
   AddImmOperand(inst, shift_val);
+  return true;
+}
+
+// USHL  <V><d>, <V><n>, <V><m>
+bool TryDecodeUSHL_ASISDSAME_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kReg2D, kUseAsValue, data.Rm);
+  return true;
+}
+
+// USHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeUSHL_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t total_size, elem_size;
+  total_size = data.Q ? 128 : 64;
+  elem_size = 8 << data.size;
+  auto r_class = ArrangementRegClass(total_size, elem_size);
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rm);
   return true;
 }
 
@@ -6578,7 +6691,7 @@ bool TryDecodeXTN_ASIMDMISC_N(const InstData &data, Instruction &inst) {
   AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
   auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
   auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
-  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionReadWrite, d_rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
   return true;
 }
@@ -6709,6 +6822,206 @@ bool TryDecodeCASL_C64_LDSTEXCL(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionReadWrite, kRegX, kUseAsValue, data.Rs);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rt);
   AddBasePlusOffsetMemOp(inst, 8U << data.size, data.Rn, 0);
+  return true;
+}
+
+// CASB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASB_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 1, data.Rn, 0);  // 1 byte
+  return true;
+}
+
+// CASAB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASAB_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 1, data.Rn, 0);  // 1 byte
+  return true;
+}
+
+// CASLB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASLB_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 1, data.Rn, 0);  // 1 byte
+  return true;
+}
+
+// CASALB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASALB_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 1, data.Rn, 0);  // 1 byte
+  return true;
+}
+
+// CASH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASH_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 2, data.Rn, 0);  // 2 bytes (halfword)
+  return true;
+}
+
+// CASAH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASAH_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 2, data.Rn, 0);  // 2 bytes (halfword)
+  return true;
+}
+
+// CASLH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASLH_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 2, data.Rn, 0);  // 2 bytes (halfword)
+  return true;
+}
+
+// CASALH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
+bool TryDecodeCASALH_C32_LDSTEXCL(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  AddRegOperand(inst, kActionReadWrite, kRegW, kUseAsValue, data.Rs);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 2, data.Rn, 0);  // 2 bytes (halfword)
+  return true;
+}
+
+// LD1  { <Vt>.B }[<index>], [<Xn|SP>], #1
+bool TryDecodeLD1_ASISDLSOP_B1_I1B(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S:size[1:0] (4 bits, 0-15)
+  uint64_t index = (data.Q << 3) | (data.S << 2) | data.size;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 8, data.Rn, 1);  // 1 byte access, post-increment by 1
+  return true;
+}
+
+// LD1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeLD1_ASISDLSOP_BX1_R1B(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  uint64_t index = (data.Q << 3) | (data.S << 2) | data.size;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 8, data.Rn, data.Rm);  // 1 byte access, post-increment by Xm
+  return true;
+}
+
+// LD1  { <Vt>.H }[<index>], [<Xn|SP>], #2
+bool TryDecodeLD1_ASISDLSOP_H1_I1H(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S:size[1] (3 bits, 0-7)
+  uint64_t index = (data.Q << 2) | (data.S << 1) | ((data.size >> 1) & 1);
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 16, data.Rn, 2);  // 2 byte access, post-increment by 2
+  return true;
+}
+
+// LD1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeLD1_ASISDLSOP_HX1_R1H(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  uint64_t index = (data.Q << 2) | (data.S << 1) | ((data.size >> 1) & 1);
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 16, data.Rn, data.Rm);  // 2 byte access, post-increment by Xm
+  return true;
+}
+
+// LD1  { <Vt>.S }[<index>], [<Xn|SP>], #4
+bool TryDecodeLD1_ASISDLSOP_S1_I1S(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S (2 bits, 0-3)
+  uint64_t index = (data.Q << 1) | data.S;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 32, data.Rn, 4);  // 4 byte access, post-increment by 4
+  return true;
+}
+
+// LD1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeLD1_ASISDLSOP_SX1_R1S(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  uint64_t index = (data.Q << 1) | data.S;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 32, data.Rn, data.Rm);  // 4 byte access, post-increment by Xm
+  return true;
+}
+
+// LD1  { <Vt>.D }[<index>], [<Xn|SP>], #8
+bool TryDecodeLD1_ASISDLSOP_D1_I1D(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q (1 bit, 0-1)
+  uint64_t index = data.Q;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 64, data.Rn, 8);  // 8 byte access, post-increment by 8
+  return true;
+}
+
+// LD1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
+bool TryDecodeLD1_ASISDLSOP_DX1_R1D(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  uint64_t index = data.Q;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  AddPostIndexMemOp(inst, 64, data.Rn, data.Rm);  // 8 byte access, post-increment by Xm
+  return true;
+}
+
+// LD1  { <Vt>.B }[<index>], [<Xn|SP>]
+bool TryDecodeLD1_ASISDLSO_B1_1B(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S:size[1:0] (4 bits, 0-15)
+  uint64_t index = (data.Q << 3) | (data.S << 2) | data.size;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 1, data.Rn, 0);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  return true;
+}
+
+// LD1  { <Vt>.H }[<index>], [<Xn|SP>]
+bool TryDecodeLD1_ASISDLSO_H1_1H(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S:size[1] (3 bits, 0-7)
+  uint64_t index = (data.Q << 2) | (data.S << 1) | ((data.size >> 1) & 1);
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 2, data.Rn, 0);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  return true;
+}
+
+// LD1  { <Vt>.S }[<index>], [<Xn|SP>]
+bool TryDecodeLD1_ASISDLSO_S1_1S(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q:S (2 bits, 0-3)
+  uint64_t index = (data.Q << 1) | data.S;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 4, data.Rn, 0);
+  AddImmOperand(inst, index, kUnsigned, 32);
+  return true;
+}
+
+// LD1  { <Vt>.D }[<index>], [<Xn|SP>]
+bool TryDecodeLD1_ASISDLSO_D1_1D(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Runtime;
+  // index = Q (1 bit, 0-1)
+  uint64_t index = data.Q;
+  AddRegOperand(inst, kActionReadWrite, kRegV, kUseAsValue, data.Rt);
+  AddBasePlusOffsetMemOp(inst, 8, data.Rn, 0);
+  AddImmOperand(inst, index, kUnsigned, 32);
   return true;
 }
 

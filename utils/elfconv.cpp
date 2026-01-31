@@ -1,5 +1,6 @@
 #include "elfconv.h"
 
+#include <cstdlib>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
 
@@ -11,11 +12,11 @@
 #  include <remill/Arch/AArch64/Runtime/State.h>
 #endif
 
-typedef unsigned long long ull;
-
 #define PRINT_GPR(index) printf("X" #index ": 0x%llx ", (ull) CPUState->gpr.x##index.qword)
 
 extern State *CPUState;
+
+typedef unsigned long long ull;
 
 #if defined(__EMSCRIPTEN__)
 extern "C" uint32_t me_forked;
@@ -131,10 +132,6 @@ extern "C" void debug_llvmir_u64value(uint64_t val) {
 
 extern "C" void debug_llvmir_f64value(double val) {
   printf("LLVM IR value: %f\n", val);
-}
-
-extern "C" void print_addr(uint64_t addr) {
-  printf("addr: 0x%llx\n", (ull) addr);
 }
 
 extern "C" void debug_insn() {

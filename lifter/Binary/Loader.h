@@ -33,15 +33,17 @@ class ELFSymbol {
   };
 
   ELFSymbol(SymbolType __sym_type, std::string __sym_name, uintptr_t __addr,
-            bfd_section *__in_section)
+            bfd_section *__in_section, uint64_t __size = 0)
       : sym_type(__sym_type),
         sym_name(__sym_name),
         addr(__addr),
-        in_section(__in_section) {}
+        in_section(__in_section),
+        size(__size) {}
   ELFSymbol::SymbolType sym_type;
   std::string sym_name;
   uintptr_t addr;
   bfd_section *in_section;
+  uint64_t size;  // Function size from symbol table
 };
 
 class ELFSection {

@@ -31,7 +31,7 @@ class MainLifter : public TraceLifter {
           ecv_block_address_fn_vma_array_name("_ecv_block_address_fn_vma_array"),
           ecv_block_address_array_size_name("_ecv_block_address_array_size"),
           ecv_fun_symbol_table_name("_ecv_fn_symbol_table"),
-          ecv_addr_list_second_name("_ecv_fn_vmas_second"),
+          ecv_fn_debug_vmas_name("_ecv_fn_debug_vmas"),
           debug_state_machine_name("debug_state_machine"),
           debug_state_machine_vectors_name("debug_state_machine_vectors"),
           debug_llvmir_u64value_name("debug_llvmir_u64value"),
@@ -60,7 +60,7 @@ class MainLifter : public TraceLifter {
     std::string ecv_block_address_fn_vma_array_name;
     std::string ecv_block_address_array_size_name;
     std::string ecv_fun_symbol_table_name;
-    std::string ecv_addr_list_second_name;
+    std::string ecv_fn_debug_vmas_name;
 
     std::string debug_state_machine_name;
     std::string debug_state_machine_vectors_name;

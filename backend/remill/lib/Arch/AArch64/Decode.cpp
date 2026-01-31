@@ -2200,9 +2200,7 @@ bool TryDecodeFRINTM_H_FLOATDP1(const InstData &, Instruction &) {
 //  30 0
 //  31 0 M        0
 // FRINTM  <Sd>, <Sn>
-bool TryDecodeFRINTM_S_FLOATDP1(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // FRINTM FRINTM_D_floatdp1:
 //   0 x Rd       0
@@ -2238,9 +2236,7 @@ bool TryDecodeFRINTM_S_FLOATDP1(const InstData &, Instruction &) {
 //  30 0
 //  31 0 M        0
 // FRINTM  <Dd>, <Dn>
-bool TryDecodeFRINTM_D_FLOATDP1(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LDUMINAB LDUMINAB_32_memop:
 //   0 x Rt       0
@@ -7325,9 +7321,7 @@ bool TryDecodeSQDMULL_ASIMDELEM_L(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.B }[<index>], [<Xn|SP>]
-bool TryDecodeLD1_ASISDLSO_B1_1B(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlso_H1_1h:
 //   0 x Rt       0
@@ -7363,9 +7357,7 @@ bool TryDecodeLD1_ASISDLSO_B1_1B(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.H }[<index>], [<Xn|SP>]
-bool TryDecodeLD1_ASISDLSO_H1_1H(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlso_S1_1s:
 //   0 x Rt       0
@@ -7401,9 +7393,7 @@ bool TryDecodeLD1_ASISDLSO_H1_1H(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.S }[<index>], [<Xn|SP>]
-bool TryDecodeLD1_ASISDLSO_S1_1S(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlso_D1_1d:
 //   0 x Rt       0
@@ -7439,9 +7429,7 @@ bool TryDecodeLD1_ASISDLSO_S1_1S(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.D }[<index>], [<Xn|SP>]
-bool TryDecodeLD1_ASISDLSO_D1_1D(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_B1_i1b:
 //   0 x Rt       0
@@ -7477,9 +7465,7 @@ bool TryDecodeLD1_ASISDLSO_D1_1D(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.B }[<index>], [<Xn|SP>], #1
-bool TryDecodeLD1_ASISDLSOP_B1_I1B(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_BX1_r1b:
 //   0 x Rt       0
@@ -7515,9 +7501,7 @@ bool TryDecodeLD1_ASISDLSOP_B1_I1B(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.B }[<index>], [<Xn|SP>], <Xm>
-bool TryDecodeLD1_ASISDLSOP_BX1_R1B(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_H1_i1h:
 //   0 x Rt       0
@@ -7553,9 +7537,7 @@ bool TryDecodeLD1_ASISDLSOP_BX1_R1B(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.H }[<index>], [<Xn|SP>], #2
-bool TryDecodeLD1_ASISDLSOP_H1_I1H(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_HX1_r1h:
 //   0 x Rt       0
@@ -7591,9 +7573,7 @@ bool TryDecodeLD1_ASISDLSOP_H1_I1H(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.H }[<index>], [<Xn|SP>], <Xm>
-bool TryDecodeLD1_ASISDLSOP_HX1_R1H(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_S1_i1s:
 //   0 x Rt       0
@@ -7629,9 +7609,7 @@ bool TryDecodeLD1_ASISDLSOP_HX1_R1H(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.S }[<index>], [<Xn|SP>], #4
-bool TryDecodeLD1_ASISDLSOP_S1_I1S(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_SX1_r1s:
 //   0 x Rt       0
@@ -7667,9 +7645,7 @@ bool TryDecodeLD1_ASISDLSOP_S1_I1S(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.S }[<index>], [<Xn|SP>], <Xm>
-bool TryDecodeLD1_ASISDLSOP_SX1_R1S(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_D1_i1d:
 //   0 x Rt       0
@@ -7705,9 +7681,7 @@ bool TryDecodeLD1_ASISDLSOP_SX1_R1S(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.D }[<index>], [<Xn|SP>], #8
-bool TryDecodeLD1_ASISDLSOP_D1_I1D(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // LD1 LD1_asisdlsop_DX1_r1d:
 //   0 x Rt       0
@@ -7743,9 +7717,7 @@ bool TryDecodeLD1_ASISDLSOP_D1_I1D(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // LD1  { <Vt>.D }[<index>], [<Xn|SP>], <Xm>
-bool TryDecodeLD1_ASISDLSOP_DX1_R1D(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CCMN CCMN_32_condcmp_reg:
 //   0 x nzcv     0
@@ -9833,9 +9805,7 @@ bool TryDecodeFCVTZU_ASISDMISCFP16_R(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // FCVTZU  <V><d>, <V><n>
-bool TryDecodeFCVTZU_ASISDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // FCVTZU FCVTZU_asimdmiscfp16_R:
 //   0 x Rd       0
@@ -18881,9 +18851,7 @@ bool TryDecodeUHADD_ASIMDSAME_ONLY(const InstData &, Instruction &) {
 //  30 1 size     0
 //  31 0 size     1
 // CASAH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASAH_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASALH CASALH_C32_ldstexcl:
 //   0 x Rt       0
@@ -18919,9 +18887,7 @@ bool TryDecodeCASAH_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 1 size     0
 //  31 0 size     1
 // CASALH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASALH_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASH CASH_C32_ldstexcl:
 //   0 x Rt       0
@@ -18957,9 +18923,7 @@ bool TryDecodeCASALH_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 1 size     0
 //  31 0 size     1
 // CASH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASH_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASLH CASLH_C32_ldstexcl:
 //   0 x Rt       0
@@ -18995,9 +18959,7 @@ bool TryDecodeCASH_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 1 size     0
 //  31 0 size     1
 // CASLH  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASLH_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // ADCS ADCS_32_addsub_carry:
 //   0 x Rd       0
@@ -21579,9 +21541,7 @@ bool TryDecodeFRINTM_ASIMDMISCFP16_R(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // FRINTM  <Vd>.<T>, <Vn>.<T>
-bool TryDecodeFRINTM_ASIMDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // SQSHLU SQSHLU_asisdshf_R:
 //   0 x Rd       0
@@ -25032,9 +24992,7 @@ bool TryDecodePRFM_P_LOADLIT(const InstData &, Instruction &) {
 //  30 0 size     0
 //  31 0 size     1
 // CASAB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASAB_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASALB CASALB_C32_ldstexcl:
 //   0 x Rt       0
@@ -25070,9 +25028,7 @@ bool TryDecodeCASAB_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 0 size     0
 //  31 0 size     1
 // CASALB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASALB_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASB CASB_C32_ldstexcl:
 //   0 x Rt       0
@@ -25108,9 +25064,7 @@ bool TryDecodeCASALB_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 0 size     0
 //  31 0 size     1
 // CASB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASB_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CASLB CASLB_C32_ldstexcl:
 //   0 x Rt       0
@@ -25146,9 +25100,7 @@ bool TryDecodeCASB_C32_LDSTEXCL(const InstData &, Instruction &) {
 //  30 0 size     0
 //  31 0 size     1
 // CASLB  <Ws>, <Wt>, [<Xn|SP>{,#0}]
-bool TryDecodeCASLB_C32_LDSTEXCL(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // SUBS NEGS_SUBS_32_addsub_shift:
 //   0 x Rd       0
@@ -34761,9 +34713,7 @@ bool TryDecodeUQSHRN_ASIMDSHF_N(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // USHL  <V><d>, <V><n>, <V><m>
-bool TryDecodeUSHL_ASISDSAME_ONLY(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // USHL USHL_asimdsame_only:
 //   0 x Rd       0
@@ -34799,9 +34749,7 @@ bool TryDecodeUSHL_ASISDSAME_ONLY(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // USHL  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeUSHL_ASIMDSAME_ONLY(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // FADDP FADDP_asisdpair_only_H:
 //   0 x Rd       0
@@ -34913,9 +34861,7 @@ bool TryDecodeFADDP_ASISDPAIR_ONLY_SD(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SSHR  <V><d>, <V><n>, #<shift>
-bool TryDecodeSSHR_ASISDSHF_R(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // SSHR SSHR_asimdshf_R:
 //   0 x Rd       0
@@ -34951,9 +34897,7 @@ bool TryDecodeSSHR_ASISDSHF_R(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // SSHR  <Vd>.<T>, <Vn>.<T>, #<shift>
-bool TryDecodeSSHR_ASIMDSHF_R(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // SHSUB SHSUB_asimdsame_only:
 //   0 x Rd       0

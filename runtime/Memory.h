@@ -2,16 +2,12 @@
 
 #include <cassert>
 #include <cstring>
-#include <map>
-#include <mutex>
 #include <pthread.h>
-#include <queue>
-#include <set>
 #include <stack>
+#include <stddef.h>
+#include <stdint.h>
 #include <string>
 #include <unistd.h>
-#include <unordered_map>
-#include <vector>
 
 #if defined(ELF_IS_AARCH64)
 #  include <remill/Arch/AArch64/Runtime/State.h>
@@ -21,13 +17,49 @@
 #  include <remill/Arch/X86/Runtime/State.h>
 #endif
 
-const size_t MEMORY_ARENA_SIZE = 128 * 1024 * 1024; /* 128 MiB */
-const addr_t MEMORY_ARENA_VMA = 0;
-const size_t STACK_SIZE = 8 * 1024 * 1024; /* 8 MiB */
-const addr_t STACK_LOWEST_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE - STACK_SIZE;
-const size_t HEAP_UNIT_SIZE = 64 * 1024 * 1024; /* 64 MiB */
-const addr_t HEAPS_START_VMA = 64 * 1024 * 1024;
-const addr_t THREAD_PTR = 52 * 1024 * 1024;
+/*
+ * Runtime virtual memory layout (256 MiB arena)
+ *
+ * 0x00000000                                                 0x10000000
+ * |------------------------------ 256 MiB ------------------------------|
+ *
+ * 0x00000000..0x00010000  NULL guard (unmapped/reserved, 64 KiB)
+ * 0x00010000..0x04000000  Low region: static/loader/TLS/etc.
+ * 0x04000000..0x0A000000  brk heap region (96 MiB)
+ * 0x0A000000..0x0F000000  mmap region (80 MiB)
+ * 0x0F000000..0x0F001000  stack guard (4 KiB)
+ * 0x0F001000..0x10000000  stack (usable: 16 MiB - 4 KiB)
+ */
+
+const size_t MEMORY_ARENA_VMA = 0x00000000ULL;
+const size_t MEMORY_ARENA_SIZE = 256ULL * 1024 * 1024; /* 256 MiB */
+const size_t NULL_GUARD_SIZE = 0x00010000ULL; /* 64 KiB */
+const addr_t MEMORY_ARENA_USABLE_VMA = MEMORY_ARENA_VMA + NULL_GUARD_SIZE;
+const size_t MEMORY_ARENA_USABLE_SIZE = MEMORY_ARENA_SIZE - NULL_GUARD_SIZE;
+
+const addr_t LOW_REGION_VMA = MEMORY_ARENA_VMA + NULL_GUARD_SIZE; /* 0x00010000 */
+const size_t LOW_REGION_SIZE = 0x04000000ULL - LOW_REGION_VMA; /* up to BRK_START */
+
+/* brk (traditional heap) */
+const addr_t BRK_START_VMA = 0x04000000ULL; /* 64 MiB */
+const size_t BRK_REGION_SIZE = 96ULL * 1024 * 1024; /* 96 MiB: 0x04000000..0x0A000000 */
+const addr_t BRK_END_VMA = BRK_START_VMA + BRK_REGION_SIZE;
+
+/* mmap (anonymous mappings, arenas, large allocs, etc.) */
+const addr_t MMAP_START_VMA = BRK_END_VMA; /* 0x0A000000ULL */
+const size_t MMAP_REGION_SIZE = 80ULL * 1024 * 1024; /* 80 MiB: 0x0A000000..0x0F000000 */
+const addr_t MMAP_END_VMA = MMAP_START_VMA + MMAP_REGION_SIZE;
+
+/* stack guard */
+const size_t STACK_GUARD_SIZE = 4ULL * 1024; /* 4 KiB: 0x0F000000..0x0F001000 */
+
+/* stack */
+const size_t STACK_REGION_SIZE = 16ULL * 1024 * 1024; /* 16 MiB */
+const addr_t STACK_REGION_USABLE_VMA = MMAP_END_VMA + STACK_GUARD_SIZE; /* 0x0F001000 */
+const addr_t STACK_TOP_VMA = MEMORY_ARENA_VMA + MEMORY_ARENA_SIZE; /* 0x10000000 */
+
+/* Thread pointer / TLS base */
+const addr_t THREAD_PTR = 0x00100000ULL; /* 1 MiB (inside low region) */
 
 typedef uint32_t _ecv_reg_t;
 typedef uint64_t _ecv_reg64_t;
@@ -53,7 +85,7 @@ extern "C" uint64_t _ecv_fun_vmas[];
 extern "C" LiftedFunc _ecv_fun_ptrs[];
 //  Lifted function symbol table (for debug)
 extern "C" const uint8_t *_ecv_fn_symbol_table[];
-extern "C" uint64_t _ecv_fn_vmas_second[];
+extern "C" uint64_t _ecv_fn_debug_vmas[];
 //  Basic block address arrays of the lifted function for indirect jump
 extern "C" uint64_t **_ecv_block_address_ptrs_array[];
 extern "C" const uint64_t *_ecv_block_address_vmas_array[];
@@ -74,13 +106,14 @@ class MemoryArena {
 
  public:
   MemoryArena(MemoryAreaType __memory_area_type, std::string __name, addr_t __vma, uint64_t __len,
-              uint8_t *__bytes, addr_t __heap_cur)
+              uint8_t *__bytes, addr_t __brk_cur, addr_t __mmap_cur)
       : memory_area_type(__memory_area_type),
         name(__name),
         vma(__vma),
         len(__len),
         bytes(__bytes),
-        heap_cur(__heap_cur) {}
+        brk_cur(__brk_cur),
+        mmap_cur(__mmap_cur) {}
   MemoryArena() {}
   ~MemoryArena() {
     free(bytes);
@@ -94,7 +127,8 @@ class MemoryArena {
   addr_t vma;
   uint64_t len;
   uint8_t *bytes;
-  uint64_t heap_cur; /* for Heap */
+  uint64_t brk_cur;
+  uint64_t mmap_cur;
 };
 
 class EcvProcess {

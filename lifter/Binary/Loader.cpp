@@ -9,6 +9,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <gelf.h>
 #include <iostream>
 #include <stdlib.h>
 #include <string>
@@ -24,6 +25,75 @@
 #define ECV_DWARF_CFA_VAL 20002
 
 using namespace BinaryLoader;
+
+// Read symbol sizes from ELF symbol table using libelf
+std::unordered_map<std::string, uint64_t> ReadSymbolSizes(const char *file_name) {
+  std::unordered_map<std::string, uint64_t> sym_sizes;
+
+  /* confirme ELF library version */
+  if (elf_version(EV_CURRENT) == EV_NONE) {
+    return sym_sizes;
+  }
+
+  /* get file descriptor of target ELF file */
+  int fd = open(file_name, O_RDONLY);
+  if (fd < 0) {
+    return sym_sizes;
+  }
+
+  /* get Elf* object */
+  auto _elf = elf_begin(fd, ELF_C_READ, NULL);
+  if (!_elf) {
+    close(fd);
+    return sym_sizes;
+  }
+
+  /* confirm that the target file is ELF */
+  if (elf_kind(_elf) != ELF_K_ELF) {
+    elf_end(_elf);
+    close(fd);
+    return sym_sizes;
+  }
+
+  Elf_Scn *scn = NULL;
+  while ((scn = elf_nextscn(_elf, scn)) != NULL) {
+    GElf_Shdr shdr;
+    if (!gelf_getshdr(scn, &shdr)) {
+      continue;
+    }
+
+    // Check if this is a symbol table section (.symtab or .dynsym)
+    if (shdr.sh_type != SHT_SYMTAB && shdr.sh_type != SHT_DYNSYM) {
+      continue;
+    }
+
+    Elf_Data *data = elf_getdata(scn, NULL);
+    if (!data) {
+      continue;
+    }
+
+    size_t num_syms = shdr.sh_size / shdr.sh_entsize;
+    for (size_t i = 0; i < num_syms; i++) {
+      GElf_Sym sym;
+      if (!gelf_getsym(data, i, &sym)) {
+        continue;
+      }
+
+      // Only store function symbols
+      if (GELF_ST_TYPE(sym.st_info) == STT_FUNC || GELF_ST_TYPE(sym.st_info) == STT_NOTYPE) {
+        const char *name = elf_strptr(_elf, shdr.sh_link, sym.st_name);
+        if (name && sym.st_size > 0) {
+          sym_sizes[std::string(name)] = sym.st_size;
+        }
+      }
+    }
+  }
+
+  elf_end(_elf);
+  close(fd);
+
+  return sym_sizes;
+}
 
 int ReadEhdr(const char *file_name, uint64_t *e_phent, uint64_t *e_phnum, uint8_t *e_ph[]) {
 
@@ -197,6 +267,9 @@ asection *ELFObject::GetIncludedSection(uint64_t vma) {
 
 void ELFObject::LoadStaticSymbolsBFD() {
 
+  // Read symbol sizes from ELF symbol table
+  auto sym_sizes = ReadSymbolSizes(file_name.c_str());
+
   asymbol **bfd_symtab = nullptr;
   // get symbol table space
   bfd_symtab = reinterpret_cast<asymbol **>(malloc(symbol_table_size));
@@ -214,13 +287,21 @@ void ELFObject::LoadStaticSymbolsBFD() {
     } else {
       continue;
     }
-    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, std::string(bfd_symtab[i]->name),
-                              bfd_asymbol_value(bfd_symtab[i]),
-                              GetIncludedSection(bfd_asymbol_value(bfd_symtab[i])));
+    // Get symbol size if available
+    uint64_t sym_size = 0;
+    std::string sym_name = std::string(bfd_symtab[i]->name);
+    if (sym_sizes.count(sym_name) > 0) {
+      sym_size = sym_sizes[sym_name];
+    }
+    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, sym_name, bfd_asymbol_value(bfd_symtab[i]),
+                              GetIncludedSection(bfd_asymbol_value(bfd_symtab[i])), sym_size);
   }
 }
 
 void ELFObject::LoadDynamicSymbolsBFD() {
+
+  // Read symbol sizes from ELF symbol table
+  auto sym_sizes = ReadSymbolSizes(file_name.c_str());
 
   asymbol **bfd_symtab = nullptr;
   // get symbol table space
@@ -246,8 +327,14 @@ void ELFObject::LoadDynamicSymbolsBFD() {
       } else {
         continue;
       }
-      func_symbols.emplace_back(sym_type, std::string(bfd_symtab[i]->name),
-                                bfd_asymbol_value(bfd_symtab[i]), nullptr);
+      // Get symbol size if available
+      uint64_t sym_size = 0;
+      std::string sym_name = std::string(bfd_symtab[i]->name);
+      if (sym_sizes.count(sym_name) > 0) {
+        sym_size = sym_sizes[sym_name];
+      }
+      func_symbols.emplace_back(sym_type, sym_name, bfd_asymbol_value(bfd_symtab[i]), nullptr,
+                                sym_size);
     }
   } else {
     printf("[INFO] static symbol table is not found.\n");
@@ -304,6 +391,11 @@ void ELFObject::LoadSectionsBFD() {
     }
     if (!bfd_get_section_contents(bfd_h, bfd_sec, sec_bytes, 0, size)) {
       elfconv_runtime_error("failed to read and copy section bytes.\n");
+    }
+
+    // The section starting from 0x0 is unused.
+    if (vma == 0x0) {
+      continue;
     }
 
     sections.emplace_back(this, sec_type, sec_name, vma, size, sec_bytes);

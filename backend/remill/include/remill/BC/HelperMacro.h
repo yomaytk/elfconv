@@ -1,8 +1,9 @@
 #pragma once
 
-// #define LIFT_CALLSTACK_DEBUG 1
+// #define LIFT_FUNC_SYMBOLS 1
 // #define LIFT_MEMORY_VALUE_CHANGE 1
 // #define ELFCONV_SYSCALL_DEBUG 1
+// #define MEMORY_INSTRUMENT 1
 
 // #define CALLED_FUNC_NAME 1
 // #define PRINT_FUNC_ADDR 1

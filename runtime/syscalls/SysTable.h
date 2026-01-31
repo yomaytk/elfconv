@@ -89,6 +89,9 @@
 #define _LINUX_TIOCGWINSZ 0x5413
 #define _LINUX_TIOCGPGRP 0x540f
 #define _LINUX_TIOSGPGRP 0x5410
+#define _LINUX_TCGETS2 0x802C542A
+#define _LINUX_FIONCLEX 0x5450
+#define _LINUX_FIOCLEX 0x5451
 
 #define _LINUX_NCCS 19
 
@@ -98,6 +101,8 @@
 #define _EMCC_TIOCGWINSZ 21523
 #define _EMCC_TIOCGPGRP 21519
 #define _EMCC_TIOCSPGRP 21520
+#define _EMCC_FIONCLEX 21584  // same as to _LINUX_FIONCLEX
+#define _EMCC_FIOCLEX 21585  // same as to _LINUX_FIOCLEX
 
 
 #define _LINUX_AT_EACCESS 0x200
@@ -509,4 +514,4 @@
     X0_Q = -1; \
     errno = -_LINUX_ENOSYS; \
   } while (0)
-  // std::cout << "Unimplemented syscall: " << SYSNUMREG << std::endl; \
+// std::cout << "Unimplemented syscall: " << SYSNUMREG << std::endl; \

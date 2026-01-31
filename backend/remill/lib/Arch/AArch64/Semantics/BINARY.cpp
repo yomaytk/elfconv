@@ -208,7 +208,7 @@ DEF_SEM_T(SDIV, RT src1, RT src2) {
 // MADD  <Wd>, <Wn>, <Wm>, <Wa>
 template <typename RT>
 DEF_SEM_T(MADD, RT src1, RT src2, RT src3) {
-  return 200; // Intentionally broken for testing
+  return UAdd(Read(src3), UMul(Read(src1), Read(src2)));
 }
 
 // MSUB  <Wd>, <Wn>, <Wm>, <Wa>
@@ -241,7 +241,7 @@ DEF_ISEL(MSUB_64A_DP_3SRC) = MSUB<R64>;  // MSUB  <Xd>, <Xn>, <Xm>, <Xa>
 
 namespace {
 
-#define READ_ECV_C (Read(ecv_nzcv) & 0x2000'0000) >> 29
+#define READ_ECV_C ((Read(ecv_nzcv) & 0x2000'0000) >> 29)
 
 // SBC  <Wd>, <Wn>, <Wm>
 template <typename S>

@@ -372,6 +372,16 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
     }
 #endif
 
+#if defined(CALLED_FUNC_NAME)
+    auto entry_bb = &(func->front());
+    auto &entry_bb_inst = *entry_bb->begin();
+    auto debug_string_fun = module->getFunction("debug_string");
+    llvm::CallInst::Create(debug_string_fun,
+                           {arena_ptr, runtime_ptr,
+                            llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)},
+                           "", &entry_bb_inst);
+#endif
+
     if (auto entry_block = &(func->front())) {
       // Branch to the block of trace_addr.
       DirectBranchWithSaveParents(GetOrCreateBlock(trace_addr), entry_block);
@@ -480,10 +490,12 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
 #if defined(PRINT_FUNC_ADDR)
       if (lift_config.dbg_fun_vma == trace_addr) {
         // Add `print_addr`
-        llvm::IRBuilder<> dbg_ir(&block->front());
+        llvm::IRBuilder<> dbg_ir(block);
         auto print_addr_fun = module->getFunction("print_addr");
         dbg_ir.CreateCall(print_addr_fun,
-                          {llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr)});
+                          {arena_ptr, runtime_ptr,
+                           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), inst_addr),
+                           llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), trace_addr)});
         // Append the lifted inst.
         dbg_instout_map.insert_or_assign(inst_addr, inst.function);
       }
@@ -852,7 +864,8 @@ bool TraceLifter::Impl::Lift(uint64_t addr, const char *fn_name,
       }
     }
 
-    auto end_addr = *addrset_in_func.begin();
+    auto end_addr =
+        lift_config.has_symtab ? manager.GetFuncVMA_E(trace_addr) : *addrset_in_func.begin();
     // auto end_addr = (uint64_t) std::min(manager.GetFuncVMA_E(trace_addr), *addrset_in_func.begin());
 
     // if the func includes intraprocedural indirect jump instruction, it is necessary to lift all instructions of the func.

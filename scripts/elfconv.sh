@@ -40,7 +40,7 @@ setting() {
   CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # emscripten
   EMCC=em++
-  EMCC_OPTION="-sASYNCIFY=0 -sPTHREAD_POOL_SIZE=0 -pthread -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD"
+  EMCC_OPTION="-sASYNCIFY=0 -sINITIAL_MEMORY=536870912 -sSTACK_SIZE=16MB -sPTHREAD_POOL_SIZE=0 -pthread -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD"
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # wasi
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
@@ -216,12 +216,13 @@ main() {
   case "${TARGET}" in
     *-native)
       echo -e "[${GREEN}INFO${NC}] Compiling to Native binary (for ${HOST_CPU})... "
+      RUNTIME_MACRO="${RUNTIME_MACRO} -DELFNAME=\"${ELFNAME}\""
       MAINOBJ="${ELFNAME}.o"
-      
+
       if [[ -z "${NO_COMPILED}" ]]; then
         ${CXX} ${CLANGFLAGS} ${RUNTIME_MACRO} -c ${MAINIR} -o ${MAINOBJ}
       fi
-      
+
       ${CXX} ${CLANGFLAGS} ${RUNTIME_MACRO} -o "${ELFNAME}.${HOST_CPU}" ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallNative.cpp
       echo -e " [${GREEN}INFO${NC}] built ${ELFNAME}.${HOST_CPU}"
       if [[ -n "${OUT_EXE}" ]]; then
@@ -230,13 +231,13 @@ main() {
       return 0
     ;;
     *-wasm)
-      RUNTIME_MACRO="${RUNTIME_MACRO} -DTARGET_IS_BROWSER=1"
+      RUNTIME_MACRO="${RUNTIME_MACRO} -DTARGET_IS_BROWSER=1 -DELFNAME=\"${ELFNAME}\""
       MAINOBJ="${CUR_DIR}/${ELFNAME}.wasm.o"
       PRELOAD=
       MAINGENJS="${CUR_DIR}/${ELFNAME}.generated.js"
       
-      if [[ -n "${MOUNT_DIR}" ]]; then
-        PRELOAD="--preload-file ${MOUNT_DIR}"
+      if [[ -n "${MOUNT_SETTING}" ]]; then
+        PRELOAD="--preload-file ${MOUNT_SETTING}"
       fi
       
       if [[ -z "${NO_COMPILED}" ]]; then
@@ -247,7 +248,7 @@ main() {
       fi
 
       # creates wasm
-      ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+      ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} ${PRELOAD} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
       echo -e "[${GREEN}INFO${NC}] built ${ELFNAME}.wasm and ${ELFNAME}.js and ${ELFNAME}.html."
       
       # prepare Js and Wasm
@@ -256,13 +257,13 @@ main() {
       return 0
     ;;
     *-wasi32)
-      RUNTIME_MACRO="${RUNTIME_MACRO} -DTARGET_IS_WASI=1"
+      RUNTIME_MACRO="${RUNTIME_MACRO} -DTARGET_IS_WASI=1 -DELFNAME=\"${ELFNAME}\""
       MAINOBJ="${ELFNAME}.wasi.o"
 
       if [[ -z "${NO_COMPILED}" ]]; then
         ${WASISDKCC} ${WASISDKFLAGS} ${RUNTIME_MACRO} -c ${MAINIR} -o ${MAINOBJ}
       fi
-      
+
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
       ${WASISDKCC} ${WASISDKFLAGS} ${WASISDK_LINKFLAGS} ${RUNTIME_MACRO} -o "${ELFNAME}.wasm" ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallWasi.cpp
       echo -e "[${GREEN}INFO${NC}] built ${ELFNAME}.wasm"

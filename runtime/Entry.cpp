@@ -1,17 +1,16 @@
 #include "Memory.h"
 #include "Runtime.h"
 #include "remill/Arch/Runtime/Types.h"
-#include "runtime/syscalls/SysTable.h"
 #include "utils/Util.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <map>
 #include <remill/Arch/Runtime/Intrinsics.h>
 #include <remill/BC/HelperMacro.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #if defined(__EMSCRIPTEN__)
 #  include <emscripten/emscripten.h>
@@ -20,7 +19,11 @@
 // MemoryArenaPtr is used in the lifted LLVM IR for calculating the correct memory address (e.g. __remill_read_memory_macro* function).
 State *CPUState;
 
-extern void *TranslateVMA(uint8_t *arena_ptr, addr_t vma_addr);
+extern void *TranslateVMA(RuntimeManager *rt_m, uint8_t *arena_ptr, addr_t vma_addr);
+
+#ifdef ELFNAME
+const char *ORG_ELF_NAME = ELFNAME;
+#endif
 
 #if defined(ELF_IS_AMD64)
 uint8_t *MemoryArenaPtr = nullptr;
@@ -50,7 +53,7 @@ EM_JS(uint32_t, ecv_proxy_process_memory_copy_req,
 
 // shared_data content:
 // [ CPUState (sizeof(CPUState) byte); memory_arena_type: (4 byte); vma (4 byte); len (4 byte);
-//   heap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
+//   brk_cur (4 byte); mmap_cur (4 byte); t_func_addr (4 byte); t_next_pc (4 byte);
 //   parent_call_history_len (4 byte); [ t_func_addr_1, t_func_next_pc_1, ..., t_func_addr_n, t_func_next_pc_n ] (8 * parent_call_history_len byte); ]
 
 // entry function when this program starts as forked process.
@@ -70,11 +73,12 @@ void fork_main(uint8_t *memory_arena_bytes, uint8_t *shared_data) {
   memory_arena->memory_area_type = (MemoryAreaType) memory_arena_src_p[0];
   memory_arena->vma = memory_arena_src_p[1];
   memory_arena->len = memory_arena_src_p[2];
-  memory_arena->heap_cur = memory_arena_src_p[3];
+  memory_arena->brk_cur = memory_arena_src_p[3];
+  memory_arena->mmap_cur = memory_arena_src_p[4];
   memory_arena->bytes = memory_arena_bytes;
 
   // next address info
-  uint32_t *next_addr_p = memory_arena_src_p + 4;
+  uint32_t *next_addr_p = memory_arena_src_p + 5;
   uint32_t t_func_addr = next_addr_p[0];
   uint32_t t_next_pc = next_addr_p[1];
 
@@ -283,13 +287,6 @@ int main(int argc, char *argv[], char *envp[]) {
   }
   std::sort(rt_m->addr_funptr_srt_list.begin(), rt_m->addr_funptr_srt_list.end());
 
-#if defined(LIFT_CALLSTACK_DEBUG)
-  //  Set lifted function symbol table (for debug)
-  for (int i = 0; __g_fn_vmas_second[i] && __g_fn_symbol_table[i]; i++) {
-    rt_m->addr_fn_symbol_map[__g_fn_vmas_second[i]] = (const char *) __g_fn_symbol_table[i];
-  }
-#endif
-
   //  Set global block address data array
   for (size_t i = 0; i < _ecv_block_address_array_size; i++) {
     auto bb_num = _ecv_block_address_size_array[i];
@@ -299,6 +296,14 @@ int main(int argc, char *argv[], char *envp[]) {
     }
     rt_m->fun_bb_addr_map.insert({_ecv_block_address_fn_vma_array[i], vma_bb_map});
   }
+
+#if defined(LIFT_FUNC_SYMBOLS) || defined(CALLED_FUNC_NAME)
+  // Set symbol table.
+  for (uint64_t i = 0; _ecv_fn_debug_vmas[i] != 0xFFFFFFFF; i++) {
+    rt_m->addr_fun_symbol_map.insert(
+        {_ecv_fn_debug_vmas[i], (const char *) _ecv_fn_symbol_table[i]});
+  }
+#endif
 
   //  Go to the entry function (_ecv_entry_func is injected by lifted LLVM IR)
   _ecv_entry_func(memory_arena->bytes, CPUState, _ecv_entry_pc, rt_m);

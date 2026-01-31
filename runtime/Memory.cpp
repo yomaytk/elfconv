@@ -22,7 +22,6 @@
 #  ifndef TASK_NAME
 #    define TASK_NAME "unknown"
 #  endif
-_ecv_reg64_t TASK_STRUCT_VMA;
 #endif
 
 MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], State *state) {
@@ -41,7 +40,7 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
   _ecv_reg64_t sp;
   auto bytes = reinterpret_cast<uint8_t *>(malloc(MEMORY_ARENA_SIZE));
   memset(bytes, 0, MEMORY_ARENA_SIZE);
-  sp = STACK_LOWEST_VMA + STACK_SIZE;
+  sp = STACK_TOP_VMA;
 
   /* Initialize AT_RANDOM (placed on the stack temporarily) */
   _ecv_reg64_t randomp;
@@ -110,31 +109,25 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
     } _ecv_a_un;
   } _ecv_auxv64[] = {
 #if defined(TARGET_IS_WASI)
-    {3 /* AT_PHDR */, phdr},
-    {4 /* AT_PHENT */, _ecv_e_phent},
-    {5 /* AT_PHNUM */, _ecv_e_phnum},
-    {6 /* AT_PAGESZ */, 4096},
-    {9 /* AT_ENTRY */, _ecv_entry_pc},
-    {11 /* AT_UID */, 42},
-    {12 /* AT_EUID */, 42},
-    {13 /* AT_GID */, 42},
-    {14 /* AT_EGID */, 42},
-    {23 /* AT_SECURE */, 0},
-    {25 /* AT_RANDOM */, randomp},
-    {0 /* AT_NULL */, 0},
+      {3 /* AT_PHDR */, phdr},
+      {4 /* AT_PHENT */, _ecv_e_phent},
+      {5 /* AT_PHNUM */, _ecv_e_phnum},
+      {6 /* AT_PAGESZ */, 4096},
+      {9 /* AT_ENTRY */, _ecv_entry_pc},
+      {11 /* AT_UID */, 42},
+      {12 /* AT_EUID */, 42},
+      {13 /* AT_GID */, 42},
+      {14 /* AT_EGID */, 42},
+      {23 /* AT_SECURE */, 0},
+      {25 /* AT_RANDOM */, randomp},
+      {0 /* AT_NULL */, 0},
 #else
-    {3 /* AT_PHDR */, {phdr}},
-    {4 /* AT_PHENT */, {_ecv_e_phent}},
-    {5 /* AT_PHNUM */, {_ecv_e_phnum}},
-    {6 /* AT_PAGESZ */, {4096}},
-    {9 /* AT_ENTRY */, {_ecv_entry_pc}},
-    {11 /* AT_UID */, {getuid()}},
-    {12 /* AT_EUID */, {geteuid()}},
-    {13 /* AT_GID */, {getgid()}},
-    {14 /* AT_EGID */, {getegid()}},
-    {23 /* AT_SECURE */, {0}},
-    {25 /* AT_RANDOM */, {randomp}},
-    {0 /* AT_NULL */, {0}},
+      {3 /* AT_PHDR */, {phdr}},           {4 /* AT_PHENT */, {_ecv_e_phent}},
+      {5 /* AT_PHNUM */, {_ecv_e_phnum}},  {6 /* AT_PAGESZ */, {4096}},
+      {9 /* AT_ENTRY */, {_ecv_entry_pc}}, {11 /* AT_UID */, {getuid()}},
+      {12 /* AT_EUID */, {geteuid()}},     {13 /* AT_GID */, {getgid()}},
+      {14 /* AT_EGID */, {getegid()}},     {23 /* AT_SECURE */, {0}},
+      {25 /* AT_RANDOM */, {randomp}},     {0 /* AT_NULL */, {0}},
 #endif
   };
   sp -= sizeof(_ecv_auxv64);
@@ -167,6 +160,6 @@ MemoryArena *MemoryArena::MemoryArenaInit(int argc, char *argv[], char *envp[], 
   // starting stack pointer indicates the pointer of `argc`.
   SP_REG = sp;
 
-  return new MemoryArena(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_VMA, MEMORY_ARENA_SIZE,
-                         bytes, HEAPS_START_VMA);
+  return new MemoryArena(MemoryAreaType::OTHER, "MemoryArena", MEMORY_ARENA_USABLE_VMA,
+                         MEMORY_ARENA_USABLE_SIZE, bytes, BRK_START_VMA, MMAP_START_VMA);
 }
