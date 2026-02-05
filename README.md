@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/7638341e-1871-4e15-b366-31c39ae01d81" width="300" alt="elfconv-logo2" />
+  <img src="images/elfconv-official.png" width="300" alt="elfconv-logo2" />
 </p>
 
 
