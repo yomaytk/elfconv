@@ -5399,8 +5399,8 @@ bool TryDecodeCMGE_ASISDMISC_Z(const InstData &data, Instruction &inst) {
   if (data.size != 0b11) {
     return false;  // size must be 0b11
   }
-  AddRegOperand(inst, kActionWrite, kRegD, kUseAsValue, data.Rd);
-  AddRegOperand(inst, kActionRead, kRegD, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionWrite, kReg1D, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg1D, kUseAsValue, data.Rn);
   return true;
 }
 

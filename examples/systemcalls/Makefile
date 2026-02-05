@@ -3,7 +3,7 @@ GCC   := gcc
 
 .PHONY: all clean
 
-all: fsync_unlink args fork fork-wait getrusage
+all: fsync_unlink args fork fork-wait getrusage test_syscalls
 
 define build
 	@echo "Building $(2) on $$(uname -m)"
@@ -32,6 +32,9 @@ fork-wait:
 
 getrusage:
 	$(call build,getrusage.c,getrusage.aarch64);
+
+test_syscalls:
+	$(call build,test_syscalls.c,test_syscalls.aarch64);
 
 clean:
 	rm -f *.aarch64 *.out *.js *.wasm *.html

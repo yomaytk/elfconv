@@ -953,8 +953,43 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     }
     case ECV_WRITE: /* write (unsigned int fd, const char *buf, size_t count) */
     {
-      ssize_t res = write(X0_D, TranslateVMA(arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
+      ssize_t res = write(X0_D, TranslateVMA(this, arena_ptr, X1_Q), static_cast<size_t>(X2_Q));
       X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_PREAD: /* pread (unsigned int fd, char *buf, size_t count, off_t offset) */
+    {
+      auto fd = X0_D;
+      auto buf = (char *) TranslateVMA(this, arena_ptr, X1_Q);
+      auto count = static_cast<size_t>(X2_Q);
+      auto offset = static_cast<off_t>(X3_Q);
+      ssize_t res = pread(fd, buf, count, offset);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_PWRITE: /* pwrite (unsigned int fd, const char *buf, size_t count, off_t offset) */
+    {
+      auto fd = X0_D;
+      auto buf = (const char *) TranslateVMA(this, arena_ptr, X1_Q);
+      auto count = static_cast<size_t>(X2_Q);
+      auto offset = static_cast<off_t>(X3_Q);
+      ssize_t res = pwrite(fd, buf, count, offset);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_READV: /* readv (unsigned long fd, const struct iovec *vec, unsigned long vlen) */
+    {
+      unsigned long fd = X0_Q;
+      unsigned long vlen = X2_Q;
+      auto tr_vec = reinterpret_cast<_elfarm64_iovec *>(TranslateVMA(this, arena_ptr, X1_Q));
+      auto cache_vec = reinterpret_cast<iovec *>(malloc(sizeof(iovec) * vlen));
+      for (unsigned long i = 0; i < vlen; i++) {
+        cache_vec[i].iov_base = TranslateVMA(this, arena_ptr, (addr_t) (tr_vec[i].iov_base));
+        cache_vec[i].iov_len = (size_t) tr_vec[i].iov_len;
+      }
+      uint64_t res = readv(fd, cache_vec, vlen);
+      X0_Q = SetSyscallRes(res);
+      free(cache_vec);
       break;
     }
     case ECV_WRITEV: /* writev (unsigned long fd, const struct iovec *vec, unsigned long vlen) */
@@ -1038,6 +1073,34 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         _elf_stat.st_mtime = _tmp_wasm_stat.st_mtim.tv_sec;
         _elf_stat.st_ctime = _tmp_wasm_stat.st_ctim.tv_sec;
         memcpy((struct _elfarm64df_stat *) TranslateVMA(this, arena_ptr, X2_Q), &_elf_stat,
+               sizeof(_elf_stat));
+        X0_Q = 0;
+      } else {
+        X0_Q = -wasi2linux_errno[errno];
+      }
+      break;
+    }
+    case ECV_NEWFSTAT: /* fstat (int fd, struct stat *statbuf) */
+    {
+      struct stat _tmp_wasm_stat;
+      int res = fstat(X0_D, &_tmp_wasm_stat);
+      if (res == 0) {
+        struct _elfarm64df_stat _elf_stat;
+        memset(&_elf_stat, 0, sizeof(_elf_stat));
+        _elf_stat.st_dev = _tmp_wasm_stat.st_dev;
+        _elf_stat.st_ino = _tmp_wasm_stat.st_ino;
+        _elf_stat.st_mode = _tmp_wasm_stat.st_mode;
+        _elf_stat.st_nlink = _tmp_wasm_stat.st_nlink;
+        _elf_stat.st_uid = _tmp_wasm_stat.st_uid;
+        _elf_stat.st_gid = _tmp_wasm_stat.st_gid;
+        _elf_stat.st_rdev = _tmp_wasm_stat.st_rdev;
+        _elf_stat.st_size = _tmp_wasm_stat.st_size;
+        _elf_stat.st_blksize = _tmp_wasm_stat.st_blksize;
+        _elf_stat.st_blocks = _tmp_wasm_stat.st_blocks;
+        _elf_stat.st_atime = _tmp_wasm_stat.st_atim.tv_sec;
+        _elf_stat.st_mtime = _tmp_wasm_stat.st_mtim.tv_sec;
+        _elf_stat.st_ctime = _tmp_wasm_stat.st_ctim.tv_sec;
+        memcpy((struct _elfarm64df_stat *) TranslateVMA(this, arena_ptr, X1_Q), &_elf_stat,
                sizeof(_elf_stat));
         X0_Q = 0;
       } else {

@@ -1009,8 +1009,10 @@ var Module = (() => {
     SysFuncMap.set(ECV_CLOSE, _fd_close);
     SysFuncMap.set(ECV_PIPE2, ___syscall_pipe2);
     SysFuncMap.set(ECV_READ, _fd_read);
+    SysFuncMap.set(ECV_PREAD, _fd_pread);
     SysFuncMap.set(ECV_LSEEK, _fd_seek);
     SysFuncMap.set(ECV_WRITE, _fd_write);
+    SysFuncMap.set(ECV_PWRITE, _fd_pwrite);
     SysFuncMap.set(ECV_EXIT, ___syscall_exit);
     SysFuncMap.set(ECV_GETRANDOM, _random_get);
     SysFuncMap.set(ECV_SETPGID, ___syscall_setpgid);
@@ -4785,6 +4787,19 @@ var Module = (() => {
         return e.errno
       }
     }
+    function _fd_pread(fd, iov, iovcnt, offset, pnum) {
+      offset = bigintToI53Checked(offset);
+      try {
+        if (isNaN(offset)) return 61;
+        var stream = SYSCALLS.getStreamFromFD(fd);
+        var num = doReadv(stream, iov, iovcnt, offset);
+        (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return e.errno
+      }
+    }
     var doWritev = (stream, iov, iovcnt, offset) => {
       var ret = 0;
       for (var i = 0; i < iovcnt; i++) {
@@ -4803,6 +4818,19 @@ var Module = (() => {
       }
       return ret
     };
+    function _fd_pwrite(fd, iov, iovcnt, offset, pnum) {
+      offset = bigintToI53Checked(offset);
+      try {
+        if (isNaN(offset)) return 61;
+        var stream = SYSCALLS.getStreamFromFD(fd);
+        var num = doWritev(stream, iov, iovcnt, offset);
+        (growMemViews(gWasmMemory), HEAPU32)[pnum >> 2] = num;
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return e.errno
+      }
+    }
 
     function _fd_write(fd, iov, iovcnt, pnum) {
       try {

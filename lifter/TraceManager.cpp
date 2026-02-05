@@ -202,11 +202,12 @@ void AArch64TraceManager::SetELFData() {
     uint64_t __wrap_main_size = AARCH64_OP_SIZE * 3;
     auto &text_section = elf_obj.code_sections[".text"];
     bool __wrap_main_found = false;
+    uint64_t extra_search_size = 100;
     for (size_t j = 0; j < s_t_addrs.size(); j++) {
       auto func_size = disasm_funcs.contains(s_t_addrs[j]) ? disasm_funcs[s_t_addrs[j]].func_size
                                                            : __wrap_main_size;
       auto _s_fn_bytes = &text_section.bytes[s_t_addrs[j] - text_section.vma];
-      for (uint64_t i = 0; i + __wrap_main_size <= func_size; i += 4) {
+      for (uint64_t i = 0; i + __wrap_main_size <= func_size + extra_search_size; i += 4) {
         if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
             _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
             /* b <label> */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
@@ -222,7 +223,7 @@ void AArch64TraceManager::SetELFData() {
     }
   found_entry:
     if (!__wrap_main_found) {
-      elfconv_runtime_error("[ERROR] Entry function is not found. entry_point: 0x%llx\n",
+      elfconv_runtime_error("[ERROR] __wrap_main code block is not found. entry_point: 0x%lx\n",
                             entry_point);
     }
   } else {
