@@ -262,6 +262,9 @@ main() {
 
       if [[ -z "${NO_COMPILED}" ]]; then
         ${WASISDKCC} ${WASISDKFLAGS} ${RUNTIME_MACRO} -c ${MAINIR} -o ${MAINOBJ}
+        echo -e "[${GREEN}INFO${NC}] built ${MAINOBJ}"
+      else
+        echo -e "[${GREEN}INFO${NC}] NO_COPMILED is ON."
       fi
 
       echo -e "[${GREEN}INFO${NC}] Compiling to Wasm (for WASI)... "
