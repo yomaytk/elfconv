@@ -8,7 +8,7 @@ using ::testing::InitGoogleTest;
 using ::testing::Test;
 
 const char *ELFCONV_WASI_MACRO =
-    "-DELF_IS_AARCH64 --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_PROCESS_CLOCKS -DTARGET_IS_WASI=1 -lwasi-emulated-process-clocks -lwasi-emulated-signal -lwasi-emulated-mman -fno-exceptions -I../../../backend/remill/include -I../../../";
+    "-DELF_IS_AARCH64 --sysroot=${WASI_SDK_PATH}/share/wasi-sysroot -D_WASI_EMULATED_SIGNAL -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_PROCESS_CLOCKS -DTARGET_IS_WASI=1 -DELFNAME='\"a_stripped.aarch64\"' -lwasi-emulated-process-clocks -lwasi-emulated-signal -lwasi-emulated-mman -fno-exceptions -I../../../backend/remill/include -I../../../";
 
 enum WASI_RUNTIME : uint8_t { WASMTIME, WASMEDGE };
 
