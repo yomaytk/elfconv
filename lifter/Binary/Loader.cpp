@@ -154,7 +154,7 @@ void ELFObject::GetEhdr() {
 void ELFObject::OpenELF() {
 
   // init binary file descriptor
-  if (bfd_inited) {
+  if (!bfd_inited) {
     bfd_init();
     bfd_inited = true;
   }
