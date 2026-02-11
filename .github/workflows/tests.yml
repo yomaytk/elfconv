@@ -20,7 +20,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    
+
+    - name: Pull base image or build locally
+      run: |
+        if ! docker pull ghcr.io/yomaytk/elfconv-base:latest; then
+          echo "Base image not found, building locally..."
+          docker build -f Dockerfile.base -t ghcr.io/yomaytk/elfconv-base:latest .
+        fi
+
     - name: build container image
       run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
 
