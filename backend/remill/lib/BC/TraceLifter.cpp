@@ -20,6 +20,7 @@
 
 #include <charconv>
 #include <fstream>
+#include <string>
 #include <glog/logging.h>
 #include <iostream>
 #include <llvm/IR/BasicBlock.h>
@@ -45,11 +46,11 @@ namespace remill {
 #if defined(OPT_REAL_REGS_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg.GetRegName(ecv_reg_class) + "_" + std::to_string(phi_val_order++)
 #else
 #  define DEBUG_PC_AND_REGISTERS(...)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg.GetRegName(ecv_reg_class) + "_" + std::to_string(phi_val_order++)
 #endif
 
 /*
@@ -1101,7 +1102,7 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
           llvm::IRBuilder<> ir1(call_inst);
           // [ X0, X1, ..., X8 ]
           for (int i = 0; i < 9; i++) {
-            std::string reg_name = "X" + to_string(i);
+            std::string reg_name = "X" + std::to_string(i);
             // store `Xi_Lc (local)` value to `Xi (global)`.
             auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
             auto [xlc_reg_ptr, xlc_reg_type] =
@@ -1122,7 +1123,7 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
           llvm::IRBuilder<> ir(call_nexti);
           // [ X0, X1 ]
           for (int i = 0; i < 2; i++) {
-            std::string reg_name = "X" + to_string(i);
+            std::string reg_name = "X" + std::to_string(i);
             // load `Xi (global)` value to `Xi_Lc (local)`.
             auto [xlc_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name);
             auto [xg_reg_ptr, xg_reg_type] =
@@ -1150,7 +1151,7 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
             if (i == 6 || i == 7) {
               continue;
             }
-            std::string reg_name = "X" + to_string(i);
+            std::string reg_name = "X" + std::to_string(i);
             // store `Xi_Lc (local)` value to `Xi (global)`.
             auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
             auto [xlc_reg_ptr, xlc_reg_type] =
@@ -1185,7 +1186,7 @@ void TraceLifter::Impl::AddStoreForAllSemantics() {
           llvm::IRBuilder<> ir(ret_inst);
           // [ X0, X1 ]
           for (int i = 0; i < 2; i++) {
-            std::string reg_name = "X" + to_string(i);
+            std::string reg_name = "X" + std::to_string(i);
             // load `Xi_Lc (local)` value to `Xi (global)`.
             auto [xg_reg_ptr, _] = inst_lifter->LoadRegAddress(&bb, state_ptr, reg_name, true);
             auto [xlc_reg_ptr, xlc_reg_type] =

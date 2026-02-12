@@ -103,16 +103,16 @@ enum ArchName : uint32_t {
   kArchX86,
   kArchX86_AVX,
   kArchX86_AVX512,
-  kArchX86_SLEIGH,
+  // kArchX86_SLEIGH,
 
   kArchAMD64,
   kArchAMD64_AVX,
   kArchAMD64_AVX512,
-  kArchAMD64_SLEIGH,
+  // kArchAMD64_SLEIGH,
 
   kArchAArch32LittleEndian,
   kArchAArch64LittleEndian,
-  kArchAArch64LittleEndian_SLEIGH,
+  // kArchAArch64LittleEndian_SLEIGH,
 
   kArchSparc32,
   kArchSparc64,

@@ -29,6 +29,8 @@ add_library(remill_arch_aarch64 STATIC
   Decode.cpp
   Decode.h
   Extract.cpp
+  # AArch64ArchBase implementations (moved from Sleigh directory)
+  ../Sleigh/AArch64Base.cpp
 )
 
 add_subdirectory(Runtime)

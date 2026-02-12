@@ -51,7 +51,7 @@ static unsigned AddressSize(ArchName arch_name) {
     case kArchX86:
     case kArchX86_AVX:
     case kArchX86_AVX512:
-    case kArchX86_SLEIGH:
+    // case kArchX86_SLEIGH:
     case kArchAArch32LittleEndian:
     case kArchThumb2LittleEndian:
     case kArchSparc32:
@@ -59,9 +59,9 @@ static unsigned AddressSize(ArchName arch_name) {
     case kArchAMD64:
     case kArchAMD64_AVX:
     case kArchAMD64_AVX512:
-    case kArchAMD64_SLEIGH:
+    // case kArchAMD64_SLEIGH:
     case kArchAArch64LittleEndian:
-    case kArchAArch64LittleEndian_SLEIGH:
+    // case kArchAArch64LittleEndian_SLEIGH:
     case kArchSparc64: return 64;
   }
   return 0;
@@ -95,24 +95,9 @@ bool Arch::NextInstructionIsDelayed(const Instruction &, const Instruction &, bo
   return false;
 }
 
-namespace {
-static std::mutex gSleighArchLock;
-}  // namespace
-
-// Returns a lock on global state. In general, Remill doesn't use global
-// variables for storing state; however, SLEIGH sometimes does, and so when
-// using SLEIGH-backed architectures, it can be necessary to acquire this
-// lock.
+// Sleigh global lock is no longer needed since Sleigh support is disabled.
 ArchLocker Arch::Lock(ArchName arch_name_) {
-  switch (arch_name_) {
-    case ArchName::kArchAArch32LittleEndian:
-    case ArchName::kArchThumb2LittleEndian:
-    case ArchName::kArchAArch64LittleEndian_SLEIGH:
-    case ArchName::kArchAMD64_SLEIGH:
-    case ArchName::kArchX86_SLEIGH:
-    case ArchName::kArchPPC: return &gSleighArchLock;
-    default: return ArchLocker();
-  }
+  return ArchLocker();
 }
 
 llvm::Triple Arch::BasicTriple(void) const {
@@ -158,11 +143,6 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
     case kArchInvalid: LOG(FATAL) << "Unrecognized architecture."; return nullptr;
 
 #if defined(ELFCONV_AARCH64_BUILD) && ELFCONV_AARCH64_BUILD == 1
-    case kArchAArch64LittleEndian_SLEIGH: {
-      DLOG(INFO) << "Using architecture: AArch64 Sleigh, feature set: Little Endian";
-      return GetAArch64Sleigh(context_, os_name_, arch_name_);
-    }
-
     case kArchAArch64LittleEndian: {
       DLOG(INFO) << "Using architecture: AArch64, feature set: Little Endian";
       return GetAArch64(context_, os_name_, arch_name_);
@@ -184,16 +164,6 @@ auto Arch::GetArchByName(llvm::LLVMContext *context_, OSName os_name_, ArchName 
     case kArchX86: {
       DLOG(INFO) << "Using architecture: X86";
       return GetX86(context_, os_name_, arch_name_);
-    }
-
-    case kArchX86_SLEIGH: {
-      DLOG(INFO) << "Using architecture: X86_Sleigh";
-      return GetSleighX86(context_, os_name_, arch_name_);
-    }
-
-    case kArchAMD64_SLEIGH: {
-      DLOG(INFO) << "Using architecture: X86_Sleigh";
-      return GetSleighX86(context_, os_name_, arch_name_);
     }
 
     case kArchX86_AVX: {
@@ -381,8 +351,7 @@ bool Arch::IsX86(void) const {
   switch (arch_name) {
     case remill::kArchX86:
     case remill::kArchX86_AVX:
-    case remill::kArchX86_AVX512:
-    case remill::kArchX86_SLEIGH: return true;
+    case remill::kArchX86_AVX512: return true;
     default: return false;
   }
 }
@@ -391,8 +360,7 @@ bool Arch::IsAMD64(void) const {
   switch (arch_name) {
     case remill::kArchAMD64:
     case remill::kArchAMD64_AVX:
-    case remill::kArchAMD64_AVX512:
-    case remill::kArchAMD64_SLEIGH: return true;
+    case remill::kArchAMD64_AVX512: return true;
     default: return false;
   }
 }

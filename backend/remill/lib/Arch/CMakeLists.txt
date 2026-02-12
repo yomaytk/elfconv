@@ -34,7 +34,7 @@ else()
   message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (remill/lib/Arch/CMakeLists.txt: 1)")
 endif()
 
-add_subdirectory(Sleigh)
+# add_subdirectory(Sleigh)
 
 # add_subdirectory(AArch32)
 # add_subdirectory(PPC)
@@ -44,7 +44,7 @@ add_subdirectory(Sleigh)
 set_property(TARGET remill_arch PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_link_libraries(remill_arch LINK_PUBLIC
-  remill_arch_sleigh
+  # remill_arch_sleigh
   # remill_arch_sparc32
   # remill_arch_sparc64
   LINK_PRIVATE

@@ -1108,6 +1108,12 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       }
       break;
     }
+    case ECV_SYNC: /* sync (void) */
+    {
+      sync();
+      X0_Q = 0;
+      break;
+    }
     case ECV_FSYNC: /* fsync (unsigned int fd) */
     {
       int res = fsync(X0_D);

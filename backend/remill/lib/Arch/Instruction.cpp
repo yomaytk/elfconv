@@ -618,15 +618,12 @@ std::string Instruction::Serialize(void) const {
       case kArchInvalid: ss << "INVALID"; break;
       case kArchAMD64:
       case kArchAMD64_AVX:
-      case kArchAMD64_AVX512:
-      case kArchAMD64_SLEIGH: ss << "AMD64"; break;
+      case kArchAMD64_AVX512: ss << "AMD64"; break;
       case kArchX86:
       case kArchX86_AVX:
-      case kArchX86_AVX512:
-      case kArchX86_SLEIGH: ss << "X86"; break;
+      case kArchX86_AVX512: ss << "X86"; break;
       case kArchThumb2LittleEndian: ss << "Thumb2"; break;
       case kArchAArch32LittleEndian: ss << "AArch32"; break;
-      case kArchAArch64LittleEndian_SLEIGH:
       case kArchAArch64LittleEndian: ss << "AArch64"; break;
       case kArchSparc32: ss << "SPARC32"; break;
       case kArchSparc64: ss << "SPARC64"; break;
