@@ -1,0 +1,83 @@
+# syntax=docker/dockerfile:1
+ARG LLVM_VERSION=16
+ARG EMCC_VERSION=4.0.9
+ARG UBUNTU_VERSION=22.04
+ARG DISTRO_NAME=jammy
+
+# stage1. System packages and toolchain
+FROM ubuntu:${UBUNTU_VERSION} AS toolchain
+ARG LLVM_VERSION
+ARG DISTRO_NAME
+
+RUN apt-get update && \
+    apt-get install -qqy --no-install-recommends \
+      apt-transport-https software-properties-common gnupg ca-certificates wget && \
+    apt-add-repository ppa:git-core/ppa --yes && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
+    echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -qqy --no-install-recommends \
+      file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
+      clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} ninja-build pixz xz-utils make rpm \
+      curl unzip tar git zip pkg-config vim openssh-client \
+      libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache \
+      binutils-dev libelf-dev libiberty-dev qemu-user-binfmt libdwarf1 libdwarf-dev && \
+    apt-get upgrade --yes && apt-get clean --yes && \
+    rm -rf /var/lib/apt/lists/*
+
+# cmake install
+RUN wget "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-$(uname -m).sh" && \
+    /bin/bash cmake-*.sh --skip-license --prefix=/usr/local && rm cmake-*.sh
+
+# cross compile library
+RUN apt-get update && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+      dpkg --add-architecture i386 && apt-get update && \
+      apt-get install -qqy zlib1g-dev:i386 gcc-multilib g++-multilib && \
+      apt-get update && apt-get install -qqy g++-*-aarch64-linux-gnu; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+      dpkg --add-architecture armhf && apt-get update && \
+      apt-get install -qqy libstdc++-*-dev-armhf-cross; \
+    fi && \
+    apt-get clean --yes && rm -rf /var/lib/apt/lists/*
+
+# stage2. SDK installation
+FROM toolchain AS sdks
+ARG EMCC_VERSION
+
+# emscripten install
+RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
+    ./emsdk install ${EMCC_VERSION} && ./emsdk activate ${EMCC_VERSION} && \
+    . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
+
+# wasi-sdk install
+RUN cd /root && \
+    export WASI_VERSION=24 && \
+    export WASI_VERSION_FULL=${WASI_VERSION}.0 && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+      export WASI_OS=linux WASI_ARCH=x86_64; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+      export WASI_OS=linux WASI_ARCH=arm64; \
+    fi && \
+    echo -e "export WASI_OS=${WASI_OS}\nexport WASI_ARCH=${WASI_ARCH}\nexport WASI_VERSION=${WASI_VERSION}\nexport WASI_VERSION_FULL=${WASI_VERSION_FULL}\nexport WASI_SDK_PATH=/root/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}" >> /root/.bash_profile && \
+    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_VERSION}/wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz && \
+    tar xvf wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz && \
+    rm -f wasi-sdk-*.tar.gz
+
+# WASI Runtimes install
+RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
+RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
+
+# Download vcpkg libraries (LLVM toolchain, etc.) used by build.sh
+ARG LLVM_VERSION
+ARG UBUNTU_VERSION
+RUN if [ "$(uname -m)" = "x86_64" ]; then ARCH=amd64; \
+    elif [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi && \
+    LIB_VERSION="vcpkg_ubuntu-${UBUNTU_VERSION}_llvm-${LLVM_VERSION}_${ARCH}" && \
+    DOWNLOAD_DIR=/root/elfconv/backend/lifting-bits-downloads && \
+    mkdir -p ${DOWNLOAD_DIR} && cd ${DOWNLOAD_DIR} && \
+    curl -LO "https://github.com/lifting-bits/cxx-common/releases/download/v0.5.0/${LIB_VERSION}.tar.xz" && \
+    tar -xJf "${LIB_VERSION}.tar.xz" --warning=no-timestamp && \
+    rm "${LIB_VERSION}.tar.xz" && \
+    find "${LIB_VERSION}" -type f -exec touch {} \;

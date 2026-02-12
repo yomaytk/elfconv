@@ -1,1 +1,12 @@
+# Build artifacts (regenerated inside container)
 build
+debugs
+
+# Downloaded libraries (build.sh downloads them inside container)
+backend/lifting-bits-downloads
+
+# IDE / editor local settings
+.vscode
+.cache
+.claude
+.devcontainer.json
