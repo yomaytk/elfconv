@@ -524,14 +524,14 @@ void MainLifter::WrapImpl::SetRegisterDebugNames() {
   for (size_t i = 0; i < 31; i++) {
     // X register
     // e.g. debug_X5 = "X5"
-    auto x_reg_name_i = x_reg_name + to_string(i);
+    auto x_reg_name_i = x_reg_name + std::to_string(i);
     auto x_reg_name_i_val = llvm::ConstantDataArray::getString(context, x_reg_name_i, true);
     new llvm::GlobalVariable(*module, x_reg_name_i_val->getType(), true,
                              llvm::GlobalVariable::ExternalLinkage, x_reg_name_i_val,
                              "debug_" + x_reg_name_i);
     // V register
     // e.g. debug_V5 = "V5"
-    auto v_reg_name_i = v_reg_name + to_string(i);
+    auto v_reg_name_i = v_reg_name + std::to_string(i);
     auto v_reg_name_i_val = llvm::ConstantDataArray::getString(context, v_reg_name_i, true);
     new llvm::GlobalVariable(*module, v_reg_name_i_val->getType(), true,
                              llvm::GlobalVariable::ExternalLinkage, v_reg_name_i_val,

@@ -408,18 +408,6 @@ class Arch {
   // Defined in `lib/Arch/AArch64/Arch.cpp`.
   static ArchPtr GetAArch64(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 
-  // Defined in `lib/Arch/Sleigh/AArch64Arch.cpp`.
-  static ArchPtr GetAArch64Sleigh(llvm::LLVMContext *context, OSName os, ArchName arch_name);
-
-  // Defined in `lib/Arch/Sleigh/X86Arch.cpp`
-  static ArchPtr GetSleighX86(llvm::LLVMContext *context, OSName os, ArchName arch_name);
-
-  // Defined in `lib/Arch/Sleigh/Thumb2Arch.cpp`
-  static ArchPtr GetSleighThumb2(llvm::LLVMContext *context, OSName os, ArchName arch_name);
-
-  // Defined in `lib/Arch/Sleigh/PPCArch.cpp`
-  static ArchPtr GetSleighPPC(llvm::LLVMContext *context, OSName os, ArchName arch_name);
-
   // Defined in `lib/Arch/SPARC32/Arch.cpp`.
   static ArchPtr GetSPARC(llvm::LLVMContext *context, OSName os, ArchName arch_name);
 

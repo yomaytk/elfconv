@@ -35,7 +35,7 @@
 #include <remill/BC/InstructionLifter.h>
 #include <remill/BC/IntrinsicTable.h>
 #include <remill/BC/Lifter.h>
-#include <remill/BC/SleighLifter.h>
+// #include <remill/BC/SleighLifter.h>
 #include <remill/BC/Util.h>
 #include <test_runner/TestRunner.h>
 

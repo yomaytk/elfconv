@@ -44,8 +44,8 @@ ArchName GetArchName(std::string_view arch_name) {
   } else if (arch_name == "x86_avx512") {
     return kArchX86_AVX512;
 
-  } else if (arch_name == "x86_sleigh") {
-    return kArchX86_SLEIGH;
+  // } else if (arch_name == "x86_sleigh") {
+  //   return kArchX86_SLEIGH;
 
   } else if (arch_name == "amd64") {
     return kArchAMD64;
@@ -56,8 +56,8 @@ ArchName GetArchName(std::string_view arch_name) {
   } else if (arch_name == "amd64_avx512") {
     return kArchAMD64_AVX512;
 
-  } else if (arch_name == "amd64_sleigh") {
-    return kArchAMD64_SLEIGH;
+  // } else if (arch_name == "amd64_sleigh") {
+  //   return kArchAMD64_SLEIGH;
 
   } else if (arch_name == "aarch32") {
     return kArchAArch32LittleEndian;
@@ -76,8 +76,8 @@ ArchName GetArchName(std::string_view arch_name) {
   } else if (arch_name == "ppc") {
     return kArchPPC;
 
-  } else if (arch_name == "aarch64_sleigh") {
-    return kArchAArch64LittleEndian_SLEIGH;
+  // } else if (arch_name == "aarch64_sleigh") {
+  //   return kArchAArch64LittleEndian_SLEIGH;
   } else {
     return kArchInvalid;
   }
@@ -90,14 +90,14 @@ static const std::string_view kArchNames[] = {
     [kArchX86] = "x86",
     [kArchX86_AVX] = "x86_avx",
     [kArchX86_AVX512] = "x86_avx512",
-    [kArchX86_SLEIGH] = "x86_sleigh",
+    // [kArchX86_SLEIGH] = "x86_sleigh",
     [kArchAMD64] = "amd64",
     [kArchAMD64_AVX] = "amd64_avx",
     [kArchAMD64_AVX512] = "amd64_avx512",
-    [kArchAMD64_SLEIGH] = "amd64_sleigh",
+    // [kArchAMD64_SLEIGH] = "amd64_sleigh",
     [kArchAArch32LittleEndian] = "aarch32",
     [kArchAArch64LittleEndian] = "aarch64",
-    [kArchAArch64LittleEndian_SLEIGH] = "aarch64_sleigh",
+    // [kArchAArch64LittleEndian_SLEIGH] = "aarch64_sleigh",
     [kArchSparc32] = "sparc32",
     [kArchSparc64] = "sparc64",
     [kArchThumb2LittleEndian] = "thumb2",

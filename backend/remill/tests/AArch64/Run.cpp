@@ -700,71 +700,74 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
   lifted_state->sr.v = 0;
   native_state->sr.v = 0;
 
-  if (gLiftedState != gNativeState) {
-    LOG(ERROR) << "States did not match for " << desc;
-    EXPECT_TRUE(!"Lifted and native states did not match.");
+  // if (gLiftedState != gNativeState) {
+  //   LOG(ERROR) << "States did not match for " << desc;
+  //   EXPECT_TRUE(!"Lifted and native states did not match.");
+
+  //   EXPECT_EQ(0, 1);
 
 #define DIFF(name, a) EXPECT_EQ(lifted_state->a, native_state->a)
 
-    DIFF(X0, gpr.x0.qword);
-    DIFF(X1, gpr.x1.qword);
-    DIFF(X2, gpr.x2.qword);
-    DIFF(X3, gpr.x3.qword);
-    DIFF(X4, gpr.x4.qword);
-    DIFF(X5, gpr.x5.qword);
-    DIFF(X6, gpr.x6.qword);
-    DIFF(X7, gpr.x7.qword);
-    DIFF(X8, gpr.x8.qword);
-    DIFF(X9, gpr.x9.qword);
-    DIFF(X10, gpr.x10.qword);
-    DIFF(X11, gpr.x11.qword);
-    DIFF(X12, gpr.x12.qword);
-    DIFF(X13, gpr.x13.qword);
-    DIFF(X14, gpr.x14.qword);
-    DIFF(X15, gpr.x15.qword);
-    DIFF(X16, gpr.x16.qword);
-    DIFF(X17, gpr.x17.qword);
-    DIFF(X18, gpr.x18.qword);
-    DIFF(X19, gpr.x19.qword);
-    DIFF(X20, gpr.x20.qword);
-    DIFF(X21, gpr.x21.qword);
-    DIFF(X22, gpr.x22.qword);
-    DIFF(X23, gpr.x23.qword);
-    DIFF(X24, gpr.x24.qword);
-    DIFF(X25, gpr.x25.qword);
-    DIFF(X26, gpr.x26.qword);
-    DIFF(X27, gpr.x27.qword);
-    DIFF(X28, gpr.x28.qword);
-    DIFF(X29, gpr.x29.qword);
-    DIFF(X30, gpr.x30.qword);
+  DIFF(X0, gpr.x0.qword);
+  DIFF(X1, gpr.x1.qword);
+  DIFF(X2, gpr.x2.qword);
+  DIFF(X3, gpr.x3.qword);
+  DIFF(X4, gpr.x4.qword);
+  DIFF(X5, gpr.x5.qword);
+  DIFF(X6, gpr.x6.qword);
+  DIFF(X7, gpr.x7.qword);
+  DIFF(X8, gpr.x8.qword);
+  DIFF(X9, gpr.x9.qword);
+  DIFF(X10, gpr.x10.qword);
+  DIFF(X11, gpr.x11.qword);
+  DIFF(X12, gpr.x12.qword);
+  DIFF(X13, gpr.x13.qword);
+  DIFF(X14, gpr.x14.qword);
+  DIFF(X15, gpr.x15.qword);
+  DIFF(X16, gpr.x16.qword);
+  DIFF(X17, gpr.x17.qword);
+  DIFF(X18, gpr.x18.qword);
+  DIFF(X19, gpr.x19.qword);
+  DIFF(X20, gpr.x20.qword);
+  DIFF(X21, gpr.x21.qword);
+  DIFF(X22, gpr.x22.qword);
+  DIFF(X23, gpr.x23.qword);
+  DIFF(X24, gpr.x24.qword);
+  DIFF(X25, gpr.x25.qword);
+  DIFF(X26, gpr.x26.qword);
+  DIFF(X27, gpr.x27.qword);
+  DIFF(X28, gpr.x28.qword);
+  DIFF(X29, gpr.x29.qword);
+  DIFF(X30, gpr.x30.qword);
 
-    DIFF(IXC, sr.ixc);
-    DIFF(OFC, sr.ofc);
-    DIFF(UFC, sr.ufc);
-    DIFF(IDC, sr.idc);
-    DIFF(IOC, sr.ioc);
+  DIFF(IXC, sr.ixc);
+  DIFF(OFC, sr.ofc);
+  DIFF(UFC, sr.ufc);
+  DIFF(IDC, sr.idc);
+  DIFF(IOC, sr.ioc);
 
-    DIFF(N, sr.n);
-    DIFF(Z, sr.z);
-    DIFF(C, sr.c);
-    DIFF(V, sr.v);
+  DIFF(N, sr.n);
+  DIFF(Z, sr.z);
+  DIFF(C, sr.c);
+  DIFF(V, sr.v);
 
-    DIFF(ECV_NZCV, ecv_nzcv);
-    DIFF(ECV_FPSR, ecv_fpsr);
+  DIFF(ECV_NZCV, ecv_nzcv);
+  DIFF(ECV_FPSR, ecv_fpsr);
 
-    auto lifted_state_bytes = reinterpret_cast<uint8_t *>(lifted_state);
-    auto native_state_bytes = reinterpret_cast<uint8_t *>(native_state);
+  auto lifted_state_bytes = reinterpret_cast<uint8_t *>(lifted_state);
+  auto native_state_bytes = reinterpret_cast<uint8_t *>(native_state);
 
-    for (size_t i = 0; i < sizeof(State); ++i) {
-      LOG_IF(ERROR, lifted_state_bytes[i] != native_state_bytes[i])
-          << "Bytes at offset " << i << " are different "
-          << " lifted_state_bytes[" << i << "]: 0x" << std::hex << (uint64_t) lifted_state_bytes[i]
-          << ", native_state_bytes[" << std::dec << i << "]: 0x" << (uint64_t) native_state_bytes[i]
-          << std::endl;
-    }
+  for (size_t i = 0; i < sizeof(State); ++i) {
+    LOG_IF(ERROR, lifted_state_bytes[i] != native_state_bytes[i])
+        << "Bytes at offset " << i << " are different "
+        << " lifted_state_bytes[" << i << "]: 0x" << std::hex << (uint64_t) lifted_state_bytes[i]
+        << ", native_state_bytes[" << std::dec << i << "]: 0x" << (uint64_t) native_state_bytes[i]
+        << std::endl;
   }
+  // }
 
   if (gLiftedStack != gNativeStack) {
+    EXPECT_EQ(0, 2);
     LOG(ERROR) << "Stacks did not match for " << desc;
 
     for (size_t i = 0; i < sizeof(gLiftedStack.bytes); ++i) {

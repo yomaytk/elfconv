@@ -59,12 +59,10 @@ llvm::Triple X86ArchBase::Triple(void) const {
   switch (arch_name) {
     case kArchAMD64:
     case kArchAMD64_AVX:
-    case kArchAMD64_AVX512:
-    case kArchAMD64_SLEIGH: triple.setArch(llvm::Triple::x86_64); break;
+    case kArchAMD64_AVX512: triple.setArch(llvm::Triple::x86_64); break;
     case kArchX86:
     case kArchX86_AVX:
-    case kArchX86_AVX512:
-    case kArchX86_SLEIGH: triple.setArch(llvm::Triple::x86); break;
+    case kArchX86_AVX512: triple.setArch(llvm::Triple::x86); break;
     default: LOG(FATAL) << "Cannot get triple for non-x86 architecture " << GetArchName(arch_name);
   }
 
@@ -82,11 +80,11 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH: dl = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"; break;
+        dl = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH: dl = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"; break;
+        dl = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"; break;
         default:
           LOG(FATAL) << "Cannot get data layout non-x86 architecture " << GetArchName(arch_name);
           break;
@@ -98,11 +96,11 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH: dl = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"; break;
+        dl = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH: dl = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128"; break;
+        dl = "e-m:o-p:32:32-f64:32:64-f80:128-n8:16:32-S128"; break;
         default:
           LOG(FATAL) << "Cannot get data layout for non-x86 architecture "
                      << GetArchName(arch_name);
@@ -114,11 +112,11 @@ llvm::DataLayout X86ArchBase::DataLayout(void) const {
         case kArchAMD64:
         case kArchAMD64_AVX:
         case kArchAMD64_AVX512:
-        case kArchAMD64_SLEIGH: dl = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"; break;
+        dl = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"; break;
         case kArchX86:
         case kArchX86_AVX:
         case kArchX86_AVX512:
-        case kArchX86_SLEIGH: dl = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"; break;
+        dl = "e-m:x-p:32:32-i64:64-f80:32-n8:16:32-a:0:32-S32"; break;
         default:
           LOG(FATAL) << "Cannot get data layout for non-x86 architecture "
                      << GetArchName(arch_name);

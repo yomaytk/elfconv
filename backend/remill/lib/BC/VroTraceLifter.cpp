@@ -18,6 +18,7 @@
 
 #include <glog/logging.h>
 #include <iostream>
+#include <stack>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
 #include <llvm/IR/Constants.h>
@@ -50,11 +51,11 @@ namespace remill {
 #if defined(OPT_REAL_REGS_DEBUG)
 #  define DEBUG_PC_AND_REGISTERS(...) InsertDebugVmaAndRegisters(__VA_ARGS__)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg.GetRegName(ecv_reg_class) + "_" + std::to_string(phi_val_order++)
 #else
 #  define DEBUG_PC_AND_REGISTERS(...)
 #  define VAR_NAME(ecv_reg, ecv_reg_class) \
-    ecv_reg.GetRegName(ecv_reg_class) + "_" + to_string(phi_val_order++)
+    ecv_reg.GetRegName(ecv_reg_class) + "_" + std::to_string(phi_val_order++)
 #endif
 
 std::ostringstream ECV_DEBUG_STREAM;
@@ -1541,8 +1542,8 @@ void VirtualRegsOpt::OptimizeVirtualRegsUsage() {
             auto actual_arg_i = call_inst->getOperand(i);
             auto [act_arg_er, act_arg_erc] = value_reg_map.at(actual_arg_i);
             CHECK(act_arg_er.number == sema_isel_arg_i.first.number)
-                << "i: " << i << ", actual arg ecv_reg number: " << to_string(act_arg_er.number)
-                << ", sema func arg ecv_reg: " << to_string(sema_isel_arg_i.first.number) << "\n";
+                << "i: " << i << ", actual arg ecv_reg number: " << std::to_string(act_arg_er.number)
+                << ", sema func arg ecv_reg: " << std::to_string(sema_isel_arg_i.first.number) << "\n";
             CHECK(act_arg_erc == sema_isel_arg_i.second)
                 << "ERC Mismatch. actual arg ecv_reg_class: " << ERC2str(act_arg_erc)
                 << ", sema isel arg ecv_reg_class: " << ERC2str(sema_isel_arg_i.second)
@@ -1588,10 +1589,10 @@ void VirtualRegsOpt::InsertDebugVmaAndRegisters(
         llvm::GlobalVariable *reg_name_gvar = NULL;
         if (RegKind::General == debug_ecv_reg.reg_kind) {
           reg_name_gvar =
-              impl->module->getGlobalVariable("debug_X" + to_string(debug_ecv_reg.number));
+              impl->module->getGlobalVariable("debug_X" + std::to_string(debug_ecv_reg.number));
         } else if (RegKind::Vector == debug_ecv_reg.reg_kind) {
           reg_name_gvar =
-              impl->module->getGlobalVariable("debug_V" + to_string(debug_ecv_reg.number));
+              impl->module->getGlobalVariable("debug_V" + std::to_string(debug_ecv_reg.number));
         } else {
           if (ECV_NZCV_ORDER == debug_ecv_reg.number) {
             reg_name_gvar = impl->module->getGlobalVariable("debug_ECV_NZCV");
