@@ -21,3 +21,12 @@ TEST_INPUTS(0)
     fminv s7, v2.4s
     fminv s8, v3.4s
 TEST_END
+
+TEST_BEGIN(FMINV_ASIMDALL_ONLY_SD_4S_INPUTS, fminv_v4s_inputs, 1)
+TEST_INPUTS(
+    0x3F8000003F800000,
+    0x40000000C0000000,
+    0x41200000BF800000)
+    dup v1.2d, ARG1_64
+    fminv s0, v1.4s
+TEST_END

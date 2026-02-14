@@ -8,59 +8,121 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * dildributed under the License is dildributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either expostss or implied.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
 TEST_BEGIN(LDR_32_LDST_IMMPOST, ldr_w5_m32_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
     ldr w5, [x3], #0
 TEST_END
 
 TEST_BEGIN(LDR_64_LDST_IMMPOST, ldr_x5_m64_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
     ldr x5, [x3], #0
 TEST_END
 
 TEST_BEGIN(LDR_B_LDST_IMMPOST, ldr_b0_m8_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #48]
     ldr b0, [x3], #0
     ldr b1, [x3], #16
     ldr b3, [x3], #32
 TEST_END
 
 TEST_BEGIN(LDR_H_LDST_IMMPOST, ldr_h0_m16_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #48]
     ldr h0, [x3], #0
     ldr h1, [x3], #16
     ldr h3, [x3], #32
 TEST_END
 
 TEST_BEGIN(LDR_S_LDST_IMMPOST, ldr_s0_m32_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #48]
     ldr s0, [x3], #0
     ldr s1, [x3], #16
     ldr s3, [x3], #32
 TEST_END
 
 TEST_BEGIN(LDR_D_LDST_IMMPOST, ldr_d0_m64_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #48]
     ldr d0, [x3], #0
     ldr d1, [x3], #16
     ldr d3, [x3], #32
 TEST_END
 
 TEST_BEGIN(LDR_Q_LDST_IMMPOST, ldr_q0_m128_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
+    str ARG1_64, [x3, #48]
+    str ARG1_64, [x3, #56]
     ldr q0, [x3], #0
     ldr q1, [x3], #16
     ldr q3, [x3], #32

@@ -754,6 +754,13 @@ static void RunWithFlags(const test::TestInfo *info, NZCV flags, std::string des
   DIFF(ECV_NZCV, ecv_nzcv);
   DIFF(ECV_FPSR, ecv_fpsr);
 
+  // Compare SIMD/vector registers.
+  for (size_t i = 0; i < 32; ++i) {
+    EXPECT_EQ(0, memcmp(&lifted_state->simd.v[i], &native_state->simd.v[i],
+                        sizeof(lifted_state->simd.v[i])))
+        << "SIMD register V" << i << " differs";
+  }
+
   auto lifted_state_bytes = reinterpret_cast<uint8_t *>(lifted_state);
   auto native_state_bytes = reinterpret_cast<uint8_t *>(native_state);
 

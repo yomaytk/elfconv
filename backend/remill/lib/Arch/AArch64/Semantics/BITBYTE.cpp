@@ -123,6 +123,29 @@ DEF_ISEL(CLZ_64_DP_1SRC) = CLZ<R64>;  // CLZ  <Xd>, <Xn>
 
 namespace {
 
+// CLS  <Wd>, <Wn>
+DEF_SEM_U32(CLS_32, R32 src) {
+  uint32_t val = Read(src);
+  // CLS counts leading sign bits (same as MSB, excluding MSB itself).
+  // CLS(x) = CLZ(x ^ (x ASR 1)) - 1
+  uint32_t xored = val ^ static_cast<uint32_t>(static_cast<int32_t>(val) >> 1);
+  return CountLeadingZeros(xored) - uint32_t(1);
+}
+
+// CLS  <Xd>, <Xn>
+DEF_SEM_U64(CLS_64, R64 src) {
+  uint64_t val = Read(src);
+  uint64_t xored = val ^ static_cast<uint64_t>(static_cast<int64_t>(val) >> 1);
+  return CountLeadingZeros(xored) - uint64_t(1);
+}
+
+}  // namespace
+
+DEF_ISEL(CLS_32_DP_1SRC) = CLS_32;  // CLS  <Wd>, <Wn>
+DEF_ISEL(CLS_64_DP_1SRC) = CLS_64;  // CLS  <Xd>, <Xn>
+
+namespace {
+
 // REV16 <Wd>, <Wn>
 DEF_SEM_U32(REV16_32, R32 src) {
   uint32_t src_num = Read(src);

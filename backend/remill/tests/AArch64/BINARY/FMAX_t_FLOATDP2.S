@@ -1,0 +1,129 @@
+TEST_BEGIN(FMAX_S_FLOATDP2, fmax_s4_s0_s1, 2)
+TEST_INPUTS(
+    0x3f800000, 0x40000000,  /* 1.0, 2.0 */
+    0x00000000, 0x3f800000,  /* 0.0, 1.0 */
+    0x7f800000, 0xff800000,  /* inf, -inf */
+    0x7fc00000, 0x3f800000,  /* nan, 1.0 */
+    0xbf800000, 0xc0000000)  /* -1.0, -2.0 */
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmax s4, s0, s1
+TEST_END
+
+TEST_BEGIN(FMAX_S_FLOATDP2_NEG, fmax_s4_s0_s1_neg, 2)
+TEST_INPUTS(
+    0x3f800000, 0x40000000,  /* 1.0, 2.0 */
+    0x00000000, 0x3f800000,  /* 0.0, 1.0 */
+    0x7f800000, 0xff800000,  /* inf, -inf */
+    0x7fc00000, 0x3f800000,  /* nan, 1.0 */
+    0xbf800000, 0xc0000000)  /* -1.0, -2.0 */
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmax s4, s0, s1
+TEST_END
+
+TEST_BEGIN(FMAX_S_FLOATDP2_ZERO, fmax_s4_s0_s1_zero, 2)
+TEST_INPUTS(
+    0x3f800000, 0x40000000,  /* 1.0, 2.0 */
+    0x00000000, 0x3f800000,  /* 0.0, 1.0 */
+    0x7f800000, 0xff800000,  /* inf, -inf */
+    0x7fc00000, 0x3f800000,  /* nan, 1.0 */
+    0xbf800000, 0xc0000000)  /* -1.0, -2.0 */
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmax s4, s0, s1
+TEST_END
+
+TEST_BEGIN(FMAX_S_FLOATDP2_SAME, fmax_s4_s0_s1_same, 2)
+TEST_INPUTS(
+    0x3f800000, 0x40000000,  /* 1.0, 2.0 */
+    0x00000000, 0x3f800000,  /* 0.0, 1.0 */
+    0x7f800000, 0xff800000,  /* inf, -inf */
+    0x7fc00000, 0x3f800000,  /* nan, 1.0 */
+    0xbf800000, 0xc0000000)  /* -1.0, -2.0 */
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmax s4, s0, s1
+TEST_END
+
+TEST_BEGIN(FMAX_S_FLOATDP2_LARGE, fmax_s4_s0_s1_large, 2)
+TEST_INPUTS(
+    0x3f800000, 0x40000000,  /* 1.0, 2.0 */
+    0x00000000, 0x3f800000,  /* 0.0, 1.0 */
+    0x7f800000, 0xff800000,  /* inf, -inf */
+    0x7fc00000, 0x3f800000,  /* nan, 1.0 */
+    0xbf800000, 0xc0000000)  /* -1.0, -2.0 */
+
+    fmov s0, ARG1_32
+    fmov s1, ARG2_32
+    fmax s4, s0, s1
+TEST_END
+
+TEST_BEGIN(FMAX_D_FLOATDP2, fmax_d4_d0_d1, 2)
+TEST_INPUTS(
+    0x3FF0000000000000, 0x4000000000000000,  /* 1.0, 2.0 */
+    0x0000000000000000, 0x3FF0000000000000,  /* 0.0, 1.0 */
+    0x7FF0000000000000, 0xFFF0000000000000,  /* inf, -inf */
+    0x7FF8000000000000, 0x3FF0000000000000,  /* nan, 1.0 */
+    0xBFF0000000000000, 0xC000000000000000)  /* -1.0, -2.0 */
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmax d4, d0, d1
+TEST_END
+
+TEST_BEGIN(FMAX_D_FLOATDP2_NEG, fmax_d4_d0_d1_neg, 2)
+TEST_INPUTS(
+    0x3FF0000000000000, 0x4000000000000000,  /* 1.0, 2.0 */
+    0x0000000000000000, 0x3FF0000000000000,  /* 0.0, 1.0 */
+    0x7FF0000000000000, 0xFFF0000000000000,  /* inf, -inf */
+    0x7FF8000000000000, 0x3FF0000000000000,  /* nan, 1.0 */
+    0xBFF0000000000000, 0xC000000000000000)  /* -1.0, -2.0 */
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmax d4, d0, d1
+TEST_END
+
+TEST_BEGIN(FMAX_D_FLOATDP2_ZERO, fmax_d4_d0_d1_zero, 2)
+TEST_INPUTS(
+    0x3FF0000000000000, 0x4000000000000000,  /* 1.0, 2.0 */
+    0x0000000000000000, 0x3FF0000000000000,  /* 0.0, 1.0 */
+    0x7FF0000000000000, 0xFFF0000000000000,  /* inf, -inf */
+    0x7FF8000000000000, 0x3FF0000000000000,  /* nan, 1.0 */
+    0xBFF0000000000000, 0xC000000000000000)  /* -1.0, -2.0 */
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmax d4, d0, d1
+TEST_END
+
+TEST_BEGIN(FMAX_D_FLOATDP2_SAME, fmax_d4_d0_d1_same, 2)
+TEST_INPUTS(
+    0x3FF0000000000000, 0x4000000000000000,  /* 1.0, 2.0 */
+    0x0000000000000000, 0x3FF0000000000000,  /* 0.0, 1.0 */
+    0x7FF0000000000000, 0xFFF0000000000000,  /* inf, -inf */
+    0x7FF8000000000000, 0x3FF0000000000000,  /* nan, 1.0 */
+    0xBFF0000000000000, 0xC000000000000000)  /* -1.0, -2.0 */
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmax d4, d0, d1
+TEST_END
+
+TEST_BEGIN(FMAX_D_FLOATDP2_LARGE, fmax_d4_d0_d1_large, 2)
+TEST_INPUTS(
+    0x3FF0000000000000, 0x4000000000000000,  /* 1.0, 2.0 */
+    0x0000000000000000, 0x3FF0000000000000,  /* 0.0, 1.0 */
+    0x7FF0000000000000, 0xFFF0000000000000,  /* inf, -inf */
+    0x7FF8000000000000, 0x3FF0000000000000,  /* nan, 1.0 */
+    0xBFF0000000000000, 0xC000000000000000)  /* -1.0, -2.0 */
+
+    fmov d0, ARG1_64
+    fmov d1, ARG2_64
+    fmax d4, d0, d1
+TEST_END

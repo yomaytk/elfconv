@@ -1,0 +1,62 @@
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2S, frintm_v0_v1_2s, 1)
+TEST_INPUTS(0)
+    fmov v1.2s, #2.5
+    frintm v0.2s, v1.2s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2S_v2, frintm_v0_v1_2s_v2, 1)
+TEST_INPUTS(0)
+    fmov v1.2s, #-2.0
+    frintm v0.2s, v1.2s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_4S, frintm_v0_v1_4s, 1)
+TEST_INPUTS(0)
+    fmov v1.4s, #2.5
+    frintm v0.4s, v1.4s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_4S_v2, frintm_v0_v1_4s_v2, 1)
+TEST_INPUTS(0)
+    fmov v1.4s, #3.5
+    frintm v0.4s, v1.4s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2D, frintm_v0_v1_2d, 1)
+TEST_INPUTS(0)
+    fmov v1.2d, #2.5
+    frintm v0.2d, v1.2d
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2D_v2, frintm_v0_v1_2d_v2, 1)
+TEST_INPUTS(0)
+    fmov v1.2d, #-2.0
+    frintm v0.2d, v1.2d
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2S_INPUTS, frintm_v2s_inputs, 1)
+TEST_INPUTS(
+    0x3F8000003F800000,
+    0x40000000C0000000,
+    0x41200000BF800000)
+    fmov d1, ARG1_64
+    frintm v0.2s, v1.2s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_4S_INPUTS, frintm_v4s_inputs, 1)
+TEST_INPUTS(
+    0x3F8000003F800000,
+    0x40000000C0000000,
+    0x41200000BF800000)
+    dup v1.2d, ARG1_64
+    frintm v0.4s, v1.4s
+TEST_END
+
+TEST_BEGIN(FRINTM_ASIMDMISC_R_2D_INPUTS, frintm_v2d_inputs, 1)
+TEST_INPUTS(
+    0x3FF0000000000000,
+    0x4000000000000000,
+    0x4024000000000000)
+    dup v1.2d, ARG1_64
+    frintm v0.2d, v1.2d
+TEST_END

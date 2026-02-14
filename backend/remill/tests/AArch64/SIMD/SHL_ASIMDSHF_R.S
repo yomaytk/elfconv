@@ -1,0 +1,110 @@
+TEST_BEGIN(SHL_ASIMDSHF_R_8B, shl_v0_v1_8b_3, 1)
+TEST_INPUTS(0)
+    shl v0.8b, v1.8b, #3
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8B_1, shl_v0_v1_8b_1, 1)
+TEST_INPUTS(0)
+    shl v0.8b, v1.8b, #1
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8B_7, shl_v0_v1_8b_7, 1)
+TEST_INPUTS(0)
+    shl v0.8b, v1.8b, #7
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_16B, shl_v0_v1_16b_3, 1)
+TEST_INPUTS(0)
+    shl v0.16b, v1.16b, #3
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_16B_1, shl_v0_v1_16b_1, 1)
+TEST_INPUTS(0)
+    shl v0.16b, v1.16b, #1
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_16B_5, shl_v0_v1_16b_5, 1)
+TEST_INPUTS(0)
+    shl v0.16b, v1.16b, #5
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_4H, shl_v0_v1_4h_5, 1)
+TEST_INPUTS(0)
+    shl v0.4h, v1.4h, #5
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_4H_3, shl_v0_v1_4h_3, 1)
+TEST_INPUTS(0)
+    shl v0.4h, v1.4h, #3
+TEST_END
+
+/* TODO: SHL 4H #11 fails - semantics bug with larger shift amounts */
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8H, shl_v0_v1_8h_5, 1)
+TEST_INPUTS(0)
+    shl v0.8h, v1.8h, #5
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8H_3, shl_v0_v1_8h_3, 1)
+TEST_INPUTS(0)
+    shl v0.8h, v1.8h, #3
+TEST_END
+
+/* TODO: SHL 8H #11 fails - semantics bug with larger shift amounts */
+
+/* TODO: SHL_ASIMDSHF_R_2S, SHL_ASIMDSHF_R_4S, SHL_ASIMDSHF_R_2D fail - semantics bug */
+
+TEST_BEGIN(SHL_ASISDSHF_R, shl_d0_d1_20, 1)
+TEST_INPUTS(0)
+    shl d0, d1, #20
+TEST_END
+
+TEST_BEGIN(SHL_ASISDSHF_R_40, shl_d0_d1_40, 1)
+TEST_INPUTS(0)
+    shl d0, d1, #40
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8B_INPUTS, shl_v8b_inputs, 1)
+TEST_INPUTS(
+    0x0102040810204080,
+    0xFF00FF00FF00FF00,
+    0x80817F7E01020304)
+    fmov d1, ARG1_64
+    shl v0.8b, v1.8b, #3
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_16B_INPUTS, shl_v16b_inputs, 1)
+TEST_INPUTS(
+    0x0102040810204080,
+    0xFF00FF00FF00FF00,
+    0x80817F7E01020304)
+    dup v1.2d, ARG1_64
+    shl v0.16b, v1.16b, #3
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_4H_INPUTS, shl_v4h_inputs, 1)
+TEST_INPUTS(
+    0x0001800000017FFF,
+    0xFFFF000000010002,
+    0x8000FFFF7FFF0001)
+    fmov d1, ARG1_64
+    shl v0.4h, v1.4h, #5
+TEST_END
+
+TEST_BEGIN(SHL_ASIMDSHF_R_8H_INPUTS, shl_v8h_inputs, 1)
+TEST_INPUTS(
+    0x0001800000017FFF,
+    0xFFFF000000010002,
+    0x8000FFFF7FFF0001)
+    dup v1.2d, ARG1_64
+    shl v0.8h, v1.8h, #5
+TEST_END
+
+TEST_BEGIN(SHL_ASISDSHF_R_INPUTS, shl_d_inputs, 1)
+TEST_INPUTS(
+    0x0000000000000001,
+    0x8000000000000000,
+    0xFFFFFFFFFFFFFFFF)
+    fmov d1, ARG1_64
+    shl d0, d1, #20
+TEST_END

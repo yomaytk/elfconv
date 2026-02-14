@@ -16,8 +16,16 @@
 
 /* LDRSB  <Wt>, [<Xn|SP>{, #<pimm>}] */
 TEST_BEGIN(LDRSB_32_LDST_POS, ldrsb_w563_m8, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #32]
     ldrsb w5, [x3]
     ldrsb w6, [x3, #16]
     ldrsb w3, [x3, #32]
@@ -25,8 +33,16 @@ TEST_END
 
 /* LDRSB  <Xt>, [<Xn|SP>{, #<pimm>}] */
 TEST_BEGIN(LDRSB_64_LDST_POS, ldrsb_x563_m8, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #32]
     ldrsb x5, [x3]
     ldrsb x6, [x3, #16]
     ldrsb x3, [x3, #32]
@@ -34,16 +50,30 @@ TEST_END
 
 /* LDRSB  <Wt>, [<Xn|SP>], #<simm> */
 TEST_BEGIN(LDRSB_32_LDST_IMMPOST, ldrsb_w56_m8_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #32]
     ldrsb w5, [x3], #0
     ldrsb w6, [x3], #32
 TEST_END
 
 /* LDRSB  <Xt>, [<Xn|SP>], #<simm> */
 TEST_BEGIN(LDRSB_64_LDST_IMMPOST, ldrsb_x56_m8_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #32]
     ldrsb x5, [x3], #0
     ldrsb x6, [x3], #32
 TEST_END
@@ -62,15 +92,27 @@ TEST_END
 
 /* LDRSB  <Wt>, [<Xn|SP>, #<simm>]! */
 TEST_BEGIN(LDRSB_32_LDST_IMMPRE, ldrsb_w5_m8_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3, #16]
     ldrsb w5, [x3, #16]!
 TEST_END
 
 /* LDRSB  <Xt>, [<Xn|SP>, #<simm>]! */
 TEST_BEGIN(LDRSB_64_LDST_IMMPRE, ldrsb_x5_m8_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
     add x3, sp, #-256
+    str ARG1_64, [x3, #16]
     ldrsb x5, [x3, #16]!
 TEST_END
 
@@ -114,15 +156,35 @@ TEST_END
 
 /* LDRSB  <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}] */
 TEST_BEGIN(LDRSB_32BL_LDST_REGOFF, ldrsb_w56_m8_off_w0_lsl0, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    8,
+    16,
+    32,
+    64)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #64]
     ldrsb w5, [x3, ARG1_64]  /* Implicit LSL 0 */
     ldrsb w6, [x3, ARG1_64, lsl #0]  /* Explicit LSL 0 */
 TEST_END
 
 TEST_BEGIN(LDRSB_64BL_LDST_REGOFF, ldrsb_x56_m8_off_w0_lsl0, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    8,
+    16,
+    32,
+    64)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #64]
     ldrsb x5, [x3, ARG1_64]  /* Implicit LSL 0 */
     ldrsb x6, [x3, ARG1_64, lsl #0]  /* Explicit LSL 0 */
 TEST_END

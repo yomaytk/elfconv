@@ -29,17 +29,27 @@
 
 /* STRH  <Wt>, [<Xn|SP>], #<simm> */
 TEST_BEGIN(STRH_32_LDST_IMMPOST, strh_w56_m16_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x41414141,
+    0x00000000,
+    0xFFFFFFFF,
+    0x80000000,
+    0x7FFFFFFF)
     add x3, sp, #-256
-    strh w5, [x3], #0
-    strh w6, [x3], #32
+    strh ARG1_32, [x3], #0
+    strh ARG1_32, [x3], #32
 TEST_END
 
 /* STRH  <Wt>, [<Xn|SP>, #<simm>]! */
 TEST_BEGIN(STRH_32_LDST_IMMPRE, strh_w5_m16_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x41414141,
+    0x00000000,
+    0xFFFFFFFF,
+    0x80000000,
+    0x7FFFFFFF)
     add x3, sp, #-256
-    strh w5, [x3, #16]!
+    strh ARG1_32, [x3, #16]!
 TEST_END
 
 /* STRH  <Wt>, [<Xn|SP>, (<Wm>|<Xm>), <extend> {<amount>}] */
@@ -65,7 +75,12 @@ TEST_END
 
 /* STRH  <Wt>, [<Xn|SP>, <Xm>{, LSL <amount>}] */
 TEST_BEGIN(STRH_32_LDST_REGOFF, strh_w567_m16_off_w0_lsl01, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    4,
+    8,
+    16,
+    32)
     add x3, sp, #-256
     strh w5, [x3, ARG1_64]  /* Implicit LSL 0 */
     strh w6, [x3, ARG1_64, lsl #0]  /* Explicit LSL 0 */
