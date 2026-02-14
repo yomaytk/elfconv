@@ -23,9 +23,9 @@ jobs:
 
     - name: Pull base image or build locally
       run: |
-        if ! docker pull ghcr.io/yomaytk/elfconv-base:latest; then
+        if ! docker pull ghcr.io/yomaytk/elfconv-base:arm64; then
           echo "Base image not found, building locally..."
-          docker build -f Dockerfile.base -t ghcr.io/yomaytk/elfconv-base:latest .
+          docker build -f Dockerfile.base -t ghcr.io/yomaytk/elfconv-base:arm64 .
         fi
 
     - name: build container image
