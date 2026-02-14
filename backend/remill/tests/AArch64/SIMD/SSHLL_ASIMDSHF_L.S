@@ -1,0 +1,89 @@
+TEST_BEGIN(SSHLL_ASIMDSHF_L_8H8B, sshll_v0_v1_8h8b, 1)
+TEST_INPUTS(0)
+    sshll v0.8h, v1.8b, #2
+    sshll v3.8h, v4.8b, #5
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_8H16B, sshll2_v0_v1_8h16b, 1)
+TEST_INPUTS(0)
+    sshll2 v0.8h, v1.16b, #2
+    sshll2 v3.8h, v4.16b, #5
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_4S4H, sshll_v0_v1_4s4h, 1)
+TEST_INPUTS(0)
+    sshll v0.4s, v1.4h, #3
+    sshll v3.4s, v4.4h, #3
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_4S8H, sshll2_v0_v1_4s8h, 1)
+TEST_INPUTS(0)
+    sshll2 v0.4s, v1.8h, #3
+    sshll2 v3.4s, v4.8h, #3
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_2D2S, sshll_v0_v1_2d2s, 1)
+TEST_INPUTS(0)
+    sshll v0.2d, v1.2s, #5
+    sshll v3.2d, v4.2s, #5
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_2D4S, sshll2_v0_v1_2d4s, 1)
+TEST_INPUTS(0)
+    sshll2 v0.2d, v1.4s, #5
+    sshll2 v3.2d, v4.4s, #5
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_8H8B_INPUTS, sshll_8h8b_inputs, 1)
+TEST_INPUTS(
+    0x0102040810204080,
+    0xFF00FF00FF00FF00,
+    0x80817F7E01020304)
+    fmov d1, ARG1_64
+    sshll v0.8h, v1.8b, #2
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_8H16B_INPUTS, sshll2_8h16b_inputs, 1)
+TEST_INPUTS(
+    0x0102040810204080,
+    0xFF00FF00FF00FF00,
+    0x80817F7E01020304)
+    dup v1.2d, ARG1_64
+    sshll2 v0.8h, v1.16b, #2
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_4S4H_INPUTS, sshll_4s4h_inputs, 1)
+TEST_INPUTS(
+    0x0001800000017FFF,
+    0xFFFF000000010002,
+    0x8000FFFF7FFF0001)
+    fmov d1, ARG1_64
+    sshll v0.4s, v1.4h, #3
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_4S8H_INPUTS, sshll2_4s8h_inputs, 1)
+TEST_INPUTS(
+    0x0001800000017FFF,
+    0xFFFF000000010002,
+    0x8000FFFF7FFF0001)
+    dup v1.2d, ARG1_64
+    sshll2 v0.4s, v1.8h, #3
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_2D2S_INPUTS, sshll_2d2s_inputs, 1)
+TEST_INPUTS(
+    0x0000000180000000,
+    0xFFFFFFFF00000001,
+    0x7FFFFFFF80000001)
+    fmov d1, ARG1_64
+    sshll v0.2d, v1.2s, #5
+TEST_END
+
+TEST_BEGIN(SSHLL_ASIMDSHF_L_2D4S_INPUTS, sshll2_2d4s_inputs, 1)
+TEST_INPUTS(
+    0x0000000180000000,
+    0xFFFFFFFF00000001,
+    0x7FFFFFFF80000001)
+    dup v1.2d, ARG1_64
+    sshll2 v0.2d, v1.4s, #5
+TEST_END

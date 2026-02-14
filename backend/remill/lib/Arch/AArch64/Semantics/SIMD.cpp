@@ -198,7 +198,7 @@ ALWAYS_INLINE static T UMax(T lhs, T rhs) {
     auto vec2 = prefix##ReadVI##size(src2); \
     V sum = {}; \
     _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(sum); i < max_i; ++i) { \
-      sum[i] = prefix##binop(prefix##ExtractVI##size(vec1, i), prefix##ExtractVI##size(vec2, i)); \
+      sum[i] = prefix##binop(vec1[i], vec2[i]); \
     } \
     return sum; \
   }

@@ -20,3 +20,12 @@ TEST_INPUTS(0)
     ushr d6, d7, #2
     ushr d7, d8, #3
 TEST_END
+
+TEST_BEGIN(USHR_ASISDSHF_R_INPUTS, ushr_d_inputs, 1)
+TEST_INPUTS(
+    0x0000000000000001,
+    0x8000000000000000,
+    0xFFFFFFFFFFFFFFFF)
+    fmov d6, ARG1_64
+    ushr d5, d6, #2
+TEST_END

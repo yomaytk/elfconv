@@ -3542,7 +3542,7 @@ bool TryDecodeFCVTZS_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZS  <Xd>, <Sn>
 bool TryDecodeFCVTZS_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }

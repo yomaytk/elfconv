@@ -1,0 +1,15 @@
+TEST_BEGIN(ADDP_ASISDPAIR_ONLY, addp_d0_v1_2d, 1)
+TEST_INPUTS(0)
+    addp d0, v1.2d
+    addp d3, v4.2d
+    addp d5, v6.2d
+TEST_END
+
+TEST_BEGIN(ADDP_ASISDPAIR_ONLY_INPUTS, addp_d0_v1_2d_inputs, 1)
+TEST_INPUTS(
+    0x0000000000000001,
+    0x8000000000000000,
+    0xFFFFFFFFFFFFFFFF)
+    dup v1.2d, ARG1_64
+    addp d0, v1.2d
+TEST_END
