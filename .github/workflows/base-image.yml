@@ -5,10 +5,12 @@ on:
     branches: [ "main" ]
     paths:
       - 'Dockerfile.base'
+      - '.github/workflows/base-image.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'Dockerfile.base'
+      - '.github/workflows/base-image.yml'
   workflow_dispatch:
 
 env:
@@ -17,7 +19,14 @@ env:
 
 jobs:
   build-base-image:
-    runs-on: ubuntu-22.04-arm
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+          - runner: ubuntu-22.04
+            arch: amd64
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       packages: write
@@ -40,4 +49,4 @@ jobs:
         context: .
         file: Dockerfile.base
         push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}

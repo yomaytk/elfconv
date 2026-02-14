@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
-# To build from scratch instead, use: docker build -f Dockerfile.base -t ghcr.io/yomaytk/elfconv-base:latest .
-ARG BASE_IMAGE=ghcr.io/yomaytk/elfconv-base:latest
+
+ARG TARGETARCH
+ARG BASE_IMAGE=ghcr.io/yomaytk/elfconv-base:${TARGETARCH}
 
 FROM ${BASE_IMAGE}
 ARG ROOT_DIR=/root/elfconv
