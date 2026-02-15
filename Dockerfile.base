@@ -18,30 +18,18 @@ RUN apt-get update && \
     echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -qqy --no-install-recommends \
-      file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
+      build-essential python3 pkg-config \
       clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libclang-${LLVM_VERSION}-dev \
-      ninja-build pixz xz-utils make rpm \
-      curl unzip tar git zip pkg-config vim openssh-client \
-      libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache \
-      binutils-dev libelf-dev libiberty-dev qemu-user-binfmt libdwarf1 libdwarf-dev && \
+      ninja-build \
+      curl unzip tar git \
+      libc6-dev liblzma-dev zlib1g-dev \
+      binutils-dev libelf-dev libiberty-dev libdwarf-dev && \
     apt-get upgrade --yes && apt-get clean --yes && \
     rm -rf /var/lib/apt/lists/*
 
 # cmake install
 RUN wget "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-$(uname -m).sh" && \
     /bin/bash cmake-*.sh --skip-license --prefix=/usr/local && rm cmake-*.sh
-
-# cross compile library
-RUN apt-get update && \
-    if [ "$(uname -m)" = "x86_64" ]; then \
-      dpkg --add-architecture i386 && apt-get update && \
-      apt-get install -qqy zlib1g-dev:i386 gcc-multilib g++-multilib && \
-      apt-get update && apt-get install -qqy g++-*-aarch64-linux-gnu; \
-    elif [ "$(uname -m)" = "aarch64" ]; then \
-      dpkg --add-architecture armhf && apt-get update && \
-      apt-get install -qqy libstdc++-*-dev-armhf-cross; \
-    fi && \
-    apt-get clean --yes && rm -rf /var/lib/apt/lists/*
 
 # stage2. SDK installation
 FROM toolchain AS sdks
@@ -69,4 +57,3 @@ RUN cd /root && \
 # WASI Runtimes install
 RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
 RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
-
