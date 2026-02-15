@@ -29,6 +29,10 @@ RUN apt-get update && apt-get install -qqy --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 RUN ./scripts/build.sh
-RUN make -C  ~/elfconv/examples/hello/c
+RUN if [ "${ELFCONV_AARCH64:-0}" = "1" ]; then \
+      make -C ~/elfconv/examples/hello/c hello_aarch64; \
+    elif [ "${ELFCONV_X86:-0}" = "1" ]; then \
+      make -C ~/elfconv/examples/hello/c hello_amd64; \
+    fi
 ENTRYPOINT ["/bin/bash", "--login", "-c"]
 CMD ["/bin/bash"]

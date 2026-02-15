@@ -547,7 +547,7 @@ MAKE_WRITE_REF(float80_t)
   ALWAYS_INLINE static bool _CmpXchg(RuntimeManager *rt_m, RnW<T> op, \
                                      type_prefix##size##_t &expected, \
                                      type_prefix##size##_t desired) { \
-    if (decltype(expected)(*op.val_ref) == expected) { \
+    if (type_prefix##size##_t(*op.val_ref) == expected) { \
       *op.val_ref = desired; \
       return true; \
     } else { \
@@ -1405,7 +1405,7 @@ ALWAYS_INLINE static constexpr T _ZeroVec(void) {
 //
 // TODO(pag): What happens if there's a signal handler? How should we
 //            communicate the error class?
-#define StopFailure() __remill_error(state, Read(REG_PC), rt_m)
+#define StopFailure() __remill_error(nullptr, state, Read(REG_PC), rt_m)
 
 // Aesthetically pleasing names that hide the implicit small-step semantics
 // of the memory pointer.

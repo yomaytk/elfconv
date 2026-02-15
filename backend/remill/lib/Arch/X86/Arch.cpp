@@ -821,7 +821,8 @@ static bool IsAVX512(xed_isa_set_enum_t isa_set, xed_category_enum_t category) {
     case XED_ISA_SET_AVX512BW_128N:
     case XED_ISA_SET_AVX512BW_256:
     case XED_ISA_SET_AVX512BW_512:
-    case XED_ISA_SET_AVX512BW_KOP:
+    case XED_ISA_SET_AVX512BW_KOPD:
+    case XED_ISA_SET_AVX512BW_KOPQ:
     case XED_ISA_SET_AVX512CD_128:
     case XED_ISA_SET_AVX512CD_256:
     case XED_ISA_SET_AVX512CD_512:
@@ -829,7 +830,8 @@ static bool IsAVX512(xed_isa_set_enum_t isa_set, xed_category_enum_t category) {
     case XED_ISA_SET_AVX512DQ_128N:
     case XED_ISA_SET_AVX512DQ_256:
     case XED_ISA_SET_AVX512DQ_512:
-    case XED_ISA_SET_AVX512DQ_KOP:
+    case XED_ISA_SET_AVX512DQ_KOPB:
+    case XED_ISA_SET_AVX512DQ_KOPW:
     case XED_ISA_SET_AVX512DQ_SCALAR:
     case XED_ISA_SET_AVX512ER_512:
     case XED_ISA_SET_AVX512ER_SCALAR:
@@ -837,7 +839,7 @@ static bool IsAVX512(xed_isa_set_enum_t isa_set, xed_category_enum_t category) {
     case XED_ISA_SET_AVX512F_128N:
     case XED_ISA_SET_AVX512F_256:
     case XED_ISA_SET_AVX512F_512:
-    case XED_ISA_SET_AVX512F_KOP:
+    case XED_ISA_SET_AVX512F_KOPW:
     case XED_ISA_SET_AVX512F_SCALAR:
     case XED_ISA_SET_AVX512PF_512:
     case XED_ISA_SET_AVX512_4FMAPS_512:
@@ -981,7 +983,7 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_CDQE:
     case XED_IFORM_JMP_RELBRd:
     case XED_IFORM_NOP_90:
-    case XED_IFORM_NOP_MEMv_GPRv_0F1F:
+    case XED_IFORM_NOP_MEMv_0F1F:
     case XED_IFORM_MOV_GPR8_IMMb_B0:
     case XED_IFORM_MOV_GPRv_IMMz:
     case XED_IFORM_MOV_GPRv_IMMv:
@@ -996,7 +998,7 @@ void SetSemaFuncArgType(Instruction &inst, xed_iform_enum_t iform) {
     case XED_IFORM_MOV_MEMb_GPR8:
     case XED_IFORM_MOV_GPRv_MEMv:
     case XED_IFORM_MOV_GPR8_MEMb:
-    case XED_IFORM_MOVSXD_GPRv_MEMz:
+    case XED_IFORM_MOVSXD_GPRz_MEMz:
     case XED_IFORM_PUSH_GPRv_50:
     case XED_IFORM_POP_GPRv_58:
     case XED_IFORM_RET_NEAR:
