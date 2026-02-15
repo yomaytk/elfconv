@@ -19,7 +19,8 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -qqy --no-install-recommends \
       file libtinfo-dev libzstd-dev python3-pip python3-setuptools python-setuptools python3 build-essential \
-      clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} ninja-build pixz xz-utils make rpm \
+      clang-${LLVM_VERSION} lld-${LLVM_VERSION} llvm-${LLVM_VERSION} llvm-${LLVM_VERSION}-dev libclang-${LLVM_VERSION}-dev \
+      ninja-build pixz xz-utils make rpm \
       curl unzip tar git zip pkg-config vim openssh-client \
       libc6-dev liblzma-dev zlib1g-dev libselinux1-dev libbsd-dev ccache \
       binutils-dev libelf-dev libiberty-dev qemu-user-binfmt libdwarf1 libdwarf-dev && \
@@ -69,15 +70,3 @@ RUN cd /root && \
 RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
 RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
 
-# Download vcpkg libraries (LLVM toolchain, etc.) used by build.sh
-ARG LLVM_VERSION
-ARG UBUNTU_VERSION
-RUN if [ "$(uname -m)" = "x86_64" ]; then ARCH=amd64; \
-    elif [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi && \
-    LIB_VERSION="vcpkg_ubuntu-${UBUNTU_VERSION}_llvm-${LLVM_VERSION}_${ARCH}" && \
-    DOWNLOAD_DIR=/root/elfconv/backend/lifting-bits-downloads && \
-    mkdir -p ${DOWNLOAD_DIR} && cd ${DOWNLOAD_DIR} && \
-    curl -LO "https://github.com/lifting-bits/cxx-common/releases/download/v0.5.0/${LIB_VERSION}.tar.xz" && \
-    tar -xJf "${LIB_VERSION}.tar.xz" --warning=no-timestamp && \
-    rm "${LIB_VERSION}.tar.xz" && \
-    find "${LIB_VERSION}" -type f -exec touch {} \;

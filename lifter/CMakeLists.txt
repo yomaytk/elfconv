@@ -14,7 +14,8 @@
 
 enable_language(ASM)
 
-include_directories("/usr/lib/llvm-16/include")
+find_package(LLVM CONFIG REQUIRED)
+include_directories(${LLVM_INCLUDE_DIRS})
 
 add_executable(elflift
   Binary/Loader.cpp

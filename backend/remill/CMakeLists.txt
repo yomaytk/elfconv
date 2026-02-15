@@ -35,8 +35,6 @@ message(STATUS "Compiler ID is ${CMAKE_C_COMPILER_ID}")
 # libraries
 #
 
-# Z3
-find_package(Z3 CONFIG REQUIRED)
 
 # LLVM
 find_package(LLVM CONFIG REQUIRED)

@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1
 
 ARG TARGETARCH
+ARG LLVM_VERSION=16
 ARG BASE_IMAGE=ghcr.io/yomaytk/elfconv-base:${TARGETARCH}
 
 FROM ${BASE_IMAGE}
+ARG LLVM_VERSION=16
 ARG ROOT_DIR=/root/elfconv
 ARG ECV_AARCH64
 ARG ECV_X86
@@ -21,6 +23,10 @@ RUN git config --global user.email "41898282+github-actions[bot]@users.noreply.g
 
 WORKDIR ${ROOT_DIR}
 COPY ./ ./
+
+RUN apt-get update && apt-get install -qqy --no-install-recommends \
+      llvm-${LLVM_VERSION}-dev libclang-${LLVM_VERSION}-dev libcurl4-openssl-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN ./scripts/build.sh
 RUN make -C  ~/elfconv/examples/hello/c
