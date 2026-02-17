@@ -16,9 +16,20 @@
 
 /* LDP  <Wt1>, <Wt2>, [<Xn|SP>, #<imm>]! */
 TEST_BEGIN(LDP_32_LDSTPAIR_PRE, ldp_w0_w1_m64_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
 
     add x3, sp, #-256
+    str ARG1_64, [x3, #0]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #40]
+    str ARG1_64, [x3, #96]
+    str ARG1_64, [x3, #104]
     ldp w4, w5, [x3, #0]!
     ldp w6, w7, [x3, #32]!
     ldp w8, w9, [x3, #64]!
@@ -26,9 +37,20 @@ TEST_END
 
 /* LDP  <Xt1>, <Xt2>, [<Xn|SP>, #<imm>]! */
 TEST_BEGIN(LDP_64_LDSTPAIR_PRE, ldp_x0_x1_m128_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
 
     add x3, sp, #-256
+    str ARG1_64, [x3, #0]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #40]
+    str ARG1_64, [x3, #96]
+    str ARG1_64, [x3, #104]
     ldp x4, x5, [x3, #0]!
     ldp x6, x7, [x3, #32]!
     ldp x8, x9, [x3, #64]!
@@ -36,9 +58,20 @@ TEST_END
 
 /* LDP  <St1>, <St2>, [<Xn|SP>, #<imm>]! */
 TEST_BEGIN(LDP_S_LDSTPAIR_PRE, ldp_s0_s1_m64_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
 
     add x3, sp, #-256
+    str ARG1_64, [x3, #0]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #40]
+    str ARG1_64, [x3, #96]
+    str ARG1_64, [x3, #104]
     ldp s4, s5, [x3, #0]!
     ldp s6, s7, [x3, #32]!
     ldp s8, s9, [x3, #64]!
@@ -46,9 +79,20 @@ TEST_END
 
 /* LDP  <Dt1>, <Dt2>, [<Xn|SP>, #<imm>]! */
 TEST_BEGIN(LDP_D_LDSTPAIR_PRE, ldp_d0_d1_m128_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
 
     add x3, sp, #-256
+    str ARG1_64, [x3, #0]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #40]
+    str ARG1_64, [x3, #96]
+    str ARG1_64, [x3, #104]
     ldp d4, d5, [x3, #0]!
     ldp d6, d7, [x3, #32]!
     ldp d8, d9, [x3, #64]!
@@ -56,12 +100,27 @@ TEST_END
 
 /* LDP  <Qt1>, <Qt2>, [<Xn|SP>, #<imm>]! */
 TEST_BEGIN(LDP_Q_LDSTPAIR_PRE, ldp_q0_q1_m256_pre, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
 
     add x3, sp, #-256
+    str ARG1_64, [x3, #0]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
+    str ARG1_64, [x3, #32]
+    str ARG1_64, [x3, #40]
+    str ARG1_64, [x3, #48]
+    str ARG1_64, [x3, #56]
+    str ARG1_64, [x3, #96]
+    str ARG1_64, [x3, #104]
+    str ARG1_64, [x3, #112]
+    str ARG1_64, [x3, #120]
     ldp q4, q5, [x3, #0]!
     ldp q6, q7, [x3, #32]!
     ldp q8, q9, [x3, #64]!
 TEST_END
-
-

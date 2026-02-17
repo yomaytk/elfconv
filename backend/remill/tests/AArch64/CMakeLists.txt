@@ -21,7 +21,6 @@ enable_language(ASM)
 include_directories("/usr/lib/llvm-16/include")
 
 add_executable(lift-aarch64-tests
-  EXCLUDE_FROM_ALL
   Lift.cpp
   Tests.S
 )
@@ -52,7 +51,6 @@ target_include_directories(lift-aarch64-tests PRIVATE "${CMAKE_SOURCE_DIR}/backe
 target_include_directories(lift-aarch64-tests PRIVATE "${CMAKE_SOURCE_DIR}")
 
 add_executable(run-aarch64-tests
-  EXCLUDE_FROM_ALL
   Run.cpp
   Tests.S
   tests_aarch64.S
@@ -66,7 +64,7 @@ set_target_properties(run-aarch64-tests PROPERTIES
 add_custom_command(
   OUTPUT tests_aarch64.bc
   COMMAND lift-aarch64-tests --arch aarch64 --bc_out tests_aarch64.bc
-  DEPENDS lift-aarch64-tests semantics
+  DEPENDS lift-aarch64-tests "${REMILL_BUILD_SEMANTICS_DIR_AARCH64}/aarch64.bc"
 )
 
 add_custom_command(
@@ -103,4 +101,4 @@ target_compile_options(run-aarch64-tests
 
 message(STATUS "Adding test: aarch64 as run-aarch64-tests")
 add_test(NAME "aarch64" COMMAND "run-aarch64-tests")
-add_dependencies(test_dependencies run-aarch64-tests)
+add_dependencies(test_dependencies run-aarch64-tests aarch64)

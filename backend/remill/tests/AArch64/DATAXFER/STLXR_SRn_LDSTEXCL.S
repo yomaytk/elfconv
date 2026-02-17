@@ -45,8 +45,14 @@
 // TEST_END
 
 TEST_BEGIN(STLXR_SR64_LDSTEXCL, ldxr_stlxr_m64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000000,
+    0x7FFFFFFFFFFFFFFF)
     add x3, sp, #-256
+    str ARG1_64, [x3]
     mov x7, #0xFF
     mov x8, #0xFF
     ldxr x4, [x3]

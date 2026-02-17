@@ -198,7 +198,7 @@ ALWAYS_INLINE static T UMax(T lhs, T rhs) {
     auto vec2 = prefix##ReadVI##size(src2); \
     V sum = {}; \
     _Pragma("unroll") for (size_t i = 0, max_i = GetVectorElemsNum(sum); i < max_i; ++i) { \
-      sum[i] = prefix##binop(prefix##ExtractVI##size(vec1, i), prefix##ExtractVI##size(vec2, i)); \
+      sum[i] = prefix##binop(vec1[i], vec2[i]); \
     } \
     return sum; \
   }
@@ -1606,7 +1606,7 @@ namespace {
     auto srcm_v = UReadVI##s_esize(srcm); \
     D res{}; \
     _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcn_v); i++) { \
-      res[i] = uint##d_esize##_t(srcn_v[i] + srcm_v[i]); \
+      res[i] = uint##d_esize##_t(srcn_v[i]) + uint##d_esize##_t(srcm_v[i]); \
     } \
     return res; \
   } \
@@ -1617,7 +1617,7 @@ namespace {
     D res{}; \
     auto res_len = GetVectorElemsNum(res); \
     _Pragma("unroll") for (size_t i = res_len; i < GetVectorElemsNum(srcn_v); i++) { \
-      res[i - res_len] = uint##d_esize##_t(srcn_v[i] + srcm_v[i]); \
+      res[i - res_len] = uint##d_esize##_t(srcn_v[i]) + uint##d_esize##_t(srcm_v[i]); \
     } \
     return res; \
   }

@@ -16,8 +16,17 @@
 
 /* LDURB  <Wt>, [<Xn|SP>{, #<simm>}] */
 TEST_BEGIN(LDURB_32_LDST_UNSCALED, ldurb_w5_m8, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
     ldurb w5, [x3, #0]
     ldurb w6, [x3, #8]
     ldurb w7, [x3, #16]
@@ -25,8 +34,17 @@ TEST_END
 
 /* LDURH  <Wt>, [<Xn|SP>{, #<simm>}] */
 TEST_BEGIN(LDURH_32_LDST_UNSCALED, ldurh_w5_m16, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
     ldurh w5, [x3, #0]
     ldurh w6, [x3, #8]
     ldurh w7, [x3, #16]
@@ -34,8 +52,17 @@ TEST_END
 
 /* LDUR  <Wt>, [<Xn|SP>{, #<simm>}] */
 TEST_BEGIN(LDUR_32_LDST_UNSCALED, ldur_w5_m32, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
     ldur w5, [x3, #0]
     ldur w6, [x3, #8]
     ldur w7, [x3, #16]
@@ -43,8 +70,17 @@ TEST_END
 
 /* LDUR  <Xt>, [<Xn|SP>{, #<simm>}] */
 TEST_BEGIN(LDUR_64_LDST_UNSCALED, ldur_x5_m64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0xababababcdcdcdcd,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000001)
+
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
     ldur x5, [x3, #0]
     ldur x6, [x3, #8]
     ldur x7, [x3, #16]

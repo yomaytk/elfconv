@@ -1,0 +1,27 @@
+TEST_BEGIN(RORV_32_DP_2SRC, rorv_w9_w0_w1, 2)
+TEST_INPUTS(
+    0, 0,
+    1, 0,
+    1, 1,
+    0xFFFFFFFF, 1,
+    0x80000000, 1,
+    0x12345678, 4,
+    0x12345678, 31,
+    0x12345678, 32)
+
+    rorv w9, ARG1_32, ARG2_32
+TEST_END
+
+TEST_BEGIN(RORV_64_DP_2SRC, rorv_x9_x0_x1, 2)
+TEST_INPUTS(
+    0, 0,
+    1, 0,
+    1, 1,
+    0xFFFFFFFFFFFFFFFF, 1,
+    0x8000000000000000, 1,
+    0x123456789abcdef0, 4,
+    0x123456789abcdef0, 63,
+    0x123456789abcdef0, 64)
+
+    rorv x9, ARG1_64, ARG2_64
+TEST_END

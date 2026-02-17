@@ -16,9 +16,14 @@
 
 /* STLR  <Wt>, [<Xn|SP>{,#0}] */
 TEST_BEGIN(STLR_SL32_LDSTEXCL, stlr_sl32_ldstexcl, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x41414141,
+    0x00000000,
+    0xFFFFFFFF,
+    0x80000000,
+    0x7FFFFFFF)
     add x3, sp, #-256
-    ldp w5, w6, [x3]
-    stlr w5, [x3]
+    str ARG1_32, [x3]
+    stlr ARG1_32, [x3]
 TEST_END
 

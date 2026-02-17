@@ -15,17 +15,27 @@
  */
 
 TEST_BEGIN(STR_32_LDST_IMMPOST, str_w0_m32_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x41414141,
+    0x00000000,
+    0xFFFFFFFF,
+    0x80000000,
+    0x7FFFFFFF)
     add x3, sp, #-256
-    str w0, [x3], #0
-    str w1, [x3], #16
-    str w2, [x3], #32
+    str ARG1_32, [x3], #0
+    str ARG1_32, [x3], #16
+    str ARG1_32, [x3], #32
 TEST_END
 
 TEST_BEGIN(STR_64_LDST_IMMPOST, str_x0_m64_post, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x4141414151515151,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x8000000000000000,
+    0x7FFFFFFFFFFFFFFF)
     add x3, sp, #-256
-    str x0, [x3], #0
-    str x1, [x3], #16
-    str x2, [x3], #32
+    str ARG1_64, [x3], #0
+    str ARG1_64, [x3], #16
+    str ARG1_64, [x3], #32
 TEST_END

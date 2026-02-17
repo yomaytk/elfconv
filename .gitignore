@@ -131,3 +131,7 @@ elfconv-v*
 
 !browser/*
 !release/outdir/index.html
+
+# AI
+SKILLS.md
+skills

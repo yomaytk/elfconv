@@ -3542,7 +3542,7 @@ bool TryDecodeFCVTZS_32S_FLOAT2INT(const InstData &data, Instruction &inst) {
 
 // FCVTZS  <Xd>, <Sn>
 bool TryDecodeFCVTZS_64S_FLOAT2INT(const InstData &data, Instruction &inst) {
-  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  inst.sema_func_arg_type = SemaFuncArgType::State;
   if (IsUnallocatedFloatEncoding(data)) {
     return false;
   }
@@ -4604,6 +4604,22 @@ bool TryDecodeCLZ_32_DP_1SRC(const InstData &data, Instruction &inst) {
 
 // CLZ  <Xd>, <Xn>
 bool TryDecodeCLZ_64_DP_1SRC(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);
+  return true;
+}
+
+// CLS  <Wd>, <Wn>
+bool TryDecodeCLS_32_DP_1SRC(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegW, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegW, kUseAsValue, data.Rn);
+  return true;
+}
+
+// CLS  <Xd>, <Xn>
+bool TryDecodeCLS_64_DP_1SRC(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
   AddRegOperand(inst, kActionWrite, kRegX, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, kRegX, kUseAsValue, data.Rn);

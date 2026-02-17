@@ -15,57 +15,129 @@
  */
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_16B, ld1_i2_16b, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    stp ARG1_64, ARG1_64, [x3]
+    stp ARG1_64, ARG1_64, [x3, #16]
+    stp ARG1_64, ARG1_64, [x3, #32]
+    stp ARG1_64, ARG1_64, [x3, #48]
     ld1 {v3.16b, v4.16b}, [x3], #0x20
     ld1 {v31.16b, v0.16b}, [x3], #0x20
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_8B, ld1_i2_8b, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
     ld1 {v3.8b, v4.8b}, [x3], #0x10
     ld1 {v31.8b, v0.8b}, [x3], #0x10
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_8H, ld1_i2_8h, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    stp ARG1_64, ARG1_64, [x3]
+    stp ARG1_64, ARG1_64, [x3, #16]
+    stp ARG1_64, ARG1_64, [x3, #32]
+    stp ARG1_64, ARG1_64, [x3, #48]
     ld1 {v3.8h, v4.8h}, [x3], #0x20
     ld1 {v31.8h, v0.8h}, [x3], #0x20
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_4H, ld1_i2_4h, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
     ld1 {v3.4h, v4.4h}, [x3], #0x10
     ld1 {v31.4h, v0.4h}, [x3], #0x10
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_4S, ld1_i2_4s, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    stp ARG1_64, ARG1_64, [x3]
+    stp ARG1_64, ARG1_64, [x3, #16]
+    stp ARG1_64, ARG1_64, [x3, #32]
+    stp ARG1_64, ARG1_64, [x3, #48]
     ld1 {v3.4s, v4.4s}, [x3], #0x20
     ld1 {v31.4s, v0.4s}, [x3], #0x20
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_2S, ld1_i2_2s, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
     ld1 {v3.2s, v4.2s}, [x3], #0x10
     ld1 {v31.2s, v0.2s}, [x3], #0x10
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_2D, ld1_i2_2d, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    stp ARG1_64, ARG1_64, [x3]
+    stp ARG1_64, ARG1_64, [x3, #16]
+    stp ARG1_64, ARG1_64, [x3, #32]
+    stp ARG1_64, ARG1_64, [x3, #48]
     ld1 {v3.2d, v4.2d}, [x3], #0x20
     ld1 {v31.2d, v0.2d}, [x3], #0x20
 TEST_END
 
 TEST_BEGIN(LD1_ASISDLSEP_I2_I2_1D, ld1_i2_1d, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0102030405060708,
+    0xFF00FF00FF00FF00,
+    0x0000000000000000,
+    0xFFFFFFFFFFFFFFFF,
+    0x80817F7E01020304)
     add x3, sp, #-256
+    str ARG1_64, [x3]
+    str ARG1_64, [x3, #8]
+    str ARG1_64, [x3, #16]
+    str ARG1_64, [x3, #24]
     ld1 {v3.1d, v4.1d}, [x3], #0x10
     ld1 {v31.1d, v0.1d}, [x3], #0x10
 TEST_END

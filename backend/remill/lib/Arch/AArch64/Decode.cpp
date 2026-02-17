@@ -5845,9 +5845,7 @@ bool TryDecodeSRSHR_ASIMDSHF_R(const InstData &, Instruction &) {
 //  30 1
 //  31 0 sf       0
 // CLS  <Wd>, <Wn>
-bool TryDecodeCLS_32_DP_1SRC(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // CLS CLS_64_dp_1src:
 //   0 x Rd       0
@@ -5883,9 +5881,7 @@ bool TryDecodeCLS_32_DP_1SRC(const InstData &, Instruction &) {
 //  30 1
 //  31 1 sf       0
 // CLS  <Xd>, <Xn>
-bool TryDecodeCLS_64_DP_1SRC(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // SEV SEV_HI_system:
 //   0 1 Rt       0

@@ -17,7 +17,17 @@
 
 
 TEST_BEGIN(FMOV_32S_FLOAT2INT, fmov_f32_to_i32, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x3ff0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x0000000000000000,  /* 0.0 */
+    0xbff0000000000000,  /* -1.0 */
+    0x7ff0000000000000,  /* +inf */
+    0x7ff8000000000000,  /* nan */
+    0xC1F7FFFFFFD00000,
+    0x41F7FFFFFFD00000)
+
+    fmov d0, ARG1_64
     fmov w0, s0
     fmov w1, s0
     fmov w3, s2
@@ -42,7 +52,17 @@ TEST_INPUTS(
 TEST_END
 
 TEST_BEGIN(FMOV_64D_FLOAT2INT, fmov_f64_to_i64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x3ff0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x0000000000000000,  /* 0.0 */
+    0xbff0000000000000,  /* -1.0 */
+    0x7ff0000000000000,  /* +inf */
+    0x7ff8000000000000,  /* nan */
+    0xC1F7FFFFFFD00000,
+    0x41F7FFFFFFD00000)
+
+    fmov d0, ARG1_64
     fmov x0, d0
     fmov x1, d0
     fmov x3, d2
@@ -65,7 +85,17 @@ TEST_INPUTS(
 TEST_END
 
 TEST_BEGIN(FMOV_S_FLOATDP1, fmov_s, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x3ff0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x0000000000000000,  /* 0.0 */
+    0xbff0000000000000,  /* -1.0 */
+    0x7ff0000000000000,  /* +inf */
+    0x7ff8000000000000,  /* nan */
+    0xC1F7FFFFFFD00000,
+    0x41F7FFFFFFD00000)
+
+    fmov d0, ARG1_64
     fmov s1, s0
     fmov s3, s2
     fmov s5, s4
@@ -73,7 +103,17 @@ TEST_INPUTS(0)
 TEST_END
 
 TEST_BEGIN(FMOV_D_FLOATDP1, fmov_d, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x3ff0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x0000000000000000,  /* 0.0 */
+    0xbff0000000000000,  /* -1.0 */
+    0x7ff0000000000000,  /* +inf */
+    0x7ff8000000000000,  /* nan */
+    0xC1F7FFFFFFD00000,
+    0x41F7FFFFFFD00000)
+
+    fmov d0, ARG1_64
     fmov d1, d0
     fmov d3, d2
     fmov d5, d4
