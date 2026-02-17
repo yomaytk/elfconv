@@ -141,30 +141,58 @@ LiftStatus InstructionLifter::LiftIntoBlock(Instruction &arch_inst, llvm::BasicB
   if (arch_inst.lift_config.target_elf_arch == kArchAArch64LittleEndian) {
     LiftAArch64EveryOperand(arch_inst, block, state_ptr, isel_func, bb_reg_info_node);
   } else if (arch_inst.lift_config.target_elf_arch == kArchAMD64) {
-    LiftX86EveryOperand(arch_inst, block, state_ptr, isel_func, bb_reg_info_node);
-  }
+    // Standard remill lifting path for x86 (no VRO).
+    llvm::IRBuilder<> ir(block);
 
-  // End an atomic block.
-  // (FIXME) In the current design, we don't consider the atomic instructions.
-  if (arch_inst.is_atomic_read_modify_write) {
-    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    // ir.CreateStore(ir.CreateCall(impl->intrinsics->atomic_end, temp_args), mem_ptr_ref);
-  }
+    // Update PC and NEXT_PC in State before calling the semantic function.
+    const auto [pc_ref, pc_ref_type] =
+        LoadRegAddress(block, state_ptr, kPCVariableName);
+    const auto [next_pc_ref, next_pc_ref_type] =
+        LoadRegAddress(block, state_ptr, kNextPCVariableName);
+    const auto next_pc = ir.CreateLoad(impl->word_type, next_pc_ref);
+    ir.CreateStore(next_pc, pc_ref);
+    ir.CreateStore(
+        ir.CreateAdd(next_pc, llvm::ConstantInt::get(impl->word_type,
+                                                     arch_inst.bytes.size())),
+        next_pc_ref);
 
-  // Restore the true target of the delayed branch.
-  if (is_delayed) {
+    // Build args: [RuntimeManager*, State*, ...operands...]
+    std::vector<llvm::Value *> args;
+    args.reserve(arch_inst.operands.size() + 2);
 
-    // This is the delayed update of the program counter.
-    // ir.CreateStore(next_pc, pc_ref);
+    auto runtime_ptr = NthArgument(func, kRuntimePointerArgNum);
+    args.push_back(runtime_ptr);
+    args.push_back(state_ptr);
 
-    // We don't know what the `NEXT_PC` is going to be because of the next
-    // instruction size is unknown (really, it's likely to be
-    // `arch->MaxInstructionSize()`), and for normal instructions, before they
-    // are lifted, we do the `PC = NEXT_PC + size`, so this is fine.
-    // ir.CreateStore(next_pc, next_pc_ref);
-    LOG(FATAL) << "Unexpected to enter the `is_delayed`.";
-    // llvm::Value *temp_args[] = {ir.CreateLoad(impl->memory_ptr_type, mem_ptr_ref)};
-    // ir.CreateStore(ir.CreateCall(impl->intrinsics->delay_slot_end, temp_args), mem_ptr_ref);
+    auto isel_func_type = isel_func->getFunctionType();
+    auto arg_num = 2U;
+
+    for (auto &op : arch_inst.operands) {
+      auto num_params = isel_func_type->getNumParams();
+      if (!(arg_num < num_params)) {
+        status = kLiftedMismatchedISEL;
+        printf("[Bug] kLiftedMismatchedISEL at 0x%08lx, inst: %s, arg_num: %u, num_params: %u\n",
+               arch_inst.pc, arch_inst.function.c_str(), arg_num, num_params);
+        break;
+      }
+
+      auto arg = NthArgument(isel_func, arg_num);
+      auto arg_type = arg->getType();
+      auto operand = LiftOperand(arch_inst, block, state_ptr, arg, op);
+      arg_num += 1;
+      auto op_type = operand->getType();
+      CHECK_EQ(op_type, arg_type)
+          << "Lifted operand " << op.Serialize() << " to " << arch_inst.function
+          << " does not have the correct type. Expected "
+          << LLVMThingToString(arg_type) << " but got "
+          << LLVMThingToString(op_type) << ".";
+
+      args.push_back(operand);
+    }
+
+    if (status == kLiftedInstruction) {
+      ir.CreateCall(isel_func, args);
+    }
   }
 
   /* append `debug_memory_value_change` function call */
@@ -626,6 +654,9 @@ llvm::Value *InstructionLifter::LiftImmediateOperand(Instruction &inst, llvm::Ba
   } else if (arg->getType()->isDoubleTy()) {
     auto double_val = *reinterpret_cast<double *>(&arch_op.imm.val);
     return llvm::ConstantFP::get(arg->getType(), double_val);
+  } else if (arg->getType()->isPointerTy()) {
+    auto int_val = llvm::ConstantInt::get(impl->word_type, arch_op.imm.val, arch_op.imm.is_signed);
+    return llvm::ConstantExpr::getIntToPtr(int_val, arg->getType());
   }
 
   else {
@@ -856,15 +887,20 @@ llvm::Value *InstructionLifter::LiftOperand(Instruction &inst, llvm::BasicBlock 
 
     case Operand::kTypeImmediate: return LiftImmediateOperand(inst, block, arg, arch_op);
 
-    case Operand::kTypeAddress:
-      if (arg_type != impl->word_type) {
+    case Operand::kTypeAddress: {
+      if (arg_type != impl->word_type && !arg_type->isPointerTy()) {
         LOG(FATAL) << "Expected that a memory operand should be represented by "
                    << "machine word type. Argument type is " << LLVMThingToString(arg_type)
                    << " and word type is " << LLVMThingToString(impl->word_type)
                    << " in instruction at 0x" << std::hex << inst.pc;
       }
 
-      return LiftAddressOperand(inst, block, state_ptr, arg, arch_op);
+      auto addr_val = LiftAddressOperand(inst, block, state_ptr, arg, arch_op);
+      if (arg_type->isPointerTy() && !addr_val->getType()->isPointerTy()) {
+        return new llvm::IntToPtrInst(addr_val, arg_type, "", block);
+      }
+      return addr_val;
+    }
 
     case Operand::kTypeExpression:
     case Operand::kTypeRegisterExpression:

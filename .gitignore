@@ -133,5 +133,6 @@ elfconv-v*
 !release/outdir/index.html
 
 # AI
+CLAUDE.md
 SKILLS.md
 skills

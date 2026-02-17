@@ -19,5 +19,7 @@ add_subdirectory(backend/remill)
 # lifter build
 add_subdirectory(lifter)
 
-# elfconv integration tests
-add_subdirectory(tests/elfconv)
+# elfconv integration tests (AArch64 only now)
+if(CMAKE_ELFCONV_AARCH64_BUILD)
+  add_subdirectory(tests/elfconv)
+endif()

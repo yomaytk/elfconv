@@ -107,7 +107,11 @@ function Build
 # make remill/generated directory.
 function TestSetup
 {
-  ${REMILL_DIR}/scripts/aarch64/print_save_state_asm.sh
+  if [ "$ELFCONV_AARCH64_BUILD" = "1" ]; then
+    ${REMILL_DIR}/scripts/aarch64/print_save_state_asm.sh
+  elif [ "$ELFCONV_X86_BUILD" = "1" ]; then
+    ${REMILL_DIR}/scripts/x86/print_save_state_asm.sh
+  fi
 
   return $?
 }

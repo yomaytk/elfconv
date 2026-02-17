@@ -333,9 +333,37 @@ SYMBOL(__x86_test_table_begin):
  * up compile and test times. */
 #if 1
 
-/* Bring in the data transfer tests. These basically HAVE to pass before
- * anything else can ;-)  */
+#include "tests/X86/BINARY/ADC.S"
+#include "tests/X86/BINARY/ADD.S"
+#include "tests/X86/BINARY/ADDPD.S"
+#include "tests/X86/BINARY/ADDPS.S"
+#include "tests/X86/BINARY/ADDSD.S"
+#include "tests/X86/BINARY/ADDSS.S"
+#include "tests/X86/BINARY/CMP.S"
+#include "tests/X86/BINARY/DEC.S"
+#include "tests/X86/BINARY/DIV.S"
+#include "tests/X86/BINARY/DIVPD.S"
+#include "tests/X86/BINARY/DIVPS.S"
+#include "tests/X86/BINARY/DIVSD.S"
+#include "tests/X86/BINARY/DIVSS.S"
+#include "tests/X86/BINARY/IDIV.S"
+#include "tests/X86/BINARY/IMUL.S"
+#include "tests/X86/BINARY/INC.S"
+#include "tests/X86/BINARY/MUL.S"
+#include "tests/X86/BINARY/MULPD.S"
+#include "tests/X86/BINARY/MULPS.S"
+#include "tests/X86/BINARY/MULSD.S"
+#include "tests/X86/BINARY/MULSS.S"
+/* #include "tests/X86/BINARY/MULX.S" */
+#include "tests/X86/BINARY/NEG.S"
+#include "tests/X86/BINARY/SBB.S"
+#include "tests/X86/BINARY/SUB.S"
+#include "tests/X86/BINARY/SUBPD.S"
+#include "tests/X86/BINARY/SUBPS.S"
+#include "tests/X86/BINARY/SUBSD.S"
+#include "tests/X86/BINARY/SUBSS.S"
 
+/* TODO: uncomment as semantics are enabled
 #include "tests/X86/DATAXFER/MOV.S"
 #include "tests/X86/DATAXFER/MOVAPD.S"
 #include "tests/X86/DATAXFER/MOVAPS.S"
@@ -359,39 +387,9 @@ SYMBOL(__x86_test_table_begin):
 #include "tests/X86/DATAXFER/XCHG.S"
 #include "tests/X86/DATAXFER/KMOVW.S"
 
-/* Bring in the rest of the semantic tests. */
-
 #include "tests/X86/AVX/VINSERTF128.S"
 #include "tests/X86/AVX/VZEROUPPER.S"
 #include "tests/X86/AVX/VPBROADCASTB.S"
-
-#include "tests/X86/BINARY/ADC.S"
-#include "tests/X86/BINARY/ADD.S"
-#include "tests/X86/BINARY/ADDPD.S"
-#include "tests/X86/BINARY/ADDPS.S"
-#include "tests/X86/BINARY/ADDSD.S"
-#include "tests/X86/BINARY/ADDSS.S"
-#include "tests/X86/BINARY/CMP.S"
-#include "tests/X86/BINARY/DEC.S"
-#include "tests/X86/BINARY/DIV.S"
-#include "tests/X86/BINARY/DIVPD.S"
-#include "tests/X86/BINARY/DIVPS.S"
-#include "tests/X86/BINARY/IDIV.S"
-#include "tests/X86/BINARY/IMUL.S"
-#include "tests/X86/BINARY/INC.S"
-#include "tests/X86/BINARY/MUL.S"
-#include "tests/X86/BINARY/MULPD.S"
-#include "tests/X86/BINARY/MULPS.S"
-#include "tests/X86/BINARY/MULSD.S"
-#include "tests/X86/BINARY/MULSS.S"
-#include "tests/X86/BINARY/MULX.S"
-#include "tests/X86/BINARY/NEG.S"
-#include "tests/X86/BINARY/SBB.S"
-#include "tests/X86/BINARY/SUB.S"
-#include "tests/X86/BINARY/SUBPD.S"
-#include "tests/X86/BINARY/SUBPS.S"
-#include "tests/X86/BINARY/SUBSD.S"
-#include "tests/X86/BINARY/SUBSS.S"
 
 #include "tests/X86/BITBYTE/BSF.S"
 #include "tests/X86/BITBYTE/BSR.S"
@@ -446,7 +444,6 @@ SYMBOL(__x86_test_table_begin):
 #include "tests/X86/CONVERT/CWD.S"
 #include "tests/X86/CONVERT/CWDE.S"
 
-/* used for DECIMAL tests */
 #include "tests/X86/DECIMAL/UTIL_FLAGS.S"
 #include "tests/X86/DECIMAL/AAS.S"
 #include "tests/X86/DECIMAL/DAA.S"
@@ -555,6 +552,7 @@ SYMBOL(__x86_test_table_begin):
 
 #include "tests/X86/FMA/VFMADDSD.S"
 #include "tests/X86/FMA/VFMSUBSD.S"
+*/
 
 #endif
 

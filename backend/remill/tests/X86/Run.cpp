@@ -16,19 +16,24 @@
 
 #define _XOPEN_SOURCE
 
+// clang-format off
+#include <glog/logging.h>
+#include <gtest/gtest.h>
+// clang-format on
+#include "remill/Arch/Name.h"
 #include "remill/Arch/Runtime/Float.h"
 #include "remill/Arch/Runtime/Runtime.h"
 #include "remill/Arch/X86/Runtime/State.h"
+#include "remill/BC/InstructionLifter.h"
 #include "tests/X86/Test.h"
 
+#include <cfenv>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <gtest/gtest.h>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -149,43 +154,35 @@ CR8Reg gCR8;
 extern void InvokeTestCase(uint64_t, uint64_t, uint64_t);
 
 #define MAKE_RW_MEMORY(size) \
-  NEVER_INLINE uint##size##_t __remill_read_memory_##size(Memory *, addr_t addr) { \
+  NEVER_INLINE uint##size##_t __remill_read_memory_##size(RuntimeManager *, addr_t addr) { \
     return AccessMemory<uint##size##_t>(addr); \
   } \
-  NEVER_INLINE Memory *__remill_write_memory_##size(Memory *, addr_t addr, \
-                                                    const uint##size##_t in) { \
+  NEVER_INLINE void __remill_write_memory_##size(RuntimeManager *, addr_t addr, \
+                                                 const uint##size##_t in) { \
     AccessMemory<uint##size##_t>(addr) = in; \
-    return nullptr; \
   }
 
 #define MAKE_RW_FP_MEMORY(size) \
-  NEVER_INLINE float##size##_t __remill_read_memory_f##size(Memory *, addr_t addr) { \
+  NEVER_INLINE float##size##_t __remill_read_memory_f##size(RuntimeManager *, addr_t addr) { \
     return AccessMemory<float##size##_t>(addr); \
   } \
-  NEVER_INLINE Memory *__remill_write_memory_f##size(Memory *, addr_t addr, float##size##_t in) { \
+  NEVER_INLINE void __remill_write_memory_f##size(RuntimeManager *, addr_t addr, \
+                                                  float##size##_t in) { \
     AccessMemory<float##size##_t>(addr) = in; \
-    return nullptr; \
   }
 
 MAKE_RW_MEMORY(8)
 MAKE_RW_MEMORY(16)
 MAKE_RW_MEMORY(32)
 MAKE_RW_MEMORY(64)
+MAKE_RW_MEMORY(128)
 
 MAKE_RW_FP_MEMORY(32)
 MAKE_RW_FP_MEMORY(64)
 //MAKE_RW_FP_MEMORY(80)
 MAKE_RW_FP_MEMORY(128)
 
-NEVER_INLINE Memory *__remill_read_memory_f80(Memory *, addr_t addr, native_float80_t &out) {
-  out = AccessMemory<native_float80_t>(addr);
-  return nullptr;
-}
-
-NEVER_INLINE Memory *__remill_write_memory_f80(Memory *, addr_t addr, const native_float80_t &in) {
-  AccessMemory<native_float80_t>(addr) = in;
-  return nullptr;
-}
+// f80 functions are commented out in Intrinsics.h for elfconv
 
 Memory *__remill_compare_exchange_memory_8(Memory *memory, addr_t addr, uint8_t &expected,
                                            uint8_t desired) {
@@ -272,24 +269,12 @@ int __remill_fpu_exception_test_and_clear(int read_mask, int clear_mask) {
   return except;
 }
 
-Memory *__remill_barrier_load_load(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_load_store(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_load(Memory *) {
-  return nullptr;
-}
-Memory *__remill_barrier_store_store(Memory *) {
-  return nullptr;
-}
-Memory *__remill_atomic_begin(Memory *) {
-  return nullptr;
-}
-Memory *__remill_atomic_end(Memory *) {
-  return nullptr;
-}
+void __remill_barrier_load_load(RuntimeManager *) {}
+void __remill_barrier_load_store(RuntimeManager *) {}
+void __remill_barrier_store_load(RuntimeManager *) {}
+void __remill_barrier_store_store(RuntimeManager *) {}
+void __remill_atomic_begin(RuntimeManager *) {}
+void __remill_atomic_end(RuntimeManager *) {}
 Memory *__remill_delay_slot_begin(Memory *) {
   return nullptr;
 }
@@ -298,13 +283,11 @@ Memory *__remill_delay_slot_end(Memory *) {
 }
 void __remill_defer_inlining(void) {}
 
-Memory *__remill_error(uint8_t *, State &, addr_t, Memory *) {
+void __remill_error(uint8_t *, State &, addr_t, RuntimeManager *) {
   siglongjmp(gJmpBuf, 0);
 }
 
-Memory *__remill_missing_block(uint8_t *, State &, addr_t, Memory *memory) {
-  return memory;
-}
+void __remill_missing_block(uint8_t *, State &, addr_t, RuntimeManager *) {}
 
 // Read/write to I/O ports.
 uint8_t __remill_read_io_port_8(Memory *, addr_t) {
@@ -331,19 +314,28 @@ Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
   abort();
 }
 
-Memory *__remill_function_call(uint8_t *, State &, addr_t, Memory *) {
+void __remill_function_call(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-Memory *__remill_function_return(uint8_t *, State &, addr_t, Memory *) {
+void __remill_function_return(uint8_t *, State &, addr_t, RuntimeManager *) {
   abort();
 }
 
-Memory *__remill_jump(uint8_t *, State &, addr_t, Memory *) {
+void _ecv_func_epilogue(State &, RuntimeManager &) {
   abort();
 }
 
-Memory *__remill_async_hyper_call(uint8_t *, State &, addr_t, Memory *) {
+void __remill_jump(uint8_t *, State &, addr_t, RuntimeManager *) {
+  abort();
+}
+
+void __remill_async_hyper_call(uint8_t *, State &, addr_t, RuntimeManager *) {
+  abort();
+}
+
+void __remill_syscall_tranpoline_call(uint8_t *, State &state, RuntimeManager *) {
+  printf("[ERROR] syscall_tranpoline_call is undefined.\n");
   abort();
 }
 
@@ -371,8 +363,12 @@ float64_t __remill_undefined_f64(void) {
   return 0.0;
 }
 
-float80_t __remill_undefined_f80(void) {
-  return {0};
+float64_t __remill_undefined_f80(void) {
+  return 0;
+}
+
+float128_t __remill_undefined_f128(void) {
+  return 0;
 }
 
 bool __remill_flag_computation_zero(bool result, ...) {
@@ -504,7 +500,7 @@ Memory *__remill_amd64_set_control_reg_8(Memory *) {
   abort();
 }
 
-Memory *__remill_aarch64_emulate_instruction(Memory *) {
+void __remill_aarch64_emulate_instruction(RuntimeManager *) {
   abort();
 }
 
@@ -604,6 +600,10 @@ Memory *__remill_sparc64_emulate_instruction(Memory *) {
   abort();
 }
 
+void __ecv_warning(uint8_t *, State &, addr_t addr, RuntimeManager *) {
+  abort();
+}
+
 // Marks `mem` as being used. This is used for making sure certain symbols are
 // kept around through optimization, and makes sure that optimization doesn't
 // perform dead-argument elimination on any of the intrinsics.
@@ -613,10 +613,11 @@ void __remill_mark_as_used(void *mem) {
 
 }  // extern C
 
-typedef Memory *(LiftedFunc) (State &, addr_t, Memory *);
+// The actual lifted function has 4 params: (arena_ptr, state, pc, runtime_manager)
+typedef void (*X86LiftedFunc)(uint8_t *, State *, addr_t, RuntimeManager *);
 
 // Mapping of test name to translated function.
-static std::map<uint64_t, LiftedFunc *> gTranslatedFuncs;
+static std::map<uint64_t, X86LiftedFunc> gTranslatedFuncs;
 
 static std::vector<const test::TestInfo *> gTests;
 
@@ -732,6 +733,9 @@ static void FixGlibcMxcsrBug() {
 
 }  // namespace
 
+remill::ArchName remill::EcvReg::target_elf_arch = remill::kArchAMD64;
+extern "C" const uint8_t *MemoryArenaPtr = nullptr;
+
 class InstrTest : public ::testing::TestWithParam<const test::TestInfo *> {};
 
 template <typename T>
@@ -785,8 +789,13 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags, std::string de
   } else {
     native_test_faulted = true;
   }
+  gInNativeTest = false;
 
-  ImportX87State(native_state);
+  // ImportX87State may trigger SIGFPE on garbage FPU data.
+  // Use a separate sigsetjmp to catch and ignore such signals.
+  if (!sigsetjmp(gJmpBuf, true)) {
+    ImportX87State(native_state);
+  }
   ResetFlags();
 
   // Set up the RIP correctly.
@@ -808,12 +817,17 @@ static void RunWithFlags(const test::TestInfo *info, Flags flags, std::string de
     gInNativeTest = false;
     std::fesetenv(FE_DFL_ENV);
     FixGlibcMxcsrBug();
-    (void) lifted_func(*lifted_state, static_cast<addr_t>(lifted_state->gpr.rip.aword), nullptr);
+    lifted_func(nullptr, lifted_state, static_cast<addr_t>(lifted_state->gpr.rip.aword), nullptr);
   } else {
     EXPECT_TRUE(native_test_faulted);
   }
 
   ResetFlags();
+
+  // elfconv's lifted code updates PC/NEXT_PC differently from native execution.
+  // Normalize RIP to avoid false mismatches.
+  native_state->gpr.rip.aword = static_cast<addr_t>(info->test_begin);
+  lifted_state->gpr.rip.aword = static_cast<addr_t>(info->test_begin);
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winvalid-offsetof"
@@ -1259,7 +1273,7 @@ int main(int argc, char **argv) {
 
     CHECK(nullptr != sym_func) << "Could not find code for test case " << test.test_name;
 
-    auto lifted_func = reinterpret_cast<LiftedFunc *>(sym_func);
+    auto lifted_func = reinterpret_cast<X86LiftedFunc>(sym_func);
     gTranslatedFuncs[test.test_begin] = lifted_func;
   }
 

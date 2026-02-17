@@ -14,9 +14,9 @@ on:
       - '**.md'
 
 jobs:
-  build-and-test:
+  build-and-test-aarch64:
     runs-on: ubuntu-22.04-arm
-    name: Build-and-Run
+    name: AArch64 Build-and-Run
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -33,3 +33,23 @@ jobs:
 
     - name: run integration test
       run: docker run --rm -w /root/elfconv/build elfconv-image "ninja test_dependencies && ctest"
+
+  build-and-test-amd64:
+    runs-on: ubuntu-22.04
+    name: AMD64 Build-and-Run
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Pull base image or build locally
+      run: |
+        if ! docker pull ghcr.io/yomaytk/elfconv-base:amd64; then
+          echo "Base image not found, building locally..."
+          docker build -f Dockerfile.base -t ghcr.io/yomaytk/elfconv-base:amd64 .
+        fi
+
+    - name: build container image
+      run: docker build . --build-arg ECV_X86=1 -t elfconv-image
+
+    - name: run instruction tests
+      run: docker run --rm -w /root/elfconv/build elfconv-image "ninja test_dependencies && ctest --output-on-failure"
