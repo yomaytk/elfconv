@@ -1017,6 +1017,7 @@ var Module = (() => {
     SysFuncMap.set(ECV_GETRANDOM, _random_get);
     SysFuncMap.set(ECV_SETPGID, ___syscall_setpgid);
     SysFuncMap.set(ECV_GETPGID, ___syscall_getpgid);
+    SysFuncMap.set(ECV_SYNC, _fd_sync);
 
     // emscripten runtimes
     SysFuncMap.set(ECV_LSTAT64, ___syscall_lstat64);

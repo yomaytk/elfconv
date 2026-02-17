@@ -2,10 +2,15 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+
+extern char **environ;
 
 // Test result counters
 static int tests_passed = 0;
@@ -325,6 +330,189 @@ int test_pwrite() {
     return 0;
 }
 
+// Test fsync and unlink system calls
+int test_fsync_unlink() {
+    TEST_START("fsync/unlink");
+
+    const char *filename = "test_fsync_file.txt";
+    int fd;
+
+    // Create a file
+    fd = open(filename, O_CREAT | O_WRONLY, 0644);
+    if (fd < 0) {
+        TEST_FAIL("fsync/unlink", "open failed");
+        return -1;
+    }
+
+    // Write data
+    const char *data = "Hello, World!\n";
+    if (write(fd, data, 14) < 0) {
+        close(fd);
+        TEST_FAIL("fsync/unlink", "write failed");
+        return -1;
+    }
+
+    // Sync data to disk
+    if (fsync(fd) < 0) {
+        close(fd);
+        TEST_FAIL("fsync/unlink", "fsync failed");
+        return -1;
+    }
+
+    printf("  Data written and synchronized to disk\n");
+    close(fd);
+
+    // Delete the file
+    if (unlink(filename) < 0) {
+        TEST_FAIL("fsync/unlink", "unlink failed");
+        return -1;
+    }
+
+    printf("  File deleted successfully\n");
+
+    TEST_PASS("fsync/unlink");
+    return 0;
+}
+
+// Test getrusage system call
+int test_getrusage() {
+    TEST_START("getrusage");
+
+    struct rusage usage;
+    long primes = 0;
+
+    // Apply some computational load (prime number search)
+    for (long i = 2; i < 10000; i++) {
+        int is_prime = 1;
+        for (long j = 2; j * j <= i; j++) {
+            if (i % j == 0) {
+                is_prime = 0;
+                break;
+            }
+        }
+        primes += is_prime;
+    }
+
+    // Retrieve statistics for the current process
+    if (getrusage(RUSAGE_SELF, &usage) == 0) {
+        printf("  User time:   %ld.%06ld sec\n", usage.ru_utime.tv_sec, usage.ru_utime.tv_usec);
+        printf("  System time: %ld.%06ld sec\n", usage.ru_stime.tv_sec, usage.ru_stime.tv_usec);
+        printf("  Max RSS:     %ld KB\n", usage.ru_maxrss);
+        printf("  Total primes found: %ld\n", primes);
+
+        TEST_PASS("getrusage");
+    } else {
+        TEST_FAIL("getrusage", "getrusage failed");
+        return -1;
+    }
+
+    return 0;
+}
+
+// Test environment variables access
+int test_environ() {
+    TEST_START("environ");
+
+    if (environ == NULL) {
+        TEST_FAIL("environ", "environ is NULL");
+        return -1;
+    }
+
+    int count = 0;
+    for (int i = 0; environ[i] != NULL; i++) {
+        count++;
+    }
+
+    printf("  Found %d environment variables\n", count);
+
+    if (count > 0) {
+        printf("  First env var: %s\n", environ[0]);
+        TEST_PASS("environ");
+    } else {
+        TEST_FAIL("environ", "no environment variables found");
+        return -1;
+    }
+
+    return 0;
+}
+
+// Test fork system call
+int test_fork() {
+    TEST_START("fork");
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        TEST_FAIL("fork", "fork failed");
+        return -1;
+    } else if (pid == 0) {
+        // Child process
+        printf("  Child process: PID=%d, Parent PID=%d\n", getpid(), getppid());
+        exit(0);
+    } else {
+        // Parent process
+        printf("  Parent process: PID=%d, Child PID=%d\n", getpid(), pid);
+
+        // Wait for child to avoid zombie
+        int status;
+        waitpid(pid, &status, 0);
+
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            TEST_PASS("fork");
+        } else {
+            TEST_FAIL("fork", "child process failed");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+// Test fork and wait system calls
+int test_fork_wait() {
+    TEST_START("fork/wait");
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        TEST_FAIL("fork/wait", "fork failed");
+        return -1;
+    } else if (pid == 0) {
+        // Child process
+        printf("  Child process: PID=%d, Parent PID=%d\n", getpid(), getppid());
+        printf("  Child process terminating with exit code 42\n");
+        exit(42);
+    } else {
+        // Parent process
+        printf("  Parent process: PID=%d, Child PID=%d\n", getpid(), pid);
+
+        int status;
+        pid_t wpid = wait(&status);
+
+        if (wpid == -1) {
+            TEST_FAIL("fork/wait", "wait failed");
+            return -1;
+        }
+
+        if (WIFEXITED(status)) {
+            int exit_code = WEXITSTATUS(status);
+            printf("  Child process %d exited normally (exit code=%d)\n", wpid, exit_code);
+
+            if (exit_code == 42) {
+                TEST_PASS("fork/wait");
+            } else {
+                TEST_FAIL("fork/wait", "unexpected exit code");
+                return -1;
+            }
+        } else {
+            TEST_FAIL("fork/wait", "child terminated abnormally");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 int main() {
     printf("====================================\n");
     printf("  System Call Test Suite\n");
@@ -335,6 +523,11 @@ int main() {
     test_readv();
     test_pread();
     test_pwrite();
+    test_fsync_unlink();
+    test_getrusage();
+    test_environ();
+    test_fork();
+    test_fork_wait();
 
     // Print summary
     printf("\n====================================\n");
