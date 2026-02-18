@@ -1169,57 +1169,16 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     }
   }
 
-  // Push implicit operands.
-  auto push_operand = [&](Operand::Type type, Operand::Action action, xed_reg_enum_t reg) {
-    Operand op = {};
-    op.type = type;
-    op.action = action;
-    op.reg = RegOp(reg);
-    op.size = op.reg.size;
-    inst.operands.push_back(op);
-  };
-
-  switch (iform) {
-    case XED_IFORM_CALL_NEAR_RELBRd:
-    case XED_IFORM_RET_NEAR:
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RIP);
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RSP);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RSP);
-      break;
-    case XED_IFORM_PUSH_GPRv_50:
-    case XED_IFORM_POP_GPRv_58:
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RSP);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RSP);
-      break;
-    case XED_IFORM_CDQ:
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
-    #if 64 == ADDRESS_SIZE_BITS
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
-    #else
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_EDX);
-    #endif
-      break;
-    case XED_IFORM_CDQE:
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
-      break;
-    case XED_IFORM_IDIV_MEMv:
-    case XED_IFORM_IDIV_GPRv:
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EAX);
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_EDX);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
-      break;
-    case XED_IFORM_DIV_GPRv:
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RAX);
-      push_operand(Operand::kTypeRegister, Operand::kActionRead, XED_REG_RDX);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RAX);
-      push_operand(Operand::kTypeRegister, Operand::kActionWrite, XED_REG_RDX);
-      break;
-    default: break;
+  // Control flow operands update the next program counter.
+  if (inst.IsControlFlow()) {
+    inst.operands.emplace_back();
+    auto &dst_ret_pc = inst.operands.back();
+    dst_ret_pc.type = Operand::kTypeRegister;
+    dst_ret_pc.action = Operand::kActionWrite;
+    dst_ret_pc.size = address_size;
+    dst_ret_pc.reg.name = "NEXT_PC";
+    dst_ret_pc.reg.size = address_size;
   }
-
-  SetSemaFuncArgType(inst, iform);
 
   if (inst.IsFunctionCall()) {
     DecodeFallThroughPC(inst, xedd);
@@ -1227,13 +1186,13 @@ bool X86Arch::ArchDecodeInstruction(uint64_t address, std::string_view inst_byte
     // The semantics will store the return address in `RETURN_PC`. This is to
     // help synchronize program counters when lifting instructions on an ISA
     // with delay slots.
-    // inst.operands.emplace_back();
-    // auto &dst_ret_pc = inst.operands.back();
-    // dst_ret_pc.type = Operand::kTypeRegister;
-    // dst_ret_pc.action = Operand::kActionWrite;
-    // dst_ret_pc.size = address_size;
-    // dst_ret_pc.reg.name = "RETURN_PC";
-    // dst_ret_pc.reg.size = address_size;
+    inst.operands.emplace_back();
+    auto &dst_ret_pc2 = inst.operands.back();
+    dst_ret_pc2.type = Operand::kTypeRegister;
+    dst_ret_pc2.action = Operand::kActionWrite;
+    dst_ret_pc2.size = address_size;
+    dst_ret_pc2.reg.name = "RETURN_PC";
+    dst_ret_pc2.reg.size = address_size;
   }
 
   if (UsesStopFailure(xedd)) {

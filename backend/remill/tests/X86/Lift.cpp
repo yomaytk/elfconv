@@ -17,10 +17,10 @@
 #include "remill/Arch/Arch.h"
 #include "remill/Arch/Instruction.h"
 #include "remill/Arch/Name.h"
+#include "remill/BC/InstructionLifter.h"
 #include "remill/BC/IntrinsicTable.h"
 #include "remill/BC/Lifter.h"
 #include "remill/BC/Util.h"
-#include "remill/BC/Version.h"
 #include "remill/OS/OS.h"
 #include "tests/X86/Test.h"
 
@@ -58,6 +58,19 @@ DEFINE_string(arch, REMILL_ARCH,
 
 namespace {
 
+class DisasmFunc {
+ public:
+  DisasmFunc(std::string __func_name, uintptr_t __vma, uint64_t __func_size)
+      : func_name(__func_name),
+        vma(__vma),
+        func_size(__func_size) {}
+  DisasmFunc() {}
+
+  std::string func_name;
+  uintptr_t vma;
+  uint64_t func_size;
+};
+
 class TestTraceManager : public remill::TraceManager {
  public:
   virtual ~TestTraceManager(void) = default;
@@ -89,12 +102,43 @@ class TestTraceManager : public remill::TraceManager {
     }
   }
 
+  std::string GetLiftedFuncName(uint64_t addr) override {
+    if (disasm_funcs.count(addr) == 1) {
+      return disasm_funcs[addr].func_name;
+    } else {
+      abort();
+    }
+  }
+
+  bool isFunctionEntry(uint64_t addr) override {
+    return disasm_funcs.count(addr) == 1;
+  }
+
+  uint64_t GetFuncVMA_E(uint64_t vma_s) override {
+    if (disasm_funcs.count(vma_s) == 1) {
+      return vma_s + disasm_funcs[vma_s].func_size;
+    } else {
+      abort();
+    }
+  }
+
+  uint64_t GetFuncNums() override {
+    return disasm_funcs.size();
+  }
+
+  std::string AddRestDisasmFunc(uint64_t addr) override {
+    std::__throw_runtime_error("This function is not implemented at TestTraceManager.\n");
+  }
+
  public:
   std::unordered_map<uint64_t, uint8_t> memory;
   std::unordered_map<uint64_t, llvm::Function *> traces;
+  std::unordered_map<uintptr_t, DisasmFunc> disasm_funcs;
 };
 
 }  // namespace
+
+remill::ArchName remill::EcvReg::target_elf_arch;
 
 extern "C" int main(int argc, char *argv[]) {
   google::ParseCommandLineFlags(&argc, &argv, true);
@@ -113,11 +157,16 @@ extern "C" int main(int argc, char *argv[]) {
 
   TestTraceManager manager;
 
-  // Add all code byts from the test cases to the memory.
+  // Add all code bytes from the test cases to the memory.
   for (auto test : tests) {
     for (auto addr = test->test_begin; addr < test->test_end; ++addr) {
       manager.memory[addr] = *reinterpret_cast<uint8_t *>(addr);
     }
+    // Make all disassembled functions.
+    std::stringstream ss;
+    ss << SYMBOL_PREFIX << test->test_name << "_lifted";
+    manager.disasm_funcs.emplace(test->test_begin, DisasmFunc(ss.str(), test->test_begin,
+                                                              test->test_end - test->test_begin));
   }
 
   llvm::LLVMContext context;
@@ -126,8 +175,13 @@ extern "C" int main(int argc, char *argv[]) {
   auto arch = remill::Arch::Build(&context, os_name, arch_name);
   auto module = remill::LoadArchSemantics(arch.get());
 
+  auto lift_config = remill::LiftConfig(false, true, remill::kArchAMD64, false);
+  remill::EcvReg::target_elf_arch = lift_config.target_elf_arch;
+
   remill::IntrinsicTable intrinsics(module.get());
-  remill::TraceLifter trace_lifter(arch.get(), manager);
+  remill::TraceLifter trace_lifter(arch.get(), manager, lift_config);
+  trace_lifter.impl->norm_mode = true;
+  trace_lifter.impl->vrp_opt_mode = false;
 
   for (auto test : tests) {
     if (!trace_lifter.Lift(test->test_begin)) {

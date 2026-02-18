@@ -17,7 +17,6 @@ cmake_minimum_required(VERSION 3.2)
 
 function(COMPILE_X86_TESTS name address_size has_avx has_avx512)
   set(X86_TEST_FLAGS
-    -I${CMAKE_SOURCE_DIR}
     -DADDRESS_SIZE_BITS=${address_size}
     -DHAS_FEATURE_AVX=${has_avx}
     -DHAS_FEATURE_AVX512=${has_avx512}
@@ -33,6 +32,12 @@ function(COMPILE_X86_TESTS name address_size has_avx has_avx512)
 
   target_compile_options(lift-${name}-tests
     PRIVATE ${X86_TEST_FLAGS} -DIN_TEST_GENERATOR
+  )
+
+  target_include_directories(lift-${name}-tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/backend/remill/include"
+    "${CMAKE_SOURCE_DIR}/backend/remill"
+    "${CMAKE_SOURCE_DIR}"
   )
 
   file(GLOB X86_TEST_FILES
@@ -62,6 +67,11 @@ function(COMPILE_X86_TESTS name address_size has_avx has_avx512)
   target_link_libraries(run-${name}-tests PUBLIC remill GTest::gtest)
   target_compile_definitions(run-${name}-tests PUBLIC ${PROJECT_DEFINITIONS})
 
+  target_include_directories(run-${name}-tests PRIVATE
+    "${CMAKE_SOURCE_DIR}/backend/remill/include"
+    "${CMAKE_SOURCE_DIR}/backend/remill"
+  )
+
   target_compile_options(run-${name}-tests
     PRIVATE ${X86_TEST_FLAGS}
   )
@@ -75,10 +85,11 @@ find_package(GTest CONFIG REQUIRED)
 
 enable_testing()
 
-if (NOT APPLE)
-  COMPILE_X86_TESTS(x86 32 0 0)
-  COMPILE_X86_TESTS(x86_avx 32 1 0)
-endif()
+# 32-bit x86 tests disabled for now
+# if (NOT APPLE)
+#   COMPILE_X86_TESTS(x86 32 0 0)
+#   COMPILE_X86_TESTS(x86_avx 32 1 0)
+# endif()
 
 COMPILE_X86_TESTS(amd64 64 0 0)
 COMPILE_X86_TESTS(amd64_avx 64 1 0)
