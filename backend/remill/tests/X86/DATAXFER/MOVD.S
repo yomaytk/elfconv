@@ -22,8 +22,17 @@ TEST_BEGIN(MOVDv128r32, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     movd xmm0, ARG1_32
@@ -33,8 +42,17 @@ TEST_BEGIN(MOVDr32v128, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     movd xmm0, ARG1_32
@@ -44,19 +62,58 @@ TEST_END
 #if APPLE_SAFE_TESTS
 TEST_BEGIN(MOVDv128m32, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     movd xmm0, DWORD PTR [rsp - 16]  // Same encoding in 32-bit.
 TEST_END
 
 TEST_BEGIN(MOVDv128m32_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     movd xmm4, DWORD PTR [rsp - 16]  // Same encoding in 32-bit.
 TEST_END
 
 TEST_BEGIN(MOVDm32v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     movd DWORD PTR [rsp - 16], xmm0  // Same encoding in 32-bit.
 TEST_END
 #endif  // APPLE_SAFE_TESTS
@@ -66,8 +123,17 @@ TEST_BEGIN(VMOVDv128r32, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     vmovd xmm0, ARG1_32
@@ -77,8 +143,17 @@ TEST_BEGIN(VMOVDr32v128, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     vmovd xmm0, ARG1_32
@@ -88,19 +163,58 @@ TEST_END
 #if APPLE_SAFE_TESTS
 TEST_BEGIN(VMOVDv128m32, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     vmovd xmm0, DWORD PTR [rsp - 16]  // Same encoding in 32-bit.
 TEST_END
 
 TEST_BEGIN(VMOVDv128m32_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     vmovd xmm4, DWORD PTR [rsp - 16]  // Same encoding in 32-bit.
 TEST_END
 
 TEST_BEGIN(VMOVDm32v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
+    0xFF,
+    0x7FFF,
+    0x8000,
+    0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
+    0xFFFFFFFF)
     vmovd DWORD PTR [rsp - 16], xmm0  // Same encoding in 32-bit.
 TEST_END
 #endif  // APPLE_SAFE_TESTS
@@ -110,8 +224,17 @@ TEST_BEGIN(MOVDmm64r32, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     movd mm0, ARG1_32
@@ -123,8 +246,17 @@ TEST_BEGIN_64(MOVDmm64m32, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     push ARG1_64
@@ -135,8 +267,17 @@ TEST_BEGIN(MOVDm64mm64, 1)
 TEST_INPUTS(
     0,
     1,
+    0x2A,
+    0x3E8,
+    0xBC614E,
+    0x7F,
+    0x80,
     0xFF,
+    0x7FFF,
+    0x8000,
     0xFFFF,
+    0x7FFFFFFF,
+    0x80000000,
     0xFFFFFFFF)
 
     movd mm0, ARG1_32

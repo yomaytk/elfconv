@@ -16,7 +16,16 @@
 
 TEST_BEGIN_64(MOVLPSv128m64, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     movlps xmm0,QWORD PTR [rsp - 0]  /* whatever is on the stack */
     movlps xmm1,QWORD PTR [rsp - 8]
@@ -30,7 +39,16 @@ TEST_END_64
 
 TEST_BEGIN_64(MOVLPSm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     movlps QWORD PTR [rsp - 0], xmm0
     movlps QWORD PTR [rsp - 8], xmm1
@@ -45,7 +63,17 @@ TEST_END_64
 #if HAS_FEATURE_AVX
 
 TEST_BEGIN_64(VMOVLPSvv128v128m64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     vmovlps xmm0, xmm1, QWORD PTR [rsp - 0]
     vmovlps xmm1, xmm2, QWORD PTR [rsp - 8]
@@ -58,7 +86,16 @@ TEST_END_64
 
 TEST_BEGIN_64(VMOVLPSm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     vmovlps QWORD PTR [rsp - 0], xmm0
     vmovlps QWORD PTR [rsp - 8], xmm1

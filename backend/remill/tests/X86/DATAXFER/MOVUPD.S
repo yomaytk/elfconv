@@ -20,25 +20,63 @@
 
 TEST_BEGIN(MOVUPDv128v128_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movupd xmm4, xmm0
 TEST_END
 
 TEST_BEGIN(MOVUPDv128v128_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movupd xmm0, xmm4
 TEST_END
 
 #if APPLE_SAFE_TESTS
 
 TEST_BEGIN_64(MOVUPDv128m128_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movupd xmm0, [rsp - 16]
 TEST_END_64
 
 TEST_BEGIN_64(MOVUPDv128m128_1_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movupd xmm4, [rsp - 16]
 TEST_END_64
 
@@ -48,25 +86,61 @@ TEST_END_64
 
 TEST_BEGIN(VMOVUPDv128v128_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd xmm4, xmm0
 TEST_END
 
 TEST_BEGIN(VMOVUPDv128v128_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd xmm0, xmm4
 TEST_END
 
 TEST_BEGIN(VMOVUPDv256v256_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd ymm4, ymm0
 TEST_END
 
 TEST_BEGIN(VMOVUPDv256v256_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd ymm0, ymm4
 TEST_END
 
@@ -74,22 +148,62 @@ TEST_END
 #if APPLE_SAFE_TESTS
 
 TEST_BEGIN_64(VMOVUPDv128m128_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd xmm0, [rsp - 16]
 TEST_END_64
 
 TEST_BEGIN_64(VMOVUPDv128m128_1_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd xmm4, [rsp - 16]
 TEST_END_64
 
 TEST_BEGIN_64(VMOVUPDv256m256_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd ymm0, [rsp - 32]
 TEST_END_64
 
 TEST_BEGIN_64(VMOVUPDv128m256_1_64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovupd ymm4, [rsp - 32]
 TEST_END_64
 

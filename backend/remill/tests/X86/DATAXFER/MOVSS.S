@@ -18,19 +18,46 @@
 
 TEST_BEGIN(MOVSSv128m64, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movss xmm0,DWORD PTR [rsp - 8]
 TEST_END
 
 TEST_BEGIN(MOVSSv128m64_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movss xmm1,DWORD PTR [rsp - 8]
 TEST_END
 
 TEST_BEGIN(MOVSSm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movss DWORD PTR [rsp - 8], xmm0
 TEST_END
 
@@ -38,13 +65,31 @@ TEST_END
 
 TEST_BEGIN(MOVSSv12v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movss xmm0, xmm4
 TEST_END
 
 TEST_BEGIN(MOVSSv12v128_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movss xmm4, xmm0
 TEST_END
 
@@ -53,37 +98,91 @@ TEST_END
 
 TEST_BEGIN(VMOVSSv128m64, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss xmm0,DWORD PTR [rsp - 8]
 TEST_END
 
 TEST_BEGIN(VMOVSSv128m64_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss xmm4,DWORD PTR [rsp - 8]
 TEST_END
 
 TEST_BEGIN(VMOVSSm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss DWORD PTR [rsp - 8], xmm0
 TEST_END
 
 TEST_BEGIN(VMOVSSm64v128_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss DWORD PTR [rsp - 8], xmm4
 TEST_END
 
 TEST_BEGIN(VMOVSSv128v128v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss xmm0, xmm1, xmm4
 TEST_END
 
 TEST_BEGIN(VMOVSSv128v128v128_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovss xmm4, xmm1, xmm0
 TEST_END
 #endif  // APPLE_SAFE_TESTS
