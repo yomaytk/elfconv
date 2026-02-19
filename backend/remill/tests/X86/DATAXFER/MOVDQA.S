@@ -20,26 +20,62 @@
 
 TEST_BEGIN(MOVDQAv128v128_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movdqa xmm4, xmm0
 TEST_END
 
 TEST_BEGIN(MOVDQAv128v128_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movdqa xmm0, xmm4
 TEST_END
 
 #if APPLE_SAFE_TESTS
 TEST_BEGIN(MOVDQAv128m128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movdqa xmm0, [rsp - 16]
 TEST_END
 
 TEST_BEGIN(MOVDQAv128m128_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movdqa xmm4, [rsp - 16]
 TEST_END
 #endif  // APPLE_SAFE_TESTS
@@ -48,50 +84,122 @@ TEST_END
 
 TEST_BEGIN(VMOVDQAv128v128_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa xmm4, xmm0
 TEST_END
 
 TEST_BEGIN(VMOVDQAv128v128_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa xmm0, xmm4
 TEST_END
 
 TEST_BEGIN(VMOVDQAv256v256_1to0, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa ymm4, ymm0
 TEST_END
 
 TEST_BEGIN(VMOVDQAv256v256_0to1, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa ymm0, ymm4
 TEST_END
 
 #if APPLE_SAFE_TESTS
 TEST_BEGIN(VMOVDQAv128m128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa xmm0, [rsp - 16]
 TEST_END
 
 TEST_BEGIN(VMOVDQAv128m128_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa xmm4, [rsp - 16]
 TEST_END
 
 TEST_BEGIN(VMOVDQAv256m256, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa ymm0, [rsp - 32]
 TEST_END
 
 TEST_BEGIN(VMOVDQAv256m256_4, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovdqa ymm4, [rsp - 32]
 TEST_END
 #endif  // APPLE_SAFE_TESTS

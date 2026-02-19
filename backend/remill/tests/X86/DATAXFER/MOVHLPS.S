@@ -16,7 +16,17 @@
  */
 
 TEST_BEGIN_64(MOVHLPSv128v128, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     movhlps xmm0, xmm1
     movhlps xmm1, xmm2
     movhlps xmm3, xmm4
@@ -26,7 +36,17 @@ TEST_END_64
 
 #if HAS_FEATURE_AVX
 TEST_BEGIN_64(VMOVHLPSvv128v128v128, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     vmovhlps xmm0, xmm1, xmm2
     vmovhlps xmm1, xmm2, xmm3
     vmovhlps xmm2, xmm3, xmm4

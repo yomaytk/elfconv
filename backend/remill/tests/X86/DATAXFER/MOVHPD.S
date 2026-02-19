@@ -16,7 +16,16 @@
 
 TEST_BEGIN_64(MOVHPDv128m64, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     movhpd xmm0,QWORD PTR [rsp - 0]  /* whatever is on the stack */
     movhpd xmm1,QWORD PTR [rsp - 8]
@@ -30,7 +39,16 @@ TEST_END_64
 
 TEST_BEGIN_64(MOVHPDm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     movhpd QWORD PTR [rsp - 0], xmm0
     movhpd QWORD PTR [rsp - 8], xmm1
@@ -45,7 +63,17 @@ TEST_END_64
 #if HAS_FEATURE_AVX
 
 TEST_BEGIN_64(VMOVHPDvv128v128m64, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     vmovhpd xmm0, xmm1, QWORD PTR [rsp - 0]
     vmovhpd xmm1, xmm2, QWORD PTR [rsp - 8]
@@ -58,7 +86,16 @@ TEST_END_64
 
 TEST_BEGIN_64(VMOVHPDm64v128, 1)
 TEST_INPUTS(
-    0)
+    0,
+    1,
+    0x41,
+    0xFF,
+    0x7F,
+    0xFFFF,
+    0x7FFF,
+    0xFFFFFFFF,
+    0x7FFFFFFF,
+    0x7FFFFFFFFFFFFFFF)
     lea rsp, [rsp - 64]
     vmovhpd QWORD PTR [rsp - 0], xmm0
     vmovhpd QWORD PTR [rsp - 8], xmm1
