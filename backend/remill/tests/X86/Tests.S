@@ -363,11 +363,10 @@ SYMBOL(__x86_test_table_begin):
 #include "tests/X86/BINARY/SUBSD.S"
 #include "tests/X86/BINARY/SUBSS.S"
 
-/* TODO: uncomment as semantics are enabled
 #include "tests/X86/DATAXFER/MOV.S"
 #include "tests/X86/DATAXFER/MOVAPD.S"
 #include "tests/X86/DATAXFER/MOVAPS.S"
-#include "tests/X86/DATAXFER/MOVBE.S"
+/* #include "tests/X86/DATAXFER/MOVBE.S" */
 #include "tests/X86/DATAXFER/MOVD.S"
 #include "tests/X86/DATAXFER/MOVDQA.S"
 #include "tests/X86/DATAXFER/MOVDQU.S"
@@ -385,8 +384,15 @@ SYMBOL(__x86_test_table_begin):
 #include "tests/X86/DATAXFER/MOVUPS.S"
 #include "tests/X86/DATAXFER/MOVZX.S"
 #include "tests/X86/DATAXFER/XCHG.S"
-#include "tests/X86/DATAXFER/KMOVW.S"
+/* #include "tests/X86/DATAXFER/KMOVW.S" */
 
+#include "tests/X86/LOGICAL/AND.S"
+#include "tests/X86/LOGICAL/NOT.S"
+#include "tests/X86/LOGICAL/OR.S"
+#include "tests/X86/LOGICAL/TEST.S"
+#include "tests/X86/LOGICAL/XOR.S"
+
+/* TODO: uncomment as semantics are enabled
 #include "tests/X86/AVX/VINSERTF128.S"
 #include "tests/X86/AVX/VZEROUPPER.S"
 #include "tests/X86/AVX/VPBROADCASTB.S"
@@ -447,12 +453,6 @@ SYMBOL(__x86_test_table_begin):
 #include "tests/X86/DECIMAL/UTIL_FLAGS.S"
 #include "tests/X86/DECIMAL/AAS.S"
 #include "tests/X86/DECIMAL/DAA.S"
-
-#include "tests/X86/LOGICAL/AND.S"
-#include "tests/X86/LOGICAL/NOT.S"
-#include "tests/X86/LOGICAL/OR.S"
-#include "tests/X86/LOGICAL/TEST.S"
-#include "tests/X86/LOGICAL/XOR.S"
 
 #include "tests/X86/MISC/CPUID.S"
 #include "tests/X86/MISC/ENTER.S"

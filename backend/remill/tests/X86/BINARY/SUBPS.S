@@ -15,25 +15,77 @@
  */
 
 TEST_BEGIN(SUBPSv128v128_04, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     subps xmm0, xmm4
 TEST_END
 
 TEST_BEGIN(SUBPSv128v128_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     subps xmm4, xmm0
 TEST_END
 
 #if APPLE_SAFE_TESTS
 
 TEST_BEGIN(SUBPSv128m128_04, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     movdqu [rsp - 16], xmm4
     subps xmm0, [rsp - 16]
 TEST_END
 
 TEST_BEGIN(SUBPSv128m128_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     movdqu [rsp - 16], xmm0
     subps xmm4, [rsp - 16]
 TEST_END
@@ -42,34 +94,112 @@ TEST_END
 
 #if HAS_FEATURE_AVX
 TEST_BEGIN(VSUBPSv128v128_04, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     vsubps xmm0, xmm1, xmm4
 TEST_END
 
 TEST_BEGIN(VSUBPSv128v128_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     vsubps xmm1, xmm4, xmm0
 TEST_END
 
 TEST_BEGIN(VSUBPSv256v256_04, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     vsubps ymm0, ymm1, ymm4
 TEST_END
 
 TEST_BEGIN(VSUBPSv256v256_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     vsubps ymm1, ymm4, ymm0
 TEST_END
 
 #if APPLE_SAFE_TESTS
 TEST_BEGIN(VSUBPSv128m128_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     movdqu [rsp - 16], xmm0
     vsubps xmm1, xmm4, [rsp - 16]
 TEST_END
 
 TEST_BEGIN(VSUBPSv256m256_40, 1)
-TEST_INPUTS(0)
+TEST_INPUTS(
+    0x0000000000000000,  /* +0.0 */
+    0x3FE0000000000000,  /* 0.5 */
+    0x3FF0000000000000,  /* 1.0 */
+    0x4000000000000000,  /* 2.0 */
+    0x4059000000000000,  /* 100.0 */
+    0x400921FB54442D18,  /* pi */
+    0x8000000000000000,  /* -0.0 */
+    0xBFF0000000000000,  /* -1.0 */
+    0x7FF0000000000000,  /* +Inf */
+    0x0010000000000000,  /* smallest normal */
+    0x7FEFFFFFFFFFFFFF,  /* largest finite */
+    0x0000000000000001,  /* smallest subnormal */
+    0xFFFFFFFFFFFFFFFF)  /* NaN / all-ones */
     vmovdqu [rsp - 32], ymm0
     vsubps ymm1, ymm4, [rsp - 32]
 TEST_END
