@@ -1,31 +1,33 @@
-name: Build Base Image
+name: Build Image
 
 on:
   push:
     branches: [ "main" ]
     paths:
-      - 'Dockerfile.base'
-      - '.github/workflows/base-image.yml'
+      - 'Dockerfile'
+      - '.github/workflows/build-image.yml'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'Dockerfile.base'
-      - '.github/workflows/base-image.yml'
+      - 'Dockerfile'
+      - '.github/workflows/build-image.yml'
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-base
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-base-image:
+  build-image:
     strategy:
       matrix:
         include:
           - runner: ubuntu-22.04-arm
             arch: arm64
+            build-args: ECV_AARCH64=1
           - runner: ubuntu-22.04
             arch: amd64
+            build-args: ECV_X86=1
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -43,10 +45,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build base image
+    - name: Build image
       uses: docker/build-push-action@v6
       with:
         context: .
-        file: Dockerfile.base
+        file: Dockerfile
+        build-args: ${{ matrix.build-args }}
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.arch }}
