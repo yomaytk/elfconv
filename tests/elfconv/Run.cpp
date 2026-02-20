@@ -107,7 +107,7 @@ std::string exec_wasm(WASI_RUNTIME wasi_runtime) {
 
 void unit_test_wasi_runtime(const char *program, const char *expected, WASI_RUNTIME wasi_runtime) {
   // binary lifting
-  binary_lifting(("../../../examples/" + std::string(program) + "/a_stripped.aarch64").c_str());
+  binary_lifting(("../../../examples/" + std::string(program) + "/hello_stripped").c_str());
   // generate wasm
   gen_wasm_for_wasi_runtimes();
   // execute wasm
