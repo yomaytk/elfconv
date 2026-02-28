@@ -102,7 +102,6 @@ DEF_FPU_SEM(FBLD, RF80W, MBCD80 src1) {
   }
 
   PUSH_X87_STACK(val);
-  return memory;
 }
 
 template <typename T>
@@ -110,7 +109,6 @@ DEF_FPU_SEM(FILD, RF80W, T src1) {
   SetFPUIpOp();
   SetFPUDp(src1);
   PUSH_X87_STACK(Signed(Read(src1)));
-  return memory;
 }
 
 template <typename T>
@@ -143,7 +141,6 @@ DEF_FPU_SEM(FLD, RF80W, T src1) {
   }
 
   PUSH_X87_STACK(res);
-  return memory;
 }
 
 DEF_FPU_SEM(FLDfromstack, RF80W, RF80W src1) {
@@ -151,60 +148,52 @@ DEF_FPU_SEM(FLDfromstack, RF80W, RF80W src1) {
   state.sw.ie = 0;
   state.sw.de = 0;
   PUSH_X87_STACK(Read(src1));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FLDmem, RF80W dst, T src1) {
   SetFPUDp(src1);
-  return FLD(memory, state, dst, src1, pc, fop);
+  FLD(rt_m, state, dst, src1, pc, fop);
 }
 
 DEF_FPU_SEM(DoFLDLN2) {
   SetFPUIpOp();
   uint64_t ln_2 = 0x3fe62e42fefa39efULL;
   PUSH_X87_STACK(reinterpret_cast<float64_t &>(ln_2));
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLD1) {
   SetFPUIpOp();
   PUSH_X87_STACK(1.0);  // +1.0.
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLDZ) {
   SetFPUIpOp();
   PUSH_X87_STACK(0.0);  // +0.0.
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLDLG2) {
   SetFPUIpOp();
   uint64_t log10_2 = 0x3fd34413509f79ffULL;
   PUSH_X87_STACK(reinterpret_cast<float64_t &>(log10_2));
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLDL2T) {
   SetFPUIpOp();
   uint64_t log2_10 = 0x400a934f0979a371ULL;
   PUSH_X87_STACK(reinterpret_cast<float64_t &>(log2_10));
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLDL2E) {
   SetFPUIpOp();
   uint64_t log2_e = 0x3ff71547652b82feULL;
   PUSH_X87_STACK(reinterpret_cast<float64_t &>(log2_e));
-  return memory;
 }
 
 DEF_FPU_SEM(DoFLDPI) {
   SetFPUIpOp();
   uint64_t pi = 0x400921fb54442d18ULL;
   PUSH_X87_STACK(reinterpret_cast<float64_t &>(pi));
-  return memory;
 }
 
 DEF_FPU_SEM(DoFABS) {
@@ -212,7 +201,6 @@ DEF_FPU_SEM(DoFABS) {
   auto st0 = Read(X87_ST0);
   auto res = CheckedFloatUnaryOp(state, FAbs80, st0);
   Write(X87_ST0, res);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFCHS) {
@@ -220,7 +208,6 @@ DEF_FPU_SEM(DoFCHS) {
   auto st0 = Read(X87_ST0);
   auto res = CheckedFloatUnaryOp(state, FNeg80, st0);
   Write(X87_ST0, res);
-  return memory;
 }
 
 #if defined(__x86_64__) || defined(__i386__) || defined(_M_X86)
@@ -257,7 +244,6 @@ DEF_FPU_SEM(DoFCOS) {
     state.sw.pe |= IsImprecise(res);
   }
   Write(X87_ST0, res);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFSIN) {
@@ -270,7 +256,6 @@ DEF_FPU_SEM(DoFSIN) {
     state.sw.pe = IsImprecise(res);
   }
   Write(X87_ST0, res);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFPTAN) {
@@ -284,7 +269,6 @@ DEF_FPU_SEM(DoFPTAN) {
   }
   Write(X87_ST0, res);
   PUSH_X87_STACK(1.0);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFPATAN) {
@@ -301,7 +285,6 @@ DEF_FPU_SEM(DoFPATAN) {
 
   Write(X87_ST1, FAtan80(res));
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(DoFSQRT) {
@@ -321,7 +304,6 @@ DEF_FPU_SEM(DoFSQRT) {
     }
     Write(X87_ST0, res);
   }
-  return memory;
 }
 
 DEF_FPU_SEM(DoFSINCOS) {
@@ -336,7 +318,6 @@ DEF_FPU_SEM(DoFSINCOS) {
   }
   Write(X87_ST0, sin_res);
   PUSH_X87_STACK(cos_res);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFSCALE) {
@@ -344,7 +325,6 @@ DEF_FPU_SEM(DoFSCALE) {
   auto st1_int = FTruncTowardZero(Read(X87_ST1));  // Round toward zero.
   auto shift = Exp2(st1_int);
   Write(X87_ST0, FMul(Read(X87_ST0), Float80(shift)));
-  return memory;
 }
 
 DEF_FPU_SEM(DoF2XM1) {
@@ -358,7 +338,6 @@ DEF_FPU_SEM(DoF2XM1) {
     state.sw.pe = IsImprecise(res);  // TODO(pag): Not sure.
   }
   Write(X87_ST0, res);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFPREM) {
@@ -374,7 +353,6 @@ DEF_FPU_SEM(DoFPREM) {
   state.sw.c2 = 0;  // Assumes it's not a partial remainder.
   state.sw.c1 = UAnd(UShr(quot_lsb, 0_u8), 1_u8);  // Q0.
   state.sw.c3 = UAnd(UShr(quot_lsb, 1_u8), 1_u8);  // Q1.
-  return memory;
 }
 
 DEF_FPU_SEM(DoFPREM1) {
@@ -389,17 +367,14 @@ DEF_FPU_SEM(DoFPREM1) {
   state.sw.c2 = 0;  // Assumes it's not a partial remainder.
   state.sw.c1 = UAnd(UShr(quot_lsb, 0_u8), 1_u8);  // Q0.
   state.sw.c3 = UAnd(UShr(quot_lsb, 1_u8), 1_u8);  // Q1.
-  return memory;
 }
 
 DEF_FPU_SEM(FPU_NOP) {
   SetFPUIpOp();
-  return memory;
 }
 
 DEF_SEM(DoFWAIT) {
   feraiseexcept(fetestexcept(FE_ALL_EXCEPT));
-  return memory;
 }
 
 DEF_SEM(DoFNCLEX) {
@@ -416,7 +391,6 @@ DEF_SEM(DoFNCLEX) {
   state.sw.c2 = UUndefined8();
   state.sw.c3 = UUndefined8();
 
-  return memory;
 }
 
 }  // namespace
@@ -462,21 +436,19 @@ template <typename T>
 DEF_FPU_SEM(FSUB, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   Write(dst, CheckedFloatBinOp(state, FSub80, Read(src1), Float80(Read(src2))));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FSUBmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FSUB(memory, state, dst, src1, src2, pc, fop);
+  FSUB(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FSUBP, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
-  memory = FSUB<T>(memory, state, dst, src1, src2, pc, fop);
+  FSUB<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -484,28 +456,25 @@ DEF_FPU_SEM(FISUB, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   SetFPUDp(src2);
   Write(dst, CheckedFloatBinOp(state, FSub80, Read(src1), Float80(Signed(Read(src2)))));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FSUBR, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   Write(dst, CheckedFloatBinOp(state, FSub80, Float80(Read(src2)), Read(src1)));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FSUBRmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FSUBR(memory, state, dst, src1, src2, pc, fop);
+  FSUBR(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FSUBRP, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
-  memory = FSUBR<T>(memory, state, dst, src1, src2, pc, fop);
+  FSUBR<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -513,7 +482,6 @@ DEF_FPU_SEM(FISUBR, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   SetFPUDp(src2);
   Write(dst, CheckedFloatBinOp(state, FSub80, Float80(Signed(Read(src2))), Read(src1)));
-  return memory;
 }
 }  // namespace
 
@@ -545,20 +513,18 @@ DEF_FPU_SEM(FADD, RF80W dst, RF80W src1, T src2) {
   state.sw.c0 = UUndefined8();
   state.sw.c2 = UUndefined8();
   state.sw.c3 = UUndefined8();
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FADDmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FADD(memory, state, dst, src1, src2, pc, fop);
+  FADD(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FADDP, RF80W dst, RF80W src1, T src2) {
-  memory = FADD<T>(memory, state, dst, src1, src2, pc, fop);
+  FADD<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -567,7 +533,6 @@ DEF_FPU_SEM(FIADD, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
   auto res = CheckedFloatBinOp(state, FAdd80, Float80(Read(src1)), Float80(Signed(Read(src2))));
   Write(dst, Float80(res));
-  return memory;
 }
 
 }  // namespace
@@ -586,20 +551,18 @@ template <typename T>
 DEF_FPU_SEM(FMUL, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   Write(dst, CheckedFloatBinOp(state, FMul80, Read(src1), Float80(Read(src2))));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FMULmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FMUL(memory, state, dst, src1, src2, pc, fop);
+  FMUL(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FMULP, RF80W dst, RF80W src1, T src2) {
-  memory = FMUL<T>(memory, state, dst, src1, src2, pc, fop);
+  FMUL<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -608,7 +571,6 @@ DEF_FPU_SEM(FIMUL, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
   auto res = CheckedFloatBinOp(state, FMul80, Float80(Read(src1)), Float80(Signed(Read(src2))));
   Write(dst, res);
-  return memory;
 }
 
 }  // namespace
@@ -627,20 +589,18 @@ template <typename T>
 DEF_FPU_SEM(FDIV, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   Write(dst, CheckedFloatBinOp(state, FDiv80, Read(src1), Float80(Read(src2))));
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FDIVmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FDIV(memory, state, dst, src1, src2, pc, fop);
+  FDIV(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FDIVP, RF80W dst, RF80W src1, T src2) {
-  memory = FDIV<T>(memory, state, dst, src1, src2, pc, fop);
+  FDIV<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -649,7 +609,6 @@ DEF_FPU_SEM(FIDIV, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
   auto res = CheckedFloatBinOp(state, FDiv80, Float80(Read(src1)), Float80(Signed(Read(src2))));
   Write(dst, res);
-  return memory;
 }
 
 template <typename T>
@@ -657,20 +616,18 @@ DEF_FPU_SEM(FDIVR, RF80W dst, RF80W src1, T src2) {
   SetFPUIpOp();
   auto res = CheckedFloatBinOp(state, FDiv80, Float80(Read(src2)), Read(src1));
   Write(dst, res);
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FDIVRmem, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
-  return FDIVR(memory, state, dst, src1, src2, pc, fop);
+  FDIVR(rt_m, state, dst, src1, src2, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FDIVRP, RF80W dst, RF80W src1, T src2) {
-  memory = FDIVR<T>(memory, state, dst, src1, src2, pc, fop);
+  FDIVR<T>(rt_m, state, dst, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -679,7 +636,6 @@ DEF_FPU_SEM(FIDIVR, RF80W dst, RF80W src1, T src2) {
   SetFPUDp(src2);
   auto res = CheckedFloatBinOp(state, FDiv80, Float80(Signed(Read(src2))), Float80(Read(src1)));
   Write(dst, res);
-  return memory;
 }
 
 }  // namespace
@@ -719,7 +675,8 @@ DEF_FPU_SEM(FBSTP, MBCD80W dst, RF80W src) {
     state.sw.ie = 1;
     state.sw.pe = 0;
     (void) POP_X87_STACK();
-    return WriteBCD80Indefinite(dst);
+    WriteBCD80Indefinite(dst);
+    return;
   }
 
   // Was it rounded?
@@ -747,10 +704,9 @@ DEF_FPU_SEM(FBSTP, MBCD80W dst, RF80W src) {
     casted /= 10;
   }
 
-  memory = WriteBCD80(dst, out_bcd);
+  WriteBCD80(dst, out_bcd);
 
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
@@ -760,26 +716,24 @@ DEF_FPU_SEM(FST, T dst, RF80W src) {
   auto res = CheckedFloatUnaryOp(
       state, [=](native_float80_t x) { return static_cast<BT>(x); }, Read(src));
   Write(dst, res);
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FSTmem, T dst, RF80W src) {
   SetFPUDp(dst);
-  return FST(memory, state, dst, src, pc, fop);
+  FST(rt_m, state, dst, src, pc, fop);
 }
 
 template <typename T>
 DEF_FPU_SEM(FSTP, T dst, RF80W src) {
-  memory = FST<T>(memory, state, dst, src, pc, fop);
+  FST<T>(rt_m, state, dst, src, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename T>
 DEF_FPU_SEM(FSTPmem, T dst, RF80W src) {
   SetFPUDp(dst);
-  return FSTP(memory, state, dst, src, pc, fop);
+  FSTP(rt_m, state, dst, src, pc, fop);
 }
 
 template <typename C1, typename C2>
@@ -810,49 +764,42 @@ DEF_HELPER(ConvertToInt, C1 cast, C2 convert, native_float80_t input)->decltype(
 DEF_FPU_SEM(FISTm16, M16W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res = ConvertToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
+  auto res = ConvertToInt(rt_m, state, Int16<float80_t>, Float80ToInt16, Read(src));
   Write(dst, Unsigned(res));
-  return memory;
 }
 
 DEF_FPU_SEM(FISTm32, M32W dst, RF80W src) {
   SetFPUIpOp();
-  auto res = ConvertToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
+  auto res = ConvertToInt(rt_m, state, Int32<float80_t>, Float80ToInt32, Read(src));
   Write(dst, Unsigned(res));
-  return memory;
 }
 
 DEF_FPU_SEM(FISTPm16, M16W dst, RF80W src) {
-  memory = FISTm16(memory, state, dst, src, pc, fop);
+  FISTm16(rt_m, state, dst, src, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FISTPm32, M32W dst, RF80W src) {
-  memory = FISTm32(memory, state, dst, src, pc, fop);
+  FISTm32(rt_m, state, dst, src, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FISTPm64, M64W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res = ConvertToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
+  auto res = ConvertToInt(rt_m, state, Int64<float80_t>, Float80ToInt64, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(DoFINCSTP) {
   SetFPUIpOp();
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(DoFDECSTP) {
   SetFPUIpOp();
   PUSH_X87_STACK(X87_ST7);
-  return memory;
 }
 
 }  // namespace
@@ -907,28 +854,25 @@ namespace {
 DEF_FPU_SEM(FISTTPm16, M16W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res = TruncateToInt(memory, state, Int16<float80_t>, Float80ToInt16, Read(src));
+  auto res = TruncateToInt(rt_m, state, Int16<float80_t>, Float80ToInt16, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FISTTPm32, M32W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res = TruncateToInt(memory, state, Int32<float80_t>, Float80ToInt32, Read(src));
+  auto res = TruncateToInt(rt_m, state, Int32<float80_t>, Float80ToInt32, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FISTTPm64, M64W dst, RF80W src) {
   SetFPUIpOp();
   SetFPUDp(dst);
-  auto res = TruncateToInt(memory, state, Int64<float80_t>, Float80ToInt64, Read(src));
+  auto res = TruncateToInt(rt_m, state, Int64<float80_t>, Float80ToInt64, Read(src));
   Write(dst, Unsigned(res));
   (void) POP_X87_STACK();
-  return memory;
 }
 
 }  // namespace
@@ -945,7 +889,6 @@ DEF_FPU_SEM(FXCH, RF80W dst1, RF80W src1, RF80W dst2, RF80W src2) {
   auto sti = Read(src2);
   Write(dst1, sti);
   Write(dst2, st0);
-  return memory;
 }
 
 }  // namespace
@@ -1007,7 +950,6 @@ DEF_FPU_SEM(DoFXAM) {
       state.sw.c3 = 0;
       break;
   }
-  return memory;
 }
 
 DEF_HELPER(OrderedCompare, native_float80_t src1, native_float80_t src2)->void {
@@ -1071,8 +1013,7 @@ DEF_FPU_SEM(DoFTST) {
   //            flags more similarly to an ordered compare. Really, the
   //            difference between ordered/unordered is that unordered compares
   //            are silent on SNaNs, whereas ordered ones aren't.
-  OrderedCompare(memory, state, st0, 0.0);
-  return memory;
+  OrderedCompare(rt_m, state, st0, 0.0);
 }
 
 template <typename S2>
@@ -1083,8 +1024,7 @@ DEF_FPU_SEM(FUCOM, RF80W src1, S2 src2) {
 
   // Note:  Don't modify c1. The docs only state that c1=0 if there was a
   //        stack underflow.
-  UnorderedCompare(memory, state, st0, sti);
-  return memory;
+  UnorderedCompare(rt_m, state, st0, sti);
 }
 
 template <typename S2>
@@ -1095,67 +1035,62 @@ DEF_FPU_SEM(FCOM, RF80W src1, S2 src2) {
 
   // Note:  Don't modify c1. The docs only state that c1=0 if there was a
   //        stack underflow.
-  OrderedCompare(memory, state, st0, sti);
-  return memory;
+  OrderedCompare(rt_m, state, st0, sti);
 }
 
 template <typename S2>
 DEF_FPU_SEM(FUCOMmem, RF80W src1, S2 src2) {
   SetFPUDp(src2);
-  return FUCOM(memory, state, src1, src2, pc, fop);
+  FUCOM(rt_m, state, src1, src2, pc, fop);
 }
 
 template <typename S2>
 DEF_FPU_SEM(FCOMmem, RF80W src1, S2 src2) {
   SetFPUDp(src2);
-  return FCOM(memory, state, src1, src2, pc, fop);
+  FCOM(rt_m, state, src1, src2, pc, fop);
 }
 
 template <typename S2>
 DEF_FPU_SEM(FUCOMP, RF80W src1, S2 src2) {
-  memory = FUCOM<S2>(memory, state, src1, src2, pc, fop);
+  FUCOM<S2>(rt_m, state, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename S2>
 DEF_FPU_SEM(FCOMP, RF80W src1, S2 src2) {
-  memory = FCOM<S2>(memory, state, src1, src2, pc, fop);
+  FCOM<S2>(rt_m, state, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 template <typename S2>
 DEF_FPU_SEM(FUCOMPmem, RF80W src1, S2 src2) {
   SetFPUDp(src2);
-  return FUCOMP(memory, state, src1, src2, pc, fop);
+  FUCOMP(rt_m, state, src1, src2, pc, fop);
 }
 
 template <typename S2>
 DEF_FPU_SEM(FCOMPmem, RF80W src1, S2 src2) {
   SetFPUDp(src2);
-  return FCOMP(memory, state, src1, src2, pc, fop);
+  FCOMP(rt_m, state, src1, src2, pc, fop);
 }
 
 DEF_FPU_SEM(DoFUCOMPP) {
   SetFPUIpOp();
   RF80W st0 = {&X87_ST0};
   RF80W st1 = {&X87_ST1};
-  memory = FUCOM<RF80W>(memory, state, st0, st1, pc, fop);
+  FUCOM<RF80W>(rt_m, state, st0, st1, pc, fop);
 
   (void) POP_X87_STACK();
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(DoFCOMPP) {
   RF80W st0 = {&X87_ST0};
   RF80W st1 = {&X87_ST1};
-  memory = FCOM<RF80W>(memory, state, st0, st1, pc, fop);
+  FCOM<RF80W>(rt_m, state, st0, st1, pc, fop);
 
   (void) POP_X87_STACK();
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_HELPER(UnorderedCompareEflags, native_float80_t src1, native_float80_t src2)->void {
@@ -1220,14 +1155,12 @@ DEF_FPU_SEM(FUCOMI, RF80W src1, RF80W src2) {
   FLAG_OF = 0;
   FLAG_SF = 0;
   FLAG_AF = 0;
-  UnorderedCompareEflags(memory, state, st0, sti);
-  return memory;
+  UnorderedCompareEflags(rt_m, state, st0, sti);
 }
 
 DEF_FPU_SEM(FUCOMIP, RF80W src1, RF80W src2) {
-  memory = FUCOMI(memory, state, src1, src2, pc, fop);
+  FUCOMI(rt_m, state, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FCOMI, RF80W src1, RF80W src2) {
@@ -1238,14 +1171,12 @@ DEF_FPU_SEM(FCOMI, RF80W src1, RF80W src2) {
   FLAG_OF = 0;
   FLAG_SF = 0;
   FLAG_AF = 0;
-  OrderedCompareEflags(memory, state, st0, sti);
-  return memory;
+  OrderedCompareEflags(rt_m, state, st0, sti);
 }
 
 DEF_FPU_SEM(FCOMIP, RF80W src1, RF80W src2) {
-  memory = FCOMI(memory, state, src1, src2, pc, fop);
+  FCOMI(rt_m, state, src1, src2, pc, fop);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 }  // namespace
@@ -1291,7 +1222,6 @@ DEF_SEM(FNSTSW, D dst) {
   sw.de = state.sw.de;
   sw.ie = state.sw.ie;
   Write(dst, sw.flat);
-  return memory;
 }
 
 DEF_SEM(FNSTCW, M16W dst) {
@@ -1306,7 +1236,6 @@ DEF_SEM(FNSTCW, M16W dst) {
     case FE_TOWARDZERO: cw.rc = kFPURoundToZero; break;
   }
   Write(dst, cw.flat);
-  return memory;
 }
 
 DEF_SEM(FLDCW, M16 cwd) {
@@ -1324,7 +1253,6 @@ DEF_SEM(FLDCW, M16 cwd) {
     case kFPURoundToZero: rounding_mode = FE_TOWARDZERO; break;
   }
   fesetround(rounding_mode);
-  return memory;
 }
 
 }  // namespace
@@ -1348,7 +1276,6 @@ DEF_FPU_SEM(DoFRNDINT) {
 
   //state.sw.c1 = __builtin_isgreater(FAbs(rounded), FAbs(st0)) ? 1_u8 : 0_u8;
   Write(X87_ST0, rounded);
-  return memory;
 }
 
 DEF_FPU_SEM(DoFYL2X) {
@@ -1363,7 +1290,6 @@ DEF_FPU_SEM(DoFYL2X) {
   state.sw.pe = IsImprecise(res);
   Write(X87_ST1, res);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(DoFYL2XP1) {
@@ -1377,20 +1303,17 @@ DEF_FPU_SEM(DoFYL2XP1) {
   state.sw.pe = IsImprecise(res);
   Write(X87_ST1, res);
   (void) POP_X87_STACK();
-  return memory;
 }
 
 DEF_FPU_SEM(FFREE, RF80W src) {
   SetFPUIpOp();
   (void) src;
-  return memory;
 }
 
 DEF_FPU_SEM(FFREEP, RF80W src) {
   SetFPUIpOp();
   (void) POP_X87_STACK();
   (void) src;
-  return memory;
 }
 
 }  // namespace
@@ -1408,56 +1331,48 @@ template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVNP, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(BNot(FLAG_PF), Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVNZ, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(BNot(FLAG_ZF), Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVNB, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(BNot(FLAG_CF), Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVNBE, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(BNot(BOr(FLAG_CF, FLAG_ZF)), Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVBE, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(BOr(FLAG_CF, FLAG_ZF), Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVP, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(FLAG_PF, Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVZ, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(FLAG_ZF, Read(src1), Read(dst)));
-  return memory;
 }
 
 template <typename D, typename S1>
 DEF_FPU_SEM(FCMOVB, D dst, S1 src1) {
   SetFPUIpOp();
   Write(dst, Select(FLAG_CF, Read(src1), Read(dst)));
-  return memory;
 }
 
 }  // namespace
@@ -1495,7 +1410,6 @@ DEF_SEM(DoFNINIT) {
 
   // TODO: Set the FPU precision to 64 bits
 
-  return memory;
 }
 
 }  // namespace

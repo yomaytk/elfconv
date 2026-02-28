@@ -128,7 +128,6 @@ DEF_SEM(COMISS, S1 src1, S2 src2) {
   Write(FLAG_OF, false);
   Write(FLAG_SF, false);
   Write(FLAG_AF, false);
-  return memory;
 }
 
 template <typename S1, typename S2>
@@ -162,7 +161,6 @@ DEF_SEM(COMISD, S1 src1, S2 src2) {
   Write(FLAG_OF, false);
   Write(FLAG_SF, false);
   Write(FLAG_AF, false);
-  return memory;
 }
 
 }  // namespace
@@ -227,7 +225,6 @@ DEF_SEM(SHUFPS, D dst, S1 src1, S2 src2, I8 src3) {
   }
   UWriteV32(dst, dst_vec);
 
-  return memory;
 }
 
 }  // namespace
@@ -256,7 +253,6 @@ DEF_SEM(SHUFPD, D dst, S1 src1, S2 src2, I8 src3) {
 
   UWriteV64(dst, dst_vec);
 
-  return memory;
 }
 
 }  // namespace
@@ -285,7 +281,6 @@ DEF_SEM(PSHUFD, D dst, S1 src1, I8 src2) {
     }
   }
   UWriteV32(dst, dst_vec);
-  return memory;
 }
 
 }  // namespace
@@ -346,7 +341,6 @@ DEF_SEM(PSHUFLW, D dst, S1 src1, I8 src2) {
   }
 
   UWriteV16(dst, dst_vec);
-  return memory;
 }
 
 template <typename D, typename S1>
@@ -363,7 +357,6 @@ DEF_SEM(PSHUFHW, D dst, S1 src1, I8 src2) {
     dst_vec.elems[i] = sel_val;
   }
   UWriteV16(dst, dst_vec);
-  return memory;
 }
 
 }  // namespace
@@ -402,7 +395,6 @@ namespace {
       dst_vec = SInsertV##size(dst_vec, i, res); \
     } \
     SWriteV##size(dst, dst_vec); \
-    return memory; \
   }
 
 MAKE_PCMP(GTQ, 64, SCmpGt)
@@ -504,7 +496,6 @@ DEF_SEM(CMPSS, D dst, S1 src1, S2 src2, I8 src3) {
   dst_vec = UInsertV32(dst_vec, 0, Select<uint32_t>(cond, ~0_u32, 0_u32));
 
   UWriteV32(dst, dst_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -523,7 +514,6 @@ DEF_SEM(CMPSD, D dst, S1 src1, S2 src2, I8 src3) {
   dst_vec = UInsertV64(dst_vec, 0, Select<uint64_t>(cond, ~0_u64, 0_u64));
 
   UWriteV64(dst, dst_vec);
-  return memory;
 }
 
 
@@ -567,7 +557,6 @@ DEF_SEM(CMPPS, D dst, S1 src1, S2 src2, I8 src3) {
     dst_vec = UInsertV32(dst_vec, i, res);
   }
   UWriteV32(dst, dst_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -591,7 +580,6 @@ DEF_SEM(CMPPD, D dst, S1 src1, S2 src2, I8 src3) {
     dst_vec = UInsertV64(dst_vec, i, res);
   }
   UWriteV64(dst, dst_vec);
-  return memory;
 }
 
 }  // namespace
@@ -845,7 +833,6 @@ DEF_SEM(DoPCMPISTRI, const V &src1, const V &src2, StringCompareControl control)
   Write(FLAG_OF, 0_u16 != (int_res_2 & 1_u16));
   Write(FLAG_AF, false);
   Write(FLAG_PF, false);
-  return memory;
 }
 
 template <typename S2>
@@ -853,15 +840,18 @@ DEF_SEM(PCMPISTRI, V128 src1, S2 src2, I8 src3) {
   const StringCompareControl control = {.flat = Read(src3)};
   switch (static_cast<InputFormat>(control.input_format)) {
     case kUInt8:
-      return DoPCMPISTRI<uint8v16_t, 16>(memory, state, UReadV8(src1), UReadV8(src2), control);
+      DoPCMPISTRI<uint8v16_t, 16>(rt_m, state, UReadV8(src1), UReadV8(src2), control);
+      break;
     case kUInt16:
-      return DoPCMPISTRI<uint16v8_t, 8>(memory, state, UReadV16(src1), UReadV16(src2), control);
+      DoPCMPISTRI<uint16v8_t, 8>(rt_m, state, UReadV16(src1), UReadV16(src2), control);
+      break;
     case kInt8:
-      return DoPCMPISTRI<int8v16_t, 16>(memory, state, SReadV8(src1), SReadV8(src2), control);
+      DoPCMPISTRI<int8v16_t, 16>(rt_m, state, SReadV8(src1), SReadV8(src2), control);
+      break;
     case kInt16:
-      return DoPCMPISTRI<int16v8_t, 8>(memory, state, SReadV16(src1), SReadV16(src2), control);
+      DoPCMPISTRI<int16v8_t, 8>(rt_m, state, SReadV16(src1), SReadV16(src2), control);
+      break;
   }
-  return memory;
 }
 
 }  // namespace
@@ -882,7 +872,6 @@ DEF_SEM(PSRLDQ, D dst, S src1, I8 src2) {
     new_vec = UInsertV8(new_vec, j, UExtractV8(vec, i));
   }
   UWriteV8(dst, new_vec);
-  return memory;
 }
 
 #if HAS_FEATURE_AVX
@@ -897,7 +886,6 @@ DEF_SEM(VPSRLDQ, D dst, S src1, I8 src2) {
     new_vec = UInsertV8(new_vec, j + 16, UExtractV8(vec, i + 16));
   }
   UWriteV8(dst, new_vec);
-  return memory;
 }
 
 #endif  // HAS_FEATURE_AVX
@@ -1183,7 +1171,6 @@ DEF_SEM(MINSS, D dst, S1 src1, S2 src2) {
 
   dest_vec = FInsertV32(dest_vec, 0, min);
   FWriteV32(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1209,7 +1196,6 @@ DEF_SEM(MINSD, D dst, S1 src1, S2 src2) {
 
   dest_vec = FInsertV64(dest_vec, 0, min);
   FWriteV64(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1235,7 +1221,6 @@ DEF_SEM(MAXSS, D dst, S1 src1, S2 src2) {
 
   dest_vec = FInsertV32(dest_vec, 0, max);
   FWriteV32(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1261,7 +1246,6 @@ DEF_SEM(MAXSD, D dst, S1 src1, S2 src2) {
 
   dest_vec = FInsertV64(dest_vec, 0, max);
   FWriteV64(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 }  // namespace
@@ -1366,7 +1350,6 @@ DEF_SEM(MINPS, D dst, S1 src1, S2 src2) {
     dest_vec = FInsertV32(dest_vec, i, min);
   }
   FWriteV32(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1397,7 +1380,6 @@ DEF_SEM(MAXPS, D dst, S1 src1, S2 src2) {
     dest_vec = FInsertV32(dest_vec, i, max);
   }
   FWriteV32(dst, dest_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 }  // namespace
@@ -1435,7 +1417,6 @@ DEF_SEM(UNPCKLPS, D dst, S1 src1, S2 src2) {
   temp_vec = FInsertV32(temp_vec, 3, src2_float);
 
   FWriteV32(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1453,7 +1434,6 @@ DEF_SEM(UNPCKLPD, D dst, S1 src1, S2 src2) {
   temp_vec = FInsertV64(temp_vec, 1, src2_float);  //   into high QWORD of dest
 
   FWriteV64(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 }  // namespace
@@ -1507,7 +1487,6 @@ DEF_SEM(UNPCKHPS, D dst, S1 src1, S2 src2) {
   res = FInsertV32(res, 3, FExtractV32(src2_vec, 3));
 
   FWriteV32(dst, res);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1523,7 +1502,6 @@ DEF_SEM(UNPCKHPD, D dst, S1 src1, S2 src2) {
   temp_vec = FInsertV64(temp_vec, 0, src1_high_qword);  //   into low QWORD of temp
 
   FWriteV64(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 }  // namespace
@@ -1566,7 +1544,6 @@ DEF_SEM(MOVDDUP, D dst, S1 src) {
 
   // SSE: Writes to XMM (dest[MAXVL-1:127] unmodified). AVX: Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 }  // namespace
@@ -1595,13 +1572,12 @@ DEF_SEM(SQRTSS, D dst, S1 src1) {
   auto src_float = FExtractV32(FReadV32(src1), 0);
 
   // Store the square root result in dest[32:0]:
-  auto square_root = SquareRoot32(memory, state, src_float);
+  auto square_root = SquareRoot32(rt_m, state, src_float);
   auto temp_vec = FReadV32(dst);  // initialize a destination vector
   temp_vec = FInsertV32(temp_vec, 0, square_root);
 
   // Write out the result and return memory state:
   FWriteV32(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1>
@@ -1611,13 +1587,12 @@ DEF_SEM(RSQRTSS, D dst, S1 src1) {
   auto src_float = FExtractV32(FReadV32(src1), 0);
 
   // Store the square root result in dest[32:0]:
-  auto square_root = SquareRoot32(memory, state, src_float);
+  auto square_root = SquareRoot32(rt_m, state, src_float);
   auto temp_vec = FReadV32(dst);  // initialize a destination vector
   temp_vec = FInsertV32(temp_vec, 0, FDiv(1.0f, square_root));
 
   // Write out the result and return memory state:
   FWriteV32(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 #if HAS_FEATURE_AVX
@@ -1631,12 +1606,11 @@ DEF_SEM(VSQRTSS, D dst, S1 src1, S2 src2) {
   auto temp_vec = FReadV32(src1);
 
   // Store the square root result in dest[31:0]:
-  auto square_root = SquareRoot32(memory, state, src_float);
+  auto square_root = SquareRoot32(rt_m, state, src_float);
   temp_vec = FInsertV32(temp_vec, 0, square_root);
 
   // Write out the result and return memory state:
   FWriteV32(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1649,12 +1623,11 @@ DEF_SEM(VRSQRTSS, D dst, S1 src1, S2 src2) {
   auto temp_vec = FReadV32(src1);
 
   // Store the square root result in dest[31:0]:
-  auto square_root = SquareRoot32(memory, state, src_float);
+  auto square_root = SquareRoot32(rt_m, state, src_float);
   temp_vec = FInsertV32(temp_vec, 0, FDiv(1.0f, square_root));
 
   // Write out the result and return memory state:
   FWriteV32(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 #endif  // HAS_FEATURE_AVX
 }  // namespace
@@ -1713,13 +1686,12 @@ DEF_SEM(SQRTSD, D dst, S1 src1) {
   auto src_float = FExtractV64(FReadV64(src1), 0);
 
   // Store the square root result in dest[63:0]:
-  auto square_root = SquareRoot64(memory, state, src_float);
+  auto square_root = SquareRoot64(rt_m, state, src_float);
   auto temp_vec = FReadV64(dst);  // initialize a destination vector
   temp_vec = FInsertV64(temp_vec, 0, square_root);
 
   // Write out the result and return memory state:
   FWriteV64(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 
 #if HAS_FEATURE_AVX
@@ -1733,12 +1705,11 @@ DEF_SEM(VSQRTSD, D dst, S1 src1, S2 src2) {
   auto temp_vec = FReadV64(src1);
 
   // Store the square root result in dest[63:0]:
-  auto square_root = SquareRoot64(memory, state, src_float);
+  auto square_root = SquareRoot64(rt_m, state, src_float);
   temp_vec = FInsertV64(temp_vec, 0, square_root);
 
   // Write out the result and return memory state:
   FWriteV64(dst, temp_vec);  // SSE: Writes to XMM, AVX: Zero-extends XMM.
-  return memory;
 }
 #endif  // HAS_FEATURE_AVX
 
@@ -1777,7 +1748,6 @@ DEF_SEM(PACKUSWB, D dst, S1 src1, S2 src2) {
   }
 
   UWriteV8(dst, packed);
-  return memory;
 }
 
 #if HAS_FEATURE_AVX
@@ -1811,7 +1781,6 @@ DEF_SEM(PACKUSWB_AVX, D dst, S1 src1, S2 src2) {
   }
 
   UWriteV8(dst, packed);
-  return memory;
 }
 
 #endif  // HAS_FEATURE_AVX
@@ -1850,7 +1819,6 @@ DEF_SEM(HADDPS, D dst, S1 src1, S2 src2) {
     dst_vec = FInsertV32(dst_vec, i, FAdd(v1, v2));
   }
   FWriteV32(dst, dst_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2>
@@ -1874,7 +1842,6 @@ DEF_SEM(HADDPD, D dst, S1 src1, S2 src2) {
     dst_vec = FInsertV64(dst_vec, i, FAdd(v1, v2));
   }
   FWriteV64(dst, dst_vec);
-  return memory;
 }
 
 }  // namespace
@@ -1965,7 +1932,6 @@ DEF_SEM(LDMXCSR, M32 src) {
 
   // TODO: set FPU precision based on MXCSR precision flag (csr.pe)
 
-  return memory;
 }
 
 DEF_SEM(STMXCSR, M32W dst) {
@@ -1997,7 +1963,6 @@ DEF_SEM(STMXCSR, M32W dst) {
 
   Write(dst, csr.flat);
 
-  return memory;
 }
 
 }  // namespace

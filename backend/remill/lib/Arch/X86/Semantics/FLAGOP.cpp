@@ -19,32 +19,26 @@
 namespace {
 DEF_SEM(DoCLD) {
   FLAG_DF = false;
-  return memory;
 }
 
 DEF_SEM(DoSTD) {
   FLAG_DF = true;
-  return memory;
 }
 
 DEF_SEM(DoCLC) {
   FLAG_CF = false;
-  return memory;
 }
 
 DEF_SEM(DoCMC) {
   FLAG_CF = BNot(FLAG_CF);
-  return memory;
 }
 
 DEF_SEM(DoSTC) {
   FLAG_CF = true;
-  return memory;
 }
 
 DEF_SEM(DoSALC) {
   Write(REG_AL, Unsigned(FLAG_CF));
-  return memory;
 }
 
 DEF_SEM(DoSAHF) {
@@ -54,7 +48,6 @@ DEF_SEM(DoSAHF) {
   FLAG_AF = UCmpEq(1, flags.af);
   FLAG_SF = UCmpEq(1, flags.sf);
   FLAG_ZF = UCmpEq(1, flags.zf);
-  return memory;
 }
 
 DEF_SEM(DoLAHF) {
@@ -68,31 +61,22 @@ DEF_SEM(DoLAHF) {
   flags.zf = Unsigned(FLAG_ZF);
   flags.sf = Unsigned(FLAG_SF);
   Write(REG_AH, TruncTo<uint8_t>(flags.flat));
-  return memory;
 }
 
 DEF_SEM(DoCLAC) {
-  memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kAssertPrivileged);
   state.rflag.ac = false;
-  return memory;
 }
 
 DEF_SEM(DoSTAC) {
-  memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kAssertPrivileged);
   state.rflag.ac = true;
-  return memory;
 }
 
 DEF_SEM(DoCLI) {
-  memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kAssertPrivileged);
   state.rflag._if = false;
-  return memory;
 }
 
 DEF_SEM(DoSTI) {
-  memory = __remill_sync_hyper_call(state, memory, SyncHyperCall::kAssertPrivileged);
   state.rflag._if = true;
-  return memory;
 }
 }  // namespace
 
