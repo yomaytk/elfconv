@@ -3,9 +3,6 @@ name: Build Image
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - 'Dockerfile'
-      - '.github/workflows/build-image.yml'
   pull_request:
     branches: [ "main" ]
     paths:
