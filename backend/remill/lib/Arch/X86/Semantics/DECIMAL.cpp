@@ -45,7 +45,6 @@ DEF_SEM(AAS) {
   FLAG_ZF = __remill_undefined_8();
   FLAG_PF = __remill_undefined_8();
 
-  return memory;
 }
 
 DEF_SEM(DAA) {
@@ -92,7 +91,6 @@ DEF_SEM(DAA) {
 
   FLAG_OF = __remill_undefined_8();
 
-  return memory;
 }
 
 }  // namespace

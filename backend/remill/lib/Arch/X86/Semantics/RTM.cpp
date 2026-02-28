@@ -21,12 +21,10 @@ DEF_SEM(XBEGIN, R8W cond, PC taken, PC not_taken, IF_32BIT_ELSE(R32W, R64W) pc_d
   Write(cond, true);
   Write(pc_dst, Read(taken));
   WriteZExt(REG_XAX, static_cast<addr_t>(8));
-  return memory;
 }
 
 DEF_SEM(DoXTEST) {
   Write(FLAG_ZF, true);
-  return memory;
 }
 
 DEF_SEM(DoXEND, PC next_pc) {
@@ -35,7 +33,7 @@ DEF_SEM(DoXEND, PC next_pc) {
 }
 
 DEF_SEM(XABORT, I8) {
-  return memory;  // We treat RTM as inactive, so this is a NOP.
+  // We treat RTM as inactive, so this is a NOP.
 }
 
 }  // namespace

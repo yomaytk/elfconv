@@ -18,7 +18,6 @@ namespace {
 
 template <typename... Args>
 DEF_SEM(PREFETCH, Args...) {
-  return memory;
 }
 
 }  // namespace

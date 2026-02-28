@@ -29,7 +29,6 @@ namespace {
     if (!swap_flag) { \
       WriteZExt(REG_##xax_write, check_val); \
     } \
-    return memory; \
   }
 
 MAKE_CMPXCHG_XAX(AL, AL, AL)
@@ -48,7 +47,6 @@ DEF_SEM(DoCMPXCHG8B_MEMq, M64W dst, M64 src1) {
   Write(FLAG_ZF, swap_flag);
   Write(REG_EDX, Trunc(UShr(check_val, 32)));
   Write(REG_EAX, Trunc(check_val));
-  return memory;
 }
 
 #if 64 == ADDRESS_SIZE_BITS
@@ -63,7 +61,6 @@ DEF_SEM(DoCMPXCHG16B_MEMdq, M128W dst, M128 src1) {
   Write(FLAG_ZF, swap_flag);
   Write(REG_RDX, Trunc(UShr(check_val, 64)));
   Write(REG_RAX, Trunc(check_val));
-  return memory;
 }
 #endif  // 64 == ADDRESS_SIZE_BITS
 }  // namespace
@@ -107,7 +104,6 @@ DEF_SEM(XADD, D1 dst1, S1 src1, D2 dst2, S2 src2) {
   auto sum = UAddFetch(dst2, rhs);
   WriteFlagsAddSub<tag_add>(state, rhs, lhs, sum);
   WriteZExt(dst1, sum);
-  return memory;
 }
 
 }  // namespace

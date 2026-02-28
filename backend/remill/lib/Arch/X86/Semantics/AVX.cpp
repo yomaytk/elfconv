@@ -25,7 +25,6 @@ DEF_SEM(DoVZEROUPPER) {
     IF_AVX512(vec.zmm.dqwords.elems[2] = 0;)
     IF_AVX512(vec.zmm.dqwords.elems[3] = 0;)
   }
-  return memory;
 }
 
 template <typename D, typename S1>
@@ -39,7 +38,6 @@ DEF_SEM(VPBROADCASTB, D dst, S1 src1) {
     dst_vec = UInsertV8(dst_vec, i, src_byte);
   }
   UWriteV8(dst, dst_vec);
-  return memory;
 }
 
 template <typename D, typename S1>
@@ -53,7 +51,6 @@ DEF_SEM(VPBROADCASTQ, D dst, S1 src1) {
     dst_vec = UInsertV64(dst_vec, i, src_val);
   }
   UWriteV64(dst, dst_vec);
-  return memory;
 }
 
 template <typename S2>
@@ -64,7 +61,6 @@ DEF_SEM(VINSERTF128, VV256W dst, V256 src1, S2 src2, I8 src3) {
   auto i = static_cast<unsigned>(src3_i8 & 1u);
   dst_vec = UInsertV128(dst_vec, i, UExtractV128(src2_vec, 0));
   UWriteV128(dst, dst_vec);
-  return memory;
 }
 
 //template<typename S2>

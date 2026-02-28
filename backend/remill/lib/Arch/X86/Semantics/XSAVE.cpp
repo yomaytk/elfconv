@@ -40,7 +40,6 @@ DEF_SEM(DoXGETBV, PC next_pc) {
 
     default: WriteZExt(REG_PC, Read(next_pc)); StopFailure();
   }
-  return memory;
 }
 
 }  // namespace

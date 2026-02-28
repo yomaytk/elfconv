@@ -61,7 +61,8 @@ typedef int16_t addr_diff_t;
 //       always explicitly specialize it inside of the `std` namespace.
 
 // Entry function of the original ELF
-typedef void (*LiftedFunc)(State *state, addr_t pc, RuntimeManager *runtime_manager);
+typedef void (*LiftedFunc)(uint8_t *arena_ptr, State *state, addr_t pc,
+                           RuntimeManager *runtime_manager);
 
 template <typename T>
 struct is_signed {

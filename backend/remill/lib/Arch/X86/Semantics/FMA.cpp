@@ -36,7 +36,6 @@ DEF_SEM(VFMADD132SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2, typename S3>
@@ -57,7 +56,6 @@ DEF_SEM(VFMADD231SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2, typename S3>
@@ -78,7 +76,6 @@ DEF_SEM(VFMADD213SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 }  // namespace
@@ -114,7 +111,6 @@ DEF_SEM(VFMSUB132SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2, typename S3>
@@ -135,7 +131,6 @@ DEF_SEM(VFMSUB213SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 template <typename D, typename S1, typename S2, typename S3>
@@ -156,7 +151,6 @@ DEF_SEM(VFMSUB231SD, D dst, S1 src1, S2 src2, S3 src3) {
 
   // Writes to XMM (DEST[MAXVL-1:127] unmodified). Zero-extends XMM.
   FWriteV64(dst, temp_vec);
-  return memory;
 }
 
 }  // namespace
