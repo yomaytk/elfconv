@@ -30,7 +30,7 @@
 #  define PCREG CPUState->gpr.pc.qword
 #elif defined(ELF_IS_AMD64)
 #  include <remill/Arch/X86/Runtime/State.h>
-#  define PCREG CPUState.gpr.rip.qword
+#  define PCREG CPUState->gpr.rip.qword
 #else
 #  define PCREG CPUState.gpr.pc.qword
 #endif
@@ -658,153 +658,121 @@ Memory *__remill_delay_slot_end(Memory *) {
   UNDEFINED_INTRINSICS("__remill_delay_slot_end");
   return 0;
 }
-Memory *__remill_compare_exchange_memory_8(Memory *, addr_t addr, uint8_t &expected,
-                                           uint8_t desired) {
+void __remill_compare_exchange_memory_8(RuntimeManager *, addr_t addr, uint8_t &expected,
+                                        uint8_t desired) {
   UNDEFINED_INTRINSICS("__remill_compare_exchange_memory_8");
-  return 0;
 }
-Memory *__remill_compare_exchange_memory_16(Memory *, addr_t addr, uint16_t &expected,
-                                            uint16_t desired) {
+void __remill_compare_exchange_memory_16(RuntimeManager *, addr_t addr, uint16_t &expected,
+                                         uint16_t desired) {
   UNDEFINED_INTRINSICS("__remill_compare_exchange_memory_16");
-  return 0;
 }
-Memory *__remill_compare_exchange_memory_32(Memory *, addr_t addr, uint32_t &expected,
-                                            uint32_t desired) {
+void __remill_compare_exchange_memory_32(RuntimeManager *, addr_t addr, uint32_t &expected,
+                                         uint32_t desired) {
   UNDEFINED_INTRINSICS("__remill_compare_exchange_memory_32");
-  return 0;
 }
-Memory *__remill_compare_exchange_memory_64(Memory *, addr_t addr, uint64_t &expected,
-                                            uint64_t desired) {
+void __remill_compare_exchange_memory_64(RuntimeManager *, addr_t addr, uint64_t &expected,
+                                         uint64_t desired) {
   UNDEFINED_INTRINSICS("__remill_compare_exchange_memory_64");
-  return 0;
 }
 #if !defined(REMILL_DISABLE_INT128)
-Memory *__remill_compare_exchange_memory_128(Memory *, addr_t addr, uint128_t &expected,
-                                             uint128_t &desired) {
+void __remill_compare_exchange_memory_128(RuntimeManager *, addr_t addr, uint128_t &expected,
+                                          uint128_t &desired) {
   UNDEFINED_INTRINSICS("__remill_compare_exchange_memory_128");
-  return 0;
 }
 #endif
-Memory *__remill_fetch_and_add_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_add_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_add_8");
-  return 0;
 }
-Memory *__remill_fetch_and_add_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_add_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_add_16");
-  return 0;
 }
-Memory *__remill_fetch_and_add_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_add_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_add_32");
-  return 0;
 }
-Memory *__remill_fetch_and_add_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_add_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_add_64");
-  return 0;
 }
-Memory *__remill_fetch_and_sub_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_sub_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_sub_8");
-  return 0;
 }
-Memory *__remill_fetch_and_sub_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_sub_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_sub_16");
-  return 0;
 }
-Memory *__remill_fetch_and_sub_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_sub_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_sub_32");
-  return 0;
 }
-Memory *__remill_fetch_and_sub_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_sub_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_sub_64");
-  return 0;
 }
-Memory *__remill_fetch_and_and_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_and_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_and_8");
-  return 0;
 }
-Memory *__remill_fetch_and_and_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_and_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_and_16");
-  return 0;
 }
-Memory *__remill_fetch_and_and_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_and_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_and_32");
-  return 0;
 }
-Memory *__remill_fetch_and_and_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_and_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_and_64");
-  return 0;
 }
-Memory *__remill_fetch_and_or_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_or_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_or_8");
-  return 0;
 }
-Memory *__remill_fetch_and_or_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_or_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_or_16");
-  return 0;
 }
-Memory *__remill_fetch_and_or_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_or_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_or_32");
-  return 0;
 }
-Memory *__remill_fetch_and_or_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_or_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_or_64");
-  return 0;
 }
-Memory *__remill_fetch_and_xor_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_xor_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_xor_8");
-  return 0;
 }
-Memory *__remill_fetch_and_xor_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_xor_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_xor_16");
-  return 0;
 }
-Memory *__remill_fetch_and_xor_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_xor_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_xor_32");
-  return 0;
 }
-Memory *__remill_fetch_and_xor_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_xor_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_xor_64");
-  return 0;
 }
-Memory *__remill_fetch_and_nand_8(Memory *, addr_t addr, uint8_t &value) {
+void __remill_fetch_and_nand_8(RuntimeManager *, addr_t addr, uint8_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_nand_8");
-  return 0;
 }
-Memory *__remill_fetch_and_nand_16(Memory *, addr_t addr, uint16_t &value) {
+void __remill_fetch_and_nand_16(RuntimeManager *, addr_t addr, uint16_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_nand_16");
-  return 0;
 }
-Memory *__remill_fetch_and_nand_32(Memory *, addr_t addr, uint32_t &value) {
+void __remill_fetch_and_nand_32(RuntimeManager *, addr_t addr, uint32_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_nand_32");
-  return 0;
 }
-Memory *__remill_fetch_and_nand_64(Memory *, addr_t addr, uint64_t &value) {
+void __remill_fetch_and_nand_64(RuntimeManager *, addr_t addr, uint64_t &value) {
   UNDEFINED_INTRINSICS("__remill_fetch_and_nand_64");
-  return 0;
 }
 
-uint8_t __remill_read_io_port_8(Memory *, addr_t) {
+uint8_t __remill_read_io_port_8(RuntimeManager *, addr_t) {
   UNDEFINED_INTRINSICS("__remill_read_io_port_8");
   return 0;
 }
-uint16_t __remill_read_io_port_16(Memory *, addr_t) {
+uint16_t __remill_read_io_port_16(RuntimeManager *, addr_t) {
   UNDEFINED_INTRINSICS("__remill_read_io_port_16");
   return 0;
 }
-uint32_t __remill_read_io_port_32(Memory *, addr_t) {
+uint32_t __remill_read_io_port_32(RuntimeManager *, addr_t) {
   UNDEFINED_INTRINSICS("__remill_read_io_port_32");
   return 0;
 }
-Memory *__remill_write_io_port_8(Memory *, addr_t, uint8_t) {
+void __remill_write_io_port_8(RuntimeManager *, addr_t, uint8_t) {
   UNDEFINED_INTRINSICS("__remill_write_io_port_8");
-  return 0;
 }
-Memory *__remill_write_io_port_16(Memory *, addr_t, uint16_t) {
+void __remill_write_io_port_16(RuntimeManager *, addr_t, uint16_t) {
   UNDEFINED_INTRINSICS("__remill_write_io_port_16");
-  return 0;
 }
-Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
+void __remill_write_io_port_32(RuntimeManager *, addr_t, uint32_t) {
   UNDEFINED_INTRINSICS("__remill_write_io_port_32");
-  return 0;
 }
 Memory *__remill_x86_set_segment_es(Memory *) {
   UNDEFINED_INTRINSICS("__remill_x86_set_segment_es");

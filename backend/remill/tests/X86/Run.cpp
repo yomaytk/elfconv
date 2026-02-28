@@ -184,32 +184,28 @@ MAKE_RW_FP_MEMORY(128)
 
 // f80 functions are commented out in Intrinsics.h for elfconv
 
-Memory *__remill_compare_exchange_memory_8(Memory *memory, addr_t addr, uint8_t &expected,
-                                           uint8_t desired) {
+void __remill_compare_exchange_memory_8(RuntimeManager *, addr_t addr, uint8_t &expected,
+                                        uint8_t desired) {
   expected = __sync_val_compare_and_swap(reinterpret_cast<uint8_t *>(addr), expected, desired);
-  return memory;
 }
 
-Memory *__remill_compare_exchange_memory_16(Memory *memory, addr_t addr, uint16_t &expected,
-                                            uint16_t desired) {
+void __remill_compare_exchange_memory_16(RuntimeManager *, addr_t addr, uint16_t &expected,
+                                         uint16_t desired) {
   expected = __sync_val_compare_and_swap(reinterpret_cast<uint16_t *>(addr), expected, desired);
-  return memory;
 }
 
-Memory *__remill_compare_exchange_memory_32(Memory *memory, addr_t addr, uint32_t &expected,
-                                            uint32_t desired) {
+void __remill_compare_exchange_memory_32(RuntimeManager *, addr_t addr, uint32_t &expected,
+                                         uint32_t desired) {
   expected = __sync_val_compare_and_swap(reinterpret_cast<uint32_t *>(addr), expected, desired);
-  return memory;
 }
 
-Memory *__remill_compare_exchange_memory_64(Memory *memory, addr_t addr, uint64_t &expected,
-                                            uint64_t desired) {
+void __remill_compare_exchange_memory_64(RuntimeManager *, addr_t addr, uint64_t &expected,
+                                         uint64_t desired) {
   expected = __sync_val_compare_and_swap(reinterpret_cast<uint64_t *>(addr), expected, desired);
-  return memory;
 }
 
-Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr, uint128_t &expected,
-                                             uint128_t &desired) {
+void __remill_compare_exchange_memory_128(RuntimeManager *, addr_t addr, uint128_t &expected,
+                                          uint128_t &desired) {
 #if !(defined(__x86_64__) || defined(__i386__) || defined(_M_X86))
   expected = __sync_val_compare_and_swap(reinterpret_cast<uint128_t *>(addr), expected, desired);
 #else
@@ -232,14 +228,12 @@ Memory *__remill_compare_exchange_memory_128(Memory *memory, addr_t addr, uint12
     expected = *reinterpret_cast<uint128_t *>(addr);
   }
 #endif
-  return memory;
 }
 
 #define MAKE_ATOMIC_INTRINSIC(intrinsic_name, type_prefix, size) \
-  Memory *__remill_##intrinsic_name##_##size(Memory *memory, addr_t addr, \
-                                             type_prefix##size##_t &value) { \
+  void __remill_##intrinsic_name##_##size(RuntimeManager *, addr_t addr, \
+                                          type_prefix##size##_t &value) { \
     value = __sync_##intrinsic_name(reinterpret_cast<type_prefix##size##_t *>(addr), value); \
-    return memory; \
   }
 
 MAKE_ATOMIC_INTRINSIC(fetch_and_add, uint, 8)
@@ -290,27 +284,27 @@ void __remill_error(uint8_t *, State &, addr_t, RuntimeManager *) {
 void __remill_missing_block(uint8_t *, State &, addr_t, RuntimeManager *) {}
 
 // Read/write to I/O ports.
-uint8_t __remill_read_io_port_8(Memory *, addr_t) {
+uint8_t __remill_read_io_port_8(RuntimeManager *, addr_t) {
   abort();
 }
 
-uint16_t __remill_read_io_port_16(Memory *, addr_t) {
+uint16_t __remill_read_io_port_16(RuntimeManager *, addr_t) {
   abort();
 }
 
-uint32_t __remill_read_io_port_32(Memory *, addr_t) {
+uint32_t __remill_read_io_port_32(RuntimeManager *, addr_t) {
   abort();
 }
 
-Memory *__remill_write_io_port_8(Memory *, addr_t, uint8_t) {
+void __remill_write_io_port_8(RuntimeManager *, addr_t, uint8_t) {
   abort();
 }
 
-Memory *__remill_write_io_port_16(Memory *, addr_t, uint16_t) {
+void __remill_write_io_port_16(RuntimeManager *, addr_t, uint16_t) {
   abort();
 }
 
-Memory *__remill_write_io_port_32(Memory *, addr_t, uint32_t) {
+void __remill_write_io_port_32(RuntimeManager *, addr_t, uint32_t) {
   abort();
 }
 
