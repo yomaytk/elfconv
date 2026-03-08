@@ -5,7 +5,7 @@ ARG UBUNTU_VERSION=22.04
 ARG DISTRO_NAME=jammy
 
 # stage 1. System packages and toolchain installation
-FROM ubuntu:${UBUNTU_VERSION} AS toolchain
+FROM ubuntu:${UBUNTU_VERSION}@sha256:3ba65aa20f86a0fad9df2b2c259c613df006b2e6d0bfcc8a146afb8c525a9751 AS toolchain
 ARG LLVM_VERSION
 ARG DISTRO_NAME
 
@@ -13,9 +13,9 @@ RUN apt-get update && \
     apt-get install -qqy --no-install-recommends \
       apt-transport-https software-properties-common gnupg ca-certificates wget && \
     apt-add-repository ppa:git-core/ppa --yes && \
-    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-    echo "deb http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
-    echo "deb-src http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-snapshot.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
+    echo "deb-src [signed-by=/usr/share/keyrings/llvm-snapshot.gpg] http://apt.llvm.org/${DISTRO_NAME}/ llvm-toolchain-${DISTRO_NAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -qqy --no-install-recommends \
       build-essential python3 pkg-config \
@@ -29,14 +29,18 @@ RUN apt-get update && \
 
 # cmake install
 RUN wget "https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-$(uname -m).sh" && \
+    if [ "$(uname -m)" = "x86_64" ]; then \
+      echo "808a712bcb039fd71f6960dca82a9befb977d8bdb074718218cf7646fd08bb7a  cmake-3.22.1-linux-x86_64.sh" | sha256sum -c -; \
+    elif [ "$(uname -m)" = "aarch64" ]; then \
+      echo "ff886c6c16be867229a6c1fe4bc963ff77ae24187d5a8d64ef72a06f84c1a25c  cmake-3.22.1-linux-aarch64.sh" | sha256sum -c -; \
+    fi && \
     /bin/bash cmake-*.sh --skip-license --prefix=/usr/local && rm cmake-*.sh
 
 # stage 2. SDK and WASI runtime installation
 FROM toolchain AS sdks
 ARG EMCC_VERSION
-
 # emscripten install
-RUN cd /root && git clone https://github.com/emscripten-core/emsdk.git && cd emsdk && \
+RUN cd /root && git clone --branch ${EMCC_VERSION} --depth 1 https://github.com/emscripten-core/emsdk.git && cd emsdk && \
     ./emsdk install ${EMCC_VERSION} && ./emsdk activate ${EMCC_VERSION} && \
     . ./emsdk_env.sh && echo 'source "/root/emsdk/emsdk_env.sh"' >> /root/.bash_profile
 
@@ -54,9 +58,16 @@ RUN cd /root && \
     tar xvf wasi-sdk-${WASI_VERSION_FULL}-${WASI_ARCH}-${WASI_OS}.tar.gz && \
     rm -f wasi-sdk-*.tar.gz
 
-# WASI Runtimes install
-RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash
-RUN curl https://wasmtime.dev/install.sh -sSf | bash && echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile
+# WasmEdge install
+RUN curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh -o /tmp/wasmedge_install.sh && \
+    bash /tmp/wasmedge_install.sh && \
+    rm /tmp/wasmedge_install.sh
+
+# Wasmtime install (latest release, no pipe to bash)
+RUN curl -sSf https://wasmtime.dev/install.sh -o /tmp/wasmtime_install.sh && \
+    bash /tmp/wasmtime_install.sh && \
+    echo 'export PATH=$PATH:/root/.wasmtime/bin' >> /root/.bash_profile && \
+    rm /tmp/wasmtime_install.sh
 
 # stage 3. build elfconv
 FROM sdks AS resimg

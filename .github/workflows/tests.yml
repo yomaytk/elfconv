@@ -13,13 +13,16 @@ on:
       - 'docs/**'
       - '**.md'
 
+permissions:
+  contents: read
+
 jobs:
   build-and-test-aarch64:
     runs-on: ubuntu-22.04-arm
     name: AArch64 Build-and-Run
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
     - name: build container image
       run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
@@ -32,7 +35,7 @@ jobs:
     name: AMD64 Build-and-Run
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
     - name: build container image
       run: docker build . --build-arg ECV_X86=1 -t elfconv-image
