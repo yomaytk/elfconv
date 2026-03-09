@@ -131,8 +131,14 @@ elfconv-v*
 
 !browser/*
 !release/outdir/index.html
+!tests/browser/*.js
+!tests/browser/*.html
+!tests/browser/package.json
+tests/browser/wasm-out/
+tests/browser/test-results/
 
 # AI
 CLAUDE.md
 SKILLS.md
 skills
+.claude

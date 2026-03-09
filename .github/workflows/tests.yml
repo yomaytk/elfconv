@@ -42,3 +42,22 @@ jobs:
 
     - name: run instruction tests
       run: docker run --rm -w /root/elfconv/build elfconv-image "ninja test_dependencies && ctest --output-on-failure"
+
+  browser-test-aarch64:
+    runs-on: ubuntu-22.04-arm
+    name: Browser Integration Test
+    steps:
+    - name: Checkout
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+    - name: build container image
+      run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
+
+    - name: run browser test
+      run: |
+        docker run --rm -w /root/elfconv elfconv-image \
+          "cd tests/browser && \
+           npm install && \
+           npx playwright install --with-deps chromium && \
+           bash build.sh && \
+           npx playwright test"

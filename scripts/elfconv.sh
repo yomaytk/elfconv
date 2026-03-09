@@ -23,7 +23,7 @@ setting() {
   ELFPATH=$( realpath "$1" )
   ELFNAME=$( basename "$ELFPATH" )
   # dir
-  CUR_DIR="${PWD}"
+  CUR_DIR="${ECV_OUT_DIR:-${PWD}}"
   RUNTIME_DIR=${ROOT_DIR}/runtime
   UTILS_DIR=${ROOT_DIR}/utils
   BROWSER_DIR=${ROOT_DIR}/browser
