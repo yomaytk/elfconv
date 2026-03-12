@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.TEST_PORT || 3000;
-const SERVE_DIR = process.env.SERVE_DIR || path.resolve(__dirname, 'wasm-out');
+const SERVE_DIR = path.resolve(__dirname, process.env.SERVE_DIR || 'wasm-out');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -14,7 +14,7 @@ const MIME_TYPES = {
   '.json': 'application/json',
 };
 
-const TEST_HTML = path.resolve(__dirname, 'test-main.html');
+const TEST_HTML = path.resolve(__dirname, process.env.TEST_HTML || 'test-main.html');
 
 const server = http.createServer((req, res) => {
   const filePath = req.url === '/' ? TEST_HTML : path.join(SERVE_DIR, req.url);

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.17.0/css/xterm.css" />
+</head>
+
+<body>
+  <div id="terminal"></div>
+  <script src="coi-serviceworker.js"></script>
+  <script type="module">
+    import 'https://cdn.jsdelivr.net/npm/xterm@4.17.0/lib/xterm.min.js';
+    import 'https://cdn.jsdelivr.net/npm/xterm-pty@0.10.1/index.js';
+    import initEmscripten from './js-kernel.js';
+
+    var xterm = new Terminal();
+    xterm.open(document.getElementById('terminal'));
+
+    window.__test_xterm = xterm;
+    window.__test_done = false;
+    window.__test_output = '';
+
+    const { master, slave } = openpty();
+
+    var binList = ["bash-static", "busybox"];
+
+    xterm.loadAddon(master);
+
+    xterm.onData(() => { });
+    xterm.onLineFeed(() => {
+      const buf = xterm.buffer.active;
+      let text = '';
+      for (let i = 0; i <= buf.cursorY + buf.baseY; i++) {
+        const line = buf.getLine(i);
+        if (line) {
+          text += line.translateToString(true) + '\n';
+        }
+      }
+      window.__test_output = text;
+    });
+
+    await initEmscripten({
+      pty: slave,
+      initProgram: 'bash-static.wasm',
+      executables: binList,
+    });
+
+    window.__test_done = true;
+  </script>
+</body>
+
+</html>

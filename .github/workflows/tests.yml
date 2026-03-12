@@ -45,7 +45,7 @@ jobs:
 
   browser-test-aarch64:
     runs-on: ubuntu-22.04-arm
-    name: Browser Integration Test
+    name: Browser Integration Test (hello_world)
     steps:
     - name: Checkout
       uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -59,5 +59,33 @@ jobs:
           "cd tests/browser && \
            npm install && \
            npx playwright install --with-deps chromium && \
-           bash build.sh && \
-           npx playwright test"
+           bash build.sh hello && \
+           npx playwright test --project=hello"
+
+  browser-test-bash-aarch64:
+    runs-on: ubuntu-22.04-arm
+    name: Browser Integration Test (bash)
+    steps:
+    - name: Checkout
+      uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+    - name: build container image
+      run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
+
+    - name: run browser test
+      run: |
+        docker run --rm -w /root/elfconv elfconv-image \
+          "apt-get update && apt-get install -qqy --no-install-recommends bash-static && \
+           BUSYBOX_VERSION=1.36.1 && \
+           wget -q https://busybox.net/downloads/busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           tar xjf busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           cp examples/examples-repos/.config busybox-\${BUSYBOX_VERSION}/.config && \
+           make -C busybox-\${BUSYBOX_VERSION} -j\$(nproc) && \
+           mkdir -p examples/examples-repos/busybox && \
+           cp busybox-\${BUSYBOX_VERSION}/busybox examples/examples-repos/busybox/busybox && \
+           rm -rf busybox-\${BUSYBOX_VERSION} busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           cd tests/browser && \
+           npm install && \
+           npx playwright install --with-deps chromium && \
+           bash build.sh bash && \
+           npx playwright test --project=bash"
