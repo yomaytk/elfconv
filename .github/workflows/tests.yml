@@ -59,7 +59,7 @@ jobs:
           "cd tests/browser && \
            npm install && \
            npx playwright install --with-deps chromium && \
-           bash build.sh && \
+           bash build.sh hello && \
            npx playwright test --project=hello"
 
   browser-test-bash-aarch64:
@@ -87,5 +87,5 @@ jobs:
            cd tests/browser && \
            npm install && \
            npx playwright install --with-deps chromium && \
-           bash build.sh && \
+           bash build.sh bash && \
            npx playwright test --project=bash"

@@ -135,6 +135,7 @@ elfconv-v*
 !tests/browser/*.html
 !tests/browser/package.json
 tests/browser/wasm-out/
+tests/browser/wasm-out-bash/
 tests/browser/test-results/
 
 # AI
