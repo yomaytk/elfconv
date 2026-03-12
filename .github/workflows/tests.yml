@@ -75,7 +75,16 @@ jobs:
     - name: run browser test
       run: |
         docker run --rm -w /root/elfconv elfconv-image \
-          "cd tests/browser && \
+          "apt-get update && apt-get install -qqy --no-install-recommends bash-static && \
+           BUSYBOX_VERSION=1.36.1 && \
+           wget -q https://busybox.net/downloads/busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           tar xjf busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           cp examples/examples-repos/.config busybox-\${BUSYBOX_VERSION}/.config && \
+           make -C busybox-\${BUSYBOX_VERSION} -j\$(nproc) && \
+           mkdir -p examples/examples-repos/busybox && \
+           cp busybox-\${BUSYBOX_VERSION}/busybox examples/examples-repos/busybox/busybox && \
+           rm -rf busybox-\${BUSYBOX_VERSION} busybox-\${BUSYBOX_VERSION}.tar.bz2 && \
+           cd tests/browser && \
            npm install && \
            npx playwright install --with-deps chromium && \
            bash build.sh && \
