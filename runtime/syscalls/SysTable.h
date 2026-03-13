@@ -86,6 +86,8 @@
 // ioctls cmds (Linux)
 #define _LINUX_TCGETS 0x5401
 #define _LINUX_TCSETS 0x5402
+#define _LINUX_TCSETSW 0x5403
+#define _LINUX_TCSETSF 0x5404
 #define _LINUX_TIOCGWINSZ 0x5413
 #define _LINUX_TIOCGPGRP 0x540f
 #define _LINUX_TIOSGPGRP 0x5410
