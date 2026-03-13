@@ -341,9 +341,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_LOOKUP_DCOOKIE,
     ECV_FLOCK,
     ECV_MKNODAT,
-    ECV_SYMLINKAT,
-    ECV_LINKAT,
-    ECV_RENAMEAT,
     ECV_RENAMEAT2,
     ECV_UMOUNT2,
     ECV_MOUNT,
@@ -353,15 +350,10 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_FALLOCATE,
     ECV_FCHDIR,
     ECV_CHROOT,
-    ECV_FCHMOD,
-    ECV_FCHMODAT,
-    ECV_FCHOWNAT,
-    ECV_FCHOWN,
     ECV_VHANGUP,
     ECV_QUOTACTL,
     ECV_QUOTACTL_FD,
     ECV_NEWFSTAT,
-    ECV_FDATASYNC,
     ECV_SYNC,
     ECV_SYNC_FILE_RANGE,
     ECV_SYNCFS,
@@ -409,7 +401,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_CLOCK_SETTIME,
     ECV_CLOCK_GETRES,
     ECV_CLOCK_ADJTIME,
-    ECV_NANOSLEEP,
     ECV_GETITIMER,
     ECV_SETITIMER,
 
@@ -425,7 +416,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_KEXEC_FILE_LOAD,
     ECV_INIT_MODULE,
     ECV_DELETE_MODULE,
-    ECV_PRLIMIT64,
     ECV_FINIT_MODULE,
 
     // System logging
@@ -451,7 +441,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_TKILL,
     ECV_SIGALTSTACK,
     ECV_RT_SIGSUSPEND,
-    ECV_RT_SIGPROCMASK,
     ECV_RT_SIGPENDING,
     ECV_RT_SIGTIMEDWAIT,
     ECV_RT_SIGQUEUEINFO,
@@ -468,7 +457,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_SETDOMAINNAME,
     ECV_GETRLIMIT,
     ECV_SETRLIMIT,
-    ECV_UMASK,
     ECV_GETCPU,
     ECV_SETTIMEOFDAY,
     ECV_ADJTIMEX,
@@ -818,7 +806,9 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
           }
           break;
         }
-        case _LINUX_TCSETS: {
+        case _LINUX_TCSETS:
+        case _LINUX_TCSETSW:
+        case _LINUX_TCSETSF: {
           struct termios t_wasm;
           auto t_host = *(_elfarm64_termios *) TranslateVMA(this, arena_ptr, arg);
           t_wasm.c_iflag = t_host.c_iflag;
@@ -1499,6 +1489,104 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
         X0_D = 0;
         break;
       }
+    case ECV_SYMLINKAT: /* int symlinkat(const char *target, int newdirfd, const char *linkpath) */
+    {
+      int res = symlinkat((const char *) TranslateVMA(this, arena_ptr, X0_Q), X1_D,
+                          (const char *) TranslateVMA(this, arena_ptr, X2_Q));
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_LINKAT: /* int linkat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath, int flags) */
+    {
+      int res = linkat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D,
+                       (const char *) TranslateVMA(this, arena_ptr, X3_Q), X4_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_RENAMEAT: /* int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) */
+    {
+      int res = renameat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D,
+                         (const char *) TranslateVMA(this, arena_ptr, X3_Q));
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_FCHMOD: /* int fchmod(unsigned int fd, umode_t mode) */
+    {
+      int res = fchmod(X0_D, X1_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_FCHMODAT: /* int fchmodat(int dfd, const char *filename, umode_t mode) */
+    {
+      int res = fchmodat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, 0);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_FCHOWNAT: /* int fchownat(int dfd, const char *filename, uid_t user, gid_t group, int flag) */
+    {
+      int res = fchownat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, X3_D, X4_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_FDATASYNC: /* int fdatasync(unsigned int fd) */
+    {
+      int res = fdatasync(X0_D);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_NANOSLEEP: /* int nanosleep(const struct timespec *req, struct timespec *rem) */
+    {
+      struct timespec _wasm_req, _wasm_rem;
+      auto _elf_req = (const struct _elfarm64_timespec *) TranslateVMA(this, arena_ptr, X0_Q);
+      _wasm_req.tv_sec = _elf_req->tv_sec;
+      _wasm_req.tv_nsec = _elf_req->tv_nsec;
+      int res = nanosleep(&_wasm_req, &_wasm_rem);
+      if (X1_Q != 0) {
+        struct _elfarm64_timespec _elf_rem;
+        _elf_rem.tv_sec = _wasm_rem.tv_sec;
+        _elf_rem.tv_nsec = _wasm_rem.tv_nsec;
+        memcpy(TranslateVMA(this, arena_ptr, X1_Q), &_elf_rem, sizeof(_elf_rem));
+      }
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_UMASK: /* mode_t umask(mode_t mask) */
+    {
+      mode_t res = umask(X0_D);
+      X0_Q = (uint64_t) res;
+      break;
+    }
+    case ECV_RT_SIGPROCMASK: /* int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset, size_t sigsetsize) */
+    {
+      const sigset_t *set_p = X1_Q == 0 ? nullptr : (const sigset_t *) TranslateVMA(this, arena_ptr, X1_Q);
+      sigset_t *oldset_p = X2_Q == 0 ? nullptr : (sigset_t *) TranslateVMA(this, arena_ptr, X2_Q);
+      int res = sigprocmask(X0_D, set_p, oldset_p);
+      X0_Q = SetSyscallRes(res);
+      break;
+    }
+    case ECV_PRLIMIT64: /* int prlimit64(pid_t pid, unsigned int resource, const struct rlimit64 *new_rlim, struct rlimit64 *old_rlim) */
+    {
+      /* Linux rlimit64 for aarch64 uses 64-bit values */
+      struct {
+        uint64_t rlim_cur;
+        uint64_t rlim_max;
+      } _linux_rlimit;
+
+      if (X3_Q != 0) {
+        /* Get current limit */
+        struct rlimit rl;
+        int res = getrlimit(X1_D, &rl);
+        if (res == 0) {
+          _linux_rlimit.rlim_cur = (uint64_t) rl.rlim_cur;
+          _linux_rlimit.rlim_max = (uint64_t) rl.rlim_max;
+          memcpy(TranslateVMA(this, arena_ptr, X3_Q), &_linux_rlimit, sizeof(_linux_rlimit));
+        }
+        X0_Q = SetSyscallRes(res);
+      } else {
+        X0_Q = 0;
+      }
+      break;
+    }
     case ECV_STATX: /* statx (int dfd, const char *path, unsigned flags, unsigned mask, struct statx *buffer) */
     {
       int dfd = X0_D;

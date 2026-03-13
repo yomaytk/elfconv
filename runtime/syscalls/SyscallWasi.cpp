@@ -127,7 +127,9 @@ void RuntimeManager::SVCWasiCall(uint8_t *arena_ptr) {
       unsigned long arg = X2_Q;
       switch (cmd) {
         case _LINUX_TCGETS:
-        case _LINUX_TCSETS: {
+        case _LINUX_TCSETS:
+        case _LINUX_TCSETSW:
+        case _LINUX_TCSETSF: {
           X0_D = ioctl(fd, cmd, TranslateVMA(this, arena_ptr, arg));
         } break;
         default: X0_Q = -_LINUX_ENOTTY; break;

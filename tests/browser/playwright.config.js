@@ -40,7 +40,7 @@ module.exports = defineConfig({
     },
     {
       name: 'bash',
-      testMatch: 'bash.spec.js',
+      testMatch: ['bash.spec.js', 'syscall-probe.spec.js'],
       use: {
         browserName: 'chromium',
         baseURL: 'http://localhost:3001',

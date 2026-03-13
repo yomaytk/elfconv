@@ -981,6 +981,10 @@ var Module = (() => {
     const ECV_FIFO_READ = 10006;
     const ECV_FIFO_WRITE = 10007;
 
+    // emscripten-specific syscalls (not in Linux AArch64 table)
+    const ECV_CHMOD = 10008;
+    const ECV_FD_FDSTAT_GET = 10009;
+
     SysFuncMap.set(ECV_CLONE, ___syscall_clone);
     SysFuncMap.set(ECV_WAIT4, ___syscall_wait4);
     SysFuncMap.set(ECV_EXECVE, ___syscall_execve);
@@ -1031,6 +1035,16 @@ var Module = (() => {
     SysFuncMap.set(ECV_GET_DEV_TYPE, ___ecv_get_dev_type);
     SysFuncMap.set(ECV_FIFO_READ, _fd_fifo_read);
     SysFuncMap.set(ECV_FIFO_WRITE, _fd_fifo_write);
+
+    // new filesystem syscalls
+    SysFuncMap.set(ECV_CHMOD, ___syscall_chmod);
+    SysFuncMap.set(ECV_FCHMOD, ___syscall_fchmod);
+    SysFuncMap.set(ECV_FCHMODAT, ___syscall_fchmodat);
+    SysFuncMap.set(ECV_FCHOWNAT, ___syscall_fchownat);
+    SysFuncMap.set(ECV_FDATASYNC, ___syscall_fdatasync);
+    SysFuncMap.set(ECV_RENAMEAT, ___syscall_renameat);
+    SysFuncMap.set(ECV_SYMLINKAT, ___syscall_symlinkat);
+    SysFuncMap.set(ECV_FD_FDSTAT_GET, _fd_fdstat_get);
 
 
     class ExitStatus {
@@ -2968,19 +2982,31 @@ var Module = (() => {
               ["arch", "busybox"],
               ["ascii", "busybox"],
               ["basename", "busybox"],
+              ["chmod", "busybox"],
+              ["chown", "busybox"],
               ["clear", "busybox"],
+              ["cp", "busybox"],
               ["date", "busybox"],
+              ["dirname", "busybox"],
+              ["expr", "busybox"],
+              ["head", "busybox"],
               ["hostname", "busybox"],
+              ["ln", "busybox"],
               ["ls", "busybox"],
               ["mkdir", "busybox"],
+              ["mv", "busybox"],
               ["rm", "busybox"],
               ["rmdir", "busybox"],
+              ["seq", "busybox"],
+              ["sleep", "busybox"],
+              ["tail", "busybox"],
               ["tree", "busybox"],
               ["uname", "busybox"],
               ["vi", "busybox"],
               ["cat", "busybox"],
               ["touch", "busybox"],
-              ["ps", "busybox"]
+              ["ps", "busybox"],
+              ["wc", "busybox"]
             ]));
           }
         }
@@ -4613,6 +4639,109 @@ var Module = (() => {
         return -e.errno
       }
     }
+    function ___syscall_chmod(path, mode) {
+      try {
+        path = SYSCALLS.getStr(path);
+        FS.chmod(path, mode);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_fchmod(fd, mode) {
+      try {
+        FS.fchmod(fd, mode);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_fchmodat(dirfd, path, mode, flags) {
+      try {
+        var nofollow = flags & 256;
+        path = SYSCALLS.getStr(path);
+        path = SYSCALLS.calculateAt(dirfd, path);
+        FS.chmod(path, mode, nofollow);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_fchownat(dirfd, path, owner, group, flags) {
+      try {
+        path = SYSCALLS.getStr(path);
+        var nofollow = flags & 256;
+        flags = flags & ~256;
+        path = SYSCALLS.calculateAt(dirfd, path);
+        (nofollow ? FS.lchown : FS.chown)(path, owner, group);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_fdatasync(fd) {
+      try {
+        var stream = SYSCALLS.getStreamFromFD(fd);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_renameat(olddirfd, oldpath, newdirfd, newpath) {
+      try {
+        oldpath = SYSCALLS.getStr(oldpath);
+        newpath = SYSCALLS.getStr(newpath);
+        oldpath = SYSCALLS.calculateAt(olddirfd, oldpath);
+        newpath = SYSCALLS.calculateAt(newdirfd, newpath);
+        FS.rename(oldpath, newpath);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function ___syscall_symlinkat(target, dirfd, linkpath) {
+      try {
+        target = SYSCALLS.getStr(target);
+        linkpath = SYSCALLS.getStr(linkpath);
+        linkpath = SYSCALLS.calculateAt(dirfd, linkpath);
+        FS.symlink(target, linkpath);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return -e.errno
+      }
+    }
+
+    function _fd_fdstat_get(fd, pbuf) {
+      try {
+        var rightsBase = 0;
+        var rightsInheriting = 0;
+        var flags = 0;
+        var stream = SYSCALLS.getStreamFromFD(fd);
+        var type = stream.tty ? 2 : FS.isDir(stream.mode) ? 3 : FS.isLink(stream.mode) ? 7 : 4;
+        (growMemViews(gWasmMemory), HEAP8)[pbuf] = type;
+        (growMemViews(gWasmMemory), HEAP16)[pbuf + 2 >> 1] = flags;
+        (growMemViews(gWasmMemory), HEAP64)[pbuf + 8 >> 3] = BigInt(rightsBase);
+        (growMemViews(gWasmMemory), HEAP64)[pbuf + 16 >> 3] = BigInt(rightsInheriting);
+        return 0
+      } catch (e) {
+        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
+        return e.errno
+      }
+    }
+
     var runtimeKeepaliveCounter = 0;
     var ENV = {};
     var getExecutableName = () => initProcessJsPath;
