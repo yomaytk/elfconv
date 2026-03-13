@@ -1,0 +1,41 @@
+TEST_BEGIN(FCVTZS_ASISDMISC_R_32, fcvtzs_s0_s1_sisd, 1)
+TEST_INPUTS(0)
+    fmov s1, #2.5
+    fcvtzs s0, s1
+TEST_END
+
+TEST_BEGIN(FCVTZS_ASISDMISC_R_32_v2, fcvtzs_s0_s1_sisd_v2, 1)
+TEST_INPUTS(0)
+    fmov s1, #-2.5
+    fcvtzs s0, s1
+TEST_END
+
+TEST_BEGIN(FCVTZS_ASISDMISC_R_64, fcvtzs_d0_d1_sisd, 1)
+TEST_INPUTS(0)
+    fmov d1, #2.5
+    fcvtzs d0, d1
+TEST_END
+
+TEST_BEGIN(FCVTZS_ASISDMISC_R_64_v2, fcvtzs_d0_d1_sisd_v2, 1)
+TEST_INPUTS(0)
+    fmov d1, #-4.0
+    fcvtzs d0, d1
+TEST_END
+
+TEST_BEGIN(FCVTZS_ASISDMISC_R_32_INPUTS, fcvtzs_s_inputs, 1)
+TEST_INPUTS(
+    0x3F8000003F800000,
+    0x40000000C0000000,
+    0x41200000BF800000)
+    fmov d1, ARG1_64
+    fcvtzs s0, s1
+TEST_END
+
+TEST_BEGIN(FCVTZS_ASISDMISC_R_64_INPUTS, fcvtzs_d_inputs, 1)
+TEST_INPUTS(
+    0x3FF0000000000000,
+    0xC000000000000000,
+    0x4024000000000000)
+    fmov d1, ARG1_64
+    fcvtzs d0, d1
+TEST_END

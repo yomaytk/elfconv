@@ -25475,9 +25475,7 @@ bool TryDecodeFCVTZS_ASISDMISCFP16_R(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // FCVTZS  <V><d>, <V><n>
-bool TryDecodeFCVTZS_ASISDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
+// Implemented in Arch.cpp
 
 // FCVTZS FCVTZS_asimdmiscfp16_R:
 //   0 x Rd       0

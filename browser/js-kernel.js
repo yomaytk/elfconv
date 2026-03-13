@@ -367,12 +367,22 @@ var Module = (() => {
 
       // call the target kernel function.
       let sysRval = tgtKernelFunction(...sysArgs);
-      // store the return value of syscall function executing.
-      m32View[sysRvalPtr] = sysRval;
 
-      // notify to process worker
-      Atomics.store(m32View, waitPtr, 1);
-      Atomics.notify(m32View, waitPtr, 1);
+      // support async syscall handlers (e.g. poll with timeout)
+      if (sysRval instanceof Promise) {
+        sysRval.then(val => {
+          m32View[sysRvalPtr] = val;
+          Atomics.store(m32View, waitPtr, 1);
+          Atomics.notify(m32View, waitPtr, 1);
+        });
+      } else {
+        // store the return value of syscall function executing.
+        m32View[sysRvalPtr] = sysRval;
+
+        // notify to process worker
+        Atomics.store(m32View, waitPtr, 1);
+        Atomics.notify(m32View, waitPtr, 1);
+      }
     }
 
     function exitHandling(workerId) {
@@ -3000,8 +3010,10 @@ var Module = (() => {
               ["seq", "busybox"],
               ["sleep", "busybox"],
               ["tail", "busybox"],
+              ["top", "busybox"],
               ["tree", "busybox"],
               ["uname", "busybox"],
+              ["uptime", "busybox"],
               ["vi", "busybox"],
               ["cat", "busybox"],
               ["touch", "busybox"],
@@ -3340,9 +3352,16 @@ var Module = (() => {
     };
     var PROCFS = {
       ops_table: null,
+      _bootTime: null,
       init(initPid) {
         PROCFS.mount();
+        PROCFS._bootTime = Date.now();
         this.createMyProc(initPid);
+        // system-wide /proc files
+        FS.mknod("/proc/stat", S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 740);
+        FS.mknod("/proc/meminfo", S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 741);
+        FS.mknod("/proc/uptime", S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 742);
+        FS.mknod("/proc/loadavg", S_IFREG | S_IRUSR | S_IRGRP | S_IROTH, 743);
         // /proc/self
         let selfNode = FS.symlink(`/proc/${initPid}`, `/proc/self`);
         // /proc/self/exe for python (FIXME)
@@ -3531,6 +3550,52 @@ var Module = (() => {
       readProcCmdline(task) {
         return new TextEncoder().encode(task.comm).buffer;
       },
+      readProcSystemStat() {
+        // Minimal /proc/stat for busybox top
+        let now = Date.now();
+        let uptimeMs = now - PROCFS._bootTime;
+        let jiffies = Math.floor(uptimeMs / 10); // USER_HZ=100
+        let user = Math.floor(jiffies * 0.05);
+        let system = Math.floor(jiffies * 0.02);
+        let idle = jiffies - user - system;
+        let lines = [
+          `cpu  ${user} 0 ${system} ${idle} 0 0 0 0 0 0`,
+          `cpu0 ${user} 0 ${system} ${idle} 0 0 0 0 0 0`,
+          `intr 0`,
+          `ctxt 0`,
+          `btime ${Math.floor(PROCFS._bootTime / 1000)}`,
+          `processes 1`,
+          `procs_running 1`,
+          `procs_blocked 0`,
+        ];
+        return new TextEncoder().encode(lines.join("\n") + "\n").buffer;
+      },
+      readProcMeminfo() {
+        let totalKB = 512 * 1024;
+        let freeKB = 256 * 1024;
+        let availKB = 384 * 1024;
+        let buffersKB = 16 * 1024;
+        let cachedKB = 64 * 1024;
+        let lines = [
+          `MemTotal:       ${totalKB} kB`,
+          `MemFree:        ${freeKB} kB`,
+          `MemAvailable:   ${availKB} kB`,
+          `Buffers:        ${buffersKB} kB`,
+          `Cached:         ${cachedKB} kB`,
+          `SwapCached:            0 kB`,
+          `SwapTotal:             0 kB`,
+          `SwapFree:              0 kB`,
+        ];
+        return new TextEncoder().encode(lines.join("\n") + "\n").buffer;
+      },
+      readProcUptime() {
+        let uptimeSec = ((Date.now() - PROCFS._bootTime) / 1000).toFixed(2);
+        let idleSec = (uptimeSec * 0.95).toFixed(2);
+        return new TextEncoder().encode(`${uptimeSec} ${idleSec}\n`).buffer;
+      },
+      readProcLoadavg() {
+        return new TextEncoder().encode("0.00 0.00 0.00 1/1 1\n").buffer;
+      },
       readProcMaps() {
         // Minimal /proc/self/maps template for your 256MiB arena.
         //
@@ -3623,17 +3688,28 @@ var Module = (() => {
           let parent = FS.lookupPath(stream.path, {
             parent: true
           }).node;
-          // get the target content.
-          let task = processes.get(+(parent.name)).task;
           let content;
-          if (stream.node.name === `stat`) {
-            content = PROCFS.readProcStat(task);
-          } else if (stream.node.name === `cmdline`) {
-            content = PROCFS.readProcCmdline(task);
-          } else if (stream.node.name == `maps`) {
-            content = PROCFS.readProcMaps();
+          // system-wide /proc files (parent is "proc")
+          if (parent.name === "proc") {
+            switch (stream.node.name) {
+              case "stat": content = PROCFS.readProcSystemStat(); break;
+              case "meminfo": content = PROCFS.readProcMeminfo(); break;
+              case "uptime": content = PROCFS.readProcUptime(); break;
+              case "loadavg": content = PROCFS.readProcLoadavg(); break;
+              default: throw new FS.ErrnoError(2);
+            }
           } else {
-            throw new FS.ErrnoError(2);
+            // per-process /proc/<pid>/ files
+            let task = processes.get(+(parent.name)).task;
+            if (stream.node.name === `stat`) {
+              content = PROCFS.readProcStat(task);
+            } else if (stream.node.name === `cmdline`) {
+              content = PROCFS.readProcCmdline(task);
+            } else if (stream.node.name == `maps`) {
+              content = PROCFS.readProcMaps();
+            } else {
+              throw new FS.ErrnoError(2);
+            }
           }
           // copy the buffer
           if (position >= content.byteLength) {
@@ -4400,38 +4476,52 @@ var Module = (() => {
     }
 
     function ___syscall_poll_scan(fds, nfds, tmSec, tmNsec) {
-      try {
 
-        growMemViews(gWasmMemory);
+      growMemViews(gWasmMemory);
 
-        let timeout = 0;
-        if (tmSec == -1) {
-          timeout = -1;
-        } else {
-          timeout = tmSec + tmNsec * 1e-9;
-        }
+      let timeoutSec = 0;
+      if (tmSec == -1) {
+        timeoutSec = -1;
+      } else {
+        timeoutSec = tmSec + tmNsec * 1e-9;
+      }
 
-        let nonzero = 0;
-        for (var i = 0; i < nfds; i++) {
-          var pollfd = fds + 8 * i;
-          var fd = HEAP32[pollfd >> 2];
-          var events = HEAP16[pollfd + 4 >> 1];
-          var mask = 32;
-          var stream = FS.getStream(fd);
-          if (stream) {
-            if (stream.stream_ops.poll) {
-              mask = stream.stream_ops.poll(stream, events, timeout)
+      // Scan all FDs for readiness, tolerating PTY "wait again" exceptions.
+      let nonzero = 0;
+      let needsWait = false;
+      for (var i = 0; i < nfds; i++) {
+        var pollfd = fds + 8 * i;
+        var fd = HEAP32[pollfd >> 2];
+        var events = HEAP16[pollfd + 4 >> 1];
+        var mask = 32;
+        var stream = FS.getStream(fd);
+        if (stream) {
+          if (stream.stream_ops.poll) {
+            try {
+              mask = stream.stream_ops.poll(stream, events, timeoutSec);
+            } catch (e) {
+              // PTY throws ErrnoError(1006) when not readable and timeout is set.
+              if (e.name === "ErrnoError") {
+                mask = 0;
+                needsWait = true;
+              } else {
+                throw e;
+              }
             }
           }
-          mask &= events | POLLERR | POLLHUP;
-          if (mask) nonzero++;
-          HEAP16[pollfd + 6 >> 1] = mask
         }
-        return nonzero
-      } catch (e) {
-        if (typeof FS == "undefined" || !(e.name === "ErrnoError")) throw e;
-        return -e.errno
+        mask &= events | POLLERR | POLLHUP;
+        if (mask) nonzero++;
+        HEAP16[pollfd + 6 >> 1] = mask;
       }
+
+      // If no FDs are ready and there is a non-zero timeout, sleep before returning.
+      if (nonzero === 0 && (timeoutSec > 0 || (timeoutSec === -1 && needsWait))) {
+        var delayMs = timeoutSec > 0 ? Math.min(timeoutSec * 1000, 30000) : 1000;
+        return new Promise(resolve => setTimeout(() => resolve(0), delayMs));
+      }
+
+      return nonzero;
     }
 
     function ___syscall_pselect6_scan(nfds, readfdsP, writefdsP, exceptfdsP, tmSec, tmNsec, sigmaskP) {

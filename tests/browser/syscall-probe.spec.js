@@ -106,4 +106,67 @@ test.describe('Syscall probe - new syscalls', () => {
     const out = await waitForTerminalContent(page, '5');
     expect(await out.jsonValue()).toContain('5');
   });
+
+  test('/proc files readable (cat /proc/uptime and /proc/meminfo)', async ({ page }) => {
+    await page.goto('/');
+    await waitForTerminalContent(page, 'bash-static.wasm');
+
+    // Test /proc/uptime
+    await typeCommand(page, 'cat /proc/uptime');
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Test /proc/meminfo
+    await typeCommand(page, 'head -3 /proc/meminfo');
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Dump buffer to verify
+    const dump = await page.evaluate(() => {
+      const xterm = window.__test_xterm;
+      if (!xterm) return '';
+      const buf = xterm.buffer.active;
+      let lines = [];
+      for (let i = 0; i < buf.length; i++) {
+        const line = buf.getLine(i);
+        if (line) {
+          let text = line.translateToString(true);
+          if (text.trim()) lines.push(text);
+        }
+      }
+      return lines.join('\n');
+    });
+
+    // /proc/uptime should output digits.digits
+    expect(dump).toMatch(/\d+\.\d+/);
+    // /proc/meminfo should have MemTotal
+    expect(dump).toContain('MemTotal');
+  });
+
+  test('top shows system info then quits', async ({ page }) => {
+    await page.goto('/');
+    await waitForTerminalContent(page, 'bash-static.wasm');
+
+    // Run top
+    await typeCommand(page, 'top -b -n 1');
+    // Wait for top output to appear (Mem or CPU line)
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Dump buffer
+    const dump = await page.evaluate(() => {
+      const xterm = window.__test_xterm;
+      if (!xterm) return '';
+      const buf = xterm.buffer.active;
+      let lines = [];
+      for (let i = 0; i < buf.length; i++) {
+        const line = buf.getLine(i);
+        if (line) {
+          let text = line.translateToString(true);
+          if (text.trim()) lines.push(text);
+        }
+      }
+      return lines.join('\n');
+    });
+
+    // top should show memory info and CPU info
+    expect(dump).toMatch(/Mem:/i);
+  });
 });
