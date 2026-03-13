@@ -485,6 +485,7 @@ SYMBOL(__aarch64_test_table_begin):
 // #include "tests/AArch64/SIMD/SCVTF_ASIMDMISC_R.S"
 // #include "tests/AArch64/SIMD/UCVTF_ASIMDMISC_R.S"
 // #include "tests/AArch64/SIMD/FCVTZU_ASISDMISC_R.S"
+#include "tests/AArch64/SIMD/FCVTZS_ASISDMISC_R.S"
 
 #include "tests/AArch64/SYSTEM/Mn_n_SYSTEM_FPSR.S"
 #include "tests/AArch64/SYSTEM/Mn_n_SYSTEM_FPCR.S"

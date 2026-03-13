@@ -5895,6 +5895,27 @@ bool TryDecodeFCVTZU_ASISDMISC_R(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// FCVTZS  <V><d>, <V><n> (scalar, converts FP to signed integer)
+bool TryDecodeFCVTZS_ASISDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::State;
+  RegClass dst_class, src_class;
+  if (1 == data.sz) {
+    inst.function += "_64";
+    dst_class = kReg2D;   // Output: integer register
+    src_class = kReg2DF;  // Input: floating-point register
+  } else {
+    inst.function += "_32";
+    dst_class = kReg4S;   // Output: integer register
+    src_class = kReg4SF;  // Input: floating-point register
+  }
+  if (inst.lift_config.float_exception_enabled) {
+    AddArrangementSpecifierFPSRStatus(inst);
+  }
+  AddRegOperand(inst, kActionWrite, dst_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, src_class, kUseAsValue, data.Rn);
+  return true;
+}
+
 // SCVTF  <Vd>.<T>, <Vn>.<T> (only 32bit or 64bit)
 bool TryDecodeSCVTF_ASIMDMISC_R(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::State;

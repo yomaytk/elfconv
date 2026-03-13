@@ -152,6 +152,29 @@ DEF_SEM_T_STATE(FCVTZU_Float64ToUInt64_FROMV_FPSRStatus, VIf64v2 src) {
   return res;
 }
 
+// FCVTZS  <V><d>, <V><n> (scalar, converts FP to signed integer in vector register)
+DEF_SEM_T_STATE(FCVTZS_Float32ToSInt32_FROMV, VIf32v4 src) {
+  _ecv_u32v4_t res = {};
+  res[0] = CheckedCast<float32_t, int32_t>(state, FExtractVI32(FReadVI32(src), 0));
+  return res;
+}
+DEF_SEM_T_STATE(FCVTZS_Float64ToSInt64_FROMV, VIf64v2 src) {
+  _ecv_u64v2_t res = {};
+  res[0] = CheckedCast<float64_t, int64_t>(state, FExtractVI64(FReadVI64(src), 0));
+  return res;
+}
+// FPSR
+DEF_SEM_T_STATE(FCVTZS_Float32ToSInt32_FROMV_FPSRStatus, VIf32v4 src) {
+  _ecv_u32v4_t res = {};
+  res[0] = CheckedCastFPSRStatus<float32_t, int32_t>(state, FExtractVI32(FReadVI32(src), 0));
+  return res;
+}
+DEF_SEM_T_STATE(FCVTZS_Float64ToSInt64_FROMV_FPSRStatus, VIf64v2 src) {
+  _ecv_u64v2_t res = {};
+  res[0] = CheckedCastFPSRStatus<float64_t, int64_t>(state, FExtractVI64(FReadVI64(src), 0));
+  return res;
+}
+
 // FCVTZS  <Wd>, <Sn>
 DEF_SEM_U32_STATE(FCVTZS_Float32ToSInt32, RF32 src) {
   return CheckedCast<float32_t, int32_t>(state, Read(src));
@@ -304,6 +327,13 @@ DEF_ISEL(FCVTZS_32D_FLOAT2INT_FPSRSTATUS) =
     FCVTZS_Float64ToSInt32_FPSRStatus;  // FCVTZS  <Wd>, <Dn>
 DEF_ISEL(FCVTZS_64D_FLOAT2INT_FPSRSTATUS) =
     FCVTZS_Float64ToSInt64_FPSRStatus;  // FCVTZS  <Xd>, <Dn>
+
+// FCVTZS (scalar, FP to signed integer in vector register) - ASISDMISC
+DEF_ISEL(FCVTZS_ASISDMISC_R_32) = FCVTZS_Float32ToSInt32_FROMV;  // FCVTZS  <V><d>, <V><n>
+DEF_ISEL(FCVTZS_ASISDMISC_R_64) = FCVTZS_Float64ToSInt64_FROMV;  // FCVTZS  <V><d>, <V><n>
+// FPSR
+DEF_ISEL(FCVTZS_ASISDMISC_R_32_FPSRSTATUS) = FCVTZS_Float32ToSInt32_FROMV_FPSRStatus;  // FCVTZS  <V><d>, <V><n>
+DEF_ISEL(FCVTZS_ASISDMISC_R_64_FPSRSTATUS) = FCVTZS_Float64ToSInt64_FROMV_FPSRStatus;  // FCVTZS  <V><d>, <V><n>
 
 DEF_ISEL(FCVTAS_64D_FLOAT2INT) = FCVTAS_Float64ToSInt64;  // FCVTAS  <Xd>, <Dn>
 // FPSR

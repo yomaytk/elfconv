@@ -173,6 +173,36 @@ struct _linux_statx {
 };
 
 /*
+  for sysinfo
+*/
+struct _elfarm64_sysinfo {
+  int64_t uptime;
+  uint64_t loads[3];
+  uint64_t totalram;
+  uint64_t freeram;
+  uint64_t sharedram;
+  uint64_t bufferram;
+  uint64_t totalswap;
+  uint64_t freeswap;
+  uint16_t procs;
+  uint16_t pad;
+  uint32_t pad2;
+  uint64_t totalhigh;
+  uint64_t freehigh;
+  uint32_t mem_unit;
+};
+
+/*
+  for times
+*/
+struct _elfarm64_tms {
+  int64_t tms_utime;
+  int64_t tms_stime;
+  int64_t tms_cutime;
+  int64_t tms_cstime;
+};
+
+/*
   for rusage
 */
 struct _linux_rusage {
@@ -424,9 +454,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
 
     // Scheduling
     ECV_SCHED_SETPARAM,
-    ECV_SCHED_SETSCHEDULER,
-    ECV_SCHED_GETSCHEDULER,
-    ECV_SCHED_GETPARAM,
     ECV_SCHED_SETAFFINITY,
     ECV_SCHED_YIELD,
     ECV_SCHED_GET_PRIORITY_MAX,
@@ -460,8 +487,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_GETCPU,
     ECV_SETTIMEOFDAY,
     ECV_ADJTIMEX,
-    ECV_SYSINFO,
-
     // User/group ID operations
     ECV_SETREGID,
     ECV_SETGID,
@@ -473,7 +498,6 @@ constexpr uint32_t UNIMPLEMENTED_SYSCALLS[] = {
     ECV_GETRESGID,
     ECV_SETFSUID,
     ECV_SETFSGID,
-    ECV_TIMES,
     ECV_GETSID,
     ECV_SETSID,
     ECV_GETGROUPS,
@@ -1272,6 +1296,42 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       }
       break;
     }
+    case ECV_SYSINFO: /* sysinfo (struct sysinfo *info) */
+    {
+      auto info = (_elfarm64_sysinfo *) TranslateVMA(this, arena_ptr, X0_Q);
+      memset(info, 0, sizeof(_elfarm64_sysinfo));
+      struct timespec ts;
+      clock_gettime(CLOCK_MONOTONIC, &ts);
+      info->uptime = ts.tv_sec;
+      info->loads[0] = 0;
+      info->loads[1] = 0;
+      info->loads[2] = 0;
+      info->totalram = 512ULL * 1024 * 1024;
+      info->freeram = 256ULL * 1024 * 1024;
+      info->sharedram = 0;
+      info->bufferram = 0;
+      info->totalswap = 0;
+      info->freeswap = 0;
+      info->procs = 1;
+      info->totalhigh = 0;
+      info->freehigh = 0;
+      info->mem_unit = 1;
+      X0_Q = 0;
+      break;
+    }
+    case ECV_TIMES: /* clock_t times(struct tms *buf) */
+    {
+      auto buf = (_elfarm64_tms *) TranslateVMA(this, arena_ptr, X0_Q);
+      struct timespec ts;
+      clock_gettime(CLOCK_MONOTONIC, &ts);
+      int64_t ticks = ts.tv_sec * 100 + ts.tv_nsec / 10000000;
+      buf->tms_utime = ticks;
+      buf->tms_stime = 0;
+      buf->tms_cutime = 0;
+      buf->tms_cstime = 0;
+      X0_Q = (uint64_t) ticks;
+      break;
+    }
     case ECV_GETPID: /* getpid () */ X0_D = main_ecv_pr->ecv_pid; break;
     case ECV_GETPPID: /* getppid () */ X0_D = main_ecv_pr->par_ecv_pid; break;
     case ECV_GETUID: /* getuid () */ X0_D = main_ecv_pr->ecv_uid; break;
@@ -1524,7 +1584,8 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
     }
     case ECV_FCHOWNAT: /* int fchownat(int dfd, const char *filename, uid_t user, gid_t group, int flag) */
     {
-      int res = fchownat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, X3_D, X4_D);
+      int res =
+          fchownat(X0_D, (const char *) TranslateVMA(this, arena_ptr, X1_Q), X2_D, X3_D, X4_D);
       X0_Q = SetSyscallRes(res);
       break;
     }
@@ -1556,9 +1617,29 @@ void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
       X0_Q = (uint64_t) res;
       break;
     }
+    case ECV_SCHED_GETSCHEDULER: /* int sched_getscheduler(pid_t pid) */
+    {
+      X0_Q = 0; /* SCHED_OTHER */
+      break;
+    }
+    case ECV_SCHED_SETSCHEDULER: /* int sched_setscheduler(pid_t pid, int policy, const struct sched_param *param) */
+    {
+      X0_Q = 0;
+      break;
+    }
+    case ECV_SCHED_GETPARAM: /* int sched_getparam(pid_t pid, struct sched_param *param) */
+    {
+      if (X1_Q != 0) {
+        auto p = (int32_t *) TranslateVMA(this, arena_ptr, X1_Q);
+        *p = 0; /* sched_priority = 0 */
+      }
+      X0_Q = 0;
+      break;
+    }
     case ECV_RT_SIGPROCMASK: /* int rt_sigprocmask(int how, const sigset_t *set, sigset_t *oldset, size_t sigsetsize) */
     {
-      const sigset_t *set_p = X1_Q == 0 ? nullptr : (const sigset_t *) TranslateVMA(this, arena_ptr, X1_Q);
+      const sigset_t *set_p =
+          X1_Q == 0 ? nullptr : (const sigset_t *) TranslateVMA(this, arena_ptr, X1_Q);
       sigset_t *oldset_p = X2_Q == 0 ? nullptr : (sigset_t *) TranslateVMA(this, arena_ptr, X2_Q);
       int res = sigprocmask(X0_D, set_p, oldset_p);
       X0_Q = SetSyscallRes(res);
