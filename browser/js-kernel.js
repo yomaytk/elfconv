@@ -3018,7 +3018,83 @@ var Module = (() => {
               ["cat", "busybox"],
               ["touch", "busybox"],
               ["ps", "busybox"],
-              ["wc", "busybox"]
+              ["wc", "busybox"],
+              ["awk", "busybox"],
+              ["base64", "busybox"],
+              ["cal", "busybox"],
+              ["cksum", "busybox"],
+              ["cmp", "busybox"],
+              ["comm", "busybox"],
+              ["cut", "busybox"],
+              ["dd", "busybox"],
+              ["diff", "busybox"],
+              ["dos2unix", "busybox"],
+              ["du", "busybox"],
+              ["echo", "busybox"],
+              ["ed", "busybox"],
+              ["env", "busybox"],
+              ["expand", "busybox"],
+              ["factor", "busybox"],
+              ["false", "busybox"],
+              ["find", "busybox"],
+              ["fold", "busybox"],
+              ["free", "busybox"],
+              ["grep", "busybox"],
+              ["egrep", "busybox"],
+              ["fgrep", "busybox"],
+              ["groups", "busybox"],
+              ["hd", "busybox"],
+              ["hexdump", "busybox"],
+              ["id", "busybox"],
+              ["less", "busybox"],
+              ["link", "busybox"],
+              ["logname", "busybox"],
+              ["md5sum", "busybox"],
+              ["mktemp", "busybox"],
+              ["more", "busybox"],
+              ["nl", "busybox"],
+              ["nproc", "busybox"],
+              ["od", "busybox"],
+              ["paste", "busybox"],
+              ["printenv", "busybox"],
+              ["printf", "busybox"],
+              ["pwd", "busybox"],
+              ["readlink", "busybox"],
+              ["realpath", "busybox"],
+              ["reset", "busybox"],
+              ["rev", "busybox"],
+              ["sed", "busybox"],
+              ["sha1sum", "busybox"],
+              ["sha256sum", "busybox"],
+              ["sha512sum", "busybox"],
+              ["shuf", "busybox"],
+              ["sort", "busybox"],
+              ["stat", "busybox"],
+              ["strings", "busybox"],
+              ["stty", "busybox"],
+              ["sum", "busybox"],
+              ["tac", "busybox"],
+              ["tee", "busybox"],
+              ["test", "busybox"],
+              ["time", "busybox"],
+              ["timeout", "busybox"],
+              ["tr", "busybox"],
+              ["true", "busybox"],
+              ["truncate", "busybox"],
+              ["tsort", "busybox"],
+              ["tty", "busybox"],
+              ["uniq", "busybox"],
+              ["unix2dos", "busybox"],
+              ["unlink", "busybox"],
+              ["usleep", "busybox"],
+              ["users", "busybox"],
+              ["w", "busybox"],
+              ["which", "busybox"],
+              ["who", "busybox"],
+              ["whoami", "busybox"],
+              ["xargs", "busybox"],
+              ["xxd", "busybox"],
+              ["yes", "busybox"]
             ]));
           }
         }
@@ -4488,7 +4564,6 @@ var Module = (() => {
 
       // Scan all FDs for readiness, tolerating PTY "wait again" exceptions.
       let nonzero = 0;
-      let needsWait = false;
       for (var i = 0; i < nfds; i++) {
         var pollfd = fds + 8 * i;
         var fd = HEAP32[pollfd >> 2];
@@ -4503,7 +4578,6 @@ var Module = (() => {
               // PTY throws ErrnoError(1006) when not readable and timeout is set.
               if (e.name === "ErrnoError") {
                 mask = 0;
-                needsWait = true;
               } else {
                 throw e;
               }
@@ -4515,10 +4589,22 @@ var Module = (() => {
         HEAP16[pollfd + 6 >> 1] = mask;
       }
 
-      // If no FDs are ready and there is a non-zero timeout, sleep before returning.
-      if (nonzero === 0 && (timeoutSec > 0 || (timeoutSec === -1 && needsWait))) {
-        var delayMs = timeoutSec > 0 ? Math.min(timeoutSec * 1000, 30000) : 1000;
-        return new Promise(resolve => setTimeout(() => resolve(0), delayMs));
+      // If no FDs are ready, wait for PTY data or timeout.
+      if (nonzero === 0 && timeoutSec !== 0) {
+        return new Promise(resolve => {
+          var timeoutId;
+          var handler = PTY.onReadable(() => {
+            handler.dispose();
+            clearTimeout(timeoutId);
+            resolve(0);
+          });
+          if (timeoutSec > 0) {
+            timeoutId = setTimeout(() => {
+              handler.dispose();
+              resolve(0);
+            }, Math.min(timeoutSec * 1000, 30000));
+          }
+        });
       }
 
       return nonzero;
