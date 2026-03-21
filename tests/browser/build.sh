@@ -24,6 +24,13 @@ build_bash() {
   TARGET=aarch64-wasm ECV_OUT_DIR="${BASH_OUT_DIR}" \
     "${ROOT_DIR}/scripts/dev.sh" "${ROOT_DIR}/examples/examples-repos/busybox/busybox"
   echo "Browser Wasm artifacts (bash+busybox) built in ${BASH_OUT_DIR}"
+
+  # Pack preload test fixtures into wasm-out-bash
+  local FIXTURE_DIR="${SCRIPT_DIR}/fixtures/testdir"
+  if [[ -d "${FIXTURE_DIR}" ]]; then
+    python3 "${ROOT_DIR}/scripts/pack-preload.py" "${FIXTURE_DIR}@/mnt/test" -o "${BASH_OUT_DIR}"
+    echo "Preload test fixtures packed into ${BASH_OUT_DIR}"
+  fi
 }
 
 case "${PROJECT}" in

@@ -168,3 +168,47 @@ for (const [batchName, cmds] of allBatches) {
     expect(results.fail).toEqual([]);
   });
 }
+
+// Preloaded host directory mount tests (fixtures/testdir mounted at /mnt/test)
+test('preload: cat reads mounted file', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('/');
+  await waitForTerminalContent(page, 'bash-static.wasm', 90000);
+
+  await typeCommand(page, 'cat /mnt/test/hello.txt');
+  const out = await waitForTerminalContent(page, 'Hello from preloaded file');
+  expect(await out.jsonValue()).toContain('Hello from preloaded file');
+});
+
+test('preload: cat reads nested mounted file', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('/');
+  await waitForTerminalContent(page, 'bash-static.wasm', 90000);
+
+  await typeCommand(page, 'cat /mnt/test/subdir/nested.txt');
+  const out = await waitForTerminalContent(page, 'Nested content here');
+  expect(await out.jsonValue()).toContain('Nested content here');
+});
+
+test('preload: ls lists mounted directory', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('/');
+  await waitForTerminalContent(page, 'bash-static.wasm', 90000);
+
+  await typeCommand(page, 'ls /mnt/test/');
+  const out = await waitForTerminalContent(page, 'hello.txt');
+  const text = await out.jsonValue();
+  expect(text).toContain('hello.txt');
+  expect(text).toContain('lines.txt');
+  expect(text).toContain('subdir');
+});
+
+test('preload: wc verifies mounted file content', async ({ page }) => {
+  test.setTimeout(180000);
+  await page.goto('/');
+  await waitForTerminalContent(page, 'bash-static.wasm', 90000);
+
+  await typeCommand(page, 'wc -l /mnt/test/lines.txt');
+  const out = await waitForTerminalContent(page, '3');
+  expect(await out.jsonValue()).toContain('3');
+});
