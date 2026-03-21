@@ -246,6 +246,7 @@ main() {
       ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
 
       # generate preload .data and manifest if MOUNT_SETTING is specified
+      # usage: MOUNT_SETTING="<host-dir>@<browser-dir>" (e.g., MOUNT_SETTING="/root/path/to/dir@/lib")
       if [[ -n "${MOUNT_SETTING}" ]]; then
         echo -e "[${GREEN}INFO${NC}] Packing preload data for: ${MOUNT_SETTING}"
         python3 "${ROOT_DIR}/scripts/pack-preload.py" ${MOUNT_SETTING} -o "${CUR_DIR}"
