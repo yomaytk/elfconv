@@ -40,7 +40,7 @@ setting() {
   CLANGFLAGS="${OPTFLAGS} -std=c++20 -static -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # emscripten
   EMCC=em++
-  EMCC_OPTION="-sASYNCIFY=0 -sINITIAL_MEMORY=536870912 -sSTACK_SIZE=16MB -sPTHREAD_POOL_SIZE=0 -pthread -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker $PRELOAD"
+  EMCC_OPTION="-sASYNCIFY=0 -sINITIAL_MEMORY=536870912 -sSTACK_SIZE=16MB -sPTHREAD_POOL_SIZE=0 -pthread -sALLOW_MEMORY_GROWTH -sEXPORT_ES6 -sENVIRONMENT=web,worker"
   EMCCFLAGS="${OPTFLAGS} -I${ROOT_DIR}/backend/remill/include -I${ROOT_DIR}"
   # wasi
   WASISDKCC="${WASI_SDK_PATH}/bin/clang++"
@@ -154,9 +154,9 @@ prepare_js() {
     exit 1
   fi
   
-  # --preload-file generates the mapped data file `exe.data`.
-  if [[ -f "exe.data" ]]; then
-    cp -p exe.data ${BROWSER_DIR}
+  # copy preload manifest and data files if they exist
+  if [[ -f "${CUR_DIR}/preload-manifest.json" ]]; then
+    echo -e "[${GREEN}INFO${NC}] Preload manifest found, copying data files."
   fi
 
   rm "${CUR_DIR}/process.js"
@@ -233,13 +233,8 @@ main() {
     *-wasm)
       RUNTIME_MACRO="${RUNTIME_MACRO} -DTARGET_IS_BROWSER=1 -DELFNAME=\"${ELFNAME}\""
       MAINOBJ="${CUR_DIR}/${ELFNAME}.wasm.o"
-      PRELOAD=
       MAINGENJS="${CUR_DIR}/${ELFNAME}.generated.js"
-      
-      if [[ -n "${MOUNT_SETTING}" ]]; then
-        PRELOAD="--preload-file ${MOUNT_SETTING}"
-      fi
-      
+
       if [[ -z "${NO_COMPILED}" ]]; then
         ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} -c ${MAINIR} -o ${MAINOBJ}
         echo -e "[${GREEN}INFO${NC}] built ${MAINOBJ}"
@@ -247,8 +242,14 @@ main() {
         echo -e "[${GREEN}INFO${NC}] NO_COPMILED is ON."
       fi
 
-      # creates wasm
-      ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} ${PRELOAD} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+      # creates wasm (no --preload-file; preloading is handled by pack-preload.py + js-kernel.js)
+      ${EMCC} ${EMCCFLAGS} ${RUNTIME_MACRO} ${EMCC_OPTION} -o ${MAINGENJS} ${MAINOBJ} ${ELFCONV_COMMON_RUNTIMES} ${RUNTIME_DIR}/syscalls/SyscallBrowser.cpp
+
+      # generate preload .data and manifest if MOUNT_SETTING is specified
+      if [[ -n "${MOUNT_SETTING}" ]]; then
+        echo -e "[${GREEN}INFO${NC}] Packing preload data for: ${MOUNT_SETTING}"
+        python3 "${ROOT_DIR}/scripts/pack-preload.py" ${MOUNT_SETTING} -o "${CUR_DIR}"
+      fi
       echo -e "[${GREEN}INFO${NC}] built ${ELFNAME}.wasm and ${ELFNAME}.js and ${ELFNAME}.html."
       
       # prepare Js and Wasm

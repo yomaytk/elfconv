@@ -753,8 +753,6 @@ EM_JS(uint32_t, ___syscall_sendfile,
   - x86-64: syscall NR: rax, return: rax, args: rdi, rsi, rdx, r10, r8, r9
     ref: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
 */
-uint64_t CNT = 0;
-
 void RuntimeManager::SVCBrowserCall(uint8_t *arena_ptr) {
   errno = 0;
 #if defined(ELFC_RUNTIME_SYSCALL_DEBUG)

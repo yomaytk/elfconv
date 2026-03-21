@@ -12,6 +12,7 @@ const MIME_TYPES = {
   '.wasm': 'application/wasm',
   '.css': 'text/css',
   '.json': 'application/json',
+  '.data': 'application/octet-stream',
 };
 
 const TEST_HTML = path.resolve(__dirname, process.env.TEST_HTML || 'test-main.html');
