@@ -154,6 +154,7 @@ var Module = (() => {
 
     var WORKER_MGR = {
       wasmModules: new Map(),
+      workerBlobUrls: new Map(), // jsPath -> blob URL (cached to avoid server re-fetch)
       workerInfoPool: [],
       prWorkerPoolCapacity: 20,
       dupWorkerNum: 3,
@@ -166,6 +167,16 @@ var Module = (() => {
           shared: true
         });
       },
+      createWorker(jsPath, id) {
+        let blobUrl = this.workerBlobUrls.get(jsPath);
+        if (!blobUrl) {
+          throw new Error(`worker script '${jsPath}' has not been cached yet.`);
+        }
+        return new Worker(blobUrl, {
+          type: "module",
+          name: `${jsPath}-worker-${id}`,
+        });
+      },
       init(userBinSet) {
         for (let userBinPath of userBinSet) {
           // We create the 3 workers for the every executable binary.
@@ -175,10 +186,7 @@ var Module = (() => {
             let wasmPath = userBinPath + ".wasm";
             let id = this.workerInfoPool.length;
             let memory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
-            let worker = new Worker(new URL(jsPath, import.meta.url), {
-              type: "module",
-              name: `${jsPath}-worker-${id}`,
-            });
+            let worker = this.createWorker(jsPath, id);
             let wasmModule = this.wasmModules.get(wasmPath);
             if (!wasmModule) {
               throw new Error(`wasm module '${wasmPath}' has not been initialzed yet (at WORKER_MGR.init).`);
@@ -217,10 +225,7 @@ var Module = (() => {
           let id = this.workerInfoPool.length;
           let memory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
           let wasmPath = jsPath.slice(0, -3) + ".wasm";
-          let worker = new Worker(new URL(jsPath, import.meta.url), {
-            type: "module",
-            name: `${jsPath}-worker-${id}`,
-          });
+          let worker = this.createWorker(jsPath, id);
           let wasmModule = this.wasmModules.get(wasmPath);
           if (!wasmModule) {
             throw new Error(`wasm module '${wasmPath}' has not been initialized yet (at getAvailableWorkerInfo).`);
@@ -250,10 +255,7 @@ var Module = (() => {
         let jsPath = oldWorkerInfo.jsPath;
         let wasmPath = jsPath.slice(0, -3) + ".wasm";
         let newMemory = this.newProcessMemory(INITIAL_MEMORY_SIZE);
-        let newWorker = new Worker(new URL(jsPath, import.meta.url), {
-          type: "module",
-          name: `${jsPath}-worker-${workerId}`,
-        });
+        let newWorker = this.createWorker(jsPath, workerId);
         let wasmModule = oldWorkerInfo.module;
         this.setInitialMsgHandling(newWorker);
         this.workerInfoPool[workerId] = {
@@ -315,6 +317,15 @@ var Module = (() => {
         for (let ELF_Bin of binList) {
           try {
             let wasmPath = ELF_Bin + ".wasm";
+            let jsPath = ELF_Bin + ".js";
+
+            // <ELF>.js
+            const jsUrl = new URL(jsPath, import.meta.url).href;
+            const jsResp = await fetch(jsUrl, { credentials: "same-origin" });
+            const jsText = await jsResp.text();
+            const blob = new Blob([jsText], { type: "application/javascript" });
+            this.workerBlobUrls.set(jsPath, URL.createObjectURL(blob));
+            // <ELF>.wasm
             const url = new URL(wasmPath, import.meta.url).href;
             const resp = await fetch(url, { credentials: "same-origin" });
             const wasmBytes = await resp.arrayBuffer();
