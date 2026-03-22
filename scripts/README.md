@@ -10,38 +10,19 @@ elfconv supports three conversion targets from an AArch64 ELF binary:
 | WASI (Wasm) | `aarch64-wasi32` | `.wasm` | WasmEdge etc. |
 | Native | `aarch64-native` | Host ELF binary | Direct execution |
 
-## Scripts
-
-### `dev.sh`
-
-Wrapper that sources `elfconv.sh` and runs conversion. Must be executed from `elfconv/build/`.
-
-```bash
-cd build
-TARGET=<target> ../scripts/dev.sh /path/to/elf
-```
-
-### `elfconv.sh`
-
-Core conversion logic. Sourced by `dev.sh` (and `bin/exe.sh`).
-
-### `pack-preload.py`
-
-Packs host directories into `.data` + `preload-manifest.json` for browser filesystem mounting. Invoked automatically by `elfconv.sh` when `MOUNT_SETTING` is set.
-
 ## Build Commands
 
 ### Browser (ELF → Wasm)
 
 `INITWASM=1` generates `js-kernel.js` and `main.html`. This should be set only for the **init (main) program**. When building additional binaries for multi-process use (e.g., busybox for use from bash), omit `INITWASM`.
 
-**Single binary:**
+**1. Single binary:**
 ```bash
 cd build
 TARGET=aarch64-wasm INITWASM=1 ../scripts/dev.sh /path/to/elf
 ```
 
-**Multi-process example (bash + busybox):**
+**2. Multi-process example (bash + busybox):**
 ```bash
 cd build
 # Build the init program (bash) with INITWASM=1
@@ -50,7 +31,7 @@ TARGET=aarch64-wasm INITWASM=1 ../scripts/dev.sh /path/to/bash-static
 TARGET=aarch64-wasm ../scripts/dev.sh /path/to/busybox
 ```
 
-**With host directory mounting:**
+**3. With host directory mounting:**
 ```bash
 TARGET=aarch64-wasm INITWASM=1 MOUNT_SETTING="/host/dir@/mount/point" ../scripts/dev.sh /path/to/elf
 ```
