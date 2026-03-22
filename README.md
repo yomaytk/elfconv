@@ -80,6 +80,8 @@ $ docker build . --build-arg ECV_X86=1
 
 ### Usage
 
+> For detailed build commands and environment variables, see [scripts/README.md](scripts/README.md).
+
 ### Browser
 ```bash
 # 1. Run container with port forwarding
