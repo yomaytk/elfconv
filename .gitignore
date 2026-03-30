@@ -128,9 +128,10 @@ examples/tests
 # release
 SHA*
 elfconv-v*
+release/outdir
 
 !browser/*
-!release/outdir/index.html
+!release/outdir/elfconv.sh
 !tests/browser/*.js
 !tests/browser/*.html
 !tests/browser/package.json
