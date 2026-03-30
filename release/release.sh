@@ -1,4 +1,18 @@
 #!/usr/bin/env bash
+#
+# Usage:
+#   VERSION=v0.3.0 bash release.sh
+#
+# Environment variables:
+#   VERSION  (required) Release version string (e.g. v0.3.0).
+#            Used for the output tarball name: elfconv-<VERSION>-linux-<arch>.tar.gz
+#
+# Examples:
+#   VERSION=v0.3.0 bash release.sh        # build release package and create tarball
+#   bash release.sh clean                  # remove built artifacts
+#
+
+set -e
 
 GREEN="\033[32m"
 ORANGE="\033[33m"
@@ -13,17 +27,26 @@ setting() {
   ELFCONV_ARCH_DIR=${BUILD_DIR}/backend/remill/lib/Arch
   RUNTIME_DIR=${ELFCONV_DIR}/runtime
   UTILS_DIR=${ELFCONV_DIR}/utils
+  BROWSER_DIR=${ELFCONV_DIR}/browser
+  SCRIPTS_DIR=${ELFCONV_DIR}/scripts
   OUTDIR=${RELEASE_DIR}/outdir
   BINDIR=${OUTDIR}/bin
   BITCODEDIR=${OUTDIR}/bitcode
   LIBDIR=${OUTDIR}/lib
   OUTOUTDIR=${OUTDIR}/out
 
+  HOST_ARCH=$(uname -m)
+  case "${HOST_ARCH}" in
+    x86_64)  ARCH_LABEL="amd64" ;;
+    aarch64) ARCH_LABEL="aarch64" ;;
+    *)       ARCH_LABEL="${HOST_ARCH}" ;;
+  esac
+
   # shared compiler options
   OPTFLAGS="-O3"
   
   # emscripten
-  EMCXX=emcc
+  EMCXX=em++
   EMAR=emar
   EMCCFLAGS="${OPTFLAGS} -I${ELFCONV_DIR}/backend/remill/include -I${ELFCONV_DIR}"
   EMCC_ELFCONV_MACROS=" -DELF_IS_AARCH64 -DTARGET_IS_BROWSER=1"
@@ -47,7 +70,7 @@ main() {
 
   # clean existing outdir/
   if [ "$1" = "clean" ]; then
-    rm -rf $BINDIR $BITCODEDIR $LIBDIR $OUTOUTDIR *.tar.gz
+    rm -rf $BINDIR $BITCODEDIR $LIBDIR $OUTOUTDIR ${OUTDIR}/browser ${OUTDIR}/scripts *.tar.gz
     exit 0
   fi
 
@@ -67,14 +90,21 @@ main() {
 
   # set semantics *.bc file
   mkdir -p $BITCODEDIR
-  if cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc $BITCODEDIR && \
-  cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc $BITCODEDIR && \
-  cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc $BITCODEDIR ; then
-    echo -e "[${GREEN}INFO${NC}] Set semantics *.bc."
-  else
-    echo -e "[${RED}ERROR${NC}] Failed to set semantics *.bc."
-    exit 1
-  fi
+  case "${ARCH_LABEL}" in
+    aarch64)
+      cp ${ELFCONV_ARCH_DIR}/AArch64/Runtime/aarch64.bc $BITCODEDIR
+      echo -e "[${GREEN}INFO${NC}] Set semantics aarch64.bc."
+      ;;
+    amd64)
+      cp ${ELFCONV_ARCH_DIR}/X86/Runtime/amd64.bc $BITCODEDIR
+      cp ${ELFCONV_ARCH_DIR}/X86/Runtime/x86.bc $BITCODEDIR
+      echo -e "[${GREEN}INFO${NC}] Set semantics amd64.bc, x86.bc."
+      ;;
+    *)
+      echo -e "[${RED}ERROR${NC}] Unsupported architecture: ${HOST_ARCH}"
+      exit 1
+      ;;
+  esac
   
   # prepare elfconv-runtime program.
   mkdir -p $LIBDIR
@@ -141,6 +171,28 @@ main() {
 
   # library of xterm-pty
   cp ${ELFCONV_DIR}/xterm-pty/emscripten-pty.js $LIBDIR
+
+  BROWSEROUTDIR=${OUTDIR}/browser
+  mkdir -p $BROWSEROUTDIR
+  cp ${BROWSER_DIR}/* $BROWSEROUTDIR
+  echo -e "[${GREEN}INFO${NC}] Set browser files."
+
+  SCRIPTSOUTDIR=${OUTDIR}/scripts
+  mkdir -p $SCRIPTSOUTDIR
+  cp ${SCRIPTS_DIR}/pack-preload.py $SCRIPTSOUTDIR
+  echo -e "[${GREEN}INFO${NC}] Set pack-preload.py."
+
+  cp ${RELEASE_DIR}/README.md ${OUTDIR}/README.md
+  echo -e "[${GREEN}INFO${NC}] Set README.md."
+
+  if [[ -z "${VERSION}" ]]; then
+    echo -e "[${RED}ERROR${NC}] VERSION is not set. Usage: VERSION=v0.3.0 bash release.sh"
+    exit 1
+  fi
+  TARNAME="elfconv-${VERSION}-linux-${ARCH_LABEL}.tar.gz"
+  cd "${RELEASE_DIR}"
+  tar -czf "${TARNAME}" -C "${RELEASE_DIR}" outdir
+  echo -e "[${GREEN}INFO${NC}] Created ${TARNAME}."
 
 }
 
