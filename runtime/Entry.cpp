@@ -23,6 +23,8 @@ extern void *TranslateVMA(RuntimeManager *rt_m, uint8_t *arena_ptr, addr_t vma_a
 
 #ifdef ELFNAME
 const char *ORG_ELF_NAME = ELFNAME;
+#else
+const char *ORG_ELF_NAME = "app";
 #endif
 
 #if defined(ELF_IS_AMD64)
