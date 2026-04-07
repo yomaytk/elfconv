@@ -88,6 +88,16 @@ main() {
     exit 1
   fi
 
+  while IFS= read -r so_path; do
+    if [[ -n "${so_path}" && -f "${so_path}" ]]; then
+      cp -L "${so_path}" "${LIBDIR}/"
+      echo -e "[${GREEN}INFO${NC}] Bundled $(basename ${so_path})."
+    fi
+  done < <(ldd "${BUILD_DIR}/lifter/elflift" \
+    | grep -vE 'linux-vdso|ld-linux|libc\.so|libm\.so|libgcc_s|libstdc\+\+|libpthread|libdl\.so|librt\.so' \
+    | awk '{print $3}' \
+    | grep -v '^$')
+
   # set semantics *.bc file
   mkdir -p $BITCODEDIR
   case "${ARCH_LABEL}" in

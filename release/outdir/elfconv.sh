@@ -95,6 +95,7 @@ main() {
   esac
 
   echo -e "[${GREEN}INFO${NC}] Converting ELF to LLVM bitcode ..."
+  export LD_LIBRARY_PATH="./lib:${LD_LIBRARY_PATH}"
   ./bin/elflift \
     --arch aarch64 \
     --bc_out ${OUT}/lift.bc \
