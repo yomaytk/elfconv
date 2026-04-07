@@ -4147,7 +4147,9 @@ union SystemReg {
     kTPIDRRO_EL0 = 0xDE83,
     kCTR_EL0 = 0xD801,
     kDCZID_EL0 = 0xD807,
-    kMIDR_EL1 = 0xC000
+    kMIDR_EL1 = 0xC000,
+    kSCXTNUM_EL0 = 0xD929,
+    kSSBS = 0xDE85
   } name;
   struct {
     uint64_t op2 : 3;
@@ -4174,6 +4176,8 @@ static bool AppendSysRegName(Instruction &inst, SystemReg bits) {
     case SystemReg::kCTR_EL0: ss << "CTR_EL0"; break;
     case SystemReg::kDCZID_EL0: ss << "DCZID_EL0"; break;
     case SystemReg::kMIDR_EL1: ss << "MIDR_EL1"; break;
+    case SystemReg::kSCXTNUM_EL0: ss << "SCXTNUM_EL0"; break;
+    case SystemReg::kSSBS: ss << "SSBS"; break;
     default:
       LOG(ERROR) << "Unrecognized system register " << std::hex << bits.flat
                  << " with op0=" << bits.op0 << ", op1=" << bits.op1 << ", crn=" << bits.crn
@@ -4926,10 +4930,6 @@ bool TryDecodeREV32_ASIMDMISC_R(const InstData &data, Instruction &inst) {
   return true;
 }
 
-// REV64  <Vd>.<T>, <Vn>.<T>
-bool TryDecodeREV64_ASIMDMISC_R(const InstData &data, Instruction &inst) {
-  return false;
-}
 
 static void AddQArrangementSpecifier(const InstData &data, Instruction &inst, const char *if_Q,
                                      const char *if_not_Q) {
@@ -5880,11 +5880,11 @@ bool TryDecodeFCVTZU_ASISDMISC_R(const InstData &data, Instruction &inst) {
   RegClass dst_class, src_class;
   if (1 == data.sz) {
     inst.function += "_64";
-    dst_class = kReg2D;   // Output: integer register
+    dst_class = kReg2D;  // Output: integer register
     src_class = kReg2DF;  // Input: floating-point register
   } else {
     inst.function += "_32";
-    dst_class = kReg4S;   // Output: integer register
+    dst_class = kReg4S;  // Output: integer register
     src_class = kReg4SF;  // Input: floating-point register
   }
   if (inst.lift_config.float_exception_enabled) {
@@ -5901,11 +5901,11 @@ bool TryDecodeFCVTZS_ASISDMISC_R(const InstData &data, Instruction &inst) {
   RegClass dst_class, src_class;
   if (1 == data.sz) {
     inst.function += "_64";
-    dst_class = kReg2D;   // Output: integer register
+    dst_class = kReg2D;  // Output: integer register
     src_class = kReg2DF;  // Input: floating-point register
   } else {
     inst.function += "_32";
-    dst_class = kReg4S;   // Output: integer register
+    dst_class = kReg4S;  // Output: integer register
     src_class = kReg4SF;  // Input: floating-point register
   }
   if (inst.lift_config.float_exception_enabled) {
@@ -6715,6 +6715,157 @@ bool TryDecodeSHLL_ASIMDMISC_S(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
   AddImmOperand(inst, shift_val);
   return true;
+}
+
+// SHRN{2}  <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
+bool TryDecodeSHRN_ASIMDSHF_N(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t d_total_size, s_total_size, d_elem_size, s_elem_size, shift_val;
+  s_total_size = 128;
+  d_total_size = data.Q ? 128 : 64;
+  if (data.immh.uimm & 0b0100) {
+    d_elem_size = 32;
+    shift_val = 64 - (data.immh.uimm << 3 | data.immb.uimm);
+  } else if (data.immh.uimm & 0b0010) {
+    d_elem_size = 16;
+    shift_val = 32 - (data.immh.uimm << 3 | data.immb.uimm);
+  } else if (data.immh.uimm & 0b0001) {
+    d_elem_size = 8;
+    shift_val = 16 - (data.immh.uimm << 3 | data.immb.uimm);
+  } else {
+    return false;
+  }
+  s_elem_size = d_elem_size << 1;
+  AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
+  auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
+  auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
+  AddRegOperand(inst, kActionReadWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift_val);
+  return true;
+}
+
+// ADDHN{2}  <Vd>.<Tb>, <Vn>.<Ta>, <Vm>.<Ta>
+bool TryDecodeADDHN_ASIMDDIFF_N(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (data.size == 0b11) {
+    return false;
+  }
+  uint64_t d_total_size, s_total_size, d_elem_size, s_elem_size;
+  s_total_size = 128;
+  d_total_size = data.Q ? 128 : 64;
+  s_elem_size = 16 << data.size;
+  d_elem_size = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, d_total_size, d_elem_size, s_total_size, s_elem_size);
+  auto d_rclass = ArrangementRegClass(d_total_size, d_elem_size);
+  auto s_rclass = ArrangementRegClass(s_total_size, s_elem_size);
+  AddRegOperand(inst, kActionReadWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SADDL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+bool TryDecodeSADDL_ASIMDDIFF_L(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (data.size == 0b11) {
+    return false;
+  }
+  uint64_t d_tsize, s_tsize, d_esize, s_esize;
+  d_tsize = 128;
+  s_tsize = data.Q ? 128 : 64;
+  d_esize = 16 << data.size;
+  s_esize = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, d_tsize, d_esize, s_tsize, s_esize);
+  auto d_rclass = ArrangementRegClass(d_tsize, d_esize);
+  auto s_rclass = ArrangementRegClass(s_tsize, s_esize);
+  AddRegOperand(inst, kActionWrite, d_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SSUBW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
+bool TryDecodeSSUBW_ASIMDDIFF_W(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (data.size == 0b11) {
+    return false;
+  }
+  uint64_t ta_tsize, ta_esize, tb_tsize, tb_esize;
+  ta_tsize = 128;
+  tb_tsize = data.Q ? 128 : 64;
+  ta_esize = 16 << data.size;
+  tb_esize = 8 << data.size;
+  AddArrangementSpecifierUSHLL(inst, ta_tsize, ta_esize, tb_tsize, tb_esize);
+  auto ta_rclass = ArrangementRegClass(ta_tsize, ta_esize);
+  auto tb_rclass = ArrangementRegClass(tb_tsize, tb_esize);
+  AddRegOperand(inst, kActionWrite, ta_rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, ta_rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, tb_rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// ZIP1  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeZIP1_ASIMDPERM_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  uint64_t total_size = data.Q ? 128 : 64;
+  uint64_t elem_size = 8 << data.size;
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  auto rclass = ArrangementRegClass(total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rm);
+  return true;
+}
+
+// ZIP2  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeZIP2_ASIMDPERM_ONLY(const InstData &data, Instruction &inst) {
+  return TryDecodeZIP1_ASIMDPERM_ONLY(data, inst);
+}
+
+// UZP1  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeUZP1_ASIMDPERM_ONLY(const InstData &data, Instruction &inst) {
+  return TryDecodeZIP1_ASIMDPERM_ONLY(data, inst);
+}
+
+// ORN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeORN_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  return TryDecodeORR_ASIMDSAME_ONLY(data, inst);
+}
+
+// REV64  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeREV64_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (data.size == 0b11) {
+    return false;
+  }
+  uint64_t total_size = data.Q ? 128 : 64;
+  uint64_t elem_size = 8 << data.size;
+  AddArrangementSpecifier(inst, total_size, elem_size);
+  auto rclass = ArrangementRegClass(total_size, elem_size);
+  AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
+  return true;
+}
+
+// LDNP  <Wt1>, <Wt2>, [<Xn|SP>{, #<imm>}]
+bool TryDecodeLDNP_32_LDSTNAPAIR_OFFS(const InstData &data, Instruction &inst) {
+  return TryDecodeLDP_32_LDSTPAIR_OFF(data, inst);
+}
+
+// LDNP  <Xt1>, <Xt2>, [<Xn|SP>{, #<imm>}]
+bool TryDecodeLDNP_64_LDSTNAPAIR_OFFS(const InstData &data, Instruction &inst) {
+  return TryDecodeLDP_64_LDSTPAIR_OFF(data, inst);
+}
+
+// STNP  <Wt1>, <Wt2>, [<Xn|SP>{, #<imm>}]
+bool TryDecodeSTNP_32_LDSTNAPAIR_OFFS(const InstData &data, Instruction &inst) {
+  return TryDecodeSTP_32_LDSTPAIR_OFF(data, inst);
+}
+
+// STNP  <Xt1>, <Xt2>, [<Xn|SP>{, #<imm>}]
+bool TryDecodeSTNP_64_LDSTNAPAIR_OFFS(const InstData &data, Instruction &inst) {
+  return TryDecodeSTP_64_LDSTPAIR_OFF(data, inst);
 }
 
 // XTN{2}  <Vd>.<Tb>, <Vn>.<Ta>
