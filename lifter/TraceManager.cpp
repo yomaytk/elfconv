@@ -76,7 +76,8 @@ bool AArch64TraceManager::isFunctionEntry(uint64_t addr) {
 
 std::string AArch64TraceManager::GetUniqueLiftedFuncName(std::string func_name, uint64_t vma_s) {
   std::stringstream lifted_fn_name;
-  lifted_fn_name << func_name << "_____" << std::to_string(unique_i64++) << "_" << std::hex << vma_s;
+  lifted_fn_name << func_name << "_____" << std::to_string(unique_i64++) << "_" << std::hex
+                 << vma_s;
   return lifted_fn_name.str();
 }
 
@@ -198,7 +199,7 @@ void AArch64TraceManager::SetELFData() {
     `nop`
   */
   if (disasm_funcs.count(entry_point) == 1) {
-    std::vector<uint64_t> s_t_addrs = {entry_point, 0x40fe74};
+    std::vector<uint64_t> s_t_addrs = {entry_point};
     uint64_t __wrap_main_size = AARCH64_OP_SIZE * 3;
     auto &text_section = elf_obj.code_sections[".text"];
     bool __wrap_main_found = false;
@@ -208,7 +209,8 @@ void AArch64TraceManager::SetELFData() {
                                                            : __wrap_main_size;
       auto _s_fn_bytes = &text_section.bytes[s_t_addrs[j] - text_section.vma];
       for (uint64_t i = 0; i + __wrap_main_size <= func_size + extra_search_size; i += 4) {
-        if (/* nop */ _s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20 &&
+        if (/* nop or bti c */ ((_s_fn_bytes[i] == 0x1f && _s_fn_bytes[i + 1] == 0x20) ||
+                                (_s_fn_bytes[i] == 0x5f && _s_fn_bytes[i + 1] == 0x24)) &&
             _s_fn_bytes[i + 2] == 0x03 && _s_fn_bytes[i + 3] == 0xd5 &&
             /* b <label> */ (_s_fn_bytes[i + 7] & 0xfc) == 0x14 &&
             /* nop */ _s_fn_bytes[i + 8] == 0x1f && _s_fn_bytes[i + 9] == 0x20 &&
