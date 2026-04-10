@@ -2124,9 +2124,6 @@ bool TryDecodeLDEORL_64_MEMOP(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // SHRN{2}  <Vd>.<Tb>, <Vn>.<Ta>, #<shift>
-bool TryDecodeSHRN_ASIMDSHF_N(const InstData &, Instruction &) {
-  return false;
-}
 
 // FRINTM FRINTM_H_floatdp1:
 //   0 x Rd       0
@@ -8585,9 +8582,6 @@ bool TryDecodeBFXIL_BFM_64M_BITFIELD(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // ZIP1  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeZIP1_ASIMDPERM_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDSETAH LDSETAH_32_memop:
 //   0 x Rt       0
@@ -11623,9 +11617,6 @@ bool TryDecodeCLS_ASIMDMISC_R(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // SADDL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
-bool TryDecodeSADDL_ASIMDDIFF_L(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDSETAB LDSETAB_32_memop:
 //   0 x Rt       0
@@ -15464,9 +15455,6 @@ bool TryDecodeSMULL_SMADDL_64WA_DP_3SRC(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // ZIP2  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeZIP2_ASIMDPERM_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 
 // MSUB MNEG_MSUB_32A_dp_3src:
@@ -22599,9 +22587,6 @@ bool TryDecodeFNEG_ASIMDMISC_R(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // ADDHN{2}  <Vd>.<Tb>, <Vn>.<Ta>, <Vm>.<Ta>
-bool TryDecodeADDHN_ASIMDDIFF_N(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDNP LDNP_32_ldstnapair_offs:
 //   0 x Rt       0
@@ -22637,9 +22622,6 @@ bool TryDecodeADDHN_ASIMDDIFF_N(const InstData &, Instruction &) {
 //  30 0 opc      0
 //  31 0 opc      1
 // LDNP  <Wt1>, <Wt2>, [<Xn|SP>{, #<imm>}]
-bool TryDecodeLDNP_32_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDNP LDNP_64_ldstnapair_offs:
 //   0 x Rt       0
@@ -22675,9 +22657,6 @@ bool TryDecodeLDNP_32_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
 //  30 0 opc      0
 //  31 1 opc      1
 // LDNP  <Xt1>, <Xt2>, [<Xn|SP>{, #<imm>}]
-bool TryDecodeLDNP_64_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
-  return false;
-}
 
 // SQRSHRN SQRSHRN_asisdshf_N:
 //   0 x Rd       0
@@ -23815,9 +23794,6 @@ bool TryDecodeFMINP_ASISDPAIR_ONLY_SD(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // SSUBW{2}  <Vd>.<Ta>, <Vn>.<Ta>, <Vm>.<Tb>
-bool TryDecodeSSUBW_ASIMDDIFF_W(const InstData &, Instruction &) {
-  return false;
-}
 
 // UMOV MOV_UMOV_asimdins_W_w:
 //   0 x Rd       0
@@ -28057,9 +28033,6 @@ bool TryDecodeSXTL_SSHLL_ASIMDSHF_L(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // UZP1  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeUZP1_ASIMDPERM_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // MLA MLA_asimdelem_R:
 //   0 x Rd       0
@@ -32352,9 +32325,6 @@ bool TryDecodeUQRSHRN_ASIMDSHF_N(const InstData &, Instruction &) {
 //  30 0 opc      0
 //  31 0 opc      1
 // STNP  <Wt1>, <Wt2>, [<Xn|SP>{, #<imm>}]
-bool TryDecodeSTNP_32_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
-  return false;
-}
 
 // STNP STNP_64_ldstnapair_offs:
 //   0 x Rt       0
@@ -32390,9 +32360,6 @@ bool TryDecodeSTNP_32_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
 //  30 0 opc      0
 //  31 1 opc      1
 // STNP  <Xt1>, <Xt2>, [<Xn|SP>{, #<imm>}]
-bool TryDecodeSTNP_64_LDSTNAPAIR_OFFS(const InstData &, Instruction &) {
-  return false;
-}
 
 // SRSRA SRSRA_asisdshf_R:
 //   0 x Rd       0
@@ -32656,9 +32623,6 @@ bool TryDecodeSQRDMLAH_ASIMDSAME2_ONLY(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // ORN  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeORN_ASIMDSAME_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // STSETB STSETB_32S_memop:
 //   0 1 Rt       0

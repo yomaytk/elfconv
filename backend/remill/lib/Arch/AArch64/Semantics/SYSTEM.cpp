@@ -97,6 +97,18 @@ DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_MIDR_EL1, R64 src) {
   WriteZExt(state.sr.midr_el1.qword, Read(src));
 }
 
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_SCXTNUM_EL0) {
+  return 0ULL;
+}
+
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_SCXTNUM_EL0, R64 src) {}
+
+DEF_SEM_U64_STATE(DoMRS_RS_SYSTEM_SSBS) {
+  return 0ULL;
+}
+
+DEF_SEM_VOID_STATE(DoMSR_SR_SYSTEM_SSBS, R64 src) {}
+
 DEF_SEM_VOID_RUN(DataMemoryBarrier) {
 
   // TODO(pag): Full-system data memory barrier probably requires a synchronous
@@ -138,5 +150,11 @@ DEF_ISEL(MRS_RS_SYSTEM_MIDR_EL1) =
     DoMRS_RS_SYSTEM_MIDR_EL1;  // MRS  <Xt>, (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>)
 DEF_ISEL(MSR_SR_SYSTEM_MIDR_EL1) =
     DoMSR_SR_SYSTEM_MIDR_EL1;  // MSR  (<systemreg>|S<op0>_<op1>_<Cn>_<Cm>_<op2>), <Xt>
+
+DEF_ISEL(MRS_RS_SYSTEM_SCXTNUM_EL0) = DoMRS_RS_SYSTEM_SCXTNUM_EL0;
+DEF_ISEL(MSR_SR_SYSTEM_SCXTNUM_EL0) = DoMSR_SR_SYSTEM_SCXTNUM_EL0;
+
+DEF_ISEL(MRS_RS_SYSTEM_SSBS) = DoMRS_RS_SYSTEM_SSBS;
+DEF_ISEL(MSR_SR_SYSTEM_SSBS) = DoMSR_SR_SYSTEM_SSBS;
 
 DEF_ISEL(DMB_BO_SYSTEM) = DataMemoryBarrier;  // DMB  <option>|#<imm>
