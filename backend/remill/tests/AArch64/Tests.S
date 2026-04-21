@@ -296,6 +296,7 @@ SYMBOL(__aarch64_test_table_begin):
 #include "tests/AArch64/BINARY/UMSUBL_64WA_DP_3SRC.S"
 #include "tests/AArch64/BINARY/FCMPE_DZ_FLOATCMP.S"
 #include "tests/AArch64/BINARY/ADC_n_ADDSUB_CARRY.S"
+#include "tests/AArch64/BINARY/ADCS_n_ADDSUB_CARRY.S"
 
 #include "tests/AArch64/BITBYTE/BFM_nM_BITFIELD.S"
 #include "tests/AArch64/BITBYTE/CLS_n_DP_1SRC.S"
@@ -451,6 +452,7 @@ SYMBOL(__aarch64_test_table_begin):
 #include "tests/AArch64/SIMD/CMLE_ASIMDMISC_Z.S"
 #include "tests/AArch64/SIMD/CMLT_ASIMDMISC_Z.S"
 #include "tests/AArch64/SIMD/CMHS_ASIMDSAME_ONLY.S"
+#include "tests/AArch64/SIMD/CMHI_ASIMDSAME_ONLY.S"
 #include "tests/AArch64/SIMD/CMTST_ASIMDSAME_ONLY.S"
 #include "tests/AArch64/SIMD/CNT_ASIMDMISC_R.S"
 #include "tests/AArch64/SIMD/REV32_ASIMDMISC_R.S"
@@ -460,6 +462,7 @@ SYMBOL(__aarch64_test_table_begin):
 #include "tests/AArch64/SIMD/SHL_ASIMDSHF_R.S"
 #include "tests/AArch64/SIMD/SSHR_ASIMDSHF_R.S"
 #include "tests/AArch64/SIMD/USHR_ASIMDSHF_R.S"
+#include "tests/AArch64/SIMD/SRI_ASIMDSHF_R.S"
 #include "tests/AArch64/SIMD/SSHLL_ASIMDSHF_L.S"
 #include "tests/AArch64/SIMD/USHLL_ASIMDSHF_L.S"
 #include "tests/AArch64/SIMD/SHLL_ASIMDMISC_S.S"
@@ -495,6 +498,7 @@ SYMBOL(__aarch64_test_table_begin):
 #include "tests/AArch64/SIMD/UZP1_ASIMDPERM_ONLY.S"
 #include "tests/AArch64/SIMD/ORN_ASIMDSAME_ONLY.S"
 #include "tests/AArch64/SIMD/REV64_ASIMDMISC_R.S"
+#include "tests/AArch64/SIMD/RBIT_ASIMDMISC_R.S"
 
 #include "tests/AArch64/SYSTEM/Mn_n_SYSTEM_FPSR.S"
 #include "tests/AArch64/SYSTEM/Mn_n_SYSTEM_FPCR.S"

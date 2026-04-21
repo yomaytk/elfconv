@@ -2951,6 +2951,20 @@ bool TryDecodeADC_64_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// ADCS  <Wd>, <Wn>, <Wm>
+bool TryDecodeADCS_32_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
+  TryDecodeADC_32_ADDSUB_CARRY(data, inst);
+  AddEcvNZCVOperand(inst, kActionWrite);
+  return true;
+}
+
+// ADCS  <Xd>, <Xn>, <Xm>
+bool TryDecodeADCS_64_ADDSUB_CARRY(const InstData &data, Instruction &inst) {
+  TryDecodeADC_64_ADDSUB_CARRY(data, inst);
+  AddEcvNZCVOperand(inst, kActionWrite);
+  return true;
+}
+
 // HINT  #<imm>
 bool TryDecodeHINT_1(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
@@ -5457,6 +5471,12 @@ bool TryDecodeCMHS_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   return TryDecodeCMEQ_ASIMDSAME_ONLY(data, inst);
 }
 
+// CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+bool TryDecodeCMHI_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  return TryDecodeCMEQ_ASIMDSAME_ONLY(data, inst);
+}
+
 // ADDP  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 bool TryDecodeADDP_ASIMDSAME_ONLY(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
@@ -6533,6 +6553,27 @@ bool TryDecodeUSHR_ASIMDSHF_R(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// SRI  <Vd>.<T>, <Vn>.<T>, #<shift>
+bool TryDecodeSRI_ASIMDSHF_R(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  if (((data.immh.uimm & 8) != 0) && !data.Q) {
+    return false;  // `if immh<3>:Q == '10' then ReservedValue();`
+  }
+  uint64_t esize = 0;
+  MostSignificantSetBit(data.immh.uimm, &esize);
+  esize = 8 << esize;
+
+  const uint64_t datasize = data.Q ? 128 : 64;
+  AddArrangementSpecifier(inst, datasize, esize);
+
+  auto r_class = ArrangementRegClass(datasize, esize);
+  uint64_t shift = (esize * 2) - ((data.immh.uimm << 3) + data.immb.uimm);
+  AddRegOperand(inst, kActionReadWrite, r_class, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, r_class, kUseAsValue, data.Rn);
+  AddImmOperand(inst, shift);
+  return true;
+}
+
 // SSHR  <V><d>, <V><n>, #<shift>
 bool TryDecodeSSHR_ASISDSHF_R(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;
@@ -7243,6 +7284,11 @@ bool TryDecodeCNT_ASIMDMISC_R(const InstData &data, Instruction &inst) {
   AddRegOperand(inst, kActionWrite, rclass, kUseAsValue, data.Rd);
   AddRegOperand(inst, kActionRead, rclass, kUseAsValue, data.Rn);
   return true;
+}
+
+// RBIT  <Vd>.<T>, <Vn>.<T>
+bool TryDecodeRBIT_ASIMDMISC_R(const InstData &data, Instruction &inst) {
+  return TryDecodeCNT_ASIMDMISC_R(data, inst);
 }
 
 // DC  <dc_op>, <Xt> /* FIXME */
