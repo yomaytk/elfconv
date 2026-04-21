@@ -4283,9 +4283,6 @@ bool TryDecodeCMHI_ASISDSAME_ONLY(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
-bool TryDecodeCMHI_ASIMDSAME_ONLY(const InstData &, Instruction &) {
-  return false;
-}
 
 // SQDMLAL SQDMLAL_asisddiff_only:
 //   0 x Rd       0
@@ -18979,9 +18976,6 @@ bool TryDecodeUHADD_ASIMDSAME_ONLY(const InstData &, Instruction &) {
 //  30 0 op       0
 //  31 0 sf       0
 // ADCS  <Wd>, <Wn>, <Wm>
-bool TryDecodeADCS_32_ADDSUB_CARRY(const InstData &, Instruction &) {
-  return false;
-}
 
 // ADCS ADCS_64_addsub_carry:
 //   0 x Rd       0
@@ -19017,9 +19011,6 @@ bool TryDecodeADCS_32_ADDSUB_CARRY(const InstData &, Instruction &) {
 //  30 0 op       0
 //  31 1 sf       0
 // ADCS  <Xd>, <Xn>, <Xm>
-bool TryDecodeADCS_64_ADDSUB_CARRY(const InstData &, Instruction &) {
-  return false;
-}
 
 // FRINTZ FRINTZ_H_floatdp1:
 //   0 x Rd       0
@@ -30653,9 +30644,6 @@ bool TryDecodeSRI_ASISDSHF_R(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // SRI  <Vd>.<T>, <Vn>.<T>, #<shift>
-bool TryDecodeSRI_ASIMDSHF_R(const InstData &, Instruction &) {
-  return false;
-}
 
 // SYS IC_SYS_CR_system:
 //   0 x Rt       0
@@ -33113,9 +33101,6 @@ bool TryDecodeSHA256H2_QQV_CRYPTOSHA3(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // RBIT  <Vd>.<T>, <Vn>.<T>
-bool TryDecodeRBIT_ASIMDMISC_R(const InstData &, Instruction &) {
-  return false;
-}
 
 // RSHRN RSHRN_asimdshf_N:
 //   0 x Rd       0

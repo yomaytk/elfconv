@@ -270,14 +270,18 @@ DEF_SEM_T(ADC, S src1, S src2, I64 ecv_nzcv) {
   return UAdd(UAdd(Read(src1), Read(src2)), carry);
 }
 
-// template <typename D, typename S>
-// DEF_SEM(ADCS, D S src1, S src2) {
-//   auto carry = ZExtTo<S>(Unsigned(FLAG_C));
-//   auto res =
-//       AddWithCarryNZCV(state, Read(src1), Read(src2), Read(src2), carry);
-//   WriteZExt(res);
-//
-// }
+// ADCS  <Wd>, <Wn>, <Wm>
+template <typename S>
+DEF_SEM_T(ADCS32, S src1, S src2, I64 ecv_nzcv) {
+  auto carry = S(READ_ECV_C);
+  return AddWithCarryNZCV32(Read(src1), Read(src2), Read(src2), carry);
+}
+
+template <typename S>
+DEF_SEM_T(ADCS64, S src1, S src2, I64 ecv_nzcv) {
+  auto carry = S(READ_ECV_C);
+  return AddWithCarryNZCV64(Read(src1), Read(src2), Read(src2), carry);
+}
 
 }  // namespace
 
@@ -289,6 +293,9 @@ DEF_ISEL(SBCS_64_ADDSUB_CARRY) = SBCS64<R64>;  // SBCS  <Xd>, <Xn>, <Xm>
 
 DEF_ISEL(ADC_32_ADDSUB_CARRY) = ADC<R32>;  // ADC  <Wd>, <Wn>, <Wm>
 DEF_ISEL(ADC_64_ADDSUB_CARRY) = ADC<R64>;  // ADC  <Xd>, <Xn>, <Xm>
+
+DEF_ISEL(ADCS_32_ADDSUB_CARRY) = ADCS32<R32>;  // ADCS  <Wd>, <Wn>, <Wm>
+DEF_ISEL(ADCS_64_ADDSUB_CARRY) = ADCS64<R64>;  // ADCS  <Xd>, <Xn>, <Xm>
 
 namespace {
 

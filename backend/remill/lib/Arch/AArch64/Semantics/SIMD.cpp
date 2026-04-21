@@ -465,6 +465,11 @@ MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 16)
 MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 32)
 MAKE_CMP_BROADCAST(CMPHS, U, CmpGte, 64)
 
+MAKE_CMP_BROADCAST(CMPHI, U, CmpGt, 8)
+MAKE_CMP_BROADCAST(CMPHI, U, CmpGt, 16)
+MAKE_CMP_BROADCAST(CMPHI, U, CmpGt, 32)
+MAKE_CMP_BROADCAST(CMPHI, U, CmpGt, 64)
+
 #undef MAKE_CMP_BROADCAST
 
 }  // namespace
@@ -541,6 +546,20 @@ DEF_ISEL(CMTST_ASIMDSAME_ONLY_2D) =
     CMPTST_64<VIu64v2, VIu64v2>;  // CMTST  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 DEF_ISEL(CMHS_ASIMDSAME_ONLY_2D) =
     CMPHS_64<VIu64v2, VIu64v2>;  // CMHS  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_8B) = CMPHI_8<VIu8v8, VIu8v8>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_16B) =
+    CMPHI_8<VIu8v16, VIu8v16>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_4H) =
+    CMPHI_16<VIu16v4, VIu16v4>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_8H) =
+    CMPHI_16<VIu16v8, VIu16v8>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_2S) =
+    CMPHI_32<VIu32v2, VIu32v2>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_4S) =
+    CMPHI_32<VIu32v4, VIu32v4>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
+DEF_ISEL(CMHI_ASIMDSAME_ONLY_2D) =
+    CMPHI_64<VIu64v2, VIu64v2>;  // CMHI  <Vd>.<T>, <Vn>.<T>, <Vm>.<T>
 
 namespace {
 
@@ -1006,6 +1025,46 @@ DEF_ISEL(USHR_ASIMDSHF_R_8H) = USHR_VECTOR_16<VIu16v8>;
 DEF_ISEL(USHR_ASIMDSHF_R_2S) = USHR_VECTOR_32<VIu32v2>;
 DEF_ISEL(USHR_ASIMDSHF_R_4S) = USHR_VECTOR_32<VIu32v4>;
 DEF_ISEL(USHR_ASIMDSHF_R_2D) = USHR_VECTOR_64<VIu64v2>;
+
+// SRI  <Vd>.<T>, <Vn>.<T>, #<shift>
+namespace {
+#define MAKE_SRI_VECTOR(esize) \
+  template <typename S> \
+  DEF_SEM_T(SRI_VECTOR_##esize, S dst_src, S src, I64 shift_val) { \
+    auto src_v = UReadVI##esize(src); \
+    auto dst_v = UReadVI##esize(dst_src); \
+    auto sft_val = Read(shift_val); \
+    uint##esize##_t mask; \
+    if (sft_val >= esize) { \
+      mask = ~uint##esize##_t(0); \
+    } else { \
+      mask = static_cast<uint##esize##_t>(~uint##esize##_t(0) << (esize - sft_val)); \
+    } \
+    S res = {}; \
+    _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(src_v); i++) { \
+      uint##esize##_t shifted = \
+          sft_val >= esize ? uint##esize##_t(0) : UShr##esize(src_v[i], sft_val); \
+      res[i] = (dst_v[i] & mask) | shifted; \
+    } \
+    return res; \
+  }
+
+MAKE_SRI_VECTOR(8);
+MAKE_SRI_VECTOR(16);
+MAKE_SRI_VECTOR(32);
+MAKE_SRI_VECTOR(64);
+
+#undef MAKE_SRI_VECTOR
+
+}  // namespace
+
+DEF_ISEL(SRI_ASIMDSHF_R_8B) = SRI_VECTOR_8<VIu8v8>;
+DEF_ISEL(SRI_ASIMDSHF_R_16B) = SRI_VECTOR_8<VIu8v16>;
+DEF_ISEL(SRI_ASIMDSHF_R_4H) = SRI_VECTOR_16<VIu16v4>;
+DEF_ISEL(SRI_ASIMDSHF_R_8H) = SRI_VECTOR_16<VIu16v8>;
+DEF_ISEL(SRI_ASIMDSHF_R_2S) = SRI_VECTOR_32<VIu32v2>;
+DEF_ISEL(SRI_ASIMDSHF_R_4S) = SRI_VECTOR_32<VIu32v4>;
+DEF_ISEL(SRI_ASIMDSHF_R_2D) = SRI_VECTOR_64<VIu64v2>;
 
 // SSHR  <V><d>, <V><n>, #<shift>
 namespace {
@@ -2129,6 +2188,26 @@ DEF_ISEL(REV64_ASIMDMISC_R_4H) = REV64_VectorH<VIu16v4>;
 DEF_ISEL(REV64_ASIMDMISC_R_8H) = REV64_VectorH<VIu16v8>;
 DEF_ISEL(REV64_ASIMDMISC_R_2S) = REV64_VectorS<VIu32v2>;
 DEF_ISEL(REV64_ASIMDMISC_R_4S) = REV64_VectorS<VIu32v4>;
+
+// RBIT  <Vd>.<T>, <Vn>.<T>
+namespace {
+template <typename S>
+DEF_SEM_T(RBIT_VectorB, S src) {
+  auto srcv = UReadVI8(src);
+  S res{};
+  _Pragma("unroll") for (size_t i = 0; i < GetVectorElemsNum(srcv); i++) {
+    uint8_t b = srcv[i];
+    b = uint8_t((b & 0xF0) >> 4 | (b & 0x0F) << 4);
+    b = uint8_t((b & 0xCC) >> 2 | (b & 0x33) << 2);
+    b = uint8_t((b & 0xAA) >> 1 | (b & 0x55) << 1);
+    res[i] = b;
+  }
+  return res;
+}
+}  // namespace
+
+DEF_ISEL(RBIT_ASIMDMISC_R_8B) = RBIT_VectorB<VIu8v8>;  // RBIT  <Vd>.8B, <Vn>.8B
+DEF_ISEL(RBIT_ASIMDMISC_R_16B) = RBIT_VectorB<VIu8v16>;  // RBIT  <Vd>.16B, <Vn>.16B
 
 // LDNP/STNP
 DEF_ISEL(LDNP_32_LDSTNAPAIR_OFFS) = LoadPair32;
