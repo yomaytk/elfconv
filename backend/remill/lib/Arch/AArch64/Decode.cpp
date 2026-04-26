@@ -4131,9 +4131,6 @@ bool TryDecodeST1_ASISDLSEP_R4_R4(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // AESIMC  <Vd>.16B, <Vn>.16B
-bool TryDecodeAESIMC_B_CRYPTOAES(const InstData &, Instruction &) {
-  return false;
-}
 
 // STUMAXB STUMAXB_32S_memop:
 //   0 1 Rt       0
@@ -4698,9 +4695,6 @@ bool TryDecodeLDUMAXLB_32_MEMOP(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // AESE  <Vd>.16B, <Vn>.16B
-bool TryDecodeAESE_B_CRYPTOAES(const InstData &, Instruction &) {
-  return false;
-}
 
 // CMLT CMLT_asisdmisc_Z:
 //   0 x Rd       0
@@ -9222,9 +9216,6 @@ bool TryDecodeFMAX_H_FLOATDP2(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // AESD  <Vd>.16B, <Vn>.16B
-bool TryDecodeAESD_B_CRYPTOAES(const InstData &, Instruction &) {
-  return false;
-}
 
 // AESMC AESMC_B_cryptoaes:
 //   0 x Rd       0
@@ -9260,9 +9251,6 @@ bool TryDecodeAESD_B_CRYPTOAES(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // AESMC  <Vd>.16B, <Vn>.16B
-bool TryDecodeAESMC_B_CRYPTOAES(const InstData &, Instruction &) {
-  return false;
-}
 
 // LD2 LD2_asisdlso_B2_2b:
 //   0 x Rt       0
@@ -21440,9 +21428,6 @@ bool TryDecodeLD1_ASISDLSEP_R4_R4(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1H  <Sd>, <Sn>
-bool TryDecodeSHA1H_SS_CRYPTOSHA2(const InstData &, Instruction &) {
-  return false;
-}
 
 // FRINTM FRINTM_asimdmiscfp16_R:
 //   0 x Rd       0
@@ -33820,9 +33805,6 @@ bool TryDecodeUMLAL_ASIMDDIFF_L(const InstData &, Instruction &) {
 //  30 x Q        0
 //  31 0
 // PMULL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
-bool TryDecodePMULL_ASIMDDIFF_L(const InstData &, Instruction &) {
-  return false;
-}
 
 // FMLS FMLS_asimdsamefp16_only:
 //   0 x Rd       0

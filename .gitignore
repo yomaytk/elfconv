@@ -126,7 +126,7 @@ examples/w2c
 examples/tests
 
 # release
-SHA*
+/SHA*
 elfconv-v*
 release/outdir
 
