@@ -7334,6 +7334,67 @@ bool TryDecodeWHILELO_PREDICATE(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// AESE  <Vd>.16B, <Vn>.16B
+bool TryDecodeAESE_B_CRYPTOAES(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionReadWrite, kReg16B, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, data.Rn);
+  return true;
+}
+
+// AESD  <Vd>.16B, <Vn>.16B
+bool TryDecodeAESD_B_CRYPTOAES(const InstData &data, Instruction &inst) {
+  return TryDecodeAESE_B_CRYPTOAES(data, inst);
+}
+
+// AESMC  <Vd>.16B, <Vn>.16B
+bool TryDecodeAESMC_B_CRYPTOAES(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kReg16B, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg16B, kUseAsValue, data.Rn);
+  return true;
+}
+
+// AESIMC  <Vd>.16B, <Vn>.16B
+bool TryDecodeAESIMC_B_CRYPTOAES(const InstData &data, Instruction &inst) {
+  return TryDecodeAESMC_B_CRYPTOAES(data, inst);
+}
+
+// SHA1H  <Sd>, <Sn>
+bool TryDecodeSHA1H_SS_CRYPTOSHA2(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionWrite, kRegS, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  return true;
+}
+
+// PMULL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
+bool TryDecodePMULL_ASIMDDIFF_L(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  // Only size=00 (8-bit lanes) and size=11 (64-bit lanes) are valid.
+  if (data.size != 0b00 && data.size != 0b11) {
+    return false;
+  }
+  if (data.size == 0b00) {
+    // PMULL{2}  <Vd>.8H, <Vn>.<8B|16B>, <Vm>.<8B|16B>
+    AddArrangementSpecifierUSHLL(inst, 128, 16, data.Q ? 128 : 64, 8);
+    AddRegOperand(inst, kActionWrite, kReg8H, kUseAsValue, data.Rd);
+    auto s_rclass = data.Q ? kReg16B : kReg8B;
+    AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+    AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rm);
+  } else {
+    // PMULL{2}  <Vd>.1Q, <Vn>.<1D|2D>, <Vm>.<1D|2D>
+    std::stringstream ss;
+    ss << inst.function << "_1Q" << (data.Q ? "2D" : "1D");
+    inst.function = ss.str();
+    AddRegOperand(inst, kActionWrite, kReg2D, kUseAsValue, data.Rd);
+    auto s_rclass = data.Q ? kReg2D : kReg1D;
+    AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rn);
+    AddRegOperand(inst, kActionRead, s_rclass, kUseAsValue, data.Rm);
+  }
+  return true;
+}
+
 }  // namespace aarch64
 
 auto Arch::GetAArch64(llvm::LLVMContext *context_, OSName os_name_, ArchName arch_name_)
