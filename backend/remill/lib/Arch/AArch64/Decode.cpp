@@ -2421,9 +2421,6 @@ bool TryDecodeLDUMINLB_32_MEMOP(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA256SU0  <Vd>.4S, <Vn>.4S
-bool TryDecodeSHA256SU0_VV_CRYPTOSHA2(const InstData &, Instruction &) {
-  return false;
-}
 
 // FMINP FMINP_asimdsamefp16_only:
 //   0 x Rd       0
@@ -13500,9 +13497,6 @@ bool TryDecodeFNMSUB_H_FLOATDP3(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1M  <Qd>, <Sn>, <Vm>.4S
-bool TryDecodeSHA1M_QSV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // LDAXP LDAXP_LP32_ldstexcl:
 //   0 x Rt       0
@@ -14146,9 +14140,6 @@ bool TryDecodeFCVTZU_64D_FLOAT2FIX(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1P  <Qd>, <Sn>, <Vm>.4S
-bool TryDecodeSHA1P_QSV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // TBL TBL_asimdtbl_L3_3:
 //   0 x Rd       0
@@ -14717,9 +14708,6 @@ bool TryDecodeSTTRH_32_LDST_UNPRIV(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA256SU1  <Vd>.4S, <Vn>.4S, <Vm>.4S
-bool TryDecodeSHA256SU1_VVV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // FMSUB FMSUB_H_floatdp3:
 //   0 x Rd       0
@@ -21238,9 +21226,6 @@ bool TryDecodeSTUMINL_64S_MEMOP(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1SU1  <Vd>.4S, <Vn>.4S
-bool TryDecodeSHA1SU1_VV_CRYPTOSHA2(const InstData &, Instruction &) {
-  return false;
-}
 
 // LD1 LD1_asisdlsep_R1_r1:
 //   0 x Rt       0
@@ -24560,9 +24545,6 @@ bool TryDecodeFCMP_HZ_FLOATCMP(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1SU0  <Vd>.4S, <Vn>.4S, <Vm>.4S
-bool TryDecodeSHA1SU0_VVV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // STSET STSET_32S_memop:
 //   0 1 Rt       0
@@ -33048,9 +33030,6 @@ bool TryDecodeFMLS_ASIMDELEM_R_SD(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA256H2  <Qd>, <Qn>, <Vm>.4S
-bool TryDecodeSHA256H2_QQV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // RBIT RBIT_asimdmisc_R:
 //   0 x Rd       0
@@ -35542,9 +35521,6 @@ bool TryDecodeLDURSB_64_LDST_UNSCALED(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA256H  <Qd>, <Qn>, <Vm>.4S
-bool TryDecodeSHA256H_QQV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // LD4R LD4R_asisdlso_R4:
 //   0 x Rt       0
@@ -36226,9 +36202,6 @@ bool TryDecodeUSUBL_ASIMDDIFF_L(const InstData &, Instruction &) {
 //  30 1
 //  31 0
 // SHA1C  <Qd>, <Sn>, <Vm>.4S
-bool TryDecodeSHA1C_QSV_CRYPTOSHA3(const InstData &, Instruction &) {
-  return false;
-}
 
 // SQDMLSL SQDMLSL_asisddiff_only:
 //   0 x Rd       0

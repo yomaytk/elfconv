@@ -7368,6 +7368,66 @@ bool TryDecodeSHA1H_SS_CRYPTOSHA2(const InstData &data, Instruction &inst) {
   return true;
 }
 
+// SHA1SU0  <Vd>.4S, <Vn>.4S, <Vm>.4S
+bool TryDecodeSHA1SU0_VVV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionReadWrite, kReg4S, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SHA1SU1  <Vd>.4S, <Vn>.4S
+bool TryDecodeSHA1SU1_VV_CRYPTOSHA2(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionReadWrite, kReg4S, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rn);
+  return true;
+}
+
+// SHA256SU0  <Vd>.4S, <Vn>.4S
+bool TryDecodeSHA256SU0_VV_CRYPTOSHA2(const InstData &data, Instruction &inst) {
+  return TryDecodeSHA1SU1_VV_CRYPTOSHA2(data, inst);
+}
+
+// SHA256SU1  <Vd>.4S, <Vn>.4S, <Vm>.4S
+bool TryDecodeSHA256SU1_VVV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  return TryDecodeSHA1SU0_VVV_CRYPTOSHA3(data, inst);
+}
+
+// SHA1C  <Qd>, <Sn>, <Vm>.4S
+bool TryDecodeSHA1C_QSV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionReadWrite, kReg4S, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kRegS, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SHA1P  <Qd>, <Sn>, <Vm>.4S
+bool TryDecodeSHA1P_QSV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  return TryDecodeSHA1C_QSV_CRYPTOSHA3(data, inst);
+}
+
+// SHA1M  <Qd>, <Sn>, <Vm>.4S
+bool TryDecodeSHA1M_QSV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  return TryDecodeSHA1C_QSV_CRYPTOSHA3(data, inst);
+}
+
+// SHA256H  <Qd>, <Qn>, <Vm>.4S
+bool TryDecodeSHA256H_QQV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  inst.sema_func_arg_type = SemaFuncArgType::Nothing;
+  AddRegOperand(inst, kActionReadWrite, kReg4S, kUseAsValue, data.Rd);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rn);
+  AddRegOperand(inst, kActionRead, kReg4S, kUseAsValue, data.Rm);
+  return true;
+}
+
+// SHA256H2  <Qd>, <Qn>, <Vm>.4S
+bool TryDecodeSHA256H2_QQV_CRYPTOSHA3(const InstData &data, Instruction &inst) {
+  return TryDecodeSHA256H_QQV_CRYPTOSHA3(data, inst);
+}
+
 // PMULL{2}  <Vd>.<Ta>, <Vn>.<Tb>, <Vm>.<Tb>
 bool TryDecodePMULL_ASIMDDIFF_L(const InstData &data, Instruction &inst) {
   inst.sema_func_arg_type = SemaFuncArgType::Nothing;

@@ -2489,6 +2489,194 @@ DEF_SEM_U32(SHA1H, R32 src) {
   return static_cast<uint32_t>((v >> 2) | (v << 30));
 }
 
+ALWAYS_INLINE static uint32_t SHA_ROL32(uint32_t x, unsigned n) {
+  n &= 31;
+  return n == 0 ? x : ((x << n) | (x >> (32 - n)));
+}
+ALWAYS_INLINE static uint32_t SHA_ROR32(uint32_t x, unsigned n) {
+  n &= 31;
+  return n == 0 ? x : ((x >> n) | (x << (32 - n)));
+}
+
+ALWAYS_INLINE static uint32_t SHA1_Choose(uint32_t b, uint32_t c, uint32_t d) {
+  return (b & c) | ((~b) & d);
+}
+ALWAYS_INLINE static uint32_t SHA1_Parity(uint32_t b, uint32_t c, uint32_t d) {
+  return b ^ c ^ d;
+}
+ALWAYS_INLINE static uint32_t SHA1_Majority(uint32_t b, uint32_t c, uint32_t d) {
+  return (b & c) | (b & d) | (c & d);
+}
+
+ALWAYS_INLINE static uint32_t SHA256_sigma0(uint32_t x) {
+  return SHA_ROR32(x, 7) ^ SHA_ROR32(x, 18) ^ (x >> 3);
+}
+ALWAYS_INLINE static uint32_t SHA256_sigma1(uint32_t x) {
+  return SHA_ROR32(x, 17) ^ SHA_ROR32(x, 19) ^ (x >> 10);
+}
+ALWAYS_INLINE static uint32_t SHA256_Sigma0(uint32_t x) {
+  return SHA_ROR32(x, 2) ^ SHA_ROR32(x, 13) ^ SHA_ROR32(x, 22);
+}
+ALWAYS_INLINE static uint32_t SHA256_Sigma1(uint32_t x) {
+  return SHA_ROR32(x, 6) ^ SHA_ROR32(x, 11) ^ SHA_ROR32(x, 25);
+}
+ALWAYS_INLINE static uint32_t SHA256_Ch(uint32_t x, uint32_t y, uint32_t z) {
+  return (x & y) ^ ((~x) & z);
+}
+ALWAYS_INLINE static uint32_t SHA256_Maj(uint32_t x, uint32_t y, uint32_t z) {
+  return (x & y) ^ (x & z) ^ (y & z);
+}
+
+// SHA1SU0  <Vd>.4S, <Vn>.4S, <Vm>.4S
+DEF_SEM_T(SHA1SU0, VIu32v4 dst_src, VIu32v4 src1, VIu32v4 src2) {
+  auto d = UReadVI32(dst_src);
+  auto n = UReadVI32(src1);
+  auto m = UReadVI32(src2);
+  VIu32v4 res = {};
+  res[0] = d[0] ^ m[0] ^ d[2];
+  res[1] = d[1] ^ m[1] ^ d[3];
+  res[2] = d[2] ^ m[2] ^ n[0];
+  res[3] = d[3] ^ m[3] ^ n[1];
+  return res;
+}
+
+// SHA1SU1  <Vd>.4S, <Vn>.4S
+DEF_SEM_T(SHA1SU1, VIu32v4 dst_src, VIu32v4 src) {
+  auto d = UReadVI32(dst_src);
+  auto n = UReadVI32(src);
+  uint32_t T0 = d[0] ^ n[1];
+  uint32_t T1 = d[1] ^ n[2];
+  uint32_t T2 = d[2] ^ n[3];
+  uint32_t T3 = d[3];
+  VIu32v4 res = {};
+  res[0] = SHA_ROL32(T0, 1);
+  res[1] = SHA_ROL32(T1, 1);
+  res[2] = SHA_ROL32(T2, 1);
+  res[3] = SHA_ROL32(T3, 1) ^ SHA_ROL32(T0, 2);
+  return res;
+}
+
+// SHA256SU0  <Vd>.4S, <Vn>.4S
+DEF_SEM_T(SHA256SU0, VIu32v4 dst_src, VIu32v4 src) {
+  auto d = UReadVI32(dst_src);
+  auto n = UReadVI32(src);
+  VIu32v4 res = {};
+  res[0] = SHA256_sigma0(d[1]) + d[0];
+  res[1] = SHA256_sigma0(d[2]) + d[1];
+  res[2] = SHA256_sigma0(d[3]) + d[2];
+  res[3] = SHA256_sigma0(n[0]) + d[3];
+  return res;
+}
+
+// SHA256SU1  <Vd>.4S, <Vn>.4S, <Vm>.4S
+DEF_SEM_T(SHA256SU1, VIu32v4 dst_src, VIu32v4 src1, VIu32v4 src2) {
+  auto d = UReadVI32(dst_src);
+  auto n = UReadVI32(src1);
+  auto m = UReadVI32(src2);
+  uint32_t T0_0 = n[1], T0_1 = n[2], T0_2 = n[3], T0_3 = m[0];
+  uint32_t T1_0 = m[2], T1_1 = m[3];
+  VIu32v4 res = {};
+  res[0] = SHA256_sigma1(T1_0) + T0_0 + d[0];
+  res[1] = SHA256_sigma1(T1_1) + T0_1 + d[1];
+  res[2] = SHA256_sigma1(res[0]) + T0_2 + d[2];
+  res[3] = SHA256_sigma1(res[1]) + T0_3 + d[3];
+  return res;
+}
+
+// 4 SHA1 rounds, parameterised by the round function.
+template <uint32_t (*F)(uint32_t, uint32_t, uint32_t)>
+ALWAYS_INLINE static VIu32v4 SHA1_Round4(VIu32v4 abcd_v, uint32_t e, VIu32v4 wk_v) {
+  uint32_t a = abcd_v[0];
+  uint32_t b = abcd_v[1];
+  uint32_t c = abcd_v[2];
+  uint32_t d = abcd_v[3];
+  for (int r = 0; r < 4; r++) {
+    uint32_t T = SHA_ROL32(a, 5) + F(b, c, d) + e + wk_v[r];
+    e = d;
+    d = c;
+    c = SHA_ROL32(b, 30);
+    b = a;
+    a = T;
+  }
+  VIu32v4 res = {};
+  res[0] = a;
+  res[1] = b;
+  res[2] = c;
+  res[3] = d;
+  return res;
+}
+
+// SHA1C  <Qd>, <Sn>, <Vm>.4S
+DEF_SEM_T(SHA1C, VIu32v4 dst_src, R32 src_e, VIu32v4 src_wk) {
+  auto abcd = UReadVI32(dst_src);
+  auto wk = UReadVI32(src_wk);
+  return SHA1_Round4<SHA1_Choose>(abcd, Read(src_e), wk);
+}
+
+// SHA1P  <Qd>, <Sn>, <Vm>.4S
+DEF_SEM_T(SHA1P, VIu32v4 dst_src, R32 src_e, VIu32v4 src_wk) {
+  auto abcd = UReadVI32(dst_src);
+  auto wk = UReadVI32(src_wk);
+  return SHA1_Round4<SHA1_Parity>(abcd, Read(src_e), wk);
+}
+
+// SHA1M  <Qd>, <Sn>, <Vm>.4S
+DEF_SEM_T(SHA1M, VIu32v4 dst_src, R32 src_e, VIu32v4 src_wk) {
+  auto abcd = UReadVI32(dst_src);
+  auto wk = UReadVI32(src_wk);
+  return SHA1_Round4<SHA1_Majority>(abcd, Read(src_e), wk);
+}
+
+// 4 SHA256 rounds, mutating the (a..h) working state in place.
+ALWAYS_INLINE static void SHA256_Round4(uint32_t &a, uint32_t &b, uint32_t &c, uint32_t &d,
+                                        uint32_t &e, uint32_t &f, uint32_t &g, uint32_t &h,
+                                        VIu32v4 wk_v) {
+  for (int r = 0; r < 4; r++) {
+    uint32_t T1 = h + SHA256_Sigma1(e) + SHA256_Ch(e, f, g) + wk_v[r];
+    uint32_t T2 = SHA256_Sigma0(a) + SHA256_Maj(a, b, c);
+    h = g;
+    g = f;
+    f = e;
+    e = d + T1;
+    d = c;
+    c = b;
+    b = a;
+    a = T1 + T2;
+  }
+}
+
+// SHA256H  <Qd>, <Qn>, <Vm>.4S
+DEF_SEM_T(SHA256H, VIu32v4 dst_src_abcd, VIu32v4 src_efgh, VIu32v4 src_wk) {
+  auto abcd = UReadVI32(dst_src_abcd);
+  auto efgh = UReadVI32(src_efgh);
+  auto wk = UReadVI32(src_wk);
+  uint32_t a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
+  uint32_t e = efgh[0], f = efgh[1], g = efgh[2], h = efgh[3];
+  SHA256_Round4(a, b, c, d, e, f, g, h, wk);
+  VIu32v4 res = {};
+  res[0] = a;
+  res[1] = b;
+  res[2] = c;
+  res[3] = d;
+  return res;
+}
+
+// SHA256H2  <Qd>, <Qn>, <Vm>.4S
+DEF_SEM_T(SHA256H2, VIu32v4 dst_src_efgh, VIu32v4 src_abcd, VIu32v4 src_wk) {
+  auto efgh = UReadVI32(dst_src_efgh);
+  auto abcd = UReadVI32(src_abcd);
+  auto wk = UReadVI32(src_wk);
+  uint32_t a = abcd[0], b = abcd[1], c = abcd[2], d = abcd[3];
+  uint32_t e = efgh[0], f = efgh[1], g = efgh[2], h = efgh[3];
+  SHA256_Round4(a, b, c, d, e, f, g, h, wk);
+  VIu32v4 res = {};
+  res[0] = e;
+  res[1] = f;
+  res[2] = g;
+  res[3] = h;
+  return res;
+}
+
 }  // namespace
 
 DEF_ISEL(AESE_B_CRYPTOAES) = AESE_16B<VIu8v16>;  // AESE   <Vd>.16B, <Vn>.16B
@@ -2496,11 +2684,19 @@ DEF_ISEL(AESD_B_CRYPTOAES) = AESD_16B<VIu8v16>;  // AESD   <Vd>.16B, <Vn>.16B
 DEF_ISEL(AESMC_B_CRYPTOAES) = AESMC_16B<VIu8v16>;  // AESMC  <Vd>.16B, <Vn>.16B
 DEF_ISEL(AESIMC_B_CRYPTOAES) = AESIMC_16B<VIu8v16>;  // AESIMC <Vd>.16B, <Vn>.16B
 
-DEF_ISEL(PMULL_ASIMDDIFF_L_8H8B) =
-    PMULL_8<VIu16v8, VIu8v8>;  // PMULL  <Vd>.8H, <Vn>.8B,  <Vm>.8B
+DEF_ISEL(PMULL_ASIMDDIFF_L_8H8B) = PMULL_8<VIu16v8, VIu8v8>;  // PMULL  <Vd>.8H, <Vn>.8B,  <Vm>.8B
 DEF_ISEL(PMULL_ASIMDDIFF_L_8H16B) =
     PMULL2_8<VIu16v8, VIu8v16>;  // PMULL2 <Vd>.8H, <Vn>.16B, <Vm>.16B
 DEF_ISEL(PMULL_ASIMDDIFF_L_1Q1D) = PMULL_64_1D;  // PMULL  <Vd>.1Q, <Vn>.1D, <Vm>.1D
 DEF_ISEL(PMULL_ASIMDDIFF_L_1Q2D) = PMULL_64_2D;  // PMULL2 <Vd>.1Q, <Vn>.2D, <Vm>.2D
 
 DEF_ISEL(SHA1H_SS_CRYPTOSHA2) = SHA1H;  // SHA1H  <Sd>, <Sn>
+DEF_ISEL(SHA1SU0_VVV_CRYPTOSHA3) = SHA1SU0;
+DEF_ISEL(SHA1SU1_VV_CRYPTOSHA2) = SHA1SU1;
+DEF_ISEL(SHA256SU0_VV_CRYPTOSHA2) = SHA256SU0;
+DEF_ISEL(SHA256SU1_VVV_CRYPTOSHA3) = SHA256SU1;
+DEF_ISEL(SHA1C_QSV_CRYPTOSHA3) = SHA1C;
+DEF_ISEL(SHA1P_QSV_CRYPTOSHA3) = SHA1P;
+DEF_ISEL(SHA1M_QSV_CRYPTOSHA3) = SHA1M;
+DEF_ISEL(SHA256H_QQV_CRYPTOSHA3) = SHA256H;
+DEF_ISEL(SHA256H2_QQV_CRYPTOSHA3) = SHA256H2;
