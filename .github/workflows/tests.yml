@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
     - name: Checkout
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: build container image
       run: docker build . --build-arg ${{ matrix.build-arg }} -t elfconv-image
@@ -62,7 +62,7 @@ jobs:
               rm -rf busybox-\${BUSYBOX_VERSION} busybox-\${BUSYBOX_VERSION}.tar.bz2
     steps:
     - name: Checkout
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
     - name: build container image
       run: docker build . --build-arg ECV_AARCH64=1 -t elfconv-image
