@@ -62,57 +62,6 @@ ELFObject::ELFObject(std::string __file_name)
 
 ELFObject::~ELFObject() = default;
 
-// Read the size of every function symbol, keyed by name, from `.symtab` and `.dynsym`.
-//
-// Kept as a name-keyed map rather than reading each symbol's own st_size inline, because the
-// original walked BOTH tables and let a later table overwrite an earlier one's entry for the
-// same name. Reading st_size directly per symbol would be cleaner and would not reproduce that.
-static std::unordered_map<std::string, uint64_t>
-ReadSymbolSizes(const llvm::object::ELFFile<ECVELFT> &elf_file) {
-  std::unordered_map<std::string, uint64_t> sym_sizes;
-
-  auto sections = elf_file.sections();
-  if (!sections) {
-    llvm::consumeError(sections.takeError());
-    return sym_sizes;
-  }
-
-  for (const auto &shdr : *sections) {
-    if (shdr.sh_type != llvm::ELF::SHT_SYMTAB && shdr.sh_type != llvm::ELF::SHT_DYNSYM) {
-      continue;
-    }
-
-    auto symbols = elf_file.symbols(&shdr);
-    if (!symbols) {
-      llvm::consumeError(symbols.takeError());
-      continue;
-    }
-    auto str_table = elf_file.getStringTableForSymtab(shdr);
-    if (!str_table) {
-      llvm::consumeError(str_table.takeError());
-      continue;
-    }
-
-    for (const auto &sym : *symbols) {
-      // Only store function symbols.
-      const auto sym_type = sym.getType();
-      if (sym_type != llvm::ELF::STT_FUNC && sym_type != llvm::ELF::STT_NOTYPE) {
-        continue;
-      }
-      auto name = sym.getName(*str_table);
-      if (!name) {
-        llvm::consumeError(name.takeError());
-        continue;
-      }
-      if (!name->empty() && sym.st_size > 0) {
-        sym_sizes[name->str()] = sym.st_size;
-      }
-    }
-  }
-
-  return sym_sizes;
-}
-
 void ELFObject::GetEhdr() {
   const auto &elf_file = impl->File();
   const auto &ehdr = elf_file.getHeader();
@@ -264,9 +213,6 @@ const SectionRange *ELFObject::GetIncludedSection(uint64_t vma) {
 
 void ELFObject::LoadStaticSymbols() {
 
-  // Read symbol sizes from ELF symbol table
-  auto sym_sizes = ReadSymbolSizes(impl->File());
-
   const auto &elf_file = impl->File();
 
   auto sections = elf_file.sections();
@@ -315,13 +261,22 @@ void ELFObject::LoadStaticSymbols() {
         continue;
       }
 
-      // Get symbol size if available
-      uint64_t sym_size = 0;
-      if (sym_sizes.count(sym_name) > 0) {
-        sym_size = sym_sizes[sym_name];
-      }
+      // Take the size from the symbol itself.
+      //
+      // The bfd loader could not: bfd's `asymbol` is format-neutral and carries no size, so it
+      // re-read the ELF through libelf, built a NAME -> size map over `.symtab` and `.dynsym`,
+      // and joined on the name -- the only key bfd left it. That join is lossy. In this
+      // binary 12 names collide and 15 function symbols are handed a length that is not their
+      // own; the worst is `free_mem`, eight distinct static functions of which seven are handed
+      // 100 bytes in place of their real 36, 40, 48, 56, 104, 184 or 276, because the map keeps
+      // whichever came last. The lifter then disassembles the wrong number of bytes for them.
+      //
+      // This CHANGES the emitted bitcode by design (ec2dc6f9... -> fba665d1... on the harness's
+      // non-stripped arm) and is therefore committed apart from the dependency removal, whose
+      // warrant is that it changed nothing. The stripped arm is unaffected: `.eh_frame` carries
+      // its own ranges and never consulted this map.
       func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, sym_name, sym.st_value,
-                                GetIncludedSection(sym.st_value), sym_size);
+                                GetIncludedSection(sym.st_value), sym.st_size);
     }
   }
 }

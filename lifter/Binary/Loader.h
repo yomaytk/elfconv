@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
-#include <fcntl.h>
 #include <iostream>
 #include <list>
 #include <map>
