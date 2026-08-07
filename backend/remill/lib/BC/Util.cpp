@@ -469,23 +469,132 @@ LoadArchSemantics(const Arch *arch, const std::vector<std::filesystem::path> &se
   return module;
 }
 
-/* 
-	find indirect jmp address (%address = load i64, ptr %XZZZ, align 8) 
+/*
+	Is `name` a general-purpose register that an indirect branch can target?
+
+	AArch64 uses X0..X30, so the original code here matched any name beginning with "X" and
+	that was sufficient while AArch64 was the only lifted architecture. It is not sufficient
+	on amd64, in two separate ways:
+
+	  1. amd64 GPRs are RAX/RBX/RCX/RDX/RSI/RDI/RBP/RSP and R8..R15. NONE of them begins with
+	     "X", so the search found nothing and fell through to the abort below. Measured: for
+	     `_init` in a static amd64 binary the block's loads are `NEXT_PC` and `RAX`.
+	  2. amd64 DOES have registers beginning with "X" — XMM0..XMM15 — and they are not branch
+	     targets. A prefix match would select a vector register if one happened to be loaded
+	     first in the block, silently lifting a jump to the wrong value. That is worse than
+	     the abort.
+
+	So the match is by exact register name rather than by prefix.
+*/
+static bool IsIndirectBranchTargetRegister(llvm::StringRef name) {
+  // amd64 general-purpose registers, written out rather than pattern-matched: "R" + letter
+  // would also accept RIP, and "R" + digit would miss RAX. The set is small and closed.
+  static const char *const kAmd64Gprs[] = {"RAX", "RBX", "RCX", "RDX", "RSI", "RDI", "RBP", "RSP",
+                                           "R8",  "R9",  "R10", "R11", "R12", "R13", "R14", "R15"};
+  for (const char *gpr : kAmd64Gprs) {
+    if (name == gpr) {
+      return true;
+    }
+  }
+  // AArch64 X0..X30. Digits only after the X, so XMM* and XZR are not accepted here — XZR is
+  // reached by the legacy fallback below, which keeps AArch64 behaviour bit-identical.
+  if (name.size() >= 2 && name[0] == 'X') {
+    for (size_t i = 1; i < name.size(); i++) {
+      if (name[i] < '0' || name[i] > '9') {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+/*
+	find indirect jmp address (%address = load i64, ptr %XZZZ, align 8)
 	Note. assuming that the BB of BR contains only one `load ptr %XZZZ`
+
+	Two passes, and the second one exists solely to preserve the previous behaviour on
+	AArch64. The first pass takes an exact GPR name and is what makes amd64 work. If it finds
+	nothing, the second falls back to the original `startswith("X")` rule, so any AArch64
+	register name this code used to accept — XZR among them — is still accepted exactly as it
+	was. The order matters: on amd64 the exact pass claims RAX before the fallback could
+	mistake an XMM load for a branch target.
 */
 llvm::Value *FindIndirectBrAddress(llvm::BasicBlock *block) {
   llvm::Value *indirect_addr = nullptr;
   for (llvm::Instruction &llvm_inst : *block) {
     if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
       llvm::Value *op = load_inst->getPointerOperand();
-      if (op->getName().startswith("X")) {
+      if (IsIndirectBranchTargetRegister(op->getName())) {
         indirect_addr = load_inst;
         break;
       }
     }
   }
   if (nullptr == indirect_addr) {
-    printf("[ERROR] BR instruction doesn't have the LLVM IR insn like `load ptr XZZ`");
+    for (llvm::Instruction &llvm_inst : *block) {
+      if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
+        llvm::Value *op = load_inst->getPointerOperand();
+        if (op->getName().startswith("X")) {
+          indirect_addr = load_inst;
+          break;
+        }
+      }
+    }
+  }
+  /*
+	Third pass: a MEMORY-indirect branch, which has no register operand at all.
+
+	AArch64 branches through a register (`br X0`), so the two passes above always find
+	something. amd64 also branches through memory — `jmp *disp(%rip)` — and every PLT stub in
+	the image does exactly that. Measured, the lifted block for one is:
+
+	    %9  = load i64, ptr %NEXT_PC
+	    store i64 %9, ptr %PC
+	    %10 = add i64 %9, 7
+	    store i64 %10, ptr %NEXT_PC
+	    call void @JMPI<Mn<uint64_t>>(ptr %runtime_manager, ptr %state, i64 5001240, ptr %NEXT_PC)
+
+	The destination is not a value in this block: `5001240` is the address of the GOT slot,
+	and remill's `JMPI` semantic reads it at RUNTIME and writes the result through the
+	`NEXT_PC` pointer it is handed. So the target is whatever `NEXT_PC` holds *after* the
+	semantic call — which is why this load is appended to the end of the block rather than
+	searched for among the existing instructions, where only the pre-branch value exists.
+
+	Appending is safe because the caller has not yet terminated this block: both call sites in
+	TraceLifter.cpp invoke this function and only then add the branch.
+
+	This runs only where the previous two passes found nothing, i.e. only where the old code
+	called abort(). It cannot change AArch64 behaviour.
+  */
+  if (nullptr == indirect_addr) {
+    llvm::Value *next_pc_ptr = nullptr;
+    for (llvm::Instruction &llvm_inst : *block) {
+      if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
+        if (load_inst->getPointerOperand()->getName() == "NEXT_PC") {
+          next_pc_ptr = load_inst->getPointerOperand();
+          break;
+        }
+      }
+    }
+    if (nullptr != next_pc_ptr) {
+      llvm::IRBuilder<> ir(block);
+      indirect_addr = ir.CreateLoad(llvm::Type::getInt64Ty(block->getContext()), next_pc_ptr,
+                                    "ecv_mem_indirect_target");
+    }
+  }
+  if (nullptr == indirect_addr) {
+    /* printf, not fprintf(stderr, ...): stdout is fully buffered when redirected, and abort()
+       discards the buffer, so this message was being written and then thrown away — the
+       failure presented as a silent SIGABRT. Report on stderr, which is unbuffered. */
+    fprintf(stderr,
+            "[ERROR] indirect branch: no general-purpose register load in this block. Loads seen:\n");
+    for (llvm::Instruction &llvm_inst : *block) {
+      if (llvm::LoadInst *load_inst = llvm::dyn_cast<llvm::LoadInst>(&llvm_inst)) {
+        fprintf(stderr, "          %s\n", load_inst->getPointerOperand()->getName().str().c_str());
+      }
+    }
+    fflush(stderr);
     abort();
   }
   return indirect_addr;
