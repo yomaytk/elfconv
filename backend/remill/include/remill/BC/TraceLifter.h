@@ -25,6 +25,7 @@
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constant.h>
 #include <queue>
+#include <set>
 #include <tuple>
 #include <unordered_map>
 

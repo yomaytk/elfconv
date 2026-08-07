@@ -29,6 +29,14 @@
 #include <iostream>
 #include <llvm/ADT/APInt.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/Config/llvm-config.h>
+// `llvm::AttributeMask` moved into its own header in LLVM 17; before that it arrived with
+// <llvm/IR/Attributes.h> and this file does not exist. Version-guarded rather than added
+// unconditionally, because the native build still runs on LLVM 16 and an unguarded include
+// breaks it with `fatal error: 'llvm/IR/AttributeMask.h' file not found`.
+#if LLVM_VERSION_MAJOR >= 17
+#  include <llvm/IR/AttributeMask.h>
+#endif
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
