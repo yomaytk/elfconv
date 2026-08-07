@@ -9,7 +9,6 @@
 #endif
 
 #include <algorithm>
-#include <bfd.h>
 #include <cstdint>
 #include <functional>
 #include <utils/Util.h>
@@ -131,8 +130,7 @@ void AArch64TraceManager::SetELFData() {
       } else if (func_symbols[i].in_section == func_symbols[i + 1].in_section) {
         func_size = func_symbols[i + 1].addr - func_symbols[i].addr;
       } else {
-        func_size = (bfd_section_vma(func_symbols[i].in_section) +
-                     bfd_section_size(func_symbols[i].in_section)) -
+        func_size = (func_symbols[i].in_section->vma + func_symbols[i].in_section->size) -
                     func_symbols[i].addr;
       }
 
@@ -149,8 +147,7 @@ void AArch64TraceManager::SetELFData() {
     if (last_func_symbol.size > 0) {
       func_size = last_func_symbol.size;
     } else {
-      func_size = (bfd_section_vma(last_func_symbol.in_section) +
-                   bfd_section_size(last_func_symbol.in_section)) -
+      func_size = (last_func_symbol.in_section->vma + last_func_symbol.in_section->size) -
                   last_func_symbol.addr;
     }
     disasm_funcs.emplace(last_func_symbol.addr,

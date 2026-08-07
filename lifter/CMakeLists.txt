@@ -38,33 +38,19 @@ else()
   message(FATAL_ERROR, "CMAKE_ELFCONV_<arch_name>_BUILD must be 1. (lifter/CMakeLists.txt)")
 endif()
 
+# The ELF loader reads the binary through llvm::object::ELFObjectFile and its `.eh_frame`
+# through llvm::DWARFContext, so binutils' bfd, libdwarf and libelf are no longer linked --
+# and neither is libiberty, which was only ever a transitive requirement of bfd.
+#
+# No LLVM library is named here on purpose. LLVMObject and LLVMDebugInfoDWARF arrive with the
+# `LLVM` that `remill` and ${PROJECT_LIBRARIES} already link, which is how every other target in
+# this project consumes LLVM. Naming the components explicitly instead
+# (llvm_map_components_to_libnames) resolves to the STATIC component archives, whose interface
+# demands zstd::libzstd_shared -- absent in the build image, so configuration fails outright.
+
 # static link
 if(${CMAKE_ELFLIFT_STATIC_LINK})
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
-      set(LIBIBERTY_PATH "/usr/lib/aarch64-linux-gnu/libiberty.a")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
-      set(LIBIBERTY_PATH "/usr/lib/x86_64-linux-gnu/libiberty.a")
-  else()
-      message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
-  endif() 
   target_link_options(elflift PUBLIC -static)
-  target_link_libraries(
-    elflift
-    PRIVATE
-    bfd
-    elf
-    dwarf
-    ${LIBIBERTY_PATH}
-  )
-else()
-# dynamic link
-  target_link_libraries(
-    elflift
-    PRIVATE
-    bfd
-    elf
-    dwarf
-  )
 endif()
 
 target_link_libraries(elflift PUBLIC remill ${PROJECT_LIBRARIES} )
