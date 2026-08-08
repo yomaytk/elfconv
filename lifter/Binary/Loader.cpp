@@ -1,179 +1,115 @@
-#include <bfd.h>
+#include "Loader.h"
+
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
-#include <glog/logging.h>
-#include <sstream>
-#define PACKAGE
-#include "Loader.h"
-
-#include <cstdlib>
+#include <cstring>
 #include <fstream>
-#include <gelf.h>
+#include <glog/logging.h>
 #include <iostream>
-#include <stdlib.h>
+#include <llvm/BinaryFormat/ELF.h>
+#include <llvm/DebugInfo/DWARF/DWARFContext.h>
+#include <llvm/DebugInfo/DWARF/DWARFDebugFrame.h>
+#include <llvm/Object/ELF.h>
+#include <llvm/Object/ELFObjectFile.h>
+#include <llvm/Object/ObjectFile.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/Error.h>
+#include <llvm/Support/MemoryBuffer.h>
+#include <sstream>
 #include <string>
 #include <thirdparty/nlohmann/json.hpp>
 #include <unistd.h>
 #include <utils/Util.h>
 #include <utils/elfconv.h>
 
-#define ERROR_LEN 1000
-
-#define ECV_DWARF_UNDEF_VAL 20000
-#define ECV_DWARF_SAME_VAL 20001
-#define ECV_DWARF_CFA_VAL 20002
-
 using namespace BinaryLoader;
 
-// Read symbol sizes from ELF symbol table using libelf
-std::unordered_map<std::string, uint64_t> ReadSymbolSizes(const char *file_name) {
-  std::unordered_map<std::string, uint64_t> sym_sizes;
+// elfconv lifts only 64-bit little-endian ELF (AArch64 and amd64), which is the same set the
+// bfd-based loader accepted -- it raised "unknown architecture" for anything else.
+using ECVELFT = llvm::object::ELF64LE;
+using ECVELFObjectFile = llvm::object::ELFObjectFile<ECVELFT>;
 
-  /* confirme ELF library version */
-  if (elf_version(EV_CURRENT) == EV_NONE) {
-    return sym_sizes;
+namespace BinaryLoader {
+
+// Holds the LLVM objects backing the load. It lives in the .cpp so that no LLVM header reaches
+// `Loader.h`, and therefore none reaches `TraceManager.h` -- which used to pull in <bfd.h>.
+struct ELFObjectImpl {
+  std::unique_ptr<llvm::MemoryBuffer> buffer;
+  std::unique_ptr<llvm::object::ObjectFile> object;
+  const ECVELFObjectFile *elf = nullptr;
+
+  const llvm::object::ELFFile<ECVELFT> &File() const {
+    return elf->getELFFile();
   }
+};
 
-  /* get file descriptor of target ELF file */
-  int fd = open(file_name, O_RDONLY);
-  if (fd < 0) {
-    return sym_sizes;
-  }
+}  // namespace BinaryLoader
 
-  /* get Elf* object */
-  auto _elf = elf_begin(fd, ELF_C_READ, NULL);
-  if (!_elf) {
-    close(fd);
-    return sym_sizes;
-  }
+ELFObject::ELFObject(std::string __file_name)
+    : file_name(__file_name),
+      bin_type(BIN_TYPE_UNKNOWN),
+      bin_arch(ARCH_UNKNOWN),
+      bits(0),
+      entry(0),
+      symbol_table_size(0),
+      e_phent(0),
+      e_phnum(0),
+      e_ph(nullptr),
+      is_stripped(false),
+      able_vrp_opt(false),
+      impl(std::make_unique<ELFObjectImpl>()) {}
 
-  /* confirm that the target file is ELF */
-  if (elf_kind(_elf) != ELF_K_ELF) {
-    elf_end(_elf);
-    close(fd);
-    return sym_sizes;
-  }
+ELFObject::~ELFObject() = default;
 
-  Elf_Scn *scn = NULL;
-  while ((scn = elf_nextscn(_elf, scn)) != NULL) {
-    GElf_Shdr shdr;
-    if (!gelf_getshdr(scn, &shdr)) {
-      continue;
-    }
+void ELFObject::GetEhdr() {
+  const auto &elf_file = impl->File();
+  const auto &ehdr = elf_file.getHeader();
 
-    // Check if this is a symbol table section (.symtab or .dynsym)
-    if (shdr.sh_type != SHT_SYMTAB && shdr.sh_type != SHT_DYNSYM) {
-      continue;
-    }
-
-    Elf_Data *data = elf_getdata(scn, NULL);
-    if (!data) {
-      continue;
-    }
-
-    size_t num_syms = shdr.sh_size / shdr.sh_entsize;
-    for (size_t i = 0; i < num_syms; i++) {
-      GElf_Sym sym;
-      if (!gelf_getsym(data, i, &sym)) {
-        continue;
-      }
-
-      // Only store function symbols
-      if (GELF_ST_TYPE(sym.st_info) == STT_FUNC || GELF_ST_TYPE(sym.st_info) == STT_NOTYPE) {
-        const char *name = elf_strptr(_elf, shdr.sh_link, sym.st_name);
-        if (name && sym.st_size > 0) {
-          sym_sizes[std::string(name)] = sym.st_size;
-        }
-      }
-    }
-  }
-
-  elf_end(_elf);
-  close(fd);
-
-  return sym_sizes;
-}
-
-int ReadEhdr(const char *file_name, uint64_t *e_phent, uint64_t *e_phnum, uint8_t *e_ph[]) {
-
-  /* confirme ELF library version */
-  if (elf_version(EV_CURRENT) == EV_NONE) {
-    elfconv_runtime_error("ELF library initialization failed.");
-  }
-
-  /* get file descriptor of target ELF file */
-  int fd = open(file_name, O_RDONLY);
-  if (fd < 0) {
-    elfconv_runtime_error("Failed to open ELF.");
-  }
-
-  /* get Elf* object */
-  auto _elf = elf_begin(fd, ELF_C_READ, NULL);
-  if (!_elf) {
-    close(fd);
-    elfconv_runtime_error("Failed to read ELF.");
-  }
-
-  /* confirm that the target file is ELF */
-  if (elf_kind(_elf) != ELF_K_ELF) {
-    elf_end(_elf);
-    close(fd);
-    elfconv_runtime_error("%s is not an ELF file\n", file_name);
-  }
-
-  auto _ehdr = elf64_getehdr(_elf);
   /* set e_phentsize */
-  *e_phent = _ehdr->e_phentsize;
+  e_phent = ehdr.e_phentsize;
   /* set e_phnum */
-  *e_phnum = _ehdr->e_phnum;
+  e_phnum = ehdr.e_phnum;
 
-  /* get phder array */
-  auto e_phdrs = elf64_getphdr(_elf);
-  if (!e_phdrs) {
-    elf_end(_elf);
-    close(fd);
+  /* get phdr array */
+  auto phdrs = elf_file.program_headers();
+  if (!phdrs) {
+    llvm::consumeError(phdrs.takeError());
     elfconv_runtime_error("Failed to get program headers.\n");
   }
 
   /* copy e_phdrs */
-  auto e_ph_size = *e_phent * *e_phnum;
-  *e_ph = (uint8_t *) malloc(e_ph_size);
-  memcpy(*e_ph, e_phdrs, e_ph_size);
-
-  elf_end(_elf);
-  close(fd);
-
-  return 0;
-}
-
-void ELFObject::GetEhdr() {
-  ReadEhdr(file_name.c_str(), &e_phent, &e_phnum, &e_ph);
+  auto e_ph_size = e_phent * e_phnum;
+  e_ph = (uint8_t *) malloc(e_ph_size);
+  if (!e_ph) {
+    elfconv_runtime_error("failed to allocate program header memory.\n");
+  }
+  memcpy(e_ph, phdrs->begin(), e_ph_size);
 }
 
 void ELFObject::OpenELF() {
 
-  // init binary file descriptor
-  if (!bfd_inited) {
-    bfd_init();
-    bfd_inited = true;
-  }
-
-  bfd_h = bfd_openr(file_name.c_str(), nullptr);
+  auto buffer = llvm::MemoryBuffer::getFile(file_name, /*IsText=*/false,
+                                            /*RequiresNullTerminator=*/false);
   // confirm file_name is opened
-  if (!bfd_h) {
+  if (!buffer) {
     elfconv_runtime_error("failed to open binary file: %s, ERROR: %s\n", file_name.c_str(),
-                          bfd_errmsg(bfd_get_error()));
+                          buffer.getError().message().c_str());
   }
-  // confirm file_name is an object file
-  if (!bfd_check_format(bfd_h, bfd_object)) {
-    elfconv_runtime_error("file \"%s\" does not look like an executable file.\n",
-                          file_name.c_str());
-  }
+  impl->buffer = std::move(*buffer);
 
-  bfd_set_error(bfd_error_no_error);
-  // confirm file_name is an ELF binary
-  if (!(bfd_get_flavour(bfd_h) == bfd_target_elf_flavour)) {
+  // confirm file_name is an object file
+  auto object = llvm::object::ObjectFile::createELFObjectFile(impl->buffer->getMemBufferRef());
+  if (!object) {
+    auto err = llvm::toString(object.takeError());
+    elfconv_runtime_error("file \"%s\" does not look like an executable file. ERROR: %s\n",
+                          file_name.c_str(), err.c_str());
+  }
+  impl->object = std::move(*object);
+
+  // confirm file_name is a 64-bit little-endian ELF binary
+  impl->elf = llvm::dyn_cast<ECVELFObjectFile>(impl->object.get());
+  if (!impl->elf) {
     elfconv_runtime_error("file \"%s\" is not an ELF binary.\n", file_name.c_str());
   }
 
@@ -182,42 +118,57 @@ void ELFObject::OpenELF() {
 }
 
 void ELFObject::LoadELF() {
-  LoadELFBFD();
+  LoadELFObject();
 }
 
-void ELFObject::LoadELFBFD() {
+void ELFObject::LoadELFObject() {
   // get binary handler
   OpenELF();
+
+  const auto &elf_file = impl->File();
+  const auto &ehdr = elf_file.getHeader();
+
   // get entry point
-  entry = bfd_get_start_address(bfd_h);
+  entry = ehdr.e_entry;
   // get binary format
-  bin_type_str = std::string(bfd_h->xvec->name);
-  switch (bfd_h->xvec->flavour) {
-    case bfd_target_elf_flavour: bin_type = BIN_TYPE_ELF; break;
-    case bfd_target_unknown_flavour:
-    default: elfconv_runtime_error("file \"%s\" is not an ELF binary.\n", file_name.c_str());
-  }
+  bin_type = BIN_TYPE_ELF;
   // get architecture
-  bfd_arch_info = bfd_get_arch_info(bfd_h);
-  bin_arch_str = std::string(bfd_arch_info->arch_name);
-  switch (bfd_arch_info->mach) {
-    case bfd_mach_aarch64:
+  switch (ehdr.e_machine) {
+    case llvm::ELF::EM_AARCH64:
       bin_arch = BinaryArch::ARCH_AARCH64;
+      bin_arch_str = "aarch64";
+      bin_type_str = "elf64-littleaarch64";
       bits = 64;
       break;
-    case bfd_mach_x86_64:
+    case llvm::ELF::EM_X86_64:
       bin_arch = BinaryArch::ARCH_AMD64;
+      bin_arch_str = "i386:x86-64";
+      bin_type_str = "elf64-x86-64";
       bits = 64;
       break;
     default: elfconv_runtime_error("unknown architecture\n"); break;
   }
 
   // get every section
-  LoadSectionsBFD();
+  LoadSections();
 
   // functions detection.
-  symbol_table_size = bfd_get_symtab_upper_bound(bfd_h);
-  if (symbol_table_size <= 8) {
+  //
+  // `symbol_table_size` counts `.symtab` entries excluding the reserved null entry, so zero
+  // means there is no static symbol table to read.
+  auto sections = elf_file.sections();
+  if (!sections) {
+    llvm::consumeError(sections.takeError());
+    elfconv_runtime_error("failed to read section headers.\n");
+  }
+  for (const auto &shdr : *sections) {
+    if (shdr.sh_type == llvm::ELF::SHT_SYMTAB && shdr.sh_entsize > 0) {
+      symbol_table_size = (shdr.sh_size / shdr.sh_entsize) - 1;
+      break;
+    }
+  }
+
+  if (symbol_table_size == 0) {
     // The ELF binary is stripped.
     is_stripped = true;
     // The ELF binary generated from gcc or clang has `eh_frame` section even if it is stripped,
@@ -238,7 +189,7 @@ void ELFObject::LoadELFBFD() {
     }
   } else {
     // we can detect all functions by watching the symbol table.
-    LoadStaticSymbolsBFD();
+    LoadStaticSymbols();
     is_stripped = false;
     able_vrp_opt = true;
   }
@@ -249,95 +200,84 @@ void ELFObject::LoadELFBFD() {
   }
   std::sort(func_symbols.begin(), func_symbols.end(),
             [](auto const &lhs, auto const &rhs) { return lhs.addr < rhs.addr; });
-
-  /* get every dynamic symbol table */
-  // LoadDynamicSymbolsBFD(); /* FIXME */
 }
 
-asection *ELFObject::GetIncludedSection(uint64_t vma) {
-  for (auto sec = bfd_h->sections; sec; sec = sec->next) {
-    bfd_vma sec_vma = bfd_section_vma(sec);
-    bfd_size_type sec_size = bfd_section_size(sec);
-    if (sec_vma <= vma && vma < sec_vma + sec_size) {
-      return sec;
+const SectionRange *ELFObject::GetIncludedSection(uint64_t vma) {
+  for (auto &sec : all_sections) {
+    if (sec.vma <= vma && vma < sec.vma + sec.size) {
+      return &sec;
     }
   }
   return nullptr;
 }
 
-void ELFObject::LoadStaticSymbolsBFD() {
+void ELFObject::LoadStaticSymbols() {
 
-  // Read symbol sizes from ELF symbol table
-  auto sym_sizes = ReadSymbolSizes(file_name.c_str());
+  const auto &elf_file = impl->File();
 
-  asymbol **bfd_symtab = nullptr;
-  // get symbol table space
-  bfd_symtab = reinterpret_cast<asymbol **>(malloc(symbol_table_size));
-  if (!bfd_symtab) {
-    elfconv_runtime_error("failed to allocate symtab memory.\n");
-  }
-  // read symbol table
-  long sym_num = bfd_canonicalize_symtab(bfd_h, bfd_symtab);
-  if (sym_num < 0) {
+  auto sections = elf_file.sections();
+  if (!sections) {
+    llvm::consumeError(sections.takeError());
     elfconv_runtime_error("failed to read symtab.\n");
   }
-  for (int i = 0; i < sym_num; i++) {
-    if (bfd_symtab[i]->flags & BSF_FUNCTION ||
-        std::memcmp(bfd_symtab[i]->name, "_start", sizeof("_start")) == 0) {
-    } else {
+
+  for (const auto &shdr : *sections) {
+    if (shdr.sh_type != llvm::ELF::SHT_SYMTAB) {
       continue;
     }
-    // Get symbol size if available
-    uint64_t sym_size = 0;
-    std::string sym_name = std::string(bfd_symtab[i]->name);
-    if (sym_sizes.count(sym_name) > 0) {
-      sym_size = sym_sizes[sym_name];
-    }
-    func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, sym_name, bfd_asymbol_value(bfd_symtab[i]),
-                              GetIncludedSection(bfd_asymbol_value(bfd_symtab[i])), sym_size);
-  }
-}
 
-void ELFObject::LoadDynamicSymbolsBFD() {
-
-  // Read symbol sizes from ELF symbol table
-  auto sym_sizes = ReadSymbolSizes(file_name.c_str());
-
-  asymbol **bfd_symtab = nullptr;
-  // get symbol table space
-  assert(symbol_table_size > 0);
-  long table_size = bfd_get_dynamic_symtab_upper_bound(bfd_h);
-  if (table_size < 0) {
-    elfconv_runtime_error("failed to read symtab. gotten table_size: %ld\n", table_size);
-  } else if (table_size > 0) {
-    bfd_symtab = reinterpret_cast<asymbol **>(malloc(table_size));
-    if (!bfd_symtab) {
-      elfconv_runtime_error("failed to allocate symtab memory.\n");
-    }
-    // read symbol table
-    long sym_num = bfd_canonicalize_dynamic_symtab(bfd_h, bfd_symtab);
-    if (sym_num < 0) {
+    auto symbols = elf_file.symbols(&shdr);
+    if (!symbols) {
+      llvm::consumeError(symbols.takeError());
       elfconv_runtime_error("failed to read symtab.\n");
     }
-    for (int i = 0; i < sym_num; i++) {
-      ELFSymbol::SymbolType sym_type;
-      if (bfd_symtab[i]->flags & BSF_FUNCTION ||
-          std::memcmp(bfd_symtab[i]->name, "_start", sizeof("_start")) == 0) {
-        sym_type = ELFSymbol::SymbolType::SYM_TYPE_FUNC;
+    auto str_table = elf_file.getStringTableForSymtab(shdr);
+    if (!str_table) {
+      llvm::consumeError(str_table.takeError());
+      elfconv_runtime_error("failed to read symtab.\n");
+    }
+
+    for (const auto &sym : *symbols) {
+      auto name_or_err = sym.getName(*str_table);
+      if (!name_or_err) {
+        llvm::consumeError(name_or_err.takeError());
+        continue;
+      }
+      std::string sym_name = name_or_err->str();
+
+      // STT_FUNC only -- deliberately NOT STT_GNU_IFUNC.
+      //
+      // Measured against the bfd loader this replaces, on a static-glibc aarch64 binary holding
+      // exactly 10 STT_GNU_IFUNC symbols (memcpy, memmove, memset, memchr, strlen and their
+      // __libc_/__ aliases): bfd did not raise BSF_FUNCTION for them, so the original filter
+      // admitted none. Admitting them shifted every later symbol index by 10 and, because the
+      // sort below is by address and std::sort is NOT stable, re-scrambled which name won at the
+      // 96 addresses where glibc puts several aliases on one function. The emitted bitcode
+      // changed as a result. The `_start` clause caught binaries declaring the entry point
+      // STT_NOTYPE; here `_start` is already STT_FUNC, so it is carried for other binaries.
+      const auto sym_type = sym.getType();
+      if (sym_type == llvm::ELF::STT_FUNC || sym_name == "_start") {
       } else {
         continue;
       }
-      // Get symbol size if available
-      uint64_t sym_size = 0;
-      std::string sym_name = std::string(bfd_symtab[i]->name);
-      if (sym_sizes.count(sym_name) > 0) {
-        sym_size = sym_sizes[sym_name];
-      }
-      func_symbols.emplace_back(sym_type, sym_name, bfd_asymbol_value(bfd_symtab[i]), nullptr,
-                                sym_size);
+
+      // Take the size from the symbol itself.
+      //
+      // The bfd loader could not: bfd's `asymbol` is format-neutral and carries no size, so it
+      // re-read the ELF through libelf, built a NAME -> size map over `.symtab` and `.dynsym`,
+      // and joined on the name -- the only key bfd left it. That join is lossy. In this
+      // binary 12 names collide and 15 function symbols are handed a length that is not their
+      // own; the worst is `free_mem`, eight distinct static functions of which seven are handed
+      // 100 bytes in place of their real 36, 40, 48, 56, 104, 184 or 276, because the map keeps
+      // whichever came last. The lifter then disassembles the wrong number of bytes for them.
+      //
+      // This CHANGES the emitted bitcode by design (ec2dc6f9... -> fba665d1... on the harness's
+      // non-stripped arm) and is therefore committed apart from the dependency removal, whose
+      // warrant is that it changed nothing. The stripped arm is unaffected: `.eh_frame` carries
+      // its own ranges and never consulted this map.
+      func_symbols.emplace_back(ELFSymbol::SYM_TYPE_FUNC, sym_name, sym.st_value,
+                                GetIncludedSection(sym.st_value), sym.st_size);
     }
-  } else {
-    printf("[INFO] static symbol table is not found.\n");
   }
 }
 
@@ -354,48 +294,83 @@ void ELFObject::SetCodeSection() {
   }
 }
 
-void ELFObject::LoadSectionsBFD() {
+void ELFObject::LoadSections() {
 
-  asection *bfd_sec;
+  const auto &elf_file = impl->File();
 
-  for (bfd_sec = bfd_h->sections; bfd_sec; bfd_sec = bfd_sec->next) {
+  auto shdrs = elf_file.sections();
+  if (!shdrs) {
+    llvm::consumeError(shdrs.takeError());
+    elfconv_runtime_error("failed to read section headers.\n");
+  }
+
+  // `all_sections` must not reallocate after `GetIncludedSection` starts handing out pointers
+  // into it, and symbol loading runs after this function returns -- but reserve up front anyway
+  // so that the invariant does not depend on when the caller asks.
+  all_sections.reserve(shdrs->size());
+
+  for (const auto &shdr : *shdrs) {
 
     ELFSection::SectionType sec_type;
-    flagword bfd_flags;
-    bfd_vma vma;
-    bfd_size_type size;
+    uint64_t vma;
+    uint64_t size;
     std::string sec_name;
     uint8_t *sec_bytes;
 
-    // get bfd flags
-    bfd_flags = bfd_section_flags(bfd_sec);
-    if (bfd_flags & SEC_CODE) {
+    // bfd's section list has no entry for the reserved null section header.
+    if (shdr.sh_type == llvm::ELF::SHT_NULL) {
+      continue;
+    }
+
+    // map ELF section flags the way bfd did when it set its own section flags
+    if (shdr.sh_flags & llvm::ELF::SHF_EXECINSTR) {
       sec_type = ELFSection::SEC_TYPE_CODE;
-    } else if (bfd_flags & (SEC_DATA | SEC_ALLOC)) {
+    } else if (shdr.sh_flags & llvm::ELF::SHF_ALLOC) {
       sec_type = ELFSection::SEC_TYPE_DATA;
-    } else if (bfd_flags & SEC_READONLY) {
+    } else if (!(shdr.sh_flags & llvm::ELF::SHF_WRITE)) {
       sec_type = ELFSection::SEC_TYPE_READONLY;
     } else {
       sec_type = ELFSection::SEC_TYPE_UNKNOWN;
     }
+
     // get vma, section size, section name, section contents
-    vma = bfd_section_vma(bfd_sec);
-    size = bfd_section_size(bfd_sec);
-    sec_name = std::string(bfd_section_name(bfd_sec));
+    vma = shdr.sh_addr;
+    size = shdr.sh_size;
+    auto name_or_err = elf_file.getSectionName(shdr);
+    if (name_or_err) {
+      sec_name = name_or_err->str();
+    } else {
+      llvm::consumeError(name_or_err.takeError());
+    }
     if (sec_name.empty()) {
       sec_name = std::string("<unnamed>");
     }
-    sec_bytes = reinterpret_cast<uint8_t *>(malloc(size));
-    if (!sec_bytes) {
-      elfconv_runtime_error("failed to allocate section bytes.\n");
-    }
-    if (!bfd_get_section_contents(bfd_h, bfd_sec, sec_bytes, 0, size)) {
-      elfconv_runtime_error("failed to read and copy section bytes.\n");
-    }
+
+    // Every section is a candidate for a containment query, including the ones dropped below.
+    all_sections.push_back(SectionRange{sec_name, vma, size});
 
     // The section starting from 0x0 is unused.
     if (vma == 0x0) {
       continue;
+    }
+
+    sec_bytes = reinterpret_cast<uint8_t *>(malloc(size));
+    if (!sec_bytes) {
+      elfconv_runtime_error("failed to allocate section bytes.\n");
+    }
+    if (shdr.sh_type == llvm::ELF::SHT_NOBITS) {
+      // `.bss` and friends occupy no file space; bfd_get_section_contents zero-filled them.
+      memset(sec_bytes, 0, size);
+    } else {
+      auto contents = elf_file.getSectionContents(shdr);
+      if (!contents) {
+        llvm::consumeError(contents.takeError());
+        elfconv_runtime_error("failed to read and copy section bytes.\n");
+      }
+      if (contents->size() < size) {
+        elfconv_runtime_error("failed to read and copy section bytes.\n");
+      }
+      memcpy(sec_bytes, contents->data(), size);
     }
 
     sections.emplace_back(this, sec_type, sec_name, vma, size, sec_bytes);
@@ -403,87 +378,35 @@ void ELFObject::LoadSectionsBFD() {
 }
 
 // We can get function entry address and function size (but not necessary for elfconv) by watching the `eh_frame` section.
-// In order to parse eh_frame, we use libdwarf library.
+// In order to parse eh_frame, we use LLVM's own DWARF reader.
 int ELFObject::GetSblFromEhFrame() {
 
-  Dwarf_Debug dbg;
-  Dwarf_Error error;
-  Dwarf_Ptr errarg = 0;
-  Dwarf_Handler errhand = 0;
-  int elf_fd;
-  int reg_table_rule_count;
-  int dwarf_res;
-
-  if ((elf_fd = open(file_name.c_str(), O_RDONLY)) < 0) {
-    elfconv_runtime_error("open ELF file on ELFObject::GetSblOfEhFrame. file_name: %s.\n",
-                          file_name.c_str());
-  }
-
-  // libdwarf init.
-  if ((dwarf_res = dwarf_init(elf_fd, /*DW_DLC_REA*/ 0, errhand, errarg, &dbg, &error)) !=
-      DW_DLV_OK) {
-    LOG(INFO) << "[INFO] dwarf_init() failed.\n";
+  auto dwarf_ctx = llvm::DWARFContext::create(*impl->object);
+  if (!dwarf_ctx) {
+    LOG(INFO) << "[INFO] failed to create a DWARF context.\n";
     return -1;
   }
 
-  // Set various meta data of Dwarf_dbg.
-  reg_table_rule_count = 1999;
-  dwarf_set_frame_undefined_value(dbg, ECV_DWARF_UNDEF_VAL);
-  dwarf_set_frame_rule_initial_value(dbg, ECV_DWARF_UNDEF_VAL);
-  dwarf_set_frame_same_value(dbg, ECV_DWARF_SAME_VAL);
-  dwarf_set_frame_cfa_value(dbg, ECV_DWARF_CFA_VAL);
-  dwarf_set_frame_rule_table_size(dbg, reg_table_rule_count);
-
-  // Parse `eh_frame` section and make all function symbols.
-  dwarf_res = ParseEhFrame(dbg);
-  if (dwarf_res != 0) {
-    return -1;
-  }
-  dwarf_res = dwarf_finish(dbg, &error);
-
-  if (dwarf_res != DW_DLV_OK) {
-    fprintf(stderr, "dwarf_finish failed!\n");
-    exit(EXIT_FAILURE);
-  }
-
-  close(elf_fd);
-  return 0;
-}
-
-int ELFObject::ParseEhFrame(Dwarf_Debug dbg) {
-
-  Dwarf_Error error;
-  Dwarf_Signed cie_element_count = 0;
-  Dwarf_Signed fde_element_count = 0;
-  Dwarf_Cie *cie_data = 0;
-  Dwarf_Fde *fde_data = 0;
-  int p_res = DW_DLV_ERROR;
-
-  // Parse `eh_frame` section.
-  p_res = dwarf_get_fde_list_eh(dbg, &cie_data, &cie_element_count, &fde_data, &fde_element_count,
-                                &error);
-  if (p_res == DW_DLV_NO_ENTRY) {
-    LOG(INFO) << "[INFO] No frame data on the ELF.\n";
-    return -1;
-  } else if (p_res == DW_DLV_ERROR) {
+  auto eh_frame = dwarf_ctx->getEHFrame();
+  if (!eh_frame) {
+    llvm::consumeError(eh_frame.takeError());
     LOG(WARNING) << "Error reading frame data.\n";
     return -1;
   }
 
-  // Get every function entry address and fucntion size from the parsed data.
-  for (Dwarf_Signed fdenum = 0; fdenum < fde_element_count; ++fdenum) {
+  if ((*eh_frame)->empty()) {
+    LOG(INFO) << "[INFO] No frame data on the ELF.\n";
+    return -1;
+  }
 
-    Dwarf_Cie cie = 0;
-    uint64_t ehf_fun_entry = 0;
-    size_t ehf_fun_size = 0;
-
-    p_res = dwarf_get_cie_of_fde(fde_data[fdenum], &cie, &error);
-    if (p_res != DW_DLV_OK) {
-      elfconv_runtime_error("Error accessing fdenum %" DW_PR_DSd " to get its cie\n", fdenum);
+  // Get every function entry address from the parsed data.
+  for (const llvm::dwarf::FrameEntry &entry : (*eh_frame)->entries()) {
+    const auto *fde = llvm::dyn_cast<llvm::dwarf::FDE>(&entry);
+    if (!fde) {
+      continue;
     }
 
-    // Make all func symbols.
-    GetFuncFromEhFrame(&ehf_fun_entry, &ehf_fun_size, dbg, fde_data[fdenum]);
+    uint64_t ehf_fun_entry = fde->getInitialLocation();
     std::stringstream ehf_fun_name;
     ehf_fun_name << "_ecv_lifted_fun_0x" << std::hex << ehf_fun_entry;
     func_symbols_map.insert({ehf_fun_entry,
@@ -491,32 +414,7 @@ int ELFObject::ParseEhFrame(Dwarf_Debug dbg) {
                               GetIncludedSection(ehf_fun_entry)}});
   }
 
-  // Destructor.
-  dwarf_fde_cie_list_dealloc(dbg, cie_data, cie_element_count, fde_data, fde_element_count);
-
   return 0;
-}
-
-void ELFObject::GetFuncFromEhFrame(uint64_t *ehf_fun_entry, size_t *ehf_fun_size, Dwarf_Debug dbg,
-                                   Dwarf_Fde fde) {
-  int f_res;
-  Dwarf_Error error;
-  Dwarf_Unsigned func_length = 0;
-  Dwarf_Unsigned fde_byte_length = 0;
-  Dwarf_Off cie_offset = 0;
-  Dwarf_Off fde_offset = 0;
-  Dwarf_Addr lowpc = 0;
-  Dwarf_Signed cie_index = 0;
-  Dwarf_Ptr fde_bytes;
-
-  f_res = dwarf_get_fde_range(fde, &lowpc, &func_length, &fde_bytes, &fde_byte_length, &cie_offset,
-                              &cie_index, &fde_offset, &error);
-  if (f_res != DW_DLV_OK) {
-    elfconv_runtime_error("Failed to get fde range\n");
-  }
-
-  *ehf_fun_entry = lowpc;
-  *ehf_fun_size = func_length;
 }
 
 // In the current implementation, we use radare2 analysis only for noopt mode.

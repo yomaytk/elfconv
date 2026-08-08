@@ -2,7 +2,6 @@
 #include "Binary/Loader.h"
 
 #include <algorithm>
-#include <bfd.h>
 #include <cstdint>
 #include <fstream>
 #include <gflags/gflags.h>
@@ -63,7 +62,8 @@ class AArch64TraceManager : public remill::TraceManager {
   std::map<uintptr_t, DisasmFunc> disasm_funcs;
   std::map<uintptr_t, DisasmFunc> rest_disasm_funcs;
 
-  std::unordered_map<asection *, std::map<uint64_t, BinaryLoader::ELFSymbol>> sec_symbol_mp;
+  std::unordered_map<const BinaryLoader::SectionRange *, std::map<uint64_t, BinaryLoader::ELFSymbol>>
+      sec_symbol_mp;
 
   std::string entry_func_lifted_name;
   std::string panic_plt_jmp_fun_name;
