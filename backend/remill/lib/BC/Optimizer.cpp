@@ -21,7 +21,7 @@
 #include "remill/BC/Version.h"
 
 #include <glog/logging.h>
-#include <llvm/ADT/Triple.h>
+#include <llvm/TargetParser/Triple.h>
 #include <llvm/Analysis/TargetLibraryInfo.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DataLayout.h>

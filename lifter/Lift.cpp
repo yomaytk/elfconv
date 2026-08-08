@@ -30,7 +30,6 @@
 #include "TraceManager.h"
 
 #include <llvm/IR/LegacyPassManager.h>
-#include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <remill/BC/HelperMacro.h>
 #include <remill/BC/InstructionLifter.h>
 #include <remill/BC/Lifter.h>
